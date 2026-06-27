@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Sparkles, Play, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
@@ -280,7 +280,7 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
     setGenerating(false);
   };
 
-  const generateQuiz = async () => {
+  const generateQuiz = async (numQuestions = 10) => {
     setGeneratingQuiz(true);
     await recordStudyTime();
     const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
@@ -299,7 +299,7 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
             : "";
 
         if (isYoungLearner) {
-          return `Search the web for the official KSSR curriculum content for this topic, then generate exactly 5 multiple choice questions about "${topic.name}" for young Malaysian primary school children (Tahun 1-3, ages 7-9), strictly following KSSR. ${levelNote} Target level: ${topic.form_level}. Base questions on the official KPM syllabus for "${subject?.name || ""}".
+          return `Search the web for the official KSSR curriculum content for this topic, then generate exactly ${numQuestions} multiple choice questions about "${topic.name}" for young Malaysian primary school children (Tahun 1-3, ages 7-9), strictly following KSSR. ${levelNote} Target level: ${topic.form_level}. Base questions on the official KPM syllabus for "${subject?.name || ""}".
 
 🧒 QUIZ STYLE — FUN & AGE-APPROPRIATE:
 - Use VERY simple words and short sentences.
@@ -312,7 +312,7 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
 Return ONLY valid JSON, no extra text.`;
         }
 
-        return `Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then generate exactly 5 multiple choice questions about "${topic.name}" for Malaysian school students, strictly following the Malaysian National Curriculum. ${levelNote}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""} Base questions on the official KPM syllabus learning standards for the subject "${subject?.name || ""}". Use Malaysian context where appropriate.
+        return `Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then generate exactly ${numQuestions} multiple choice questions about "${topic.name}" for Malaysian school students, strictly following the Malaysian National Curriculum. ${levelNote}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""} Base questions on the official KPM syllabus learning standards for the subject "${subject?.name || ""}". Use Malaysian context where appropriate.
 
 Return ONLY valid JSON, no extra text.`;
       })(),
@@ -341,7 +341,7 @@ Return ONLY valid JSON, no extra text.`;
       topic_name: topic.name,
       subject_name: subject?.name || "",
       questions_json: JSON.stringify(result.questions),
-      difficulty: "medium",
+      difficulty: numQuestions >= 20 ? "hard" : "medium",
       num_questions: result.questions.length,
     });
 
@@ -416,23 +416,42 @@ Return ONLY valid JSON, no extra text.`;
             <p className="text-sm text-emerald-600 mb-4">
               Take a quiz to earn coins and XP!
             </p>
-            <Button
-              onClick={generateQuiz}
-              disabled={generatingQuiz}
-              className="bg-emerald-600 hover:bg-emerald-700 rounded-xl"
-            >
-              {generatingQuiz ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Creating Quiz...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Generate Quiz
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={() => generateQuiz(10)}
+                disabled={generatingQuiz}
+                className="bg-emerald-600 hover:bg-emerald-700 rounded-xl flex-1"
+              >
+                {generatingQuiz ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Quiz (10 Q)
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={() => generateQuiz(20)}
+                disabled={generatingQuiz}
+                className="bg-amber-600 hover:bg-amber-700 rounded-xl flex-1"
+              >
+                {generatingQuiz ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Exam Mode (20 Q)
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           <Button
