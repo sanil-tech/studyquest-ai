@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Bell, BookOpen, Coins, Gift, Check, X } from "lucide-react";
+import { Bell, BookOpen, Coins, Gift, Check, X, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import moment from "moment";
 
@@ -10,6 +10,7 @@ const typeIcons = {
   reward_requested: <Gift className="w-5 h-5 text-purple-500" />,
   reward_approved: <Check className="w-5 h-5 text-emerald-500" />,
   reward_rejected: <X className="w-5 h-5 text-red-500" />,
+  inactive_student: <Clock className="w-5 h-5 text-orange-500" />,
 };
 
 export default function NotificationsPage() {
