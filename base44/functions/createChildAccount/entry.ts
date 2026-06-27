@@ -132,20 +132,13 @@ Deno.serve(async (req) => {
       linked_parent_id: parent.id,
       failed_login_attempts: 0,
       account_locked: false,
-      last_login_at: null,
       linked_student_ids: [],
-      notification_preferences: {
-        email_notifications: true,
-        push_notifications: true,
-        quiz_reminders: true,
-        daily_learning_reminder: true,
-        parent_progress_reports: true,
-        weekly_achievement_summary: true
-      },
-      learning_preferences: {
-        daily_goal_minutes: 20,
-        difficulty_preference: 'medium'
-      }
+      school_year: childData.education_level || '',
+      phone_number: '',
+      num_children: 0,
+      children_names: '',
+      teaching_subjects: '',
+      teaching_level: ''
     });
 
     // Create ParentChildRelationship

@@ -158,7 +158,7 @@
           "default": true
         }
       },
-      "description": "User notification preferences"
+      "default": null
     },
     "learning_preferences": {
       "type": "object",
@@ -189,7 +189,7 @@
           "default": "medium"
         }
       },
-      "description": "User learning preferences"
+      "default": null
     },
     "username": {
       "type": "string",
@@ -238,5 +238,8 @@
       "default": false,
       "description": "Whether this is a child account (under 13, no email login)"
     }
-  }
+  },
+  "required": [
+    "app_role"
+  ]
 }
