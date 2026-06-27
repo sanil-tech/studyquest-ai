@@ -37,6 +37,7 @@ export default function MyChildrenPage() {
     try {
       const u = await base44.auth.me();
       setUser(u);
+      console.log('Parent user:', u);
 
       // Get linked children from ParentChildRelationship
       const relationships = await base44.entities.ParentChildRelationship.filter({
@@ -44,7 +45,7 @@ export default function MyChildrenPage() {
         status: "active"
       });
 
-      console.log(`Loaded ${relationships.length} relationships for parent ${u.id}`);
+      console.log(`Loaded ${relationships.length} relationships for parent ${u.id}`, relationships);
 
       // Fetch child details
       const childDetails = await Promise.all(
