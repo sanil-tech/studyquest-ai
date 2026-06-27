@@ -16,13 +16,15 @@ export default function ParentApprovals() {
 
   const loadData = async () => {
     const user = await base44.auth.me();
-    const studentIds = user.linked_student_ids || [];
+    const linkReqs = await base44.entities.LinkRequest.filter({ parent_email: user.email, status: "approved" });
+    const nameMap = {};
+    linkReqs.forEach(r => { nameMap[r.student_id] = r.student_name; });
+    const studentIds = linkReqs.map(r => r.student_id);
     if (studentIds.length > 0) {
       const allReqs = [];
       for (const sid of studentIds) {
         const reqs = await base44.entities.RewardRequest.filter({ student_id: sid }, "-created_date", 20);
-        const users = await base44.entities.User.filter({ id: sid });
-        reqs.forEach(r => { r._student_name = users[0]?.full_name || "Student"; });
+        reqs.forEach(r => { r._student_name = nameMap[sid] || "Student"; });
         allReqs.push(...reqs);
       }
       allReqs.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));

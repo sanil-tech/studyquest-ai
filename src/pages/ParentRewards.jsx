@@ -27,11 +27,8 @@ export default function ParentRewards() {
     setUser(u);
     const rws = await base44.entities.Reward.filter({ parent_id: u.id });
     setRewards(rws);
-    const studentIds = u.linked_student_ids || [];
-    if (studentIds.length > 0) {
-      const users = await base44.entities.User.list();
-      setChildren(users.filter(us => studentIds.includes(us.id)));
-    }
+    const linkReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email, status: "approved" });
+    setChildren(linkReqs.map(r => ({ id: r.student_id, full_name: r.student_name, email: r.student_email })));
     setLoading(false);
   };
 
