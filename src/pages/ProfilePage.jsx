@@ -4,7 +4,6 @@ import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen } from "
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import ConnectParent from "@/components/student/ConnectParent";
 import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -296,7 +295,6 @@ export default function ProfilePage() {
       {/* Student Stats */}
       {isStudent && (
         <>
-          <ConnectParent user={user} />
           <ParentConnections user={user} />
           
           <motion.div
