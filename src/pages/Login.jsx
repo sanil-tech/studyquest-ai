@@ -22,7 +22,7 @@ export default function Login() {
       await base44.auth.loginViaEmailPassword(email, password);
       // Redirect based on role
       const user = await base44.auth.me();
-      if (user?.role === "parent") {
+      if (user?.app_role === "parent") {
         window.location.href = "/parent";
       } else {
         window.location.href = "/dashboard";

@@ -34,7 +34,7 @@ export default function AppLayout() {
       .catch(() => {});
   }, [user, location]);
 
-  const isParent = user?.role === "parent";
+  const isParent = user?.app_role === "parent";
   const nav = isParent ? parentNav : studentNav;
 
   // Redirect: parent on a student route, or student on a parent route

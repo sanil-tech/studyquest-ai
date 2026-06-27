@@ -62,7 +62,6 @@ export default function ParentDashboard() {
       return;
     }
     await base44.auth.updateMe({ linked_student_ids: [...currentIds, student.id] });
-    await base44.entities.User.update(student.id, { linked_parent_id: user.id });
     setDialogOpen(false);
     setLinkEmail("");
     setLinking(false);

@@ -22,10 +22,10 @@ export default function Home() {
   }
 
   // No role set — go to RoleSetup
-  if (!user?.role || !["student", "parent"].includes(user.role)) {
+  if (!user?.app_role || !["student", "parent"].includes(user.app_role)) {
     return <Navigate to="/role-setup" replace />;
   }
 
   // Redirect based on role
-  return <Navigate to={user.role === "parent" ? "/parent" : "/dashboard"} replace />;
+  return <Navigate to={user.app_role === "parent" ? "/parent" : "/dashboard"} replace />;
 }

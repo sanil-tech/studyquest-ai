@@ -23,7 +23,7 @@ export default function RoleSetup() {
     setSaving(true);
     try {
       const u = await base44.auth.me();
-      await base44.entities.User.update(u.id, { role: selectedRole });
+      await base44.auth.updateMe({ app_role: selectedRole });
 
       if (selectedRole === "student") {
         const wallets = await base44.entities.Wallet.filter({ student_id: u.id });
@@ -36,7 +36,7 @@ export default function RoleSetup() {
         }
         window.location.href = "/dashboard";
       } else {
-        await base44.entities.User.update(u.id, { linked_student_ids: [] });
+        await base44.auth.updateMe({ linked_student_ids: [] });
         window.location.href = "/parent";
       }
     } catch (err) {
@@ -54,8 +54,8 @@ export default function RoleSetup() {
   }
 
   // Already has a valid role — redirect away
-  if (user?.role && ["student", "parent"].includes(user.role)) {
-    return <Navigate to={user.role === "parent" ? "/parent" : "/dashboard"} replace />;
+  if (user?.app_role && ["student", "parent"].includes(user.app_role)) {
+    return <Navigate to={user.app_role === "parent" ? "/parent" : "/dashboard"} replace />;
   }
 
   return (

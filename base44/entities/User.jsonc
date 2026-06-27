@@ -2,14 +2,13 @@
   "name": "User",
   "type": "object",
   "properties": {
-    "role": {
+    "app_role": {
       "type": "string",
       "enum": [
         "student",
-        "parent",
-        "admin"
+        "parent"
       ],
-      "default": "student"
+      "description": "App-specific role selected during onboarding"
     },
     "linked_parent_id": {
       "type": "string",

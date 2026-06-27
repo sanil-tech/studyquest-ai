@@ -73,7 +73,7 @@ export default function Register() {
     setLoading(true);
     try {
       const u = await base44.auth.me();
-      await base44.entities.User.update(u.id, { role: selectedRole });
+      await base44.auth.updateMe({ app_role: selectedRole });
 
       if (selectedRole === "student") {
         // Create wallet and progress
@@ -87,7 +87,7 @@ export default function Register() {
         }
         window.location.href = "/";
       } else {
-        await base44.entities.User.update(u.id, { linked_student_ids: [] });
+        await base44.auth.updateMe({ linked_student_ids: [] });
         window.location.href = "/parent";
       }
     } catch (err) {

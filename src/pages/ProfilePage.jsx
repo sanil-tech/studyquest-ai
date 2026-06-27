@@ -15,7 +15,7 @@ export default function ProfilePage() {
     const load = async () => {
       const u = await base44.auth.me();
       setUser(u);
-      if (u.role === "student") {
+      if (u.app_role === "student") {
         const [progs, wallets, attempts] = await Promise.all([
           base44.entities.Progress.filter({ student_id: u.id }),
           base44.entities.Wallet.filter({ student_id: u.id }),
@@ -56,7 +56,7 @@ export default function ProfilePage() {
         <h1 className="text-xl font-heading font-bold">{user?.full_name || "User"}</h1>
         <p className="text-white/70 text-sm">{user?.email}</p>
         <span className="inline-block mt-2 px-3 py-1 rounded-full bg-white/20 text-xs font-medium capitalize">
-          {user?.role || "student"}
+          {user?.app_role || "student"}
         </span>
       </motion.div>
 
