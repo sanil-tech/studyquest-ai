@@ -46,13 +46,15 @@ export default function LessonPage() {
     setGenerating(true);
     const user = await base44.auth.me();
     const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are an expert tutor for secondary school students. Explain the topic "${topic.name}" from the subject "${subject.name}" in simple, clear terms that a secondary school student (Form 1-5) can understand.
+      prompt: `You are an expert tutor for Malaysian secondary school students. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum (Kurikulum Standard Sekolah Menengah, KSSM)${topic.form_level ? ` for ${topic.form_level}` : " (Form 1-5)"}.
+
+Base your lesson content on the official Malaysian Ministry of Education (KPM) syllabus and learning standards for this subject and topic. Use Malaysian context, examples, and terminology where appropriate (e.g. RM for currency, local examples).
 
 Structure your explanation:
 1. **What is it?** - Simple definition
-2. **Key Concepts** - Main points to understand
+2. **Key Concepts** - Main points to understand (aligned to KSSM learning standards)
 3. **How it works** - Explanation with simple language
-4. **Example** - One clear, worked example
+4. **Example** - One clear, worked example (use Malaysian context where relevant)
 5. **Quick Tip** - A memory trick or study tip
 
 Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
@@ -75,7 +77,7 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
   const generateQuiz = async () => {
     setGeneratingQuiz(true);
     const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Generate exactly 5 multiple choice questions about "${topic.name}" for secondary school students. Each question should test understanding of the topic.
+      prompt: `Generate exactly 5 multiple choice questions about "${topic.name}" for Malaysian secondary school students, strictly following the Malaysian National Curriculum (KSSM)${topic.form_level ? ` for ${topic.form_level}` : " (Form 1-5)"}. Base questions on the official KPM syllabus learning standards for the subject "${subject?.name || ""}". Use Malaysian context where appropriate.
 
 Return ONLY valid JSON, no extra text.`,
       response_json_schema: {
