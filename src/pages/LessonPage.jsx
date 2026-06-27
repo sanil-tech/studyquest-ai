@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Sparkles, Play, Loader2 } from "lucide-react";
@@ -20,6 +20,7 @@ export default function LessonPage() {
   const [generating, setGenerating] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const studyStartRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -80,10 +81,24 @@ export default function LessonPage() {
         }
         setSessionId(sessions[0].id);
       }
+      studyStartRef.current = Date.now();
       setLoading(false);
     };
     load();
   }, [subjectId, topicId]);
+
+  // Record study time when leaving the lesson page
+  const recordStudyTime = async () => {
+    if (!sessionId || !studyStartRef.current) return;
+    const minutes = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
+    try {
+      await base44.entities.StudySession.update(sessionId, { duration_minutes: minutes });
+    } catch {}
+  };
+
+  useEffect(() => {
+    return () => { recordStudyTime(); };
+  }, [sessionId]);
 
   const generateLesson = async () => {
     setGenerating(true);
@@ -260,12 +275,14 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
     } else {
       setExplanation(typeof result === "string" ? result.replace(/\\n/g, "\n") : result);
     }
+    studyStartRef.current = Date.now();
     setSessionId(session.id);
     setGenerating(false);
   };
 
   const generateQuiz = async () => {
     setGeneratingQuiz(true);
+    await recordStudyTime();
     const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
     const matchingBooks = textbooks.filter(t => t.form_level === "All Levels" || t.form_level === topic.form_level);
     const fileUrls = matchingBooks.filter(t => !t.file_size || t.file_size <= 10 * 1024 * 1024).map(t => t.file_url).filter(Boolean);

@@ -30,19 +30,19 @@ export default function StudentDashboard() {
           base44.entities.Wallet.filter({ student_id: u.id }),
           base44.entities.Progress.filter({ student_id: u.id }),
           base44.entities.Subject.list(),
-          base44.entities.StudySession.filter({ student_id: u.id }, "-created_date", 3),
+          base44.entities.StudySession.filter({ student_id: u.id }, "-created_date", 50),
           base44.entities.QuizAttempt.filter({ student_id: u.id }, "-created_date", 3),
         ]);
 
         setWallet(wallets[0] || { balance: 0 });
         setProgress(progresses[0] || { total_xp: 0, level: 1, streak_days: 0 });
         setSubjects(subs || []);
-        setRecentSessions(sessions || []);
+        setRecentSessions((sessions || []).slice(0, 3));
         setRecentAttempts(attempts || []);
 
         // Daily progress: sessions created today
         const today = new Date().toISOString().split("T")[0];
-        const todays = sessions.filter(s => moment(s.created_date).isSame(today, "day"));
+        const todays = (sessions || []).filter(s => moment(s.created_date).isSame(today, "day"));
         setTodaySessionCount(todays.length);
         setTodayStudyMinutes(todays.reduce((sum, s) => sum + (s.duration_minutes || 0), 0));
       } catch (err) {
