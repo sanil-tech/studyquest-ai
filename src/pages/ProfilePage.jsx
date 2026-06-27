@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { User, LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Upload, Image } from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import ConnectParent from "@/components/student/ConnectParent";
-import AvatarSelector from "@/components/student/AvatarSelector";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import { Card, CardContent } from "@/components/ui/card";
+import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
+import ProfileForm from "@/components/profile/ProfileForm";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -19,8 +18,18 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [showAvatar, setShowAvatar] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({ full_name: "", school_year: "", school_name: "", class_name: "" });
-  const [avatarMode, setAvatarMode] = useState("emoji"); // "emoji" or "photo"
+  const [formData, setFormData] = useState({
+    full_name: "",
+    nickname: "",
+    school_year: "",
+    school_name: "",
+    class_name: "",
+    gender: "",
+    date_of_birth: "",
+    country: "Malaysia",
+    state: "",
+  });
+  const [avatarMode, setAvatarMode] = useState("emoji");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
@@ -28,58 +37,72 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const load = async () => {
-      const u = await base44.auth.me();
-      setUser(u);
-      if (u.app_role === "student") {
-        const [progs, wallets, attempts] = await Promise.all([
-          base44.entities.Progress.filter({ student_id: u.id }),
-          base44.entities.Wallet.filter({ student_id: u.id }),
-          base44.entities.QuizAttempt.filter({ student_id: u.id }),
-        ]);
-        setProgress(progs[0]);
-        setWallet(wallets[0]);
-        setTotalQuizzes(attempts.length);
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+        
+        if (u.app_role === "student") {
+          const [progs, wallets, attempts] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: u.id }),
+            base44.entities.Wallet.filter({ student_id: u.id }),
+            base44.entities.QuizAttempt.filter({ student_id: u.id }),
+          ]);
+          setProgress(progs[0]);
+          setWallet(wallets[0]);
+          setTotalQuizzes(attempts.length);
+        }
+        
         setFormData({
           full_name: u.full_name || "",
+          nickname: u.nickname || "",
           school_year: u.school_year || "",
           school_name: u.school_name || "",
           class_name: u.class_name || "",
+          gender: u.gender || "",
+          date_of_birth: u.date_of_birth || "",
+          country: u.country || "Malaysia",
+          state: u.state || "",
         });
-      } else if (u.app_role === "parent") {
-        setFormData({
-          full_name: u.full_name || "",
-          school_year: u.school_year || "",
-          school_name: u.school_name || "",
-          class_name: u.class_name || "",
-        });
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     load();
 
     // Real-time subscription for user profile updates
     const unsubscribe = base44.entities.User.subscribe((event) => {
-      if (event.data?.id === user?.id) {
+      if (event.type === "update" && event.data?.id === user?.id) {
         setUser(event.data);
         setFormData({
           full_name: event.data.full_name || "",
+          nickname: event.data.nickname || "",
           school_year: event.data.school_year || "",
           school_name: event.data.school_name || "",
           class_name: event.data.class_name || "",
+          gender: event.data.gender || "",
+          date_of_birth: event.data.date_of_birth || "",
+          country: event.data.country || "Malaysia",
+          state: event.data.state || "",
+        });
+        toast({
+          title: "Profile Updated",
+          description: "Your profile has been updated successfully.",
         });
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user?.id]);
 
   const handleLogout = () => {
     base44.auth.logout("/login");
   };
 
   const handleSaveAvatar = async (emoji) => {
-    await base44.auth.updateMe({ avatar_emoji: emoji, avatar_photo_url: null });
-    setUser((prev) => ({ ...prev, avatar_emoji: emoji, avatar_photo_url: null }));
+    await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
+    setUser((prev) => ({ ...prev, avatar_emoji: emoji, profile_picture_url: null }));
   };
 
   const handlePhotoUpload = async (e) => {
@@ -89,19 +112,28 @@ export default function ProfilePage() {
     setUploading(true);
     try {
       const result = await base44.integrations.Core.UploadFile({ file });
-      await base44.auth.updateMe({ avatar_photo_url: result.file_url, avatar_emoji: null });
-      setUser((prev) => ({ ...prev, avatar_photo_url: result.file_url, avatar_emoji: null }));
+      await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
+      setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
       setAvatarMode("photo");
+      toast({
+        title: "Photo uploaded!",
+        description: "Your profile photo has been updated.",
+      });
     } catch (err) {
       console.error("Photo upload failed:", err);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload photo. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
     }
   };
 
   const handleRemovePhoto = async () => {
-    await base44.auth.updateMe({ avatar_photo_url: null });
-    setUser((prev) => ({ ...prev, avatar_photo_url: null }));
+    await base44.auth.updateMe({ profile_picture_url: null });
+    setUser((prev) => ({ ...prev, profile_picture_url: null }));
     setAvatarMode("emoji");
   };
 
@@ -113,18 +145,28 @@ export default function ProfilePage() {
       setUser(updatedUser);
       setFormData({
         full_name: updatedUser.full_name || "",
+        nickname: updatedUser.nickname || "",
         school_year: updatedUser.school_year || "",
         school_name: updatedUser.school_name || "",
         class_name: updatedUser.class_name || "",
+        gender: updatedUser.gender || "",
+        date_of_birth: updatedUser.date_of_birth || "",
+        country: updatedUser.country || "Malaysia",
+        state: updatedUser.state || "",
       });
       setEditing(false);
 
       // Sync name to any approved LinkRequest so parent dashboard shows updated name
       if (updatedUser.app_role === "student") {
-        const linkReqs = await base44.entities.LinkRequest.filter({ student_email: updatedUser.email, status: "approved" });
+        const linkReqs = await base44.entities.LinkRequest.filter({ 
+          student_email: updatedUser.email, 
+          status: "approved" 
+        });
         await Promise.all(
           linkReqs.map(req =>
-            base44.entities.LinkRequest.update(req.id, { student_name: updatedUser.full_name || updatedUser.email })
+            base44.entities.LinkRequest.update(req.id, { 
+              student_name: updatedUser.full_name || updatedUser.email 
+            })
           )
         );
       }
@@ -153,52 +195,64 @@ export default function ProfilePage() {
     );
   }
 
+  const isStudent = user?.app_role === "student";
+  const isParent = user?.app_role === "parent";
+
   return (
-    <div className="space-y-6">
-      {/* Profile card */}
+    <div className="space-y-6 pb-8">
+      {/* Profile Header Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-primary to-indigo-600 rounded-3xl p-8 text-white text-center"
+        className="bg-gradient-to-br from-primary to-indigo-600 rounded-3xl p-8 text-white text-center relative overflow-hidden"
       >
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+        
         <div className="relative inline-block">
-          <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3 overflow-hidden">
-            {user?.avatar_photo_url ? (
-              <img src={user.avatar_photo_url} alt="Profile" className="w-full h-full object-cover" />
+          <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4 overflow-hidden border-4 border-white/30 shadow-lg">
+            {user?.profile_picture_url ? (
+              <img 
+                src={user.profile_picture_url} 
+                alt="Profile" 
+                className="w-full h-full object-cover" 
+              />
             ) : (
-              <span className="text-4xl">{user?.avatar_emoji || "🎓"}</span>
+              <span className="text-5xl">{user?.avatar_emoji || "🎓"}</span>
             )}
           </div>
-          {user?.app_role === "student" && showAvatar && (
+          {isStudent && showAvatar && (
             <button
               onClick={handleRemovePhoto}
-              className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600"
+              className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center text-sm hover:bg-red-600 shadow-lg"
               title="Remove photo"
             >
               ×
             </button>
           )}
         </div>
+        
         {editing ? (
-          <Input
+          <input
             value={formData.full_name}
             onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-            className="bg-white/20 border-white/30 text-white placeholder-white/60 text-center font-heading font-bold mb-2"
+            className="w-full bg-white/20 border-white/30 text-white placeholder-white/60 text-center font-heading font-bold mb-2 rounded-md px-3 py-2 max-w-xs mx-auto"
             placeholder="Your name"
           />
         ) : (
-          <h1 className="text-xl font-heading font-bold">{user?.full_name || "User"}</h1>
+          <h1 className="text-2xl font-heading font-bold mb-1">{user?.full_name || "User"}</h1>
         )}
-        <p className="text-white/70 text-sm">{user?.email}</p>
-        <span className="inline-block mt-2 px-3 py-1 rounded-full bg-white/20 text-xs font-medium capitalize">
+        <p className="text-white/80 text-sm mb-3">{user?.email}</p>
+        <span className="inline-block px-4 py-1.5 rounded-full bg-white/20 text-sm font-medium capitalize backdrop-blur-sm">
           {user?.app_role || "student"}
         </span>
-        {(user?.app_role === "student" || user?.app_role === "parent") && (
-          <div className="flex items-center justify-center gap-3 mt-3">
-            {user?.app_role === "student" && (
+        
+        {(isStudent || isParent) && (
+          <div className="flex items-center justify-center gap-4 mt-4">
+            {isStudent && (
               <button
                 onClick={() => setShowAvatar(!showAvatar)}
-                className="text-xs text-white/90 hover:text-white underline"
+                className="text-sm text-white/90 hover:text-white underline flex items-center gap-1"
               >
                 {showAvatar ? "Close" : "Change Photo"}
               </button>
@@ -206,190 +260,77 @@ export default function ProfilePage() {
             <button
               onClick={() => editing ? handleSaveProfile() : setEditing(true)}
               disabled={saving}
-              className="text-xs text-white/90 hover:text-white underline font-medium flex items-center gap-1 disabled:opacity-50"
+              className="text-sm text-white/90 hover:text-white underline font-medium flex items-center gap-1 disabled:opacity-50 bg-white/10 px-3 py-1.5 rounded-full"
             >
-              <Pen className={`w-3 h-3 ${saving ? "animate-spin" : ""}`} />
-              {saving ? "Saving..." : (editing ? "Save" : "Edit Profile")}
+              <Pen className={`w-4 h-4 ${saving ? "animate-spin" : ""}`} />
+              {saving ? "Saving..." : (editing ? "Save Changes" : "Edit Profile")}
             </button>
           </div>
         )}
       </motion.div>
 
-      {/* Avatar/Photo selector — students only */}
-      {showAvatar && user?.app_role === "student" && (
-        <div className="bg-white rounded-2xl p-5 border border-border/50 space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Image className="w-5 h-5 text-primary" />
-            <h3 className="font-heading font-bold text-foreground">Profile Photo</h3>
-          </div>
-
-          {/* Mode toggle */}
-          <div className="flex gap-2">
-            <Button
-              variant={avatarMode === "emoji" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setAvatarMode("emoji")}
-              className="flex-1"
-            >
-              😊 Emoji Avatar
-            </Button>
-            <Button
-              variant={avatarMode === "photo" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setAvatarMode("photo")}
-              className="flex-1"
-            >
-              📷 My Photo
-            </Button>
-          </div>
-
-          {avatarMode === "photo" && (
-            <div className="text-center py-4">
-              {user?.avatar_photo_url ? (
-                <div className="mb-4">
-                  <img
-                    src={user.avatar_photo_url}
-                    alt="Your photo"
-                    className="w-24 h-24 rounded-full object-cover mx-auto border-2 border-primary"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">Current photo</p>
-                </div>
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                  <Image className="w-10 h-10 text-muted-foreground" />
-                </div>
-              )}
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full"
-              >
-                {uploading ? (
-                  <>
-                    <Upload className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    {user?.avatar_photo_url ? "Change Photo" : "Upload Photo"}
-                  </>
-                )}
-              </Button>
-              <p className="text-xs text-muted-foreground mt-2">Optional - choose a photo or use emoji avatar</p>
-            </div>
-          )}
-
-          {avatarMode === "emoji" && (
-            <AvatarSelector currentAvatar={user?.avatar_emoji} onSelect={handleSaveAvatar} />
-          )}
-        </div>
+      {/* Profile Photo Section */}
+      {showAvatar && isStudent && (
+        <ProfilePhotoSection
+          user={user}
+          avatarMode={avatarMode}
+          setAvatarMode={setAvatarMode}
+          uploading={uploading}
+          setUploading={setUploading}
+          fileInputRef={fileInputRef}
+          handlePhotoUpload={handlePhotoUpload}
+          handleRemovePhoto={handleRemovePhoto}
+          handleSaveAvatar={handleSaveAvatar}
+          showAvatar={showAvatar}
+          setShowAvatar={setShowAvatar}
+        />
       )}
 
-      {/* Parent connection — students only */}
-      {user?.app_role === "student" && <ConnectParent user={user} />}
-
-      {/* Stats for students */}
-      {user?.app_role === "student" && (
+      {/* Student Stats */}
+      {isStudent && (
         <>
+          <ConnectParent user={user} />
+          
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="grid grid-cols-3 gap-3"
           >
-            <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
-              <BookOpen className="w-5 h-5 text-primary mx-auto mb-1" />
-              <p className="text-lg font-bold">{totalQuizzes}</p>
-              <p className="text-[10px] text-muted-foreground">Quizzes</p>
-            </div>
-            <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
-              <Trophy className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-              <p className="text-lg font-bold">Lv {progress?.level || 1}</p>
-              <p className="text-[10px] text-muted-foreground">Level</p>
-            </div>
-            <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
-              <Coins className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-              <p className="text-lg font-bold">{wallet?.balance || 0}</p>
-              <p className="text-[10px] text-muted-foreground">Coins</p>
-            </div>
+            <Card className="border-border/50">
+              <CardContent className="p-4 text-center">
+                <BookOpen className="w-5 h-5 text-primary mx-auto mb-1" />
+                <p className="text-lg font-bold">{totalQuizzes}</p>
+                <p className="text-[10px] text-muted-foreground">Quizzes</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/50">
+              <CardContent className="p-4 text-center">
+                <Trophy className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+                <p className="text-lg font-bold">Lv {progress?.level || 1}</p>
+                <p className="text-[10px] text-muted-foreground">Level</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/50">
+              <CardContent className="p-4 text-center">
+                <Coins className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+                <p className="text-lg font-bold">{wallet?.balance || 0}</p>
+                <p className="text-[10px] text-muted-foreground">Coins</p>
+              </CardContent>
+            </Card>
           </motion.div>
         </>
       )}
 
-      {/* Profile editor — both students and parents */}
-      {(user?.app_role === "student" || user?.app_role === "parent") && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-white rounded-2xl p-5 border border-border/50"
-        >
-          <h3 className="font-heading font-bold text-foreground mb-4">
-            {user?.app_role === "student" ? "School Profile" : "Profile Details"}
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs text-muted-foreground">Year Level</Label>
-              {editing ? (
-                <Select value={formData.school_year} onValueChange={(v) => setFormData(prev => ({ ...prev, school_year: v }))}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Standard 1">Standard 1</SelectItem>
-                    <SelectItem value="Standard 2">Standard 2</SelectItem>
-                    <SelectItem value="Standard 3">Standard 3</SelectItem>
-                    <SelectItem value="Standard 4">Standard 4</SelectItem>
-                    <SelectItem value="Standard 5">Standard 5</SelectItem>
-                    <SelectItem value="Standard 6">Standard 6</SelectItem>
-                    <SelectItem value="Form 1">Form 1</SelectItem>
-                    <SelectItem value="Form 2">Form 2</SelectItem>
-                    <SelectItem value="Form 3">Form 3</SelectItem>
-                    <SelectItem value="Form 4">Form 4</SelectItem>
-                    <SelectItem value="Form 5">Form 5</SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-sm font-medium mt-1">{user?.school_year || "Not set"}</p>
-              )}
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">School Name</Label>
-              {editing ? (
-                <Input
-                  value={formData.school_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, school_name: e.target.value }))}
-                  placeholder={user?.app_role === "student" ? "e.g. SK Taman Jaya" : "Your school name"}
-                  className="mt-1"
-                />
-              ) : (
-                <p className="text-sm font-medium mt-1">{user?.school_name || "Not set"}</p>
-              )}
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Class</Label>
-              {editing ? (
-                <Input
-                  value={formData.class_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
-                  placeholder={user?.app_role === "student" ? "e.g. 1A, 3B" : "Your class/grade"}
-                  className="mt-1"
-                />
-              ) : (
-                <p className="text-sm font-medium mt-1">{user?.class_name || "Not set"}</p>
-              )}
-            </div>
-          </div>
-        </motion.div>
+      {/* Profile Form */}
+      {(isStudent || isParent) && (
+        <ProfileForm
+          user={user}
+          editing={editing}
+          formData={formData}
+          setFormData={setFormData}
+          isStudent={isStudent}
+        />
       )}
 
       {/* Admin tools */}

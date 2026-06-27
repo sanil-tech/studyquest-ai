@@ -1,0 +1,43 @@
+{
+  "name": "ParentChildRelationship",
+  "type": "object",
+  "properties": {
+    "parent_id": {
+      "type": "string",
+      "description": "ID of the parent user"
+    },
+    "child_id": {
+      "type": "string",
+      "description": "ID of the child/student user"
+    },
+    "relationship": {
+      "type": "string",
+      "enum": [
+        "parent",
+        "guardian",
+        "other"
+      ],
+      "default": "parent",
+      "description": "Type of relationship"
+    },
+    "linked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the relationship was established"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "inactive"
+      ],
+      "default": "active",
+      "description": "Status of the relationship"
+    }
+  },
+  "required": [
+    "parent_id",
+    "child_id"
+  ]
+}

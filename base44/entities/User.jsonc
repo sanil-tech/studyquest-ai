@@ -26,6 +26,10 @@
       "type": "string",
       "default": "\ud83c\udf93"
     },
+    "avatar_photo_url": {
+      "type": "string",
+      "description": "URL to uploaded profile photo"
+    },
     "school_year": {
       "type": "string",
       "description": "Student's year level (e.g. Standard 1, Form 3)"
@@ -88,9 +92,18 @@
       "type": "string",
       "description": "Grade or year level"
     },
+    "preferred_language": {
+      "type": "string",
+      "default": "ms",
+      "description": "Preferred language for learning content"
+    },
+    "phone_number": {
+      "type": "string",
+      "description": "Phone number for contact"
+    },
     "profile_picture_url": {
       "type": "string",
-      "description": "URL to profile picture"
+      "description": "URL to profile picture (alternative to avatar_photo_url)"
     },
     "num_children": {
       "type": "number",
@@ -112,6 +125,67 @@
       "type": "boolean",
       "default": false,
       "description": "Whether user completed onboarding profile"
+    },
+    "notification_preferences": {
+      "type": "object",
+      "properties": {
+        "email_notifications": {
+          "type": "boolean",
+          "default": true
+        },
+        "push_notifications": {
+          "type": "boolean",
+          "default": true
+        },
+        "quiz_reminders": {
+          "type": "boolean",
+          "default": true
+        },
+        "daily_learning_reminder": {
+          "type": "boolean",
+          "default": true
+        },
+        "parent_progress_reports": {
+          "type": "boolean",
+          "default": true
+        },
+        "weekly_achievement_summary": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "description": "User notification preferences"
+    },
+    "learning_preferences": {
+      "type": "object",
+      "properties": {
+        "daily_goal_minutes": {
+          "type": "number",
+          "default": 20,
+          "enum": [
+            10,
+            20,
+            30,
+            60
+          ]
+        },
+        "favorite_subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "difficulty_preference": {
+          "type": "string",
+          "enum": [
+            "easy",
+            "medium",
+            "hard"
+          ],
+          "default": "medium"
+        }
+      },
+      "description": "User learning preferences"
     }
   }
 }
