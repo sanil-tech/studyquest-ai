@@ -62,15 +62,20 @@ export default function ParentDashboard() {
           childrenData.map(async (child, idx) => {
             try {
               const student = await base44.entities.User.get(studentIds[idx]);
+              console.log(`Fetched student ${studentIds[idx]}:`, { 
+                full_name: student.full_name, 
+                nickname: student.nickname,
+                email: student.email 
+              });
               return {
                 ...child,
-                name: student.full_name || "Student",
+                name: student.full_name || student.nickname || "Unnamed Student",
               };
             } catch (err) {
-              console.error(`Failed to fetch student name for ${studentIds[idx]}:`, err);
+              console.error(`Failed to fetch student ${studentIds[idx]}:`, err.message);
               return {
                 ...child,
-                name: "Student",
+                name: "Unnamed Student",
               };
             }
           })
@@ -176,7 +181,7 @@ export default function ParentDashboard() {
                   <Coins className="w-5 h-5 text-amber-500 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{req.reward_title}</p>
-                    <p className="text-xs text-muted-foreground">{child?.name || "Student"} · {moment(req.created_date).fromNow()}</p>
+                    <p className="text-xs text-muted-foreground">{child?.name || "Unnamed Student"} · {moment(req.created_date).fromNow()}</p>
                   </div>
                   <span className="text-sm font-bold text-amber-600">{req.coin_cost}🪙</span>
                 </div>

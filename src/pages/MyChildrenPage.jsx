@@ -38,6 +38,11 @@ export default function MyChildrenPage() {
         relationships.map(async (rel) => {
           try {
             const child = await base44.entities.User.get(rel.child_id);
+            console.log(`Fetched child ${rel.child_id}:`, { 
+              full_name: child.full_name, 
+              nickname: child.nickname,
+              email: child.email 
+            });
             const [progress, wallet] = await Promise.all([
               base44.entities.Progress.filter({ student_id: child.id }).then(r => r[0]),
               base44.entities.Wallet.filter({ student_id: child.id }).then(r => r[0])
@@ -50,7 +55,7 @@ export default function MyChildrenPage() {
               relationshipId: rel.id
             };
           } catch (err) {
-            console.error(`Failed to fetch child ${rel.child_id}:`, err);
+            console.error(`Failed to fetch child ${rel.child_id}:`, err.message);
             return null;
           }
         })
@@ -165,8 +170,8 @@ export default function MyChildrenPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-lg font-bold">{child.full_name || child.email}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{child.school_year || "Not set"} • {child.email}</p>
+                      <CardTitle className="text-lg font-bold">{child.full_name || child.nickname || "Unnamed Student"}</CardTitle>
+                      <p className="text-xs text-muted-foreground">{child.school_year || child.education_level || "Not set"} • {child.email}</p>
                     </div>
                   </div>
                 </CardHeader>
