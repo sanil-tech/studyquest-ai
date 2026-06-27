@@ -21,17 +21,9 @@ export default function ProfileForm({ user, editing, formData, setFormData, isSt
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs text-muted-foreground">Full Name</Label>
-              {editing ? (
-                <Input
-                  value={formData.full_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Your full name"
-                  className="mt-1"
-                />
-              ) : (
-                <p className="text-sm font-medium mt-1">{user?.full_name || "Not set"}</p>
-              )}
+              <Label className="text-xs text-muted-foreground">Full Name (Read-only)</Label>
+              <p className="text-sm font-medium mt-1">{user?.full_name || "Not set"}</p>
+              <p className="text-xs text-muted-foreground mt-1">Contact support to change your full name</p>
             </div>
 
             <div>
