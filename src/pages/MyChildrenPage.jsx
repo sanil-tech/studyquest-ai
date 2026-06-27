@@ -12,78 +12,68 @@ import {
   DialogDescription,
   DialogFooter 
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Coins, Zap, Flame, GraduationCap, Settings, UserPlus } from "lucide-react";
+import { Loader2, Plus, Coins, Zap, Flame, GraduationCap, Settings, UserPlus, Copy, CheckCircle2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
 export default function ParentChildrenDashboard() {
   const queryClient = useQueryClient();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState(null);
   
-  // Form State for new child
+  // Form State matching backend requirements
   const [newChild, setNewChild] = useState({
-    name: "",
-    student_id: `SQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`, // Auto-generate an ID like SQ-A1B2C
-    pin: "",
+    full_name: "",
+    nickname: "",
+    date_of_birth: "",
   });
 
-  // Fetch the logged-in parent and their linked children
+  // Fetch the logged-in parent
   const { data: parent, isLoading: isLoadingParent } = useQuery({
     queryKey: ["me"],
     queryFn: () => base44.auth.me()
   });
 
+  // Fetch children
   const { data: children, isLoading: isLoadingChildren, error } = useQuery({
     queryKey: ["parent-children"],
     enabled: !!parent?.id,
     queryFn: async () => {
+      // You can also fetch by linked_parent_id as per your backend schema
       return await base44.entities.User.filter({ 
-        parent_id: parent.id,
+        linked_parent_id: parent.id,
         app_role: "student" 
       });
     }
   });
 
- // Mutation to create a new child profile
+  // Invoke the custom backend function
   const addChildMutation = useMutation({
     mutationFn: async (childData) => {
-      // 1. Create the Child User Record (Passing PIN to both fields)
-      const newStudent = await base44.entities.User.create({
-        full_name: childData.name,
-        email: `${childData.student_id.toLowerCase()}@student.studyquest.local`, 
-        student_id: childData.student_id,
-        password: childData.pin, // Pass to standard password field
-        pin: childData.pin,      // Pass to custom pin field
-        parent_id: parent.id,
-        app_role: "student",
+      const response = await base44.functions.invoke("createChildAccount", {
+        childData: {
+          full_name: childData.full_name,
+          nickname: childData.nickname,
+          date_of_birth: childData.date_of_birth,
+        }
       });
 
-      // 2. Initialize their Wallet (Coins)
-      await base44.entities.Wallet.create({ 
-        student_id: newStudent.id, 
-        balance: 0 
-      });
+      if (!response.data.success) {
+        throw new Error(response.data.error || "Failed to create account");
+      }
 
-      // 3. Initialize their Progress (XP, Level, Streak)
-      await base44.entities.Progress.create({ 
-        student_id: newStudent.id, 
-        total_xp: 0, 
-        level: 1, 
-        streak_days: 0, 
-        total_study_time: 0 
-      });
-
-      return newStudent;
+      return response.data;
     },
-    onSuccess: () => {
-      toast({ title: "Success!", description: "Child profile created successfully." });
-      queryClient.invalidateQueries(["parent-children"]);
-      setIsAddModalOpen(false);
-      setNewChild({
-        name: "",
-        student_id: `SQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-        pin: "",
-      });
+    onSuccess: (data) => {
+      toast({ title: "Success!", description: "Child profile created." });
+      queryClient.invalidateQueries(["parent-children"]); // Refresh UI
+      queryClient.invalidateQueries(["me"]); // Refresh parent data
+      
+      // Show credentials to the parent
+      setCreatedCredentials(data.child);
+      
+      // Reset form
+      setNewChild({ full_name: "", nickname: "", date_of_birth: "" });
     },
     onError: (err) => {
       toast({ 
@@ -96,11 +86,17 @@ export default function ParentChildrenDashboard() {
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
-    if (newChild.pin.length < 4) {
-      toast({ title: "Invalid PIN", description: "PIN must be at least 4 digits.", variant: "destructive" });
-      return;
-    }
     addChildMutation.mutate(newChild);
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: "Copied to clipboard." });
+  };
+
+  const closeAndResetModal = () => {
+    setIsAddModalOpen(false);
+    setTimeout(() => setCreatedCredentials(null), 300);
   };
 
   const isLoading = isLoadingParent || isLoadingChildren;
@@ -114,7 +110,7 @@ export default function ParentChildrenDashboard() {
   }
 
   if (error) {
-    return <div className="p-6 text-destructive">Failed to load children. Please try again.</div>;
+    return <div className="p-6 text-destructive">Failed to load children.</div>;
   }
 
   return (
@@ -145,76 +141,119 @@ export default function ParentChildrenDashboard() {
       )}
 
       {/* --- Add Child Modal --- */}
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-primary" />
-              Add a Child Profile
-            </DialogTitle>
-            <DialogDescription>
-              Create a new student account. They will use the Student ID and PIN to log in.
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog open={isAddModalOpen} onOpenChange={closeAndResetModal}>
+        <DialogContent className="sm:max-w-[450px]">
+          {createdCredentials ? (
+            // SUCCESS SCREEN - Show Generated Credentials
+            <div className="py-6 space-y-6 text-center">
+              <div className="flex justify-center">
+                <CheckCircle2 className="w-16 h-16 text-green-500" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-foreground mb-2">Account Created!</h3>
+                <p className="text-sm text-muted-foreground">
+                  Please save these login details. Your child will need them to log in.
+                </p>
+              </div>
 
-          <form onSubmit={handleAddSubmit} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Child's Name</Label>
-              <Input
-                id="name"
-                placeholder="e.g. Alex"
-                value={newChild.name}
-                onChange={(e) => setNewChild({ ...newChild, name: e.target.value })}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="student_id">Student ID (Login Username)</Label>
-              <Input
-                id="student_id"
-                value={newChild.student_id}
-                onChange={(e) => setNewChild({ ...newChild, student_id: e.target.value.toUpperCase() })}
-                required
-              />
-              <p className="text-xs text-muted-foreground">You can edit this ID or keep the generated one.</p>
-            </div>
+              <div className="bg-muted p-4 rounded-xl space-y-4 text-left border">
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase">Student ID</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="flex-1 bg-background p-2 rounded border font-mono text-lg font-bold">
+                      {createdCredentials.student_id}
+                    </code>
+                    <Button size="icon" variant="outline" onClick={() => copyToClipboard(createdCredentials.student_id)}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase">Password</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="flex-1 bg-background p-2 rounded border font-mono text-lg font-bold">
+                      {createdCredentials.password}
+                    </code>
+                    <Button size="icon" variant="outline" onClick={() => copyToClipboard(createdCredentials.password)}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pin">Login PIN (4+ digits)</Label>
-              <Input
-                id="pin"
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="1234"
-                value={newChild.pin}
-                onChange={(e) => setNewChild({ ...newChild, pin: e.target.value })}
-                required
-              />
-            </div>
-
-            <DialogFooter className="pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsAddModalOpen(false)}
-                disabled={addChildMutation.isPending}
-              >
-                Cancel
+              <Button className="w-full" onClick={closeAndResetModal}>
+                Done
               </Button>
-              <Button type="submit" disabled={addChildMutation.isPending}>
-                {addChildMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create Profile"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
+            </div>
+          ) : (
+            // CREATION FORM
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-primary" />
+                  Add a Child Profile
+                </DialogTitle>
+                <DialogDescription>
+                  Enter your child's details. The system will securely generate their Student ID and password.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={handleAddSubmit} className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="full_name">Full Name <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="full_name"
+                    placeholder="e.g. Alex Johnson"
+                    value={newChild.full_name}
+                    onChange={(e) => setNewChild({ ...newChild, full_name: e.target.value })}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="nickname">Nickname (Optional)</Label>
+                  <Input
+                    id="nickname"
+                    placeholder="e.g. Alex"
+                    value={newChild.nickname}
+                    onChange={(e) => setNewChild({ ...newChild, nickname: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="date_of_birth">Date of Birth <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="date_of_birth"
+                    type="date"
+                    value={newChild.date_of_birth}
+                    onChange={(e) => setNewChild({ ...newChild, date_of_birth: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <DialogFooter className="pt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={closeAndResetModal}
+                    disabled={addChildMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={addChildMutation.isPending}>
+                    {addChildMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Generate Account"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -247,14 +286,13 @@ function ChildCard({ child }) {
       animate={{ opacity: 1, y: 0 }}
       className="border-2 border-border rounded-2xl p-6 bg-card hover:shadow-md transition-all relative overflow-hidden"
     >
-      {/* Header Section */}
       <div className="flex justify-between items-start mb-6">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 border-2 border-primary/20">
             <GraduationCap className="w-7 h-7" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-foreground">{child.name || "Student"}</h2>
+            <h2 className="text-xl font-bold text-foreground">{child.display_name || child.full_name || "Student"}</h2>
             <p className="text-sm font-mono text-muted-foreground bg-muted inline-block px-2 py-0.5 rounded mt-1">
               ID: {child.student_id || "PENDING"}
             </p>
@@ -266,7 +304,6 @@ function ChildCard({ child }) {
         </Button>
       </div>
 
-      {/* Gamification Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {/* Level */}
         <div className="bg-indigo-50 dark:bg-indigo-950/30 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900">
@@ -312,10 +349,9 @@ function ChildCard({ child }) {
         </div>
       </div>
 
-      {/* Action Buttons */}
       <div className="mt-6 flex gap-3">
-        <Button variant="outline" className="flex-1" onClick={() => console.log("Reset PIN")}>
-          Reset PIN
+        <Button variant="outline" className="flex-1" onClick={() => console.log("Reset credentials logic")}>
+          Reset Password
         </Button>
         <Button variant="secondary" className="flex-1" onClick={() => console.log("View full profile")}>
           View Profile
