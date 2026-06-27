@@ -5,6 +5,7 @@ import { Trophy, Coins, Zap, RotateCcw, ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
+import Celebration from "@/components/celebration/Celebration";
 
 export default function QuizResult() {
   const { attemptId } = useParams();
@@ -32,6 +33,7 @@ export default function QuizResult() {
 
   return (
     <div className="space-y-6">
+      <Celebration active={isPerfect} />
       {/* Score Hero */}
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
