@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
-import { Alert, AlertDescription, AlertCircle } from "@/components/ui/alert";
-import { GraduationCap } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { GraduationCap, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
