@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key, User } from "lucide-react";
+import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key, User, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,18 @@ export default function MyChildrenPage() {
   const [showCredentialManager, setShowCredentialManager] = useState(false);
   const [selectedChild, setSelectedChild] = useState(null);
   const { toast } = useToast();
+
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return "N/A";
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
 
   const loadChildren = async () => {
     try {
@@ -158,24 +170,30 @@ export default function MyChildrenPage() {
               <Card className="border-border/50 hover:border-primary/50 transition-colors">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      {child.avatar_photo_url ? (
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                      {child.profile_picture_url || child.avatar_photo_url ? (
                         <img
-                          src={child.avatar_photo_url}
+                          src={child.profile_picture_url || child.avatar_photo_url}
                           alt={child.full_name}
-                          className="w-full h-full object-cover rounded-full"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-2xl">{child.avatar_emoji || "🎓"}</span>
+                        <User className="w-6 h-6 text-primary" />
                       )}
                     </div>
                     <div className="flex-1">
                       <CardTitle className="text-lg font-bold">{child.nickname || child.full_name || "Unnamed Student"}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{child.school_year || child.education_level || "Not set"} • {child.email}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                        <span>{calculateAge(child.date_of_birth)} years</span>
+                        <span>•</span>
+                        <span>{child.education_level || "Not set"}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{child.school_name || "No school set"}</p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* Progress Stats */}
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="bg-primary/5 rounded-lg p-2">
                       <p className="text-lg font-bold text-primary">{child.progress?.level || 1}</p>
@@ -191,6 +209,20 @@ export default function MyChildrenPage() {
                     </div>
                   </div>
                   
+                  {/* Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Progress</span>
+                      <span className="font-medium">{child.progress?.level || 1}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${Math.min((child.progress?.level || 1) * 5, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  
                   <div className="flex gap-2 pt-2">
                     <Link
                       to={`/parent/children/${child.id}`}
@@ -202,6 +234,15 @@ export default function MyChildrenPage() {
                       </Button>
                     </Link>
                     <Link
+                      to={`/parent/children/${child.id}`}
+                      className="flex-1"
+                    >
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Edit2 className="w-3 h-3 mr-1" />
+                        Edit Profile
+                      </Button>
+                    </Link>
+                    <Link
                       to="/parent"
                       className="flex-1"
                     >
@@ -210,18 +251,6 @@ export default function MyChildrenPage() {
                         View Progress
                       </Button>
                     </Link>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => {
-                        setSelectedChild(child);
-                        setShowCredentialManager(true);
-                      }}
-                    >
-                      <Key className="w-3 h-3 mr-1" />
-                      Credentials
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
