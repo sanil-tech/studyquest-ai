@@ -70,7 +70,7 @@ export default function ParentDashboard() {
       const studentIds = approvedLinks.map(r => r.student_id);
 
       if (studentIds.length > 0) {
-        const [childrenData, allPendingReqs] = await Promise.all([
+        const [childrenData, allPendingReqs, studentUsers] = await Promise.all([
           Promise.all(
             studentIds.map(async (sid, idx) => {
               const [progresses, wallets, attempts, sessions] = await Promise.all([
@@ -99,8 +99,19 @@ export default function ParentDashboard() {
               base44.entities.RewardRequest.filter({ student_id: sid, status: "pending" }, "-created_date", 20)
             )
           ),
+          Promise.all(
+            studentIds.map(sid => base44.entities.User.filter({ id: sid }))
+          ),
         ]);
-        setChildren(childrenData);
+        const childrenWithUserData = childrenData.map((child, idx) => ({
+          ...child,
+          avatar_emoji: studentUsers[idx]?.[0]?.avatar_emoji || "🎓",
+          school_year: studentUsers[idx]?.[0]?.school_year || "",
+          school_name: studentUsers[idx]?.[0]?.school_name || "",
+          class_name: studentUsers[idx]?.[0]?.class_name || "",
+          full_name: studentUsers[idx]?.[0]?.full_name || child.name,
+        }));
+        setChildren(childrenWithUserData);
         setPendingRequests(allPendingReqs.flat());
       } else {
         setChildren([]);
@@ -119,8 +130,12 @@ export default function ParentDashboard() {
     const unsubscribeLink = base44.entities.LinkRequest.subscribe(() => {
       loadData();
     });
+    const unsubscribeUser = base44.entities.User.subscribe(() => {
+      loadData();
+    });
     return () => {
       unsubscribeLink();
+      unsubscribeUser();
     };
   }, []);
 
