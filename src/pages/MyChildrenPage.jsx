@@ -244,7 +244,10 @@ export default function MyChildrenPage() {
                       variant="outline"
                       size="sm"
                       className="flex-1"
-                      onClick={() => setSelectedChild(child)}
+                      onClick={() => {
+                        setSelectedChild(child);
+                        setShowCredentialManager(true);
+                      }}
                     >
                       <Key className="w-3 h-3 mr-1" />
                       Credentials
