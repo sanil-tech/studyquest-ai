@@ -2,7 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 
-export default function Home() {
+/**
+ * Role-based route guard.
+ * allowedRoles = array of roles permitted to access the wrapped routes.
+ * Redirects users without a valid role to RoleSetup, and users with the wrong role to their own dashboard.
+ */
+export default function RoleRoute({ allowedRoles, children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,11 +26,15 @@ export default function Home() {
     );
   }
 
-  // No role set — go to RoleSetup
+  // No role set yet — send to RoleSetup
   if (!user?.role || !["student", "parent"].includes(user.role)) {
     return <Navigate to="/role-setup" replace />;
   }
 
-  // Redirect based on role
-  return <Navigate to={user.role === "parent" ? "/parent" : "/dashboard"} replace />;
+  // Has a role but not allowed here — send to their own dashboard
+  if (!allowedRoles.includes(user.role)) {
+    return <Navigate to={user.role === "parent" ? "/parent" : "/"} replace />;
+  }
+
+  return children;
 }

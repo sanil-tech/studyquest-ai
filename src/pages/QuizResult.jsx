@@ -138,7 +138,7 @@ export default function QuizResult() {
             Study Next Topic <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </Link>
-        <Link to="/" className="block">
+        <Link to="/dashboard" className="block">
           <Button variant="outline" className="w-full h-12 rounded-xl">
             Back to Dashboard
           </Button>

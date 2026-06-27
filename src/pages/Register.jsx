@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Mail, Lock, Loader2 } from "lucide-react";
+import { UserPlus, Mail, Lock, Loader2, GraduationCap, Users, CheckCircle2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
@@ -16,8 +16,9 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showOtp, setShowOtp] = useState(false);
+  const [step, setStep] = useState("details"); // details → otp → role
   const [otpCode, setOtpCode] = useState("");
+  const [selectedRole, setSelectedRole] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +30,7 @@ export default function Register() {
     setLoading(true);
     try {
       await base44.auth.register({ email, password });
-      setShowOtp(true);
+      setStep("otp");
     } catch (err) {
       setError(err.message || "Registration failed");
     } finally {
@@ -45,7 +46,7 @@ export default function Register() {
       if (result?.access_token) {
         base44.auth.setToken(result.access_token);
       }
-      window.location.href = "/";
+      setStep("role");
     } catch (err) {
       setError(err.message || "Invalid verification code");
     } finally {
@@ -57,10 +58,7 @@ export default function Register() {
     setError("");
     try {
       await base44.auth.resendOtp(email);
-      toast({
-        title: "Code sent",
-        description: "Check your email for the new code.",
-      });
+      toast({ title: "Code sent", description: "Check your email for the new code." });
     } catch (err) {
       setError(err.message || "Failed to resend code");
     }
@@ -70,7 +68,98 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
-  if (showOtp) {
+  const handleConfirmRole = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const u = await base44.auth.me();
+      await base44.entities.User.update(u.id, { role: selectedRole });
+
+      if (selectedRole === "student") {
+        // Create wallet and progress
+        const wallets = await base44.entities.Wallet.filter({ student_id: u.id });
+        if (wallets.length === 0) {
+          await base44.entities.Wallet.create({ student_id: u.id, balance: 0 });
+        }
+        const progress = await base44.entities.Progress.filter({ student_id: u.id });
+        if (progress.length === 0) {
+          await base44.entities.Progress.create({ student_id: u.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
+        }
+        window.location.href = "/";
+      } else {
+        await base44.entities.User.update(u.id, { linked_student_ids: [] });
+        window.location.href = "/parent";
+      }
+    } catch (err) {
+      setError(err.message || "Failed to save role");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Step: Role selection ---
+  if (step === "role") {
+    return (
+      <AuthLayout icon={UserPlus} title="Choose your role" subtitle="You can't change this later — pick carefully!">
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
+        )}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <button
+            type="button"
+            onClick={() => setSelectedRole("student")}
+            className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${
+              selectedRole === "student"
+                ? "border-primary bg-primary/5 shadow-md"
+                : "border-border hover:border-primary/30"
+            }`}
+          >
+            <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center">
+              <GraduationCap className="w-7 h-7 text-primary" />
+            </div>
+            <span className="font-heading font-semibold">I'm a Student</span>
+            <span className="text-xs text-muted-foreground text-center">Learn & earn coins</span>
+            {selectedRole === "student" && <CheckCircle2 className="w-5 h-5 text-primary" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedRole("parent")}
+            className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${
+              selectedRole === "parent"
+                ? "border-primary bg-primary/5 shadow-md"
+                : "border-border hover:border-primary/30"
+            }`}
+          >
+            <div className="w-14 h-14 rounded-2xl bg-pink-100 flex items-center justify-center">
+              <Users className="w-7 h-7 text-accent" />
+            </div>
+            <span className="font-heading font-semibold">I'm a Parent</span>
+            <span className="text-xs text-muted-foreground text-center">Track & reward</span>
+            {selectedRole === "parent" && <CheckCircle2 className="w-5 h-5 text-primary" />}
+          </button>
+        </div>
+
+        <Button
+          className="w-full h-12 font-medium"
+          onClick={handleConfirmRole}
+          disabled={!selectedRole || loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Setting up...
+            </>
+          ) : (
+            "Continue 🚀"
+          )}
+        </Button>
+      </AuthLayout>
+    );
+  }
+
+  // --- Step: OTP ---
+  if (step === "otp") {
     return (
       <AuthLayout
         icon={Mail}
@@ -124,6 +213,7 @@ export default function Register() {
     );
   }
 
+  // --- Step: Account details ---
   return (
     <AuthLayout
       icon={UserPlus}
@@ -219,7 +309,7 @@ export default function Register() {
               Creating account...
             </>
           ) : (
-            "Create account"
+            "Continue"
           )}
         </Button>
       </form>

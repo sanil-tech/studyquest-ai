@@ -20,7 +20,13 @@ export default function Login() {
     setLoading(true);
     try {
       await base44.auth.loginViaEmailPassword(email, password);
-      window.location.href = "/";
+      // Redirect based on role
+      const user = await base44.auth.me();
+      if (user?.role === "parent") {
+        window.location.href = "/parent";
+      } else {
+        window.location.href = "/dashboard";
+      }
     } catch (err) {
       setError(err.message || "Invalid email or password");
     } finally {

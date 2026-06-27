@@ -7,12 +7,15 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import RoleRoute from '@/components/RoleRoute';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import AppLayout from '@/components/layout/AppLayout';
+import RoleSetup from '@/pages/RoleSetup';
 import Home from '@/pages/Home';
+import StudentDashboard from '@/pages/StudentDashboard';
 import StudyPage from '@/pages/StudyPage';
 import LessonPage from '@/pages/LessonPage';
 import QuizPage from '@/pages/QuizPage';
@@ -50,27 +53,44 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
+      {/* Public auth routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* Authenticated routes */}
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+        {/* Role setup (no role yet) */}
+        <Route path="/role-setup" element={<RoleSetup />} />
+
+        {/* Shared layout — notifications & profile available to both roles */}
         <Route element={<AppLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/study" element={<StudyPage />} />
-          <Route path="/study/:subjectId" element={<StudyPage />} />
-          <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
-          <Route path="/quiz/:quizId" element={<QuizPage />} />
-          <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
-          <Route path="/wallet" element={<WalletPage />} />
-          <Route path="/rewards" element={<RewardsPage />} />
-          <Route path="/parent" element={<ParentDashboard />} />
-          <Route path="/parent/rewards" element={<ParentRewards />} />
-          <Route path="/parent/approvals" element={<ParentApprovals />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+
+          {/* Student-only routes */}
+          <Route element={<RoleRoute allowedRoles={["student"]} />}>
+            <Route path="/dashboard" element={<StudentDashboard />} />
+            <Route path="/study" element={<StudyPage />} />
+            <Route path="/study/:subjectId" element={<StudyPage />} />
+            <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
+            <Route path="/quiz/:quizId" element={<QuizPage />} />
+            <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
+            <Route path="/wallet" element={<WalletPage />} />
+            <Route path="/rewards" element={<RewardsPage />} />
+          </Route>
+
+          {/* Parent-only routes */}
+          <Route element={<RoleRoute allowedRoles={["parent"]} />}>
+            <Route path="/parent" element={<ParentDashboard />} />
+            <Route path="/parent/rewards" element={<ParentRewards />} />
+            <Route path="/parent/approvals" element={<ParentApprovals />} />
+          </Route>
         </Route>
       </Route>
+
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
