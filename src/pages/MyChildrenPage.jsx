@@ -44,15 +44,16 @@ export default function ParentChildrenDashboard() {
     }
   });
 
-  // Mutation to create a new child profile
+ // Mutation to create a new child profile
   const addChildMutation = useMutation({
     mutationFn: async (childData) => {
-      // 1. Create the Child User Record with the correct required fields
+      // 1. Create the Child User Record (Passing PIN to both fields)
       const newStudent = await base44.entities.User.create({
-        full_name: childData.name, // Changed from 'name' to 'full_name'
-        email: `${childData.student_id.toLowerCase()}@student.studyquest.local`, // Dummy email to satisfy the database
+        full_name: childData.name,
+        email: `${childData.student_id.toLowerCase()}@student.studyquest.local`, 
         student_id: childData.student_id,
-        pin: childData.pin, 
+        password: childData.pin, // Pass to standard password field
+        pin: childData.pin,      // Pass to custom pin field
         parent_id: parent.id,
         app_role: "student",
       });
@@ -74,26 +75,7 @@ export default function ParentChildrenDashboard() {
 
       return newStudent;
     },
-    onSuccess: () => {
-      toast({ title: "Success!", description: "Child profile created successfully." });
-      queryClient.invalidateQueries(["parent-children"]); // Refresh the UI immediately
-      setIsAddModalOpen(false); // Close the modal
-      
-      // Reset form with a fresh random Student ID
-      setNewChild({
-        name: "",
-        student_id: `SQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-        pin: "",
-      });
-    },
-    onError: (err) => {
-      toast({ 
-        title: "Error", 
-        description: err.message || "Failed to create child profile.", 
-        variant: "destructive" 
-      });
-    }
-  });
+    // ... keep your existing onSuccess and onError blocks exactly the same
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
