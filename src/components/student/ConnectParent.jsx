@@ -32,7 +32,8 @@ export default function ConnectParent({ user }) {
     try {
       await base44.entities.LinkRequest.update(req.id, {
         student_id: user.id,
-        student_name: user.full_name || "Student",
+        student_name: user.full_name || user.email,
+        student_email: user.email,
         status: "approved",
       });
       toast({ title: "Parent linked! 🎉", description: `You're now connected to ${req.parent_name || req.parent_email}.` });
