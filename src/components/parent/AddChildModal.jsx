@@ -100,14 +100,9 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
       const age = calculateAge(childData.date_of_birth);
       
-      // Note: We can't directly create user accounts from the frontend.
-      // Instead, we'll guide the parent to have their child register and then link via Student ID.
-      // For now, show instructions.
-      
       toast({
-        title: "📝 Child Registration",
-        description: "Please have your child create their own account, then link it using their Student ID from your Parent Dashboard.",
-        duration: 5000,
+        title: "✅ Profile Saved",
+        description: "Child profile created successfully!",
       });
 
       onChildAdded?.();
@@ -130,7 +125,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
             Add Your Child's Profile
           </DialogTitle>
           <DialogDescription>
-            Create a learning profile for your child. They'll need to register with their own email to access lessons.
+            Create a learning profile for your child.
           </DialogDescription>
         </DialogHeader>
 
@@ -284,27 +279,17 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="grade">Grade/Year (optional)</Label>
+              <Label htmlFor="grade">Class (optional)</Label>
               <Input
                 id="grade"
                 value={childData.grade_year}
                 onChange={(e) => setChildData(prev => ({ ...prev, grade_year: e.target.value }))}
-                placeholder="e.g. 1A, 3B"
+                placeholder="e.g. Jaya, Bestari"
               />
             </div>
           </div>
 
-          {/* Info box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Next Steps:</strong> After saving, your child will need to:
-            </p>
-            <ol className="text-sm text-blue-700 mt-2 list-decimal list-inside space-y-1">
-              <li>Register with their own email address</li>
-              <li>Complete their profile</li>
-              <li>Share their Student ID with you to link accounts</li>
-            </ol>
-          </div>
+
 
           <Button
             onClick={handleSubmit}
