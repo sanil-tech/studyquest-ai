@@ -24,11 +24,18 @@ const numberToMalayWords = (num) => {
   return num.toString();
 };
 
-const preprocessMalayText = (text) => {
-  return text.replace(/\b(\d+)\b/g, (match, num) => {
-    const number = parseInt(num, 10);
-    return numberToMalayWords(number);
-  });
+const preprocessText = (text, language) => {
+  let processed = text;
+  // Remove symbols and special characters but keep letters, numbers, spaces, and basic punctuation
+  processed = processed.replace(/[^\w\s.,!?;:'"()-]/g, "");
+  // Convert numbers to words for Malay
+  if (language === "ms") {
+    processed = processed.replace(/\b(\d+)\b/g, (match, num) => {
+      const number = parseInt(num, 10);
+      return numberToMalayWords(number);
+    });
+  }
+  return processed;
 };
 
 export default function VoicePlayer({ text, language = "auto" }) {
@@ -54,11 +61,11 @@ export default function VoicePlayer({ text, language = "auto" }) {
 
     setLoading(true);
     try {
-      const processedText = language === "ms" ? preprocessMalayText(text) : text;
+      const processedText = preprocessText(text, language);
       const result = await base44.integrations.Core.GenerateSpeech({
         text: processedText.substring(0, 5000),
-        voice: "spark",
-        language_code: language === "ms" ? "ms" : undefined,
+        voice: "honey",
+        language_code: language === "ms" ? "ms" : "en",
       });
       setAudioUrl(result.url);
       const newAudio = new Audio(result.url);
