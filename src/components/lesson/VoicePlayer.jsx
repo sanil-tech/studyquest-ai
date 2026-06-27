@@ -34,6 +34,8 @@ const numberToMalayWords = (num) => {
 
 const preprocessText = (text, language) => {
   let processed = text;
+  // Remove IMAGE tags (failed or successful image prompts should not be read aloud)
+  processed = processed.replace(/\[IMAGE:[^\]]*\]/g, "");
   // Remove symbols and special characters but keep letters, numbers, spaces, and basic punctuation
   processed = processed.replace(/[^\w\s.,!?;:'"()-]/g, "");
   // Convert numbers to words for Malay
