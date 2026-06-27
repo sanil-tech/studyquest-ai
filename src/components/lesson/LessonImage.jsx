@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Image as ImageIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
 export default function LessonImage({ prompt, alt, caption }) {
@@ -33,7 +33,8 @@ export default function LessonImage({ prompt, alt, caption }) {
     loadImage();
   }, [prompt, imageUrl]);
 
-  if (!prompt) return null;
+  // Don't render anything if no image was generated
+  if (!prompt || error || (!imageLoading && !imageUrl)) return null;
 
   return (
     <motion.div
@@ -62,14 +63,7 @@ export default function LessonImage({ prompt, alt, caption }) {
               </div>
             )}
           </div>
-        ) : (
-          <div className="h-48 flex items-center justify-center text-muted-foreground">
-            <div className="text-center p-4">
-              <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-xs">{alt || caption || "Educational illustration"}</p>
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
     </motion.div>
   );
