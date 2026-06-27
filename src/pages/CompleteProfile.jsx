@@ -129,26 +129,36 @@ export default function CompleteProfile() {
       };
 
       if (user.app_role === "student") {
-        if (!schoolName || !educationLevel) {
-          toast({ title: "Missing info", description: "Please fill in school and education level", variant: "destructive" });
+        if (!schoolName.trim()) {
+          toast({ title: "Missing info", description: "Please enter your school name", variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+        if (!educationLevel) {
+          toast({ title: "Missing info", description: "Please select your education level", variant: "destructive" });
           setSaving(false);
           return;
         }
         updateData.school_name = schoolName;
         updateData.education_level = educationLevel;
         updateData.grade_year = gradeYear;
-        updateData.school_year = educationLevel; // Sync with existing field
+        updateData.school_year = educationLevel;
       } else if (user.app_role === "parent") {
-        if (!numChildren) {
-          toast({ title: "Missing info", description: "Please enter number of children", variant: "destructive" });
+        if (!numChildren || parseInt(numChildren) < 1) {
+          toast({ title: "Missing info", description: "Please enter the number of children", variant: "destructive" });
           setSaving(false);
           return;
         }
         updateData.num_children = parseInt(numChildren);
         updateData.children_names = childrenNames;
       } else if (user.app_role === "teacher") {
-        if (!teachingSubjects || !teachingLevel) {
-          toast({ title: "Missing info", description: "Please fill in teaching details", variant: "destructive" });
+        if (!teachingSubjects.trim()) {
+          toast({ title: "Missing info", description: "Please enter subjects you teach", variant: "destructive" });
+          setSaving(false);
+          return;
+        }
+        if (!teachingLevel) {
+          toast({ title: "Missing info", description: "Please select teaching level", variant: "destructive" });
           setSaving(false);
           return;
         }
@@ -157,23 +167,33 @@ export default function CompleteProfile() {
       }
 
       await base44.auth.updateMe(updateData);
+      
+      // Refresh user to ensure profile_completed is set
+      const refreshedUser = await base44.auth.me();
+      console.log("Profile updated successfully:", refreshedUser);
 
       // Create wallet and progress for students
       if (user.app_role === "student") {
-        const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
-        if (wallets.length === 0) {
-          await base44.entities.Wallet.create({ student_id: user.id, balance: 0 });
-        }
-        const progress = await base44.entities.Progress.filter({ student_id: user.id });
-        if (progress.length === 0) {
-          await base44.entities.Progress.create({ student_id: user.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
+        try {
+          const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
+          if (wallets.length === 0) {
+            await base44.entities.Wallet.create({ student_id: user.id, balance: 0 });
+          }
+          const progress = await base44.entities.Progress.filter({ student_id: user.id });
+          if (progress.length === 0) {
+            await base44.entities.Progress.create({ student_id: user.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
+          }
+        } catch (entityErr) {
+          console.error("Failed to create wallet/progress:", entityErr);
+          // Continue anyway - profile is saved
         }
       }
 
       toast({ title: "Profile complete!", description: "Welcome to StudyQuest!" });
       navigate(user.app_role === "student" ? "/dashboard" : user.app_role === "parent" ? "/parent" : "/");
     } catch (err) {
-      toast({ title: "Save failed", description: err.message, variant: "destructive" });
+      console.error("Profile save error:", err);
+      toast({ title: "Save failed", description: err.message || "Please try again", variant: "destructive" });
     } finally {
       setSaving(false);
     }
