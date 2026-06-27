@@ -42,13 +42,41 @@ export default function LessonPage() {
         try {
           const parsed = JSON.parse(raw);
           if (parsed.lesson_markdown) {
-            setLessonData(parsed);
-            setExplanation(parsed.lesson_markdown);
+            const cleaned = {
+              ...parsed,
+              lesson_markdown: parsed.lesson_markdown.replace(/\\n/g, "\n"),
+              flashcards: (parsed.flashcards || []).map(c => ({
+                front: (c.front || "").replace(/\\n/g, " "),
+                back: (c.back || "").replace(/\\n/g, " "),
+              })),
+              mind_map: parsed.mind_map ? {
+                ...parsed.mind_map,
+                central_topic: (parsed.mind_map.central_topic || "").replace(/\\n/g, " "),
+                branches: (parsed.mind_map.branches || []).map(b => ({
+                  ...b,
+                  label: (b.label || "").replace(/\\n/g, " "),
+                  children: (b.children || []).map(c => (c || "").replace(/\\n/g, " ")),
+                })),
+              } : null,
+              activity: parsed.activity ? {
+                ...parsed.activity,
+                title: (parsed.activity.title || "").replace(/\\n/g, " "),
+                items: (parsed.activity.items || []).map(it => {
+                  const cleaned = {};
+                  Object.keys(it || {}).forEach(k => {
+                    cleaned[k] = typeof it[k] === "string" ? it[k].replace(/\\n/g, " ") : it[k];
+                  });
+                  return cleaned;
+                }),
+              } : null,
+            };
+            setLessonData(cleaned);
+            setExplanation(cleaned.lesson_markdown);
           } else {
-            setExplanation(raw);
+            setExplanation(raw.replace(/\\n/g, "\n"));
           }
         } catch {
-          setExplanation(raw);
+          setExplanation(raw.replace(/\\n/g, "\n"));
         }
         setSessionId(sessions[0].id);
       }
@@ -186,10 +214,38 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
       duration_minutes: 0,
     });
     if (isYoungLearner) {
-      setLessonData(result);
-      setExplanation(result.lesson_markdown);
+      const cleaned = {
+        ...result,
+        lesson_markdown: (result.lesson_markdown || "").replace(/\\n/g, "\n"),
+        flashcards: (result.flashcards || []).map(c => ({
+          front: (c.front || "").replace(/\\n/g, " "),
+          back: (c.back || "").replace(/\\n/g, " "),
+        })),
+        mind_map: result.mind_map ? {
+          ...result.mind_map,
+          central_topic: (result.mind_map.central_topic || "").replace(/\\n/g, " "),
+          branches: (result.mind_map.branches || []).map(b => ({
+            ...b,
+            label: (b.label || "").replace(/\\n/g, " "),
+            children: (b.children || []).map(c => (c || "").replace(/\\n/g, " ")),
+          })),
+        } : null,
+        activity: result.activity ? {
+          ...result.activity,
+          title: (result.activity.title || "").replace(/\\n/g, " "),
+          items: (result.activity.items || []).map(it => {
+            const cleaned = {};
+            Object.keys(it || {}).forEach(k => {
+              cleaned[k] = typeof it[k] === "string" ? it[k].replace(/\\n/g, " ") : it[k];
+            });
+            return cleaned;
+          }),
+        } : null,
+      };
+      setLessonData(cleaned);
+      setExplanation(cleaned.lesson_markdown);
     } else {
-      setExplanation(result);
+      setExplanation(typeof result === "string" ? result.replace(/\\n/g, "\n") : result);
     }
     setSessionId(session.id);
     setGenerating(false);
