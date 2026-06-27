@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     let studentId = generateId();
     let attempts = 0;
     while (attempts < 10) {
-      const existing = await base44.entities.User.filter({ student_id: studentId });
+      const existing = await base44.asServiceRole.entities.User.filter({ student_id: studentId });
       if (existing.length === 0) break;
       studentId = generateId();
       attempts++;

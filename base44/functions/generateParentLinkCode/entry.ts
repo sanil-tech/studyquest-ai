@@ -14,13 +14,13 @@ Deno.serve(async (req) => {
     }
 
     // Invalidate any existing active codes for this student
-    const existingCodes = await base44.entities.ParentLinkCode.filter({ 
+    const existingCodes = await base44.asServiceRole.entities.ParentLinkCode.filter({ 
       child_id: user.id,
       is_active: true
     });
 
     for (const code of existingCodes) {
-      await base44.entities.ParentLinkCode.update(code.id, { is_active: false });
+      await base44.asServiceRole.entities.ParentLinkCode.update(code.id, { is_active: false });
     }
 
     // Generate new code
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours from now
 
     // Create the link code record
-    const linkCode = await base44.entities.ParentLinkCode.create({
+    const linkCode = await base44.asServiceRole.entities.ParentLinkCode.create({
       child_id: user.id,
       code: code,
       expires_at: expiresAt.toISOString(),

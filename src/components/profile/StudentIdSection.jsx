@@ -36,7 +36,7 @@ export default function StudentIdSection({ user }) {
       }
 
       // Get active link code
-      const codes = await base44.entities.ParentLinkCode.filter({
+      const codes = await base44.asServiceRole.entities.ParentLinkCode.filter({
         child_id: user.id,
         is_active: true
       });
