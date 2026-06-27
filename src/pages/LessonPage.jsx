@@ -52,12 +52,46 @@ export default function LessonPage() {
       model: "gemini_3_flash",
       add_context_from_internet: true,
       file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-      prompt: `You are an expert tutor for Malaysian school students. ${fileUrls.length > 0 ? "Use the provided Malaysian curriculum textbook as the PRIMARY source. Find the chapter covering \"" + topic.name + "\" and base your lesson on its actual content. " : ""}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then explain it. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum.${(() => {
-        const lvl = topic.form_level || "";
-        if (lvl.startsWith("Standard")) return ` This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR). Use simpler language suited for young learners.`;
-        if (lvl.startsWith("Form")) return ` This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`;
-        return ` Follow either KSSR (primary) or KSSM (secondary) depending on the topic level.`;
-      })()}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""}
+      prompt: (() => {
+        const isYoungLearner = ["Standard 1", "Standard 2", "Standard 3"].includes(topic.form_level);
+        const textbookNote = fileUrls.length > 0
+          ? `Use the provided Malaysian curriculum textbook as the PRIMARY source. Find the chapter covering "${topic.name}" and base your lesson on its actual content. `
+          : "";
+        const levelNote = topic.form_level?.startsWith("Standard")
+          ? `This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR).`
+          : topic.form_level?.startsWith("Form")
+            ? `This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`
+            : `Follow either KSSR (primary) or KSSM (secondary) depending on the topic level.`;
+
+        if (isYoungLearner) {
+          return `You are a super fun and friendly AI tutor for young Malaysian primary school children (Tahun 1-3, ages 7-9). ${textbookNote}Search the web for the official KSSR curriculum content for this topic, then explain it.
+
+TOPIC: "${topic.name}" | SUBJECT: "${subject.name}" | LEVEL: ${topic.form_level}
+${levelNote} Base your lesson on the official KPM KSSR syllabus and learning standards. Use Malaysian context (RM, local foods, animals, places, festivals).
+
+🧒 TEACHING STYLE — FUN & INTERACTIVE FOR YOUNG LEARNERS:
+- Use VERY simple words a 7-9 year old can understand. Short sentences.
+- Start with a FUN STORY or SCENARIO starring a friendly character (e.g. "Adik Ali pergi ke kedai..."). Use the same character throughout.
+- Use LOTS of emojis 🎉🧮🍎🐱 to make it visually fun (but not overwhelming).
+- Use **bold** for key words so they stand out.
+- Ask 1-2 simple QUESTIONS in the middle of the lesson and write "(Cuba jawab! 🤔)" to encourage the child to think.
+- Use a "Game Time! 🎮" mini-challenge — one tiny activity they can do in their head (e.g. "Can you count 5 objects around you?").
+- Include a simple SONG or RHYME if it helps them remember (Malay or English).
+- Be warm, encouraging, and celebrate them: "Hebat! ⭐" "Tabik spring! 👏".
+
+📋 LESSON STRUCTURE (use Markdown headings):
+1. **📖 Cerita Kita (Our Story)** — A short fun story introducing the topic
+2. **🔍 Apa Ini? (What is it?)** — Simple definition with emojis
+3. **💡 Jom Belajar! (Let's Learn!)** — Main concepts explained simply, with 1 interactive question
+4. **🍎 Contoh Seronok (Fun Example)** — A worked example using Malaysian daily life
+5. **🎮 Game Time! (Mini Challenge)** — A tiny activity or game
+6. **🎵 Tip Hebat (Pro Tip)** — A memory trick or mini song/rhyme
+7. **⭐ Gambarajah Minda (Mind Map)** — A simple text-based summary with arrows (→) or bullet emojis
+
+Keep it playful, colorful, and short enough for a young child's attention span. Use both Malay and simple English words when helpful.`;
+        }
+
+        return `You are an expert tutor for Malaysian school students. ${textbookNote}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then explain it. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum. ${levelNote}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""}
 
 Base your lesson content on the official Malaysian Ministry of Education (KPM) syllabus and learning standards for this subject and topic. Use Malaysian context, examples, and terminology where appropriate (e.g. RM for currency, local examples).
 
@@ -68,7 +102,8 @@ Structure your explanation:
 4. **Example** - One clear, worked example (use Malaysian context where relevant)
 5. **Quick Tip** - A memory trick or study tip
 
-Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
+Keep it engaging and encouraging. Use emojis sparingly to make it fun.`;
+      })(),
     });
 
     const session = await base44.entities.StudySession.create({
@@ -94,14 +129,32 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
       model: "gemini_3_flash",
       add_context_from_internet: true,
       file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-      prompt: `Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then generate exactly 5 multiple choice questions about "${topic.name}" for Malaysian school students, strictly following the Malaysian National Curriculum.${(() => {
-        const lvl = topic.form_level || "";
-        if (lvl.startsWith("Standard")) return ` This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR). Make questions age-appropriate for young learners.`;
-        if (lvl.startsWith("Form")) return ` This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`;
-        return "";
-      })()}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""} Base questions on the official KPM syllabus learning standards for the subject "${subject?.name || ""}". Use Malaysian context where appropriate.
+      prompt: (() => {
+        const isYoungLearner = ["Standard 1", "Standard 2", "Standard 3"].includes(topic.form_level);
+        const levelNote = topic.form_level?.startsWith("Standard")
+          ? `This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR).`
+          : topic.form_level?.startsWith("Form")
+            ? `This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`
+            : "";
 
-Return ONLY valid JSON, no extra text.`,
+        if (isYoungLearner) {
+          return `Search the web for the official KSSR curriculum content for this topic, then generate exactly 5 multiple choice questions about "${topic.name}" for young Malaysian primary school children (Tahun 1-3, ages 7-9), strictly following KSSR. ${levelNote} Target level: ${topic.form_level}. Base questions on the official KPM syllabus for "${subject?.name || ""}".
+
+🧒 QUIZ STYLE — FUN & AGE-APPROPRIATE:
+- Use VERY simple words and short sentences.
+- Make questions feel like a game or story (e.g. "Adik Ali ada 3 epal... 🍎🍎🍎").
+- Use emojis in questions and explanations to make it fun.
+- Use Malaysian context (RM, local foods, animals, toys, school).
+- Only 4 simple answer options per question.
+- Explanations should be encouraging and use simple words (e.g. "Betul! Hebat! ⭐").
+
+Return ONLY valid JSON, no extra text.`;
+        }
+
+        return `Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then generate exactly 5 multiple choice questions about "${topic.name}" for Malaysian school students, strictly following the Malaysian National Curriculum. ${levelNote}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""} Base questions on the official KPM syllabus learning standards for the subject "${subject?.name || ""}". Use Malaysian context where appropriate.
+
+Return ONLY valid JSON, no extra text.`;
+      })(),
       response_json_schema: {
         type: "object",
         properties: {

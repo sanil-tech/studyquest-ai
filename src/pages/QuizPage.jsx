@@ -64,7 +64,7 @@ Provide brief, encouraging feedback:
 3. One improvement tip
 4. Suggested next topic
 
-Keep it short and motivating.`,
+Keep it short and motivating. Use lots of emojis and celebrate their effort (e.g. "Hebat! ⭐", "Tabik spring! 👏"). Be warm and playful like a friendly teacher cheering on a young learner.`,
     });
 
     // Create quiz attempt
