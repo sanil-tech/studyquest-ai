@@ -12,6 +12,7 @@ import LessonProgress from "@/components/lesson/LessonProgress";
 import InfoCard from "@/components/lesson/InfoCard";
 import LessonContent from "@/components/lesson/LessonContent";
 import LessonImage from "@/components/lesson/LessonImage";
+import VoicePlayer from "@/components/lesson/VoicePlayer";
 
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
@@ -480,6 +481,10 @@ Return ONLY valid JSON, no extra text.`;
 
           <div ref={(el) => (sectionRefs.current.lesson = el)} data-step="lesson">
             <div className="bg-white rounded-2xl p-6 border border-border/50">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-heading font-bold text-lg">📖 Lesson</h2>
+                <VoicePlayer text={explanation} language={subject?.name?.toLowerCase().includes("english") ? "en" : "ms"} />
+              </div>
               <LessonContent content={explanation} />
             </div>
           </div>
