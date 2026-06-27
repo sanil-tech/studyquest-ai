@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key } from "lucide-react";
+import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -192,6 +192,15 @@ export default function MyChildrenPage() {
                   </div>
                   
                   <div className="flex gap-2 pt-2">
+                    <Link
+                      to={`/parent/children/${child.id}`}
+                      className="flex-1"
+                    >
+                      <Button variant="outline" size="sm" className="w-full">
+                        <User className="w-3 h-3 mr-1" />
+                        View Profile
+                      </Button>
+                    </Link>
                     <Link
                       to="/parent"
                       className="flex-1"
