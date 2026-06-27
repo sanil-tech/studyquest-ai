@@ -5,6 +5,9 @@ import { ArrowLeft, Sparkles, Play, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
+import Flashcards from "@/components/lesson/Flashcards";
+import MindMap from "@/components/lesson/MindMap";
+import InteractiveActivity from "@/components/lesson/InteractiveActivity";
 
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
@@ -12,6 +15,7 @@ export default function LessonPage() {
   const [subject, setSubject] = useState(null);
   const [topic, setTopic] = useState(null);
   const [explanation, setExplanation] = useState("");
+  const [lessonData, setLessonData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [sessionId, setSessionId] = useState(null);
@@ -34,7 +38,18 @@ export default function LessonPage() {
         1
       );
       if (sessions.length > 0 && sessions[0].ai_explanation) {
-        setExplanation(sessions[0].ai_explanation);
+        const raw = sessions[0].ai_explanation;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.lesson_markdown) {
+            setLessonData(parsed);
+            setExplanation(parsed.lesson_markdown);
+          } else {
+            setExplanation(raw);
+          }
+        } catch {
+          setExplanation(raw);
+        }
         setSessionId(sessions[0].id);
       }
       setLoading(false);
@@ -44,54 +59,110 @@ export default function LessonPage() {
 
   const generateLesson = async () => {
     setGenerating(true);
+    setLessonData(null);
     const user = await base44.auth.me();
     const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
     const matchingBooks = textbooks.filter(t => t.form_level === "All Levels" || t.form_level === topic.form_level);
     const fileUrls = matchingBooks.filter(t => !t.file_size || t.file_size <= 10 * 1024 * 1024).map(t => t.file_url).filter(Boolean);
-    const result = await base44.integrations.Core.InvokeLLM({
-      model: "gemini_3_flash",
-      add_context_from_internet: true,
-      file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-      prompt: (() => {
-        const isYoungLearner = ["Standard 1", "Standard 2", "Standard 3"].includes(topic.form_level);
-        const textbookNote = fileUrls.length > 0
-          ? `Use the provided Malaysian curriculum textbook as the PRIMARY source. Find the chapter covering "${topic.name}" and base your lesson on its actual content. `
-          : "";
-        const levelNote = topic.form_level?.startsWith("Standard")
-          ? `This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR).`
-          : topic.form_level?.startsWith("Form")
-            ? `This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`
-            : `Follow either KSSR (primary) or KSSM (secondary) depending on the topic level.`;
+    const isYoungLearner = ["Standard 1", "Standard 2", "Standard 3"].includes(topic.form_level);
+    const textbookNote = fileUrls.length > 0
+      ? `Use the provided Malaysian curriculum textbook as the PRIMARY source. Find the chapter covering "${topic.name}" and base your lesson on its actual content. `
+      : "";
+    const levelNote = topic.form_level?.startsWith("Standard")
+      ? `This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR).`
+      : topic.form_level?.startsWith("Form")
+        ? `This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`
+        : `Follow either KSSR (primary) or KSSM (secondary) depending on the topic level.`;
 
-        if (isYoungLearner) {
-          return `You are a super fun and friendly AI tutor for young Malaysian primary school children (Tahun 1-3, ages 7-9). ${textbookNote}Search the web for the official KSSR curriculum content for this topic, then explain it.
+    const result = isYoungLearner
+      ? await base44.integrations.Core.InvokeLLM({
+          model: "gemini_3_flash",
+          add_context_from_internet: true,
+          file_urls: fileUrls.length > 0 ? fileUrls : undefined,
+          prompt: `You are a super fun and friendly AI tutor for young Malaysian primary school children (Tahun 1-3, ages 7-9). ${textbookNote}Search the web for the official KSSR curriculum content for this topic, then create a fun interactive lesson.
 
 TOPIC: "${topic.name}" | SUBJECT: "${subject.name}" | LEVEL: ${topic.form_level}
 ${levelNote} Base your lesson on the official KPM KSSR syllabus and learning standards. Use Malaysian context (RM, local foods, animals, places, festivals).
 
-🧒 TEACHING STYLE — FUN & INTERACTIVE FOR YOUNG LEARNERS:
-- Use VERY simple words a 7-9 year old can understand. Short sentences.
-- Start with a FUN STORY or SCENARIO starring a friendly character (e.g. "Adik Ali pergi ke kedai..."). Use the same character throughout.
-- Use LOTS of emojis 🎉🧮🍎🐱 to make it visually fun (but not overwhelming).
-- Use **bold** for key words so they stand out.
-- Ask 1-2 simple QUESTIONS in the middle of the lesson and write "(Cuba jawab! 🤔)" to encourage the child to think.
-- Use a "Game Time! 🎮" mini-challenge — one tiny activity they can do in their head (e.g. "Can you count 5 objects around you?").
-- Include a simple SONG or RHYME if it helps them remember (Malay or English).
-- Be warm, encouraging, and celebrate them: "Hebat! ⭐" "Tabik spring! 👏".
+Create a fun, story-based lesson with ALL these parts in the JSON response:
 
-📋 LESSON STRUCTURE (use Markdown headings):
-1. **📖 Cerita Kita (Our Story)** — A short fun story introducing the topic
+LESSON MARKDOWN (lesson_markdown):
+🧒 Use VERY simple words a 7-9 year old can understand. Short sentences.
+- Start with a FUN STORY starring a friendly character (e.g. "Adik Ali pergi ke kedai...").
+- Use LOTS of emojis to make it visually fun.
+- Use **bold** for key words.
+- Ask 1-2 simple QUESTIONS with "(Cuba jawab! 🤔)".
+- Include a "Game Time! 🎮" mini-challenge.
+- Include a simple SONG or RHYME if helpful.
+- Be warm and encouraging: "Hebat! ⭐" "Tabik spring! 👏".
+Lesson structure (Markdown headings):
+1. **📖 Cerita Kita (Our Story)** — A short fun story
 2. **🔍 Apa Ini? (What is it?)** — Simple definition with emojis
-3. **💡 Jom Belajar! (Let's Learn!)** — Main concepts explained simply, with 1 interactive question
+3. **💡 Jom Belajar! (Let's Learn!)** — Main concepts, with 1 interactive question
 4. **🍎 Contoh Seronok (Fun Example)** — A worked example using Malaysian daily life
 5. **🎮 Game Time! (Mini Challenge)** — A tiny activity or game
 6. **🎵 Tip Hebat (Pro Tip)** — A memory trick or mini song/rhyme
-7. **⭐ Gambarajah Minda (Mind Map)** — A simple text-based summary with arrows (→) or bullet emojis
 
-Keep it playful, colorful, and short enough for a young child's attention span. Use both Malay and simple English words when helpful.`;
-        }
+FLASHCARDS (flashcards): 5-6 cards. Each has "front" (simple question/term with emoji) and "back" (simple answer). Child-friendly language.
 
-        return `You are an expert tutor for Malaysian school students. ${textbookNote}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then explain it. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum. ${levelNote}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""}
+MIND MAP (mind_map): A visual mind map with "central_topic" (main topic) and 3-4 "branches". Each branch has "label" and "children" (2-3 sub-points as simple strings).
+
+ACTIVITY (activity): An interactive activity with "type" (one of: "matching", "fill_blank", "true_false"), "title", and "items":
+- If "matching": items are {left, right} pairs — student matches term to definition
+- If "fill_blank": items are {sentence, answer} — use ___ for the blank in sentence
+- If "true_false": items are {statement, is_true} — is_true is true or false
+Use simple, fun content with emojis. 4-5 items.`,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              lesson_markdown: { type: "string" },
+              flashcards: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    front: { type: "string" },
+                    back: { type: "string" },
+                  },
+                  required: ["front", "back"],
+                },
+              },
+              mind_map: {
+                type: "object",
+                properties: {
+                  central_topic: { type: "string" },
+                  branches: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        label: { type: "string" },
+                        children: { type: "array", items: { type: "string" } },
+                      },
+                      required: ["label"],
+                    },
+                  },
+                },
+                required: ["central_topic", "branches"],
+              },
+              activity: {
+                type: "object",
+                properties: {
+                  type: { type: "string", enum: ["matching", "fill_blank", "true_false"] },
+                  title: { type: "string" },
+                  items: { type: "array", items: { type: "object" } },
+                },
+                required: ["type", "title", "items"],
+              },
+            },
+            required: ["lesson_markdown", "flashcards", "mind_map", "activity"],
+          },
+        })
+      : await base44.integrations.Core.InvokeLLM({
+          model: "gemini_3_flash",
+          add_context_from_internet: true,
+          file_urls: fileUrls.length > 0 ? fileUrls : undefined,
+          prompt: `You are an expert tutor for Malaysian school students. ${textbookNote}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then explain it. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum. ${levelNote}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""}
 
 Base your lesson content on the official Malaysian Ministry of Education (KPM) syllabus and learning standards for this subject and topic. Use Malaysian context, examples, and terminology where appropriate (e.g. RM for currency, local examples).
 
@@ -102,9 +173,8 @@ Structure your explanation:
 4. **Example** - One clear, worked example (use Malaysian context where relevant)
 5. **Quick Tip** - A memory trick or study tip
 
-Keep it engaging and encouraging. Use emojis sparingly to make it fun.`;
-      })(),
-    });
+Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
+        });
 
     const session = await base44.entities.StudySession.create({
       student_id: user.id,
@@ -112,10 +182,15 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`;
       topic_id: topicId,
       topic_name: topic.name,
       subject_name: subject.name,
-      ai_explanation: result,
+      ai_explanation: isYoungLearner ? JSON.stringify(result) : result,
       duration_minutes: 0,
     });
-    setExplanation(result);
+    if (isYoungLearner) {
+      setLessonData(result);
+      setExplanation(result.lesson_markdown);
+    } else {
+      setExplanation(result);
+    }
     setSessionId(session.id);
     setGenerating(false);
   };
@@ -245,6 +320,10 @@ Return ONLY valid JSON, no extra text.`;
           <div className="bg-white rounded-2xl p-6 border border-border/50 prose prose-sm max-w-none">
             <ReactMarkdown>{explanation}</ReactMarkdown>
           </div>
+
+          {lessonData?.flashcards?.length > 0 && <Flashcards flashcards={lessonData.flashcards} />}
+          {lessonData?.mind_map && <MindMap mindMap={lessonData.mind_map} />}
+          {lessonData?.activity && <InteractiveActivity activity={lessonData.activity} />}
 
           <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-5 border border-emerald-100">
             <h3 className="font-heading font-bold text-emerald-800 mb-2">Ready to test yourself? 🎯</h3>
