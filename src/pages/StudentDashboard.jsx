@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { BookOpen, ArrowRight, Clock } from "lucide-react";
+import { BookOpen, ArrowRight, Clock, Trophy, Sparkles, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatsBar from "@/components/student/StatsBar";
 import SubjectCard from "@/components/student/SubjectCard";
 import { motion } from "framer-motion";
+import moment from "moment";
 
 export default function StudentDashboard() {
   const [user, setUser] = useState(null);
@@ -13,23 +14,42 @@ export default function StudentDashboard() {
   const [progress, setProgress] = useState(null);
   const [subjects, setSubjects] = useState([]);
   const [recentSessions, setRecentSessions] = useState([]);
+  const [recentAttempts, setRecentAttempts] = useState([]);
+  const [todaySessionCount, setTodaySessionCount] = useState(0);
+  const [todayStudyMinutes, setTodayStudyMinutes] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const load = async () => {
-      const u = await base44.auth.me();
-      setUser(u);
-      const [wallets, progresses, subs] = await Promise.all([
-        base44.entities.Wallet.filter({ student_id: u.id }),
-        base44.entities.Progress.filter({ student_id: u.id }),
-        base44.entities.Subject.list(),
-      ]);
-      setWallet(wallets[0] || { balance: 0 });
-      setProgress(progresses[0] || { total_xp: 0, level: 1, streak_days: 0 });
-      setSubjects(subs);
-      const sessions = await base44.entities.StudySession.filter({ student_id: u.id }, "-created_date", 3);
-      setRecentSessions(sessions);
-      setLoading(false);
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+
+        const [wallets, progresses, subs, sessions, attempts] = await Promise.all([
+          base44.entities.Wallet.filter({ student_id: u.id }),
+          base44.entities.Progress.filter({ student_id: u.id }),
+          base44.entities.Subject.list(),
+          base44.entities.StudySession.filter({ student_id: u.id }, "-created_date", 3),
+          base44.entities.QuizAttempt.filter({ student_id: u.id }, "-created_date", 3),
+        ]);
+
+        setWallet(wallets[0] || { balance: 0 });
+        setProgress(progresses[0] || { total_xp: 0, level: 1, streak_days: 0 });
+        setSubjects(subs || []);
+        setRecentSessions(sessions || []);
+        setRecentAttempts(attempts || []);
+
+        // Daily progress: sessions created today
+        const today = new Date().toISOString().split("T")[0];
+        const todays = sessions.filter(s => moment(s.created_date).isSame(today, "day"));
+        setTodaySessionCount(todays.length);
+        setTodayStudyMinutes(todays.reduce((sum, s) => sum + (s.duration_minutes || 0), 0));
+      } catch (err) {
+        setError(err.message || "Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
@@ -38,6 +58,17 @@ export default function StudentDashboard() {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-muted-foreground">{error}</p>
+        <Button variant="outline" className="mt-4 rounded-xl" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
       </div>
     );
   }
@@ -80,6 +111,25 @@ export default function StudentDashboard() {
         </div>
       </motion.div>
 
+      {/* Daily progress summary */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="grid grid-cols-2 gap-3"
+      >
+        <div className="bg-white rounded-2xl p-4 border border-border/50 text-center">
+          <ListChecks className="w-5 h-5 text-primary mx-auto mb-1" />
+          <p className="text-xl font-bold text-foreground">{todaySessionCount}</p>
+          <p className="text-[10px] text-muted-foreground font-medium">Sessions Today</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 border border-border/50 text-center">
+          <Clock className="w-5 h-5 text-blue-500 mx-auto mb-1" />
+          <p className="text-xl font-bold text-foreground">{todayStudyMinutes}m</p>
+          <p className="text-[10px] text-muted-foreground font-medium">Study Time Today</p>
+        </div>
+      </motion.div>
+
       {/* Quick start */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -100,14 +150,14 @@ export default function StudentDashboard() {
         </Link>
       </motion.div>
 
-      {/* Recent sessions */}
-      {recentSessions.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <h2 className="font-heading font-semibold text-foreground mb-3">Continue Learning</h2>
+      {/* Continue learning */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <h2 className="font-heading font-semibold text-foreground mb-3">Continue Learning</h2>
+        {recentSessions.length > 0 ? (
           <div className="space-y-2">
             {recentSessions.map(session => (
               <Link
@@ -118,7 +168,7 @@ export default function StudentDashboard() {
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                   <BookOpen className="w-5 h-5 text-primary" />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w0">
                   <p className="font-medium text-sm truncate">{session.topic_name}</p>
                   <p className="text-xs text-muted-foreground">{session.subject_name}</p>
                 </div>
@@ -126,21 +176,74 @@ export default function StudentDashboard() {
               </Link>
             ))}
           </div>
-        </motion.div>
-      )}
+        ) : (
+          <div className="text-center py-8 bg-white rounded-2xl border border-border/50">
+            <Sparkles className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No study sessions yet.</p>
+            <Link to="/study">
+              <Button size="sm" className="mt-3 rounded-xl">
+                Start your first session <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </Link>
+          </div>
+        )}
+      </motion.div>
 
-      {/* Subjects */}
+      {/* Recent quiz activity */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
       >
+        <h2 className="font-heading font-semibold text-foreground mb-3">Recent Quizzes</h2>
+        {recentAttempts.length > 0 ? (
+          <div className="space-y-2">
+            {recentAttempts.map(a => (
+              <div key={a.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-border/50">
+                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{a.topic_name || "Quiz"}</p>
+                  <p className="text-xs text-muted-foreground">{moment(a.created_date).fromNow()}</p>
+                </div>
+                <span className={`font-bold text-sm ${a.score >= 80 ? "text-emerald-600" : a.score >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                  {a.score}%
+                </span>
+                {a.coins_earned > 0 && (
+                  <span className="text-xs text-amber-600 font-medium">+{a.coins_earned}🪙</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-white rounded-2xl border border-border/50">
+            <Trophy className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No quizzes taken yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">Complete a lesson to unlock quizzes!</p>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Subjects */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
         <h2 className="font-heading font-semibold text-foreground mb-3">Subjects</h2>
-        <div className="space-y-2">
-          {subjects.map((s, i) => (
-            <SubjectCard key={s.id} subject={s} index={i} />
-          ))}
-        </div>
+        {subjects.length > 0 ? (
+          <div className="space-y-2">
+            {subjects.map((s, i) => (
+              <SubjectCard key={s.id} subject={s} index={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-white rounded-2xl border border-border/50">
+            <BookOpen className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No subjects available yet.</p>
+          </div>
+        )}
       </motion.div>
     </div>
   );

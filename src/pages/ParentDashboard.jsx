@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, BookOpen, Trophy, Coins, Clock, TrendingUp, UserPlus, Loader2 } from "lucide-react";
+import { Users, Coins, Trophy, Clock, TrendingUp, UserPlus, CheckSquare, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,39 +11,61 @@ import moment from "moment";
 export default function ParentDashboard() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [linkEmail, setLinkEmail] = useState("");
   const [linking, setLinking] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [error, setError] = useState("");
   const { toast } = useToast();
 
   const loadData = async () => {
     try {
+      setError("");
       const u = await base44.auth.me();
       setUser(u);
       const studentIds = u.linked_student_ids || [];
+
       if (studentIds.length > 0) {
-        const childrenData = await Promise.all(
-          studentIds.map(async (sid) => {
-            const [progresses, wallets, attempts] = await Promise.all([
-              base44.entities.Progress.filter({ student_id: sid }),
-              base44.entities.Wallet.filter({ student_id: sid }),
-              base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 5),
-            ]);
-            const users = await base44.entities.User.filter({ id: sid });
-            return {
-              id: sid,
-              name: users[0]?.full_name || "Student",
-              progress: progresses[0] || { total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 },
-              wallet: wallets[0] || { balance: 0 },
-              recentAttempts: attempts,
-            };
-          })
-        );
+        const [childrenData, allPendingReqs] = await Promise.all([
+          Promise.all(
+            studentIds.map(async (sid) => {
+              const [progresses, wallets, attempts, sessions] = await Promise.all([
+                base44.entities.Progress.filter({ student_id: sid }),
+                base44.entities.Wallet.filter({ student_id: sid }),
+                base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 5),
+                base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 50),
+              ]);
+              const users = await base44.entities.User.filter({ id: sid });
+              // Weekly study time
+              const weekAgo = moment().subtract(7, "days").toDate();
+              const weeklySessions = sessions.filter(s => new Date(s.created_date) >= weekAgo);
+              const weeklyMinutes = weeklySessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+              return {
+                id: sid,
+                name: users[0]?.full_name || "Student",
+                progress: progresses[0] || { total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 },
+                wallet: wallets[0] || { balance: 0 },
+                recentAttempts: attempts || [],
+                weeklyMinutes,
+                sessionCount: sessions.length,
+              };
+            })
+          ),
+          Promise.all(
+            studentIds.map(sid =>
+              base44.entities.RewardRequest.filter({ student_id: sid, status: "pending" }, "-created_date", 20)
+            )
+          ),
+        ]);
         setChildren(childrenData);
+        setPendingRequests(allPendingReqs.flat());
+      } else {
+        setChildren([]);
+        setPendingRequests([]);
       }
-    } catch (e) {
-      console.error("Failed to load parent data", e);
+    } catch (err) {
+      setError(err.message || "Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
@@ -85,6 +107,17 @@ export default function ParentDashboard() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-muted-foreground">{error}</p>
+        <Button variant="outline" className="mt-4 rounded-xl" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -117,6 +150,46 @@ export default function ParentDashboard() {
         </Dialog>
       </div>
 
+      {/* Pending reward requests — always visible */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl border border-border/50 p-5"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <CheckSquare className="w-5 h-5 text-amber-500" />
+            <h2 className="font-heading font-semibold">Reward Approvals</h2>
+          </div>
+          <span className="text-xs font-medium bg-amber-100 text-amber-700 px-2 py-1 rounded-full">
+            {pendingRequests.length} pending
+          </span>
+        </div>
+        {pendingRequests.length > 0 ? (
+          <div className="space-y-2">
+            {pendingRequests.map(req => {
+              const child = children.find(c => c.id === req.student_id);
+              return (
+                <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+                  <Coins className="w-5 h-5 text-amber-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{req.reward_title}</p>
+                    <p className="text-xs text-muted-foreground">{child?.name || "Student"} · {moment(req.created_date).fromNow()}</p>
+                  </div>
+                  <span className="text-sm font-bold text-amber-600">{req.coin_cost}🪙</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <CheckSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No pending reward requests.</p>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Children overview */}
       {children.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-2xl border border-border/50">
           <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -134,6 +207,7 @@ export default function ParentDashboard() {
           >
             <div className="p-5 border-b border-border/50">
               <h2 className="font-heading font-bold text-lg">{child.name}</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{child.sessionCount} total sessions · {child.weeklyMinutes}m this week</p>
             </div>
 
             <div className="grid grid-cols-4 gap-2 p-4">
@@ -159,9 +233,10 @@ export default function ParentDashboard() {
               </div>
             </div>
 
-            {child.recentAttempts.length > 0 && (
-              <div className="px-4 pb-4">
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">Recent Quizzes</h3>
+            {/* Recent quizzes */}
+            <div className="px-4 pb-4">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">Recent Quizzes</h3>
+              {child.recentAttempts.length > 0 ? (
                 <div className="space-y-2">
                   {child.recentAttempts.map(a => (
                     <div key={a.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-sm">
@@ -177,8 +252,13 @@ export default function ParentDashboard() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                  <BookOpen className="w-4 h-4" />
+                  No quizzes taken yet
+                </div>
+              )}
+            </div>
           </motion.div>
         ))
       )}
