@@ -21,9 +21,14 @@ export default function ProfileForm({ user, editing, formData, setFormData, isSt
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs text-muted-foreground">Full Name (Read-only)</Label>
-              <p className="text-sm font-medium mt-1">{user?.full_name || "Not set"}</p>
-              <p className="text-xs text-muted-foreground mt-1">Contact support to change your full name</p>
+              <Label className="text-xs text-muted-foreground">Full Name</Label>
+              <div className="mt-1 p-2 bg-muted/50 rounded-md border border-border/50">
+                <p className="text-sm font-medium">{user?.full_name || "Not set"}</p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5 flex items-start gap-1">
+                <span>ℹ️</span>
+                <span>Full name cannot be changed. Use the Nickname field for your preferred name.</span>
+              </p>
             </div>
 
             <div>
