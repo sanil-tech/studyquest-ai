@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,7 +125,7 @@ export default function ChildCredentialManager({ open, onOpenChange, child }) {
             Manage Login Credentials
           </DialogTitle>
           <DialogDescription>
-            {child.full_name || child.nickname} - {child.student_id}
+            {getDisplayName(child)} - {child.student_id}
           </DialogDescription>
         </DialogHeader>
 

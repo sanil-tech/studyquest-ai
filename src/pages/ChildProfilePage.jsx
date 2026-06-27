@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { getDisplayName } from "@/lib/utils";
 import { 
   ArrowLeft, Edit2, Save, X, AlertTriangle, User, 
   Calendar, School, MapPin, GraduationCap, Image as ImageIcon,
@@ -200,7 +201,7 @@ export default function ChildProfilePage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-heading font-bold text-foreground">
-            {child.full_name?.trim() || "Profile Incomplete"}
+            {getDisplayName(child)}
           </h1>
           <p className="text-sm text-muted-foreground">Student Profile</p>
         </div>
@@ -231,7 +232,7 @@ export default function ChildProfilePage() {
               {child.profile_picture_url ? (
                 <img
                   src={child.profile_picture_url}
-                  alt={child.full_name}
+                  alt={getDisplayName(child)}
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (

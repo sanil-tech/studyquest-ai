@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key, User, Edit2 } from "lucide-react";
+import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,8 @@ export default function MyChildrenPage() {
               nickname: child.nickname,
               email: child.email 
             });
+            // Apply display name fallback system
+            child.display_name = getDisplayName(child);
             const [progress, wallet] = await Promise.all([
               base44.entities.Progress.filter({ student_id: child.id }).then(r => r[0]),
               base44.entities.Wallet.filter({ student_id: child.id }).then(r => r[0])
@@ -174,7 +177,7 @@ export default function MyChildrenPage() {
                       {child.profile_picture_url || child.avatar_photo_url ? (
                         <img
                           src={child.profile_picture_url || child.avatar_photo_url}
-                          alt={child.full_name}
+                          alt={child.display_name || getDisplayName(child)}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -183,7 +186,7 @@ export default function MyChildrenPage() {
                     </div>
                     <div className="flex-1">
                       <CardTitle className="text-lg font-bold">
-                        {child.full_name?.trim() ? child.full_name.trim() : "Profile Incomplete"}
+                        {child.display_name || getDisplayName(child)}
                       </CardTitle>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                         <span>{calculateAge(child.date_of_birth)} years</span>

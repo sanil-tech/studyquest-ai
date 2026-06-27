@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Users, Coins, Trophy, Clock, TrendingUp, CheckSquare, BookOpen, Plus } from "lucide-react";
+import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
@@ -67,10 +68,10 @@ export default function ParentDashboard() {
                 nickname: student.nickname,
                 email: student.email 
               });
-              // CRITICAL FIX: Use full_name with strict validation - no "Unnamed Student" fallback
+              // CRITICAL FIX: Use display name fallback system
               return {
                 ...child,
-                name: student.full_name?.trim() || "Profile Incomplete",
+                name: getDisplayName(student),
               };
             } catch (err) {
               console.error(`Failed to fetch student ${studentIds[idx]}:`, err.message);
