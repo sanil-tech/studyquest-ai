@@ -10,13 +10,20 @@ export default function RoleSetup() {
   const [role, setRole] = useState(null);
   const [linkCode, setLinkCode] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSelectRole = async (selectedRole) => {
     setRole(selectedRole);
     if (selectedRole === "parent") {
       setSaving(true);
-      await base44.auth.updateMe({ role: "parent", linked_student_ids: [] });
-      window.location.href = "/parent";
+      try {
+        const u = await base44.auth.me();
+        await base44.entities.User.update(u.id, { role: "parent", linked_student_ids: [] });
+        window.location.href = "/parent";
+      } catch (err) {
+        setError(err.message || "Failed to set role");
+        setSaving(false);
+      }
     } else {
       setStep("link");
     }
@@ -24,18 +31,23 @@ export default function RoleSetup() {
 
   const handleFinishStudent = async () => {
     setSaving(true);
-    await base44.auth.updateMe({ role: "student" });
-    // Create wallet and progress for the student
-    const user = await base44.auth.me();
-    const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
-    if (wallets.length === 0) {
-      await base44.entities.Wallet.create({ student_id: user.id, balance: 0 });
+    try {
+      const user = await base44.auth.me();
+      await base44.entities.User.update(user.id, { role: "student" });
+      // Create wallet and progress for the student
+      const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
+      if (wallets.length === 0) {
+        await base44.entities.Wallet.create({ student_id: user.id, balance: 0 });
+      }
+      const progress = await base44.entities.Progress.filter({ student_id: user.id });
+      if (progress.length === 0) {
+        await base44.entities.Progress.create({ student_id: user.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
+      }
+      window.location.href = "/";
+    } catch (err) {
+      setError(err.message || "Failed to set up account");
+      setSaving(false);
     }
-    const progress = await base44.entities.Progress.filter({ student_id: user.id });
-    if (progress.length === 0) {
-      await base44.entities.Progress.create({ student_id: user.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
-    }
-    window.location.href = "/";
   };
 
   return (
@@ -47,6 +59,9 @@ export default function RoleSetup() {
       >
         {step === "role" ? (
           <div className="text-center space-y-8">
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
+            )}
             <div>
               <h1 className="text-3xl font-heading font-bold text-foreground">Welcome to StudyQuest! 🎉</h1>
               <p className="text-muted-foreground mt-2">Who are you?</p>
@@ -79,6 +94,9 @@ export default function RoleSetup() {
           </div>
         ) : (
           <div className="text-center space-y-6">
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
+            )}
             <div>
               <h2 className="text-2xl font-heading font-bold">Almost ready! 🎓</h2>
               <p className="text-muted-foreground mt-2">You're set up as a student.</p>
