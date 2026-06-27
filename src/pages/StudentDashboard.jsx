@@ -25,10 +25,18 @@ export default function StudentDashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let unsubscribe;
     const load = async () => {
       try {
         const u = await base44.auth.me();
         setUser(u);
+
+        // Subscribe to user updates for real-time name/avatar changes
+        unsubscribe = base44.entities.User.subscribe((event) => {
+          if (event.data.id === u.id) {
+            setUser((prev) => ({ ...prev, ...event.data }));
+          }
+        });
 
         const [wallets, progresses, subs, sessions, attempts] = await Promise.all([
           base44.entities.Wallet.filter({ student_id: u.id }),
@@ -58,6 +66,7 @@ export default function StudentDashboard() {
       }
     };
     load();
+    return () => unsubscribe && unsubscribe();
   }, []);
 
   if (loading) {
@@ -79,16 +88,24 @@ export default function StudentDashboard() {
     );
   }
 
-  const firstName = user?.full_name?.split(" ")[0] || "Student";
+  const displayName = user?.full_name || "Student";
+  const firstName = displayName.split(" ")[0];
 
   return (
     <div className="space-y-6">
       {/* Greeting */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <h1 className="text-2xl font-heading font-bold text-foreground">
-          Hey {firstName}! 👋
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">Ready to level up today?</p>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-2xl shadow-md">
+            {user?.avatar_emoji || "🎓"}
+          </div>
+          <div>
+            <h1 className="text-2xl font-heading font-bold text-foreground">
+              Hey {firstName}! 👋
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">Ready to level up today?</p>
+          </div>
+        </div>
       </motion.div>
 
       {/* Stats */}

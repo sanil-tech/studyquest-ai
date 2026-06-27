@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { User, LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight } from "lucide-react";
+import { User, LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -18,7 +18,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [showAvatar, setShowAvatar] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({ school_year: "", school_name: "", class_name: "" });
+  const [formData, setFormData] = useState({ full_name: "", school_year: "", school_name: "", class_name: "" });
 
   useEffect(() => {
     const load = async () => {
@@ -34,6 +34,7 @@ export default function ProfilePage() {
         setWallet(wallets[0]);
         setTotalQuizzes(attempts.length);
         setFormData({
+          full_name: u.full_name || "",
           school_year: u.school_year || "",
           school_name: u.school_name || "",
           class_name: u.class_name || "",
@@ -78,18 +79,36 @@ export default function ProfilePage() {
         <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3 text-4xl">
           {user?.avatar_emoji || "🎓"}
         </div>
-        <h1 className="text-xl font-heading font-bold">{user?.full_name || "User"}</h1>
+        {editing ? (
+          <Input
+            value={formData.full_name}
+            onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+            className="bg-white/20 border-white/30 text-white placeholder-white/60 text-center font-heading font-bold mb-2"
+            placeholder="Your name"
+          />
+        ) : (
+          <h1 className="text-xl font-heading font-bold">{user?.full_name || "User"}</h1>
+        )}
         <p className="text-white/70 text-sm">{user?.email}</p>
         <span className="inline-block mt-2 px-3 py-1 rounded-full bg-white/20 text-xs font-medium capitalize">
           {user?.app_role || "student"}
         </span>
         {user?.app_role === "student" && (
-          <button
-            onClick={() => setShowAvatar(!showAvatar)}
-            className="mt-3 text-xs text-white/90 hover:text-white underline"
-          >
-            {showAvatar ? "Close Avatar" : "Change Avatar"}
-          </button>
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <button
+              onClick={() => setShowAvatar(!showAvatar)}
+              className="text-xs text-white/90 hover:text-white underline"
+            >
+              {showAvatar ? "Close Avatar" : "Change Avatar"}
+            </button>
+            <button
+              onClick={() => editing ? handleSaveProfile() : setEditing(true)}
+              className="text-xs text-white/90 hover:text-white underline font-medium flex items-center gap-1"
+            >
+              <Pen className="w-3 h-3" />
+              {editing ? "Save" : "Edit Profile"}
+            </button>
+          </div>
         )}
       </motion.div>
 
@@ -134,15 +153,7 @@ export default function ProfilePage() {
             transition={{ delay: 0.15 }}
             className="bg-white rounded-2xl p-5 border border-border/50"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-heading font-bold text-foreground">School Profile</h3>
-              <button
-                onClick={() => editing ? handleSaveProfile() : setEditing(true)}
-                className="text-xs text-primary font-medium hover:underline"
-              >
-                {editing ? "Save" : "Edit"}
-              </button>
-            </div>
+            <h3 className="font-heading font-bold text-foreground mb-4">School Profile</h3>
             <div className="space-y-3">
               <div>
                 <Label className="text-xs text-muted-foreground">Year Level</Label>
