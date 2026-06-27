@@ -156,6 +156,19 @@ export default function LessonPage() {
     const isEnglishSubject = subject.name.toLowerCase().includes("english");
     const lessonLanguage = isEnglishSubject ? "English" : "Bahasa Melayu";
 
+    // Provide fully translated prompts for Malay vs English lessons
+    const promptContent = isEnglishSubject ? {
+      instruction: "Write the ENTIRE lesson in English (English subject - use English only).",
+      storyExample: 'e.g., "Ali went to the shop...", "Siti\'s family visited...", "During a football match at school..."',
+      encouragingPhrases: '"Great job!", "You\'ve got this!", "Well done!"',
+      imageExample: "[IMAGE: A cheerful classroom with students learning at desks, teacher at whiteboard, bright colours]",
+    } : {
+      instruction: "Tulis SELURUH pelajaran dalam Bahasa Melayu (guna Bahasa Melayu sahaja - JANGAN campur Bahasa Inggeris langsung).",
+      storyExample: 'cth., "Ali pergi ke kedai...", "Keluarga Siti melawat...", "Semasa perlawanan bola sepak di sekolah..."',
+      encouragingPhrases: '"Bagus!", "Hebat!", "Teruskan!"',
+      imageExample: "[IMAGE: Sebuah ceria di dalam kelas dengan murid-murid belajar di meja, guru di papan putih, warna cerah]",
+    };
+
     // Provide Malay translations for section headings
     const sectionHeadings = isEnglishSubject ? {
       lessonTitle: "📚 Lesson Title",
@@ -186,7 +199,7 @@ export default function LessonPage() {
       prompt: `You are an expert, friendly AI tutor for Malaysian school students. ${textbookNote}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic.
 
 TOPIC: "${topic.name}" | SUBJECT: "${subject.name}" | LEVEL: ${topic.form_level}
-LANGUAGE: Write the ENTIRE lesson in ${lessonLanguage} ${isEnglishSubject ? "(English subject - use English only)" : "(use Bahasa Melayu for ALL content including headings, titles, and section names - NO English mixed in)"}.
+LANGUAGE: ${promptContent.instruction}
 ${levelNote} ${isYoungLearner ? "Use VERY simple words for ages 7-9. Short sentences. Lots of emojis." : "Use clear, age-appropriate language."}
 
 CRITICAL: If the lesson is in Bahasa Melayu, ALL headings, titles, section names, and content MUST be in Bahasa Melayu. Do NOT use any English words or headings.
@@ -212,7 +225,7 @@ Break into short sections with subheadings (###). Each section:
 - Include Malaysian context (school, family, shopping, football, food like nasi lemak, animals, places, festivals, RM currency)
 
 ## ${sectionHeadings.realLifeStory}
-A relatable Malaysian story that illustrates the concept (e.g., "Ali went to the kedai...", "Siti's family visited...", "During a football match at school...").
+A relatable Malaysian story that illustrates the concept (${promptContent.storyExample}).
 
 ## ${sectionHeadings.keyPointsSummary}
 3-5 bullet points summarizing the most important takeaways.
@@ -235,7 +248,7 @@ INFO CARDS - Insert these throughout using EXACT markers (keep markers in Englis
 - [STORY] real-life Malaysian story or situation [/STORY]
 
 IMAGE PROMPTS - Add 2-3 image descriptions using: [IMAGE: describe a colourful, child-friendly educational illustration]
-Example: [IMAGE: A cheerful Malaysian classroom with students learning at desks, teacher at whiteboard, bright colours]
+Example: ${promptContent.imageExample}
 
 WRITING STYLE:
 - Simple, age-appropriate language
@@ -244,7 +257,7 @@ WRITING STYLE:
 - Bullet points where suitable
 - **Bold** for keywords
 - Emojis sparingly but effectively (📚✨🎯💡🌟)
-- Warm, encouraging tone: "Great job!", "You've got this!", "Hebat!"
+- Warm, encouraging tone: ${promptContent.encouragingPhrases}
 
 FLASHCARDS (flashcards): 5-6 cards with "front" (question/term + emoji) and "back" (answer) - ALL in ${lessonLanguage}.
 
