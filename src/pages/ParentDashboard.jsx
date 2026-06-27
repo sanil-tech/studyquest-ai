@@ -83,10 +83,17 @@ export default function ParentDashboard() {
 
   // Realtime: refresh when any LinkRequest changes (e.g. student accepts)
   useEffect(() => {
-    const unsubscribe = base44.entities.LinkRequest.subscribe(() => {
+    const unsubscribeLink = base44.entities.LinkRequest.subscribe(() => {
       loadData();
     });
-    return () => unsubscribe();
+    // Also subscribe to User changes for real-time name/avatar updates
+    const unsubscribeUser = base44.entities.User.subscribe(() => {
+      loadData();
+    });
+    return () => {
+      unsubscribeLink();
+      unsubscribeUser();
+    };
   }, []);
 
   const linkChild = async () => {

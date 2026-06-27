@@ -32,9 +32,10 @@ export default function StudentDashboard() {
         setUser(u);
 
         // Subscribe to user updates for real-time name/avatar changes
-        unsubscribe = base44.entities.User.subscribe((event) => {
+        unsubscribe = base44.entities.User.subscribe(async (event) => {
           if (event.data.id === u.id) {
-            setUser((prev) => ({ ...prev, ...event.data }));
+            const updatedUser = await base44.auth.me();
+            setUser(updatedUser);
           }
         });
 
