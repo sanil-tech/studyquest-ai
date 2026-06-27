@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { IdCard, Copy, RefreshCw, QrCode, Check } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import QRCode from "qrcode.react";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function StudentIdSection({ user }) {
   const { toast } = useToast();
@@ -230,7 +230,7 @@ export default function StudentIdSection({ user }) {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white p-6 rounded-xl border-2 border-primary/20 flex flex-col items-center"
           >
-            <QRCode
+            <QRCodeSVG
               value={JSON.stringify({
                 student_id: studentId,
                 link_code: linkCode.code
