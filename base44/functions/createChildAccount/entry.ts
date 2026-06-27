@@ -39,6 +39,23 @@ const hashPassword = (password) => {
   return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
 };
 
+// Retry wrapper with exponential backoff for rate limits
+const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error.message.includes('rate limit') || error.status === 429) {
+        const delay = baseDelay * Math.pow(2, i);
+        console.log(`Rate limited, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 const calculateAge = (birthDate) => {
   const today = new Date();
   const birth = new Date(birthDate);
@@ -105,40 +122,42 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Failed to generate unique Student ID' }, { status: 500 });
     }
 
-    // Create child user account
-    const childUser = await base44.asServiceRole.entities.User.create({
-      full_name: childData.full_name,
-      nickname: childData.nickname || childData.full_name.split(' ')[0],
-      email: `${studentId}@studyquest.local`,
-      app_role: 'student',
-      student_id: studentId,
-      username: username,
-      password_hash: passwordHash,
-      pin_hash: '',
-      pin_enabled: false,
-      login_method: 'password',
-      date_of_birth: childData.date_of_birth,
-      gender: childData.gender || '',
-      school_name: childData.school_name || '',
-      education_level: childData.education_level || '',
-      grade_year: childData.grade_year || '',
-      class_name: childData.grade_year || '',
-      state: childData.state || '',
-      country: 'Malaysia',
-      profile_picture_url: childData.profile_picture_url || '',
-      avatar_photo_url: childData.profile_picture_url || '',
-      profile_completed: true,
-      is_child_account: true,
-      linked_parent_id: parent.id,
-      failed_login_attempts: 0,
-      account_locked: false,
-      linked_student_ids: [],
-      school_year: childData.education_level || '',
-      phone_number: '',
-      num_children: 0,
-      children_names: '',
-      teaching_subjects: '',
-      teaching_level: ''
+    // Create child user account with retry for rate limits
+    const childUser = await retryWithBackoff(async () => {
+      return await base44.asServiceRole.entities.User.create({
+        full_name: childData.full_name,
+        nickname: childData.nickname || childData.full_name.split(' ')[0],
+        email: `${studentId}@studyquest.local`,
+        app_role: 'student',
+        student_id: studentId,
+        username: username,
+        password_hash: passwordHash,
+        pin_hash: '',
+        pin_enabled: false,
+        login_method: 'password',
+        date_of_birth: childData.date_of_birth,
+        gender: childData.gender || '',
+        school_name: childData.school_name || '',
+        education_level: childData.education_level || '',
+        grade_year: childData.grade_year || '',
+        class_name: childData.grade_year || '',
+        state: childData.state || '',
+        country: 'Malaysia',
+        profile_picture_url: childData.profile_picture_url || '',
+        avatar_photo_url: childData.profile_picture_url || '',
+        profile_completed: true,
+        is_child_account: true,
+        linked_parent_id: parent.id,
+        failed_login_attempts: 0,
+        account_locked: false,
+        linked_student_ids: [],
+        school_year: childData.education_level || '',
+        phone_number: '',
+        num_children: 0,
+        children_names: '',
+        teaching_subjects: '',
+        teaching_level: ''
+      });
     });
 
     // Create ParentChildRelationship
