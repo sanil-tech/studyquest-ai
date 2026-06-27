@@ -19,7 +19,7 @@ export default function ChildLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = async () => {
+const handleLogin = async () => {
     setLoading(true);
     setError("");
 
@@ -30,7 +30,7 @@ export default function ChildLogin() {
         return;
       }
 
-      if (loginMethod === "password" && !password) {
+      if (loginMethod === "password" && !password.trim()) {
         setError("Please enter your password");
         setLoading(false);
         return;
@@ -42,10 +42,11 @@ export default function ChildLogin() {
         return;
       }
 
+      // Add .trim() to the password payload here!
       const response = await base44.functions.invoke("childLogin", {
         student_id: studentId.trim().toUpperCase(),
-        password: loginMethod === "password" ? password : null,
-        pin: loginMethod === "pin" ? pin : null,
+        password: loginMethod === "password" ? password.trim() : null,
+        pin: loginMethod === "pin" ? pin.trim() : null,
       });
 
       if (response.data.success) {
@@ -71,6 +72,7 @@ export default function ChildLogin() {
           window.location.href = "/complete-profile";
         }
       } else {
+        // Show specific backend error (e.g., "Account temporarily locked")
         setError(response.data.error || "Login failed. Please try again.");
       }
     } catch (err) {
