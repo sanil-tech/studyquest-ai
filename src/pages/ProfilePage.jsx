@@ -5,6 +5,10 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import ConnectParent from "@/components/student/ConnectParent";
+import AvatarSelector from "@/components/student/AvatarSelector";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -12,6 +16,9 @@ export default function ProfilePage() {
   const [wallet, setWallet] = useState(null);
   const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showAvatar, setShowAvatar] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({ school_year: "", school_name: "", class_name: "" });
 
   useEffect(() => {
     const load = async () => {
@@ -26,6 +33,11 @@ export default function ProfilePage() {
         setProgress(progs[0]);
         setWallet(wallets[0]);
         setTotalQuizzes(attempts.length);
+        setFormData({
+          school_year: u.school_year || "",
+          school_name: u.school_name || "",
+          class_name: u.class_name || "",
+        });
       }
       setLoading(false);
     };
@@ -34,6 +46,17 @@ export default function ProfilePage() {
 
   const handleLogout = () => {
     base44.auth.logout("/login");
+  };
+
+  const handleSaveAvatar = async (emoji) => {
+    await base44.auth.updateMe({ avatar_emoji: emoji });
+    setUser((prev) => ({ ...prev, avatar_emoji: emoji }));
+  };
+
+  const handleSaveProfile = async () => {
+    await base44.auth.updateMe(formData);
+    setUser((prev) => ({ ...prev, ...formData }));
+    setEditing(false);
   };
 
   if (loading) {
@@ -60,35 +83,121 @@ export default function ProfilePage() {
         <span className="inline-block mt-2 px-3 py-1 rounded-full bg-white/20 text-xs font-medium capitalize">
           {user?.app_role || "student"}
         </span>
+        {user?.app_role === "student" && (
+          <button
+            onClick={() => setShowAvatar(!showAvatar)}
+            className="mt-3 text-xs text-white/90 hover:text-white underline"
+          >
+            {showAvatar ? "Close Avatar" : "Change Avatar"}
+          </button>
+        )}
       </motion.div>
+
+      {/* Avatar selector */}
+      {showAvatar && user?.app_role === "student" && (
+        <AvatarSelector currentAvatar={user?.avatar_emoji} onSelect={handleSaveAvatar} />
+      )}
 
       {/* Parent connection — students only */}
       {user?.app_role === "student" && <ConnectParent user={user} />}
 
       {/* Stats for students */}
       {user?.app_role === "student" && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-3 gap-3"
-        >
-          <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
-            <BookOpen className="w-5 h-5 text-primary mx-auto mb-1" />
-            <p className="text-lg font-bold">{totalQuizzes}</p>
-            <p className="text-[10px] text-muted-foreground">Quizzes</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
-            <Trophy className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-            <p className="text-lg font-bold">Lv {progress?.level || 1}</p>
-            <p className="text-[10px] text-muted-foreground">Level</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
-            <Coins className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-            <p className="text-lg font-bold">{wallet?.balance || 0}</p>
-            <p className="text-[10px] text-muted-foreground">Coins</p>
-          </div>
-        </motion.div>
+        <>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="grid grid-cols-3 gap-3"
+          >
+            <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
+              <BookOpen className="w-5 h-5 text-primary mx-auto mb-1" />
+              <p className="text-lg font-bold">{totalQuizzes}</p>
+              <p className="text-[10px] text-muted-foreground">Quizzes</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
+              <Trophy className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+              <p className="text-lg font-bold">Lv {progress?.level || 1}</p>
+              <p className="text-[10px] text-muted-foreground">Level</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 text-center border border-border/50">
+              <Coins className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+              <p className="text-lg font-bold">{wallet?.balance || 0}</p>
+              <p className="text-[10px] text-muted-foreground">Coins</p>
+            </div>
+          </motion.div>
+
+          {/* Profile editor */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-white rounded-2xl p-5 border border-border/50"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-heading font-bold text-foreground">School Profile</h3>
+              <button
+                onClick={() => editing ? handleSaveProfile() : setEditing(true)}
+                className="text-xs text-primary font-medium hover:underline"
+              >
+                {editing ? "Save" : "Edit"}
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Year Level</Label>
+                {editing ? (
+                  <Select value={formData.school_year} onValueChange={(v) => setFormData(prev => ({ ...prev, school_year: v }))}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Standard 1">Standard 1</SelectItem>
+                      <SelectItem value="Standard 2">Standard 2</SelectItem>
+                      <SelectItem value="Standard 3">Standard 3</SelectItem>
+                      <SelectItem value="Standard 4">Standard 4</SelectItem>
+                      <SelectItem value="Standard 5">Standard 5</SelectItem>
+                      <SelectItem value="Standard 6">Standard 6</SelectItem>
+                      <SelectItem value="Form 1">Form 1</SelectItem>
+                      <SelectItem value="Form 2">Form 2</SelectItem>
+                      <SelectItem value="Form 3">Form 3</SelectItem>
+                      <SelectItem value="Form 4">Form 4</SelectItem>
+                      <SelectItem value="Form 5">Form 5</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm font-medium mt-1">{user?.school_year || "Not set"}</p>
+                )}
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">School Name</Label>
+                {editing ? (
+                  <Input
+                    value={formData.school_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, school_name: e.target.value }))}
+                    placeholder="e.g. SK Taman Jaya"
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm font-medium mt-1">{user?.school_name || "Not set"}</p>
+                )}
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Class</Label>
+                {editing ? (
+                  <Input
+                    value={formData.class_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
+                    placeholder="e.g. 1A, 3B"
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm font-medium mt-1">{user?.class_name || "Not set"}</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </>
       )}
 
       {/* Admin tools */}

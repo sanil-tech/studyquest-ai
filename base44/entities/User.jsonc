@@ -24,6 +24,18 @@
     "avatar_emoji": {
       "type": "string",
       "default": "\ud83c\udf93"
+    },
+    "school_year": {
+      "type": "string",
+      "description": "Student's year level (e.g. Standard 1, Form 3)"
+    },
+    "school_name": {
+      "type": "string",
+      "description": "Name of the school"
+    },
+    "class_name": {
+      "type": "string",
+      "description": "Class or form name (e.g. 1A, 3B)"
     }
   }
 }
