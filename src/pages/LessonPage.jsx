@@ -9,6 +9,9 @@ import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 import InteractiveActivity from "@/components/lesson/InteractiveActivity";
 import LessonProgress from "@/components/lesson/LessonProgress";
+import InfoCard from "@/components/lesson/InfoCard";
+import LessonContent from "@/components/lesson/LessonContent";
+import LessonImage from "@/components/lesson/LessonImage";
 
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
@@ -97,6 +100,11 @@ export default function LessonPage() {
                   return cleaned;
                 }),
               } : null,
+              image_prompts: (parsed.image_prompts || []).map(img => ({
+                prompt: (img.prompt || "").replace(/\\n/g, " "),
+                alt: (img.alt || "").replace(/\\n/g, " "),
+                caption: (img.caption || "").replace(/\\n/g, " "),
+              })),
             };
             setLessonData(cleaned);
             setExplanation(cleaned.lesson_markdown);
@@ -144,120 +152,152 @@ export default function LessonPage() {
         ? `This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`
         : `Follow either KSSR (primary) or KSSM (secondary) depending on the topic level.`;
 
-    const result = isYoungLearner
-      ? await base44.integrations.Core.InvokeLLM({
-          model: "gemini_3_flash",
-          add_context_from_internet: true,
-          file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-          prompt: `You are a super fun and friendly AI tutor for young Malaysian primary school children (Tahun 1-3, ages 7-9). ${textbookNote}Search the web for the official KSSR curriculum content for this topic, then create a fun interactive lesson.
+    const result = await base44.integrations.Core.InvokeLLM({
+      model: "gemini_3_flash",
+      add_context_from_internet: true,
+      file_urls: fileUrls.length > 0 ? fileUrls : undefined,
+      prompt: `You are an expert, friendly AI tutor for Malaysian school students. ${textbookNote}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic.
 
 TOPIC: "${topic.name}" | SUBJECT: "${subject.name}" | LEVEL: ${topic.form_level}
-${levelNote} Base your lesson on the official KPM KSSR syllabus and learning standards. Use Malaysian context (RM, local foods, animals, places, festivals).
+${levelNote} ${isYoungLearner ? "Use VERY simple words for ages 7-9. Short sentences. Lots of emojis." : "Use clear, age-appropriate language."}
 
-Create a fun, story-based lesson with ALL these parts in the JSON response:
+Create an ENGAGING, VISUALLY-APPEALING lesson that feels like a teacher telling an interesting story, NOT a dry textbook.
 
-LESSON MARKDOWN (lesson_markdown):
-🧒 Use VERY simple words a 7-9 year old can understand. Short sentences.
-- Start with a FUN STORY starring a friendly character (e.g. "Adik Ali pergi ke kedai...").
-- Use LOTS of emojis to make it visually fun.
-- Use **bold** for key words.
-- Ask 1-2 simple QUESTIONS with "(Cuba jawab! 🤔)".
-- Include a "Game Time! 🎮" mini-challenge.
-- Include a simple SONG or RHYME if helpful.
-- Be warm and encouraging: "Hebat! ⭐" "Tabik spring! 👏".
-Lesson structure (Markdown headings):
-1. **📖 Cerita Kita (Our Story)** — A short fun story
-2. **🔍 Apa Ini? (What is it?)** — Simple definition with emojis
-3. **💡 Jom Belajar! (Let's Learn!)** — Main concepts, with 1 interactive question
-4. **🍎 Contoh Seronok (Fun Example)** — A worked example using Malaysian daily life
-5. **🎮 Game Time! (Mini Challenge)** — A tiny activity or game
-6. **🎵 Tip Hebat (Pro Tip)** — A memory trick or mini song/rhyme
+STRUCTURE (use Markdown headings ##):
 
-FLASHCARDS (flashcards): 5-6 cards. Each has "front" (simple question/term with emoji) and "back" (simple answer). Child-friendly language.
+## 📚 Lesson Title
+Clear, engaging title for this topic.
 
-MIND MAP (mind_map): A visual mind map with "central_topic" (main topic) and 3-4 "branches". Each branch has "label" and "children" (2-3 sub-points as simple strings).
+## 🎯 Learning Objective
+1-2 sentences: "By the end of this lesson, you will be able to..."
 
-ACTIVITY (activity): An interactive activity. Choose ONE type and fill ALL item fields for that type:
-- "matching": each item MUST have "left" (the term/question) AND "right" (the matching answer)
-- "fill_blank": each item MUST have "sentence" (with ___ for the blank) AND "answer" (the correct word)
-- "true_false": each item MUST have "statement" (a fun fact sentence) AND "is_true" (boolean true or false)
-ALWAYS fill every field for every item. Never return empty objects. Use simple, fun content with emojis. 4-5 items.`,
-          response_json_schema: {
+## 🌟 Introduction
+Hook the student with an interesting question, fact, or scenario.
+
+## 📖 Main Explanation
+Break into short sections with subheadings (###). Each section:
+- 2-4 sentences MAX per paragraph
+- Use bullet points where suitable
+- **Bold** important keywords
+- Include Malaysian context (school, family, shopping, football, food like nasi lemak, animals, places, festivals, RM currency)
+
+## 🎬 Real-Life Story or Situation
+A relatable Malaysian story that illustrates the concept (e.g., "Ali went to the kedai...", "Siti's family visited...", "During a football match at school...").
+
+## 💡 Key Points Summary
+3-5 bullet points summarizing the most important takeaways.
+
+## 🧠 Fun Fact (Optional)
+An interesting, surprising fact related to the topic.
+
+## 📝 Quick Recap
+Brief summary in 2-3 sentences.
+
+## 🎓 Ready for Quiz?
+Motivational message encouraging the student to test their knowledge.
+
+INFO CARDS - Insert these throughout using EXACT markers:
+- [REMEMBER] important fact or warning [/REMEMBER]
+- [EXAMPLE] worked example with Malaysian context [/EXAMPLE]
+- [MISTAKE] common mistake students make [/MISTAKE]
+- [TIP] study tip or memory trick [/TIP]
+- [FACT] interesting did-you-know fact [/FACT]
+- [STORY] real-life Malaysian story or situation [/STORY]
+
+IMAGE PROMPTS - Add 2-3 image descriptions using: [IMAGE: describe a colourful, child-friendly educational illustration]
+Example: [IMAGE: A cheerful Malaysian classroom with students learning at desks, teacher at whiteboard, bright colours]
+
+WRITING STYLE:
+- Simple, age-appropriate language
+- Short paragraphs (2-4 sentences)
+- NO large blocks of text
+- Bullet points where suitable
+- **Bold** for keywords
+- Emojis sparingly but effectively (📚✨🎯💡🌟)
+- Warm, encouraging tone: "Great job!", "You've got this!", "Hebat!"
+
+FLASHCARDS (flashcards): 5-6 cards with "front" (question/term + emoji) and "back" (answer).
+
+MIND MAP (mind_map): "central_topic" + 3-4 "branches", each with "label" and "children" (2-3 sub-points).
+
+ACTIVITY (activity): Choose ONE type, fill ALL fields:
+- "matching": items with "left" AND "right"
+- "fill_blank": items with "sentence" (with ___) AND "answer"
+- "true_false": items with "statement" AND "is_true" (boolean)
+4-5 items, fun content with emojis.
+
+Return JSON with: lesson_markdown, flashcards, mind_map, activity, image_prompts (array of {prompt, alt, caption}).`,
+      response_json_schema: {
+        type: "object",
+        properties: {
+          lesson_markdown: { type: "string" },
+          flashcards: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                front: { type: "string" },
+                back: { type: "string" },
+              },
+              required: ["front", "back"],
+            },
+          },
+          mind_map: {
             type: "object",
             properties: {
-              lesson_markdown: { type: "string" },
-              flashcards: {
+              central_topic: { type: "string" },
+              branches: {
                 type: "array",
                 items: {
                   type: "object",
                   properties: {
-                    front: { type: "string" },
-                    back: { type: "string" },
+                    label: { type: "string" },
+                    children: { type: "array", items: { type: "string" } },
                   },
-                  required: ["front", "back"],
+                  required: ["label"],
                 },
-              },
-              mind_map: {
-                type: "object",
-                properties: {
-                  central_topic: { type: "string" },
-                  branches: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        label: { type: "string" },
-                        children: { type: "array", items: { type: "string" } },
-                      },
-                      required: ["label"],
-                    },
-                  },
-                },
-                required: ["central_topic", "branches"],
-              },
-              activity: {
-                type: "object",
-                properties: {
-                  type: { type: "string", enum: ["matching", "fill_blank", "true_false"] },
-                  title: { type: "string" },
-                  items: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        left: { type: "string" },
-                        right: { type: "string" },
-                        sentence: { type: "string" },
-                        answer: { type: "string" },
-                        statement: { type: "string" },
-                        is_true: { type: "boolean" },
-                      },
-                    },
-                  },
-                },
-                required: ["type", "title", "items"],
               },
             },
-            required: ["lesson_markdown", "flashcards", "mind_map", "activity"],
+            required: ["central_topic", "branches"],
           },
-        })
-      : await base44.integrations.Core.InvokeLLM({
-          model: "gemini_3_flash",
-          add_context_from_internet: true,
-          file_urls: fileUrls.length > 0 ? fileUrls : undefined,
-          prompt: `You are an expert tutor for Malaysian school students. ${textbookNote}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then explain it. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum. ${levelNote}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""}
-
-Base your lesson content on the official Malaysian Ministry of Education (KPM) syllabus and learning standards for this subject and topic. Use Malaysian context, examples, and terminology where appropriate (e.g. RM for currency, local examples).
-
-Structure your explanation:
-1. **What is it?** - Simple definition
-2. **Key Concepts** - Main points to understand (aligned to the curriculum learning standards)
-3. **How it works** - Explanation with simple language
-4. **Example** - One clear, worked example (use Malaysian context where relevant)
-5. **Quick Tip** - A memory trick or study tip
-
-Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
-        });
+          activity: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["matching", "fill_blank", "true_false"] },
+              title: { type: "string" },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    left: { type: "string" },
+                    right: { type: "string" },
+                    sentence: { type: "string" },
+                    answer: { type: "string" },
+                    statement: { type: "string" },
+                    is_true: { type: "boolean" },
+                  },
+                },
+              },
+            },
+            required: ["type", "title", "items"],
+          },
+          image_prompts: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                prompt: { type: "string" },
+                alt: { type: "string" },
+                caption: { type: "string" },
+              },
+              required: ["prompt", "alt"],
+            },
+          },
+        },
+        required: ["lesson_markdown", "flashcards", "mind_map", "activity"],
+      },
+    });
 
     const session = await base44.entities.StudySession.create({
       student_id: user.id,
@@ -265,43 +305,45 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
       topic_id: topicId,
       topic_name: topic.name,
       subject_name: subject.name,
-      ai_explanation: isYoungLearner ? JSON.stringify(result) : result,
+      ai_explanation: JSON.stringify(result),
       duration_minutes: 0,
     });
-    if (isYoungLearner) {
-      const cleaned = {
-        ...result,
-        lesson_markdown: (result.lesson_markdown || "").replace(/\\n/g, "\n"),
-        flashcards: (result.flashcards || []).map(c => ({
-          front: (c.front || "").replace(/\\n/g, " "),
-          back: (c.back || "").replace(/\\n/g, " "),
+
+    const cleaned = {
+      ...result,
+      lesson_markdown: (result.lesson_markdown || "").replace(/\\n/g, "\n"),
+      flashcards: (result.flashcards || []).map(c => ({
+        front: (c.front || "").replace(/\\n/g, " "),
+        back: (c.back || "").replace(/\\n/g, " "),
+      })),
+      mind_map: result.mind_map ? {
+        ...result.mind_map,
+        central_topic: (result.mind_map.central_topic || "").replace(/\\n/g, " "),
+        branches: (result.mind_map.branches || []).map(b => ({
+          ...b,
+          label: (b.label || "").replace(/\\n/g, " "),
+          children: (b.children || []).map(c => (c || "").replace(/\\n/g, " ")),
         })),
-        mind_map: result.mind_map ? {
-          ...result.mind_map,
-          central_topic: (result.mind_map.central_topic || "").replace(/\\n/g, " "),
-          branches: (result.mind_map.branches || []).map(b => ({
-            ...b,
-            label: (b.label || "").replace(/\\n/g, " "),
-            children: (b.children || []).map(c => (c || "").replace(/\\n/g, " ")),
-          })),
-        } : null,
-        activity: result.activity ? {
-          ...result.activity,
-          title: (result.activity.title || "").replace(/\\n/g, " "),
-          items: (result.activity.items || []).map(it => {
-            const cleaned = {};
-            Object.keys(it || {}).forEach(k => {
-              cleaned[k] = typeof it[k] === "string" ? it[k].replace(/\\n/g, " ") : it[k];
-            });
-            return cleaned;
-          }),
-        } : null,
-      };
-      setLessonData(cleaned);
-      setExplanation(cleaned.lesson_markdown);
-    } else {
-      setExplanation(typeof result === "string" ? result.replace(/\\n/g, "\n") : result);
-    }
+      } : null,
+      activity: result.activity ? {
+        ...result.activity,
+        title: (result.activity.title || "").replace(/\\n/g, " "),
+        items: (result.activity.items || []).map(it => {
+          const cleaned = {};
+          Object.keys(it || {}).forEach(k => {
+            cleaned[k] = typeof it[k] === "string" ? it[k].replace(/\\n/g, " ") : it[k];
+          });
+          return cleaned;
+        }),
+      } : null,
+      image_prompts: (result.image_prompts || []).map(img => ({
+        prompt: (img.prompt || "").replace(/\\n/g, " "),
+        alt: (img.alt || "").replace(/\\n/g, " "),
+        caption: (img.caption || "").replace(/\\n/g, " "),
+      })),
+    };
+    setLessonData(cleaned);
+    setExplanation(cleaned.lesson_markdown);
     studyStartRef.current = Date.now();
     setSessionId(session.id);
     setGenerating(false);
@@ -432,9 +474,22 @@ Return ONLY valid JSON, no extra text.`;
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           <LessonProgress steps={lessonSteps} onStepClick={handleStepClick} />
 
-          <div ref={(el) => (sectionRefs.current.lesson = el)} data-step="lesson" className="bg-white rounded-2xl p-6 border border-border/50 prose prose-sm max-w-none">
-            <ReactMarkdown>{explanation}</ReactMarkdown>
+          <div ref={(el) => (sectionRefs.current.lesson = el)} data-step="lesson">
+            <div className="bg-white rounded-2xl p-6 border border-border/50">
+              <LessonContent content={explanation} />
+            </div>
           </div>
+
+          {/* Lesson images */}
+          {lessonData?.image_prompts?.map((img, idx) => (
+            <div key={idx} ref={(el) => (sectionRefs.current[`image-${idx}`] = el)} data-step={`image-${idx}`}>
+              <LessonImage
+                prompt={img.prompt}
+                alt={img.alt}
+                caption={img.caption}
+              />
+            </div>
+          ))}
 
           {lessonData?.flashcards?.length > 0 && (
             <div ref={(el) => (sectionRefs.current.flashcards = el)} data-step="flashcards">

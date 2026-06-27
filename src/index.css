@@ -90,3 +90,31 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+@layer components {
+  /* Lesson content styling */
+  .lesson-content h1 {
+    @apply text-2xl font-heading font-bold mb-4 text-primary;
+  }
+  .lesson-content h2 {
+    @apply text-xl font-heading font-bold mt-6 mb-3 text-primary;
+  }
+  .lesson-content h3 {
+    @apply text-lg font-heading font-semibold mt-4 mb-2;
+  }
+  .lesson-content p {
+    @apply mb-3 leading-relaxed;
+  }
+  .lesson-content ul, .lesson-content ol {
+    @apply mb-4 pl-5;
+  }
+  .lesson-content li {
+    @apply mb-2;
+  }
+  .lesson-content strong {
+    @apply font-semibold text-primary;
+  }
+  .lesson-content blockquote {
+    @apply border-l-4 border-primary pl-4 italic my-4 text-muted-foreground;
+  }
+}
