@@ -156,6 +156,29 @@ export default function LessonPage() {
     const isEnglishSubject = subject.name.toLowerCase().includes("english");
     const lessonLanguage = isEnglishSubject ? "English" : "Bahasa Melayu";
 
+    // Provide Malay translations for section headings
+    const sectionHeadings = isEnglishSubject ? {
+      lessonTitle: "📚 Lesson Title",
+      learningObjective: "🎯 Learning Objective",
+      introduction: "🌟 Introduction",
+      mainExplanation: "📖 Main Explanation",
+      realLifeStory: "🎬 Real-Life Story or Situation",
+      keyPointsSummary: "💡 Key Points Summary",
+      funFact: "🧠 Fun Fact",
+      quickRecap: "📝 Quick Recap",
+      readyForQuiz: "🎓 Ready for Quiz?",
+    } : {
+      lessonTitle: "📚 Tajuk Pelajaran",
+      learningObjective: "🎯 Objektif Pembelajaran",
+      introduction: "🌟 Pengenalan",
+      mainExplanation: "📖 Penjelasan Utama",
+      realLifeStory: "🎬 Cerita atau Situasi Sebenar",
+      keyPointsSummary: "💡 Ringkasan Perkara Utama",
+      funFact: "🧠 Fakta Menarik",
+      quickRecap: "📝 Ringkasan Pantas",
+      readyForQuiz: "🎓 Sedia untuk Kuiz?",
+    };
+
     const result = await base44.integrations.Core.InvokeLLM({
       model: "gemini_3_flash",
       add_context_from_internet: true,
@@ -163,45 +186,47 @@ export default function LessonPage() {
       prompt: `You are an expert, friendly AI tutor for Malaysian school students. ${textbookNote}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic.
 
 TOPIC: "${topic.name}" | SUBJECT: "${subject.name}" | LEVEL: ${topic.form_level}
-LANGUAGE: Write the ENTIRE lesson in ${lessonLanguage} ${isEnglishSubject ? "(English subject - use English only)" : "(use Bahasa Melayu for all subjects except English)"}.
+LANGUAGE: Write the ENTIRE lesson in ${lessonLanguage} ${isEnglishSubject ? "(English subject - use English only)" : "(use Bahasa Melayu for ALL content including headings, titles, and section names - NO English mixed in)"}.
 ${levelNote} ${isYoungLearner ? "Use VERY simple words for ages 7-9. Short sentences. Lots of emojis." : "Use clear, age-appropriate language."}
+
+CRITICAL: If the lesson is in Bahasa Melayu, ALL headings, titles, section names, and content MUST be in Bahasa Melayu. Do NOT use any English words or headings.
 
 Create an ENGAGING, VISUALLY-APPEALING lesson that feels like a teacher telling an interesting story, NOT a dry textbook.
 
-STRUCTURE (use Markdown headings ##):
+STRUCTURE (use Markdown headings ## with these EXACT headings):
 
-## 📚 Lesson Title
+## ${sectionHeadings.lessonTitle}
 Clear, engaging title for this topic.
 
-## 🎯 Learning Objective
-1-2 sentences: "By the end of this lesson, you will be able to..."
+## ${sectionHeadings.learningObjective}
+1-2 sentences: "By the end of this lesson, you will be able to..." (translate to ${lessonLanguage})
 
-## 🌟 Introduction
+## ${sectionHeadings.introduction}
 Hook the student with an interesting question, fact, or scenario.
 
-## 📖 Main Explanation
+## ${sectionHeadings.mainExplanation}
 Break into short sections with subheadings (###). Each section:
 - 2-4 sentences MAX per paragraph
 - Use bullet points where suitable
 - **Bold** important keywords
 - Include Malaysian context (school, family, shopping, football, food like nasi lemak, animals, places, festivals, RM currency)
 
-## 🎬 Real-Life Story or Situation
+## ${sectionHeadings.realLifeStory}
 A relatable Malaysian story that illustrates the concept (e.g., "Ali went to the kedai...", "Siti's family visited...", "During a football match at school...").
 
-## 💡 Key Points Summary
+## ${sectionHeadings.keyPointsSummary}
 3-5 bullet points summarizing the most important takeaways.
 
-## 🧠 Fun Fact (Optional)
+## ${sectionHeadings.funFact}
 An interesting, surprising fact related to the topic.
 
-## 📝 Quick Recap
+## ${sectionHeadings.quickRecap}
 Brief summary in 2-3 sentences.
 
-## 🎓 Ready for Quiz?
+## ${sectionHeadings.readyForQuiz}
 Motivational message encouraging the student to test their knowledge.
 
-INFO CARDS - Insert these throughout using EXACT markers:
+INFO CARDS - Insert these throughout using EXACT markers (keep markers in English but content in ${lessonLanguage}):
 - [REMEMBER] important fact or warning [/REMEMBER]
 - [EXAMPLE] worked example with Malaysian context [/EXAMPLE]
 - [MISTAKE] common mistake students make [/MISTAKE]
@@ -221,15 +246,15 @@ WRITING STYLE:
 - Emojis sparingly but effectively (📚✨🎯💡🌟)
 - Warm, encouraging tone: "Great job!", "You've got this!", "Hebat!"
 
-FLASHCARDS (flashcards): 5-6 cards with "front" (question/term + emoji) and "back" (answer).
+FLASHCARDS (flashcards): 5-6 cards with "front" (question/term + emoji) and "back" (answer) - ALL in ${lessonLanguage}.
 
-MIND MAP (mind_map): "central_topic" + 3-4 "branches", each with "label" and "children" (2-3 sub-points).
+MIND MAP (mind_map): "central_topic" + 3-4 "branches", each with "label" and "children" (2-3 sub-points) - ALL in ${lessonLanguage}.
 
 ACTIVITY (activity): Choose ONE type, fill ALL fields:
 - "matching": items with "left" AND "right"
 - "fill_blank": items with "sentence" (with ___) AND "answer"
 - "true_false": items with "statement" AND "is_true" (boolean)
-4-5 items, fun content with emojis.
+4-5 items, fun content with emojis - ALL in ${lessonLanguage}.
 
 Return JSON with: lesson_markdown, flashcards, mind_map, activity, image_prompts (array of {prompt, alt, caption}).`,
       response_json_schema: {
@@ -360,6 +385,8 @@ Return JSON with: lesson_markdown, flashcards, mind_map, activity, image_prompts
     const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
     const matchingBooks = textbooks.filter(t => t.form_level === "All Levels" || t.form_level === topic.form_level);
     const fileUrls = matchingBooks.filter(t => !t.file_size || t.file_size <= 10 * 1024 * 1024).map(t => t.file_url).filter(Boolean);
+    const isEnglishSubject = subject.name.toLowerCase().includes("english");
+    const quizLanguage = isEnglishSubject ? "English" : "Bahasa Melayu";
     const result = await base44.integrations.Core.InvokeLLM({
       model: "gemini_3_flash",
       add_context_from_internet: true,
@@ -375,6 +402,8 @@ Return JSON with: lesson_markdown, flashcards, mind_map, activity, image_prompts
         if (isYoungLearner) {
           return `Search the web for the official KSSR curriculum content for this topic, then generate exactly ${numQuestions} multiple choice questions about "${topic.name}" for young Malaysian primary school children (Tahun 1-3, ages 7-9), strictly following KSSR. ${levelNote} Target level: ${topic.form_level}. Base questions on the official KPM syllabus for "${subject?.name || ""}".
 
+LANGUAGE: Write ALL questions, options, and explanations in ${quizLanguage} ${isEnglishSubject ? "(English subject)" : "(use Bahasa Melayu - NO English mixed in)"}.
+
 🧒 QUIZ STYLE — FUN & AGE-APPROPRIATE:
 - Use VERY simple words and short sentences.
 - Make questions feel like a game or story (e.g. "Adik Ali ada 3 epal... 🍎🍎🍎").
@@ -387,6 +416,8 @@ Return ONLY valid JSON, no extra text.`;
         }
 
         return `Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then generate exactly ${numQuestions} multiple choice questions about "${topic.name}" for Malaysian school students, strictly following the Malaysian National Curriculum. ${levelNote}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""} Base questions on the official KPM syllabus learning standards for the subject "${subject?.name || ""}". Use Malaysian context where appropriate.
+
+LANGUAGE: Write ALL questions, options, and explanations in ${quizLanguage} ${isEnglishSubject ? "(English subject)" : "(use Bahasa Melayu - NO English mixed in)"}.
 
 Return ONLY valid JSON, no extra text.`;
       })(),
