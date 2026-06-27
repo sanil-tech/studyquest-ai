@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronRight, BookOpen } from "lucide-react";
+import { ArrowLeft, ChevronRight, BookOpen, FileText, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function StudyPage() {
@@ -9,12 +9,15 @@ export default function StudyPage() {
   const [subjects, setSubjects] = useState([]);
   const [topics, setTopics] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState(null);
+  const [textbooks, setTextbooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       const subs = await base44.entities.Subject.list();
       setSubjects(subs);
+      const books = await base44.entities.Textbook.list("-created_date", 50);
+      setTextbooks(books);
       if (subjectId) {
         const sub = subs.find(s => s.id === subjectId);
         setSelectedSubject(sub);
@@ -70,6 +73,42 @@ export default function StudyPage() {
             </motion.button>
           ))}
         </div>
+
+        {/* Textbook library — visible to all students */}
+        {textbooks.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-2xl border border-primary/20 p-5"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="w-5 h-5 text-primary" />
+              <h2 className="font-heading font-semibold">Textbook Library 📖</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">Reference textbooks from the Malaysian curriculum. Tap to open.</p>
+            <div className="space-y-2">
+              {textbooks.map(book => (
+                <a
+                  key={book.id}
+                  href={book.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 bg-white rounded-xl border border-border/50 hover:border-primary/30 hover:shadow-sm transition-all group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4 text-red-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{book.title}</p>
+                    <p className="text-xs text-muted-foreground">{book.subject_name} · {book.form_level}</p>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </a>
+              ))}
+            </div>
+          </motion.div>
+        )}
       </div>
     );
   }
@@ -95,6 +134,40 @@ export default function StudyPage() {
         </div>
       ) : (
         <div className="space-y-2">
+          {/* Textbook for this subject */}
+          {textbooks.filter(b => b.subject_id === selectedSubject.id).length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-2xl border border-primary/20 p-4 mb-2"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <FileText className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-heading font-semibold text-primary">Textbook Reference</h3>
+              </div>
+              <div className="space-y-2">
+                {textbooks.filter(b => b.subject_id === selectedSubject.id).map(book => (
+                  <a
+                    key={book.id}
+                    href={book.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 p-3 bg-white rounded-xl border border-border/50 hover:border-primary/30 hover:shadow-sm transition-all group"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4 text-red-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{book.title}</p>
+                      <p className="text-xs text-muted-foreground">{book.form_level}</p>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </a>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
           {topics.map((topic, i) => (
             <motion.div
               key={topic.id}
