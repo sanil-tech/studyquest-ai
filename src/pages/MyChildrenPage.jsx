@@ -240,15 +240,15 @@ export default function MyChildrenPage() {
                         View Profile
                       </Button>
                     </Link>
-                    <Link
-                      to={`/parent/children/${child.id}`}
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="flex-1"
+                      onClick={() => setSelectedChild(child)}
                     >
-                      <Button variant="outline" size="sm" className="w-full">
-                        <Edit2 className="w-3 h-3 mr-1" />
-                        Edit Profile
-                      </Button>
-                    </Link>
+                      <Key className="w-3 h-3 mr-1" />
+                      Credentials
+                    </Button>
                     <Link
                       to="/parent"
                       className="flex-1"
