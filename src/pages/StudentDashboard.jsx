@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { BookOpen, ArrowRight, Clock, Trophy, Sparkles, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatsBar from "@/components/student/StatsBar";
+import StreakBadges from "@/components/student/StreakBadges";
 import SubjectCard from "@/components/student/SubjectCard";
 import { motion } from "framer-motion";
 import moment from "moment";
@@ -87,6 +88,9 @@ export default function StudentDashboard() {
 
       {/* Stats */}
       <StatsBar wallet={wallet} progress={progress} />
+
+      {/* Streak Milestones */}
+      <StreakBadges streakDays={progress?.streak_days} />
 
       {/* XP Progress Bar */}
       <motion.div
