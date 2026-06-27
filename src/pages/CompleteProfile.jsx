@@ -401,12 +401,12 @@ export default function CompleteProfile() {
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="grade">Grade/Year (optional)</Label>
+                      <Label htmlFor="grade">Class (optional)</Label>
                       <Input
                         id="grade"
                         value={gradeYear}
                         onChange={(e) => setGradeYear(e.target.value)}
-                        placeholder="e.g. 1A, 3B"
+                        placeholder="e.g. Jaya, Bestari"
                       />
                     </div>
                   </div>
