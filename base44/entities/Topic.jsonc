@@ -1,0 +1,29 @@
+{
+  "name": "Topic",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Topic name"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID of the parent subject"
+    },
+    "form_level": {
+      "type": "string",
+      "enum": [
+        "Form 1",
+        "Form 2",
+        "Form 3",
+        "Form 4",
+        "Form 5"
+      ],
+      "description": "Secondary school form level"
+    }
+  },
+  "required": [
+    "name",
+    "subject_id"
+  ]
+}

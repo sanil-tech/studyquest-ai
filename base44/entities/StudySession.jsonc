@@ -1,0 +1,39 @@
+{
+  "name": "StudySession",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID of the subject"
+    },
+    "topic_id": {
+      "type": "string",
+      "description": "ID of the topic"
+    },
+    "topic_name": {
+      "type": "string",
+      "description": "Topic name for display"
+    },
+    "subject_name": {
+      "type": "string",
+      "description": "Subject name for display"
+    },
+    "ai_explanation": {
+      "type": "string",
+      "description": "AI-generated lesson explanation"
+    },
+    "duration_minutes": {
+      "type": "number",
+      "description": "Duration of study session"
+    }
+  },
+  "required": [
+    "student_id",
+    "subject_id",
+    "topic_id"
+  ]
+}

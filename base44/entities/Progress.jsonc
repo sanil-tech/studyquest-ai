@@ -1,0 +1,35 @@
+{
+  "name": "Progress",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student (1:1)"
+    },
+    "total_xp": {
+      "type": "number",
+      "default": 0
+    },
+    "level": {
+      "type": "number",
+      "default": 1
+    },
+    "streak_days": {
+      "type": "number",
+      "default": 0
+    },
+    "total_study_time": {
+      "type": "number",
+      "default": 0,
+      "description": "Total study time in minutes"
+    },
+    "last_study_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Last date studied for streak tracking"
+    }
+  },
+  "required": [
+    "student_id"
+  ]
+}

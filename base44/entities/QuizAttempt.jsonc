@@ -1,0 +1,41 @@
+{
+  "name": "QuizAttempt",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "quiz_id": {
+      "type": "string",
+      "description": "ID of the quiz"
+    },
+    "topic_name": {
+      "type": "string"
+    },
+    "subject_name": {
+      "type": "string"
+    },
+    "answers_json": {
+      "type": "string",
+      "description": "JSON string of student answers"
+    },
+    "score": {
+      "type": "number",
+      "description": "Score percentage 0-100"
+    },
+    "coins_earned": {
+      "type": "number",
+      "description": "Coins earned from this attempt"
+    },
+    "feedback_text": {
+      "type": "string",
+      "description": "AI feedback on performance"
+    }
+  },
+  "required": [
+    "student_id",
+    "quiz_id",
+    "score"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "Quiz",
+  "type": "object",
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "ID of the study session"
+    },
+    "topic_name": {
+      "type": "string",
+      "description": "Topic name"
+    },
+    "subject_name": {
+      "type": "string",
+      "description": "Subject name"
+    },
+    "questions_json": {
+      "type": "string",
+      "description": "JSON string of quiz questions array"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "default": "medium"
+    },
+    "num_questions": {
+      "type": "number",
+      "default": 5
+    }
+  },
+  "required": [
+    "session_id",
+    "topic_name",
+    "questions_json"
+  ]
+}

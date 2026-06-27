@@ -1,0 +1,41 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "ID of the user to notify"
+    },
+    "title": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "quiz_complete",
+        "coins_earned",
+        "reward_requested",
+        "reward_approved",
+        "reward_rejected"
+      ],
+      "description": "Notification type"
+    },
+    "read": {
+      "type": "boolean",
+      "default": false
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "Related entity ID"
+    }
+  },
+  "required": [
+    "user_id",
+    "title",
+    "message",
+    "type"
+  ]
+}

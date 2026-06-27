@@ -1,0 +1,30 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "student",
+        "parent",
+        "admin"
+      ],
+      "default": "student"
+    },
+    "linked_parent_id": {
+      "type": "string",
+      "description": "For students - their parent's user ID"
+    },
+    "linked_student_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "For parents - their children's user IDs"
+    },
+    "avatar_emoji": {
+      "type": "string",
+      "default": "\ud83c\udf93"
+    }
+  }
+}

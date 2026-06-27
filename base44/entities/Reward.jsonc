@@ -1,0 +1,40 @@
+{
+  "name": "Reward",
+  "type": "object",
+  "properties": {
+    "parent_id": {
+      "type": "string",
+      "description": "ID of the parent who created it"
+    },
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student it's for"
+    },
+    "title": {
+      "type": "string",
+      "description": "Reward title"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji for the reward"
+    },
+    "coin_cost": {
+      "type": "number",
+      "description": "Cost in coins"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "parent_id",
+    "student_id",
+    "title",
+    "coin_cost"
+  ]
+}

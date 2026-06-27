@@ -1,0 +1,41 @@
+{
+  "name": "RewardRequest",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "reward_id": {
+      "type": "string",
+      "description": "ID of the reward"
+    },
+    "reward_title": {
+      "type": "string",
+      "description": "Reward title for display"
+    },
+    "coin_cost": {
+      "type": "number",
+      "description": "Coin cost at time of request"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "parent_response_message": {
+      "type": "string",
+      "description": "Parent's message on approval/rejection"
+    }
+  },
+  "required": [
+    "student_id",
+    "reward_id",
+    "reward_title",
+    "coin_cost"
+  ]
+}

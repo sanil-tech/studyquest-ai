@@ -1,0 +1,21 @@
+{
+  "name": "Subject",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Subject name (e.g. Mathematics, English, Science)"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji icon for the subject"
+    },
+    "color": {
+      "type": "string",
+      "description": "Hex color for subject card"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
