@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 
 /**
@@ -7,7 +7,7 @@ import { base44 } from "@/api/base44Client";
  * allowedRoles = array of roles permitted to access the wrapped routes.
  * Redirects users without a valid role to RoleSetup, and users with the wrong role to their own dashboard.
  */
-export default function RoleRoute({ allowedRoles, children }) {
+export default function RoleRoute({ allowedRoles }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,5 +36,5 @@ export default function RoleRoute({ allowedRoles, children }) {
     return <Navigate to={user.app_role === "parent" ? "/parent" : "/"} replace />;
   }
 
-  return children;
+  return <Outlet />;
 }
