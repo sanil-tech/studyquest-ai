@@ -34,7 +34,7 @@ export default function ParentDashboard() {
       const studentIds = approvedLinks.map(r => r.student_id);
 
       if (studentIds.length > 0) {
-        const [childrenData, allPendingReqs, studentUsers] = await Promise.all([
+        const [childrenData, allPendingReqs] = await Promise.all([
           Promise.all(
             studentIds.map(async (sid, idx) => {
               const [progresses, wallets, attempts, sessions] = await Promise.all([
@@ -63,19 +63,8 @@ export default function ParentDashboard() {
               base44.entities.RewardRequest.filter({ student_id: sid, status: "pending" }, "-created_date", 20)
             )
           ),
-          Promise.all(
-            studentIds.map(sid => base44.entities.User.filter({ id: sid }))
-          ),
         ]);
-        const childrenWithUserData = childrenData.map((child, idx) => ({
-          ...child,
-          avatar_emoji: studentUsers[idx]?.[0]?.avatar_emoji || "🎓",
-          school_year: studentUsers[idx]?.[0]?.school_year || "",
-          school_name: studentUsers[idx]?.[0]?.school_name || "",
-          class_name: studentUsers[idx]?.[0]?.class_name || "",
-          full_name: studentUsers[idx]?.[0]?.full_name || child.name,
-        }));
-        setChildren(childrenWithUserData);
+        setChildren(childrenData);
         setPendingRequests(allPendingReqs.flat());
       } else {
         setChildren([]);
@@ -286,15 +275,8 @@ export default function ParentDashboard() {
             className="bg-white rounded-2xl border border-border/50 overflow-hidden"
           >
             <div className="p-5 border-b border-border/50">
-              <h2 className="font-heading font-bold text-lg">{child.full_name || child.name}</h2>
+              <h2 className="font-heading font-bold text-lg">{child.name}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">{child.sessionCount} total sessions · {child.weeklyMinutes}m this week</p>
-              {(child.school_year || child.school_name || child.class_name) && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {child.school_year && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">{child.school_year}</span>}
-                  {child.school_name && <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{child.school_name}</span>}
-                  {child.class_name && <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{child.class_name}</span>}
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-4 gap-2 p-4">
