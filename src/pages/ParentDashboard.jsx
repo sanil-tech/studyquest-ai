@@ -79,13 +79,18 @@ export default function ParentDashboard() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData();
+  }, []);
 
+  // Subscribe to real-time updates
   useEffect(() => {
     const unsubscribeRelationship = base44.entities.ParentChildRelationship.subscribe(() => {
+      console.log('ParentChildRelationship changed, reloading dashboard...');
       loadData();
     });
     const unsubscribeReward = base44.entities.RewardRequest.subscribe(() => {
+      console.log('RewardRequest changed, reloading dashboard...');
       loadData();
     });
     return () => {

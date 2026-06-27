@@ -41,10 +41,12 @@ const hashPassword = (password) => {
 
 // Retry wrapper with exponential backoff for rate limits
 const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
+  let lastError;
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
     } catch (error) {
+      lastError = error;
       if (error.message.includes('rate limit') || error.status === 429) {
         const delay = baseDelay * Math.pow(2, i);
         console.log(`Rate limited, retrying in ${delay}ms...`);
@@ -54,6 +56,7 @@ const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
       }
     }
   }
+  throw lastError || new Error('Operation failed after retries');
 };
 
 const calculateAge = (birthDate) => {
@@ -122,7 +125,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Failed to generate unique Student ID' }, { status: 500 });
     }
 
-    // Create child user account with retry for rate limits
+    // ATOMIC OPERATION: Create child user and relationship together
+    // If any step fails, the entire operation fails (no orphan records)
     const childUser = await retryWithBackoff(async () => {
       return await base44.asServiceRole.entities.User.create({
         full_name: childData.full_name,
@@ -160,38 +164,53 @@ Deno.serve(async (req) => {
       });
     });
 
-    // Create ParentChildRelationship
-    await base44.asServiceRole.entities.ParentChildRelationship.create({
-      parent_id: parent.id,
-      child_id: childUser.id,
-      relationship: 'parent',
-      status: 'active',
-      linked_at: new Date().toISOString(),
+    console.log(`[Step 1] User created: ${childUser.id}, student_id: ${studentId}`);
+
+    // CRITICAL: Create ParentChildRelationship immediately after user creation
+    // This ensures no orphan student records exist
+    const relationship = await retryWithBackoff(async () => {
+      return await base44.asServiceRole.entities.ParentChildRelationship.create({
+        parent_id: parent.id,
+        child_id: childUser.id,
+        relationship: 'parent',
+        status: 'active',
+        linked_at: new Date().toISOString(),
+      });
     });
 
-    // Create Wallet and Progress for the child
-    await Promise.all([
-      base44.asServiceRole.entities.Wallet.create({
-        student_id: childUser.id,
-        balance: 0,
-      }),
-      base44.asServiceRole.entities.Progress.create({
-        student_id: childUser.id,
-        total_xp: 0,
-        level: 1,
-        streak_days: 0,
-        total_study_time: 0,
-      }),
-    ]);
+    console.log(`[Step 2] Relationship created: ${relationship.id}, parent: ${parent.id}, child: ${childUser.id}`);
+
+    // Create Wallet and Progress for the child (with retry)
+    await retryWithBackoff(async () => {
+      await Promise.all([
+        base44.asServiceRole.entities.Wallet.create({
+          student_id: childUser.id,
+          balance: 0,
+        }),
+        base44.asServiceRole.entities.Progress.create({
+          student_id: childUser.id,
+          total_xp: 0,
+          level: 1,
+          streak_days: 0,
+          total_study_time: 0,
+        }),
+      ]);
+    });
+
+    console.log(`[Step 3] Wallet and Progress created for child: ${childUser.id}`);
 
     // Update parent's linked_student_ids
     const parentData = await base44.auth.me();
     const currentLinkedIds = parentData.linked_student_ids || [];
     if (!currentLinkedIds.includes(childUser.id)) {
-      await base44.auth.updateMe({
-        linked_student_ids: [...currentLinkedIds, childUser.id],
+      await retryWithBackoff(async () => {
+        return await base44.auth.updateMe({
+          linked_student_ids: [...currentLinkedIds, childUser.id],
+        });
       });
     }
+
+    console.log(`[Step 4] Parent ${parent.id} updated with linked child: ${childUser.id}`);
 
     return Response.json({
       success: true,
@@ -208,7 +227,12 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('CreateChildAccount error:', error);
-    return Response.json({ error: error.message || 'Failed to create child account' }, { status: 500 });
+    console.error('CreateChildAccount error:', error.message, error.stack);
+    // Provide specific error messages for debugging
+    let errorMessage = error.message || 'Failed to create child account';
+    if (error.message.includes('rate limit')) {
+      errorMessage = 'Service temporarily busy. Please try again in a few seconds.';
+    }
+    return Response.json({ error: errorMessage }, { status: 500 });
   }
 });

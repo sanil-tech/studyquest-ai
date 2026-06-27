@@ -20,47 +20,61 @@ export default function MyChildrenPage() {
   const [selectedChild, setSelectedChild] = useState(null);
   const { toast } = useToast();
 
+  const loadChildren = async () => {
+    try {
+      const u = await base44.auth.me();
+      setUser(u);
+
+      // Get linked children from ParentChildRelationship
+      const relationships = await base44.entities.ParentChildRelationship.filter({
+        parent_id: u.id,
+        status: "active"
+      });
+
+      console.log(`Loaded ${relationships.length} relationships for parent ${u.id}`);
+
+      // Fetch child details
+      const childDetails = await Promise.all(
+        relationships.map(async (rel) => {
+          const childUsers = await base44.entities.User.filter({ id: rel.child_id });
+          if (childUsers.length === 0) return null;
+          
+          const child = childUsers[0];
+          const [progress, wallet] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: child.id }).then(r => r[0]),
+            base44.entities.Wallet.filter({ student_id: child.id }).then(r => r[0])
+          ]);
+
+          return {
+            ...child,
+            progress,
+            wallet,
+            relationshipId: rel.id
+          };
+        })
+      );
+
+      const validChildren = childDetails.filter(c => c !== null);
+      console.log(`Loaded ${validChildren.length} children with details`);
+      setChildren(validChildren);
+    } catch (err) {
+      console.error("Failed to load children:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const u = await base44.auth.me();
-        setUser(u);
+    loadChildren();
+  }, []);
 
-        // Get linked children from ParentChildRelationship
-        const relationships = await base44.entities.ParentChildRelationship.filter({
-          parent_id: u.id,
-          status: "active"
-        });
-
-        // Fetch child details
-        const childDetails = await Promise.all(
-          relationships.map(async (rel) => {
-            const childUsers = await base44.entities.User.filter({ id: rel.child_id });
-            if (childUsers.length === 0) return null;
-            
-            const child = childUsers[0];
-            const [progress, wallet] = await Promise.all([
-              base44.entities.Progress.filter({ student_id: child.id }).then(r => r[0]),
-              base44.entities.Wallet.filter({ student_id: child.id }).then(r => r[0])
-            ]);
-
-            return {
-              ...child,
-              progress,
-              wallet,
-              relationshipId: rel.id
-            };
-          })
-        );
-
-        setChildren(childDetails.filter(c => c !== null));
-      } catch (err) {
-        console.error("Failed to load children:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+  // Subscribe to relationship changes for real-time updates
+  useEffect(() => {
+    const unsubscribe = base44.entities.ParentChildRelationship.subscribe(() => {
+      console.log('Relationship changed, reloading children...');
+      loadChildren();
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleRemoveLink = async (childId, relationshipId, childName) => {
@@ -206,7 +220,9 @@ export default function MyChildrenPage() {
           onClose={() => setShowAddModal(false)}
           onLinked={() => {
             setShowAddModal(false);
-            window.location.reload();
+            // Refresh data immediately (subscription will also trigger)
+            setLoading(true);
+            loadChildren();
           }}
         />
       )}

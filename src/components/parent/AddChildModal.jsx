@@ -118,8 +118,11 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
           description: "Please save the login credentials!",
         });
 
-        onChildAdded?.();
-        onLinked?.();
+        // Trigger parent refresh with a small delay to ensure data propagation
+        setTimeout(() => {
+          onChildAdded?.();
+          onLinked?.();
+        }, 500);
       }
     } catch (err) {
       console.error("Create child account error:", err);
