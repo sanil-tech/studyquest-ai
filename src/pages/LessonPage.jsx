@@ -152,6 +152,9 @@ export default function LessonPage() {
         ? `This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`
         : `Follow either KSSR (primary) or KSSM (secondary) depending on the topic level.`;
 
+    const isEnglishSubject = subject.name.toLowerCase().includes("english");
+    const lessonLanguage = isEnglishSubject ? "English" : "Bahasa Melayu";
+
     const result = await base44.integrations.Core.InvokeLLM({
       model: "gemini_3_flash",
       add_context_from_internet: true,
@@ -159,6 +162,7 @@ export default function LessonPage() {
       prompt: `You are an expert, friendly AI tutor for Malaysian school students. ${textbookNote}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic.
 
 TOPIC: "${topic.name}" | SUBJECT: "${subject.name}" | LEVEL: ${topic.form_level}
+LANGUAGE: Write the ENTIRE lesson in ${lessonLanguage} ${isEnglishSubject ? "(English subject - use English only)" : "(use Bahasa Melayu for all subjects except English)"}.
 ${levelNote} ${isYoungLearner ? "Use VERY simple words for ages 7-9. Short sentences. Lots of emojis." : "Use clear, age-appropriate language."}
 
 Create an ENGAGING, VISUALLY-APPEALING lesson that feels like a teacher telling an interesting story, NOT a dry textbook.
