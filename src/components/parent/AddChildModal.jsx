@@ -19,7 +19,7 @@ const educationLevels = [
   "Form 1", "Form 2", "Form 3", "Form 4", "Form 5"
 ];
 
-export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
+export default function AddChildModal({ open, onOpenChange, onClose, onChildAdded, onLinked }) {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [childData, setChildData] = useState({
@@ -106,6 +106,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       });
 
       onChildAdded?.();
+      onLinked?.();
     } catch (err) {
       toast({ title: "Failed", description: err.message || "Please try again", variant: "destructive" });
     } finally {
@@ -117,7 +118,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
   const recommendedLevel = age ? getRecommendedLevel(age) : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange || onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
