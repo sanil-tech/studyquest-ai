@@ -163,12 +163,16 @@ export default function CompleteProfile() {
     if (step === 1) {
       if (user.app_role === "student") {
         if (!dateOfBirth) {
-          toast({ title: "Missing info", description: "Date of birth is required", variant: "destructive" });
+          toast({ title: "⚠️ Missing Info", description: "Please select your date of birth", variant: "destructive" });
           return false;
         }
         const age = calculateAge(dateOfBirth);
         if (age < 13) {
-          toast({ title: "Age requirement", description: "Students under 13 need parent-created accounts", variant: "destructive" });
+          toast({ 
+            title: "⚠️ Age Requirement", 
+            description: `You must be 13 or older. If you're under 13, ask your parent to create an account for you. (Your age: ${age})`, 
+            variant: "destructive" 
+          });
           return false;
         }
       }
@@ -177,26 +181,26 @@ export default function CompleteProfile() {
     
     if (step === 2) {
       if (user.app_role === "student") {
-        if (!schoolName.trim()) {
-          toast({ title: "Missing info", description: "School name is required", variant: "destructive" });
+        if (!schoolName || !schoolName.trim()) {
+          toast({ title: "⚠️ Missing Info", description: "Please enter your school name", variant: "destructive" });
           return false;
         }
         if (!educationLevel) {
-          toast({ title: "Missing info", description: "Education level is required", variant: "destructive" });
+          toast({ title: "⚠️ Missing Info", description: "Please select your education level", variant: "destructive" });
           return false;
         }
       } else if (user.app_role === "parent") {
         if (!numChildren || parseInt(numChildren) < 1) {
-          toast({ title: "Missing info", description: "Number of children is required", variant: "destructive" });
+          toast({ title: "⚠️ Missing Info", description: "Please enter how many children you have", variant: "destructive" });
           return false;
         }
       } else if (user.app_role === "teacher") {
-        if (!teachingSubjects.trim()) {
-          toast({ title: "Missing info", description: "Subjects taught is required", variant: "destructive" });
+        if (!teachingSubjects || !teachingSubjects.trim()) {
+          toast({ title: "⚠️ Missing Info", description: "Please enter the subjects you teach", variant: "destructive" });
           return false;
         }
         if (!teachingLevel) {
-          toast({ title: "Missing info", description: "Teaching level is required", variant: "destructive" });
+          toast({ title: "⚠️ Missing Info", description: "Please select your teaching level", variant: "destructive" });
           return false;
         }
       }
@@ -261,17 +265,22 @@ export default function CompleteProfile() {
         };
       }
 
+      console.log("Submitting profile update with data:", updateData);
+      
       await base44.auth.updateMe(updateData);
+      console.log("Profile updated successfully");
       
       if (user.app_role === "student") {
         try {
           const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
           if (wallets.length === 0) {
             await base44.entities.Wallet.create({ student_id: user.id, balance: 0 });
+            console.log("Wallet created");
           }
           const progress = await base44.entities.Progress.filter({ student_id: user.id });
           if (progress.length === 0) {
             await base44.entities.Progress.create({ student_id: user.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
+            console.log("Progress created");
           }
         } catch (entityErr) {
           console.error("Failed to create wallet/progress:", entityErr);
@@ -285,11 +294,16 @@ export default function CompleteProfile() {
       });
       
       setTimeout(() => {
+        console.log("Navigating to:", user.app_role === "student" ? "/dashboard" : user.app_role === "parent" ? "/parent" : "/");
         navigate(user.app_role === "student" ? "/dashboard" : user.app_role === "parent" ? "/parent" : "/");
       }, 500);
     } catch (err) {
-      console.error("Profile save error:", err);
-      toast({ title: "Save failed", description: err.message || "Please try again", variant: "destructive" });
+      console.error("Profile save error:", err, err.stack);
+      toast({ 
+        title: "❌ Save Failed", 
+        description: err.message || "Please try again. Check console for details.", 
+        variant: "destructive" 
+      });
     } finally {
       setSaving(false);
     }
