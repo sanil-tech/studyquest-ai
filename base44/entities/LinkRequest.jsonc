@@ -4,32 +4,48 @@
   "properties": {
     "student_id": {
       "type": "string",
-      "description": "ID of the student requesting the link"
+      "description": "ID of the student (filled when accepted)"
     },
     "student_name": {
       "type": "string",
-      "description": "Display name of the student"
+      "description": "Display name of the student (filled when accepted)"
     },
     "student_email": {
       "type": "string",
       "description": "Email of the student"
     },
+    "parent_id": {
+      "type": "string",
+      "description": "ID of the parent who initiated the link"
+    },
     "parent_email": {
       "type": "string",
-      "description": "Email of the parent to link with"
+      "description": "Email of the parent"
+    },
+    "parent_name": {
+      "type": "string",
+      "description": "Display name of the parent"
+    },
+    "initiated_by": {
+      "type": "string",
+      "enum": [
+        "student",
+        "parent"
+      ],
+      "default": "parent",
+      "description": "Who initiated the link request"
     },
     "status": {
       "type": "string",
       "enum": [
         "pending",
-        "approved"
+        "approved",
+        "rejected"
       ],
       "default": "pending"
     }
   },
   "required": [
-    "student_id",
-    "student_name",
     "student_email",
     "parent_email"
   ]

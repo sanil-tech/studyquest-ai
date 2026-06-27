@@ -61,7 +61,7 @@ export default function ProfilePage() {
         </span>
       </motion.div>
 
-      {/* Connect parent — students only */}
+      {/* Parent connection — students only */}
       {user?.app_role === "student" && <ConnectParent user={user} />}
 
       {/* Stats for students */}

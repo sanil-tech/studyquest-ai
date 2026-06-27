@@ -83,30 +83,37 @@ export default function ParentDashboard() {
   const linkChild = async () => {
     setLinking(true);
     try {
-      const linkReqs = await base44.entities.LinkRequest.filter({
+      // Check if already linked or pending
+      const existing = await base44.entities.LinkRequest.filter({
         student_email: linkEmail,
         parent_email: user.email,
       });
-      const linkReq = linkReqs[0];
-      if (!linkReq) {
-        toast({
-          title: "No link request found",
-          description: "Ask your child to add your email on their Profile page first.",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (linkReq.status === "approved") {
+      const existingReq = existing[0];
+      if (existingReq?.status === "approved") {
         toast({ title: "Already linked", description: "This student is already linked.", variant: "destructive" });
         return;
       }
-      await base44.entities.LinkRequest.update(linkReq.id, { status: "approved" });
+      if (existingReq?.status === "pending") {
+        toast({ title: "Request already sent", description: "Waiting for your child to accept.", variant: "destructive" });
+        return;
+      }
+
+      // Create a parent-initiated link request
+      await base44.entities.LinkRequest.create({
+        student_email: linkEmail.trim(),
+        parent_email: user.email,
+        parent_id: user.id,
+        parent_name: user.full_name || "Parent",
+        initiated_by: "parent",
+        status: "pending",
+      });
+
       setDialogOpen(false);
       setLinkEmail("");
-      toast({ title: "Child linked! 🎉" });
+      toast({ title: "Link request sent! 🎉", description: "Your child can accept it from their Profile page." });
       loadData();
     } catch (err) {
-      toast({ title: "Failed to link", description: err.message || "Something went wrong", variant: "destructive" });
+      toast({ title: "Failed to send", description: err.message || "Something went wrong", variant: "destructive" });
     } finally {
       setLinking(false);
     }
@@ -154,16 +161,19 @@ export default function ParentDashboard() {
                 value={linkEmail}
                 onChange={e => setLinkEmail(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Your child will need to accept the request from their Profile page.
+              </p>
               <Button onClick={linkChild} disabled={linking || !linkEmail} className="w-full rounded-xl">
                 {linking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Link Student
+                Send Link Request
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Pending link requests from students */}
+      {/* Pending link requests sent by parent — waiting for student to accept */}
       {pendingLinkRequests.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -171,29 +181,30 @@ export default function ParentDashboard() {
           className="bg-white rounded-2xl border border-border/50 p-5"
         >
           <div className="flex items-center gap-2 mb-3">
-            <UserPlus className="w-5 h-5 text-primary" />
-            <h2 className="font-heading font-semibold">Link Requests</h2>
+            <Clock className="w-5 h-5 text-primary" />
+            <h2 className="font-heading font-semibold">Pending Link Requests</h2>
           </div>
           <div className="space-y-2">
             {pendingLinkRequests.map(req => (
               <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
                 <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                  {req.student_name?.[0]?.toUpperCase() || "S"}
+                  {req.student_email?.[0]?.toUpperCase() || "S"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{req.student_name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{req.student_email}</p>
+                  <p className="font-medium text-sm truncate">{req.student_email}</p>
+                  <p className="text-xs text-muted-foreground">Waiting for student to accept</p>
                 </div>
                 <Button
                   size="sm"
-                  className="rounded-xl"
+                  variant="outline"
+                  className="rounded-xl text-red-500 border-red-200 hover:bg-red-50"
                   onClick={async () => {
-                    await base44.entities.LinkRequest.update(req.id, { status: "approved" });
-                    toast({ title: "Child linked! 🎉" });
+                    await base44.entities.LinkRequest.delete(req.id);
+                    toast({ title: "Request cancelled" });
                     loadData();
                   }}
                 >
-                  Accept
+                  Cancel
                 </Button>
               </div>
             ))}
