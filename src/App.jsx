@@ -27,6 +27,8 @@ import ParentRewards from '@/pages/ParentRewards';
 import ParentApprovals from '@/pages/ParentApprovals';
 import NotificationsPage from '@/pages/NotificationsPage';
 import ProfilePage from '@/pages/ProfilePage';
+import TextbookUpload from '@/pages/TextbookUpload';
+import AdminRoute from '@/components/AdminRoute';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
@@ -58,6 +60,11 @@ const AuthenticatedApp = () => {
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         {/* Role setup (no role yet) */}
         <Route path="/role-setup" element={<RoleSetup />} />
+
+        {/* Admin-only routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin/textbooks" element={<TextbookUpload />} />
+        </Route>
 
         {/* Shared layout — notifications & profile available to both roles */}
         <Route element={<AppLayout />}>

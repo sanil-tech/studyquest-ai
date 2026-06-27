@@ -1,0 +1,56 @@
+{
+  "name": "Textbook",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Textbook title"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL to uploaded textbook PDF"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID of the linked subject"
+    },
+    "subject_name": {
+      "type": "string",
+      "description": "Subject name for display"
+    },
+    "form_level": {
+      "type": "string",
+      "enum": [
+        "All Levels",
+        "Standard 1",
+        "Standard 2",
+        "Standard 3",
+        "Standard 4",
+        "Standard 5",
+        "Standard 6",
+        "Form 1",
+        "Form 2",
+        "Form 3",
+        "Form 4",
+        "Form 5"
+      ],
+      "default": "All Levels",
+      "description": "Malaysian school level this textbook covers"
+    },
+    "uploaded_by": {
+      "type": "string",
+      "description": "Admin user ID who uploaded"
+    }
+  },
+  "required": [
+    "title",
+    "file_url",
+    "subject_id"
+  ],
+  "rls": {
+    "read": true,
+    "create": true,
+    "update": true,
+    "delete": true
+  }
+}

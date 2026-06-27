@@ -45,10 +45,14 @@ export default function LessonPage() {
   const generateLesson = async () => {
     setGenerating(true);
     const user = await base44.auth.me();
+    const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
+    const matchingBooks = textbooks.filter(t => t.form_level === "All Levels" || t.form_level === topic.form_level);
+    const fileUrls = matchingBooks.map(t => t.file_url).filter(Boolean);
     const result = await base44.integrations.Core.InvokeLLM({
       model: "gemini_3_flash",
       add_context_from_internet: true,
-      prompt: `You are an expert tutor for Malaysian school students. Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then explain it. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum.${(() => {
+      file_urls: fileUrls.length > 0 ? fileUrls : undefined,
+      prompt: `You are an expert tutor for Malaysian school students. ${fileUrls.length > 0 ? "Use the provided Malaysian curriculum textbook as the PRIMARY source. Find the chapter covering \"" + topic.name + "\" and base your lesson on its actual content. " : ""}Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then explain it. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum.${(() => {
         const lvl = topic.form_level || "";
         if (lvl.startsWith("Standard")) return ` This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR). Use simpler language suited for young learners.`;
         if (lvl.startsWith("Form")) return ` This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`;
@@ -83,9 +87,13 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
 
   const generateQuiz = async () => {
     setGeneratingQuiz(true);
+    const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
+    const matchingBooks = textbooks.filter(t => t.form_level === "All Levels" || t.form_level === topic.form_level);
+    const fileUrls = matchingBooks.map(t => t.file_url).filter(Boolean);
     const result = await base44.integrations.Core.InvokeLLM({
       model: "gemini_3_flash",
       add_context_from_internet: true,
+      file_urls: fileUrls.length > 0 ? fileUrls : undefined,
       prompt: `Search the web for the official Malaysian curriculum (KSSR/KSSM) content for this topic, then generate exactly 5 multiple choice questions about "${topic.name}" for Malaysian school students, strictly following the Malaysian National Curriculum.${(() => {
         const lvl = topic.form_level || "";
         if (lvl.startsWith("Standard")) return ` This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR). Make questions age-appropriate for young learners.`;
