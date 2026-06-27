@@ -89,7 +89,7 @@ export default function StudentDashboard() {
     );
   }
 
-  const displayName = user?.full_name || "Student";
+  const displayName = user?.nickname || user?.full_name || "Student";
   const firstName = displayName.split(" ")[0];
 
   return (
