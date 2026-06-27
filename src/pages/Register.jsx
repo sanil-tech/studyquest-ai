@@ -13,6 +13,8 @@ import { motion } from "framer-motion";
 
 export default function Register() {
   const navigate = useNavigate();
+  
+  // Shared State
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,7 +23,8 @@ export default function Register() {
   const [step, setStep] = useState("details"); // details → otp → role
   const [otpCode, setOtpCode] = useState("");
 
-  const handleSubmit = async (e) => {
+  // Handlers
+  const handleSubmitDetails = async (e) => {
     e.preventDefault();
     setError("");
     if (password !== confirmPassword) {
@@ -39,7 +42,7 @@ export default function Register() {
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerifyOtp = async () => {
     setError("");
     setLoading(true);
     try {
@@ -55,7 +58,7 @@ export default function Register() {
     }
   };
 
-  const handleResend = async () => {
+  const handleResendOtp = async () => {
     setError("");
     try {
       await base44.auth.resendOtp(email);
@@ -69,100 +72,65 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
-  // --- Step: Role selection ---
+  const handleRoleSelect = async (role) => {
+    setLoading(true);
+    setError("");
+    try {
+      await base44.auth.updateMe({ app_role: role });
+      
+      // IMPORTANT: Wallet and Progress initialization logic for students 
+      // should be moved to a backend hook/trigger to prevent tampering!
+      
+      navigate("/complete-profile");
+    } catch (err) {
+      setError(err.message || "Failed to save role");
+      setLoading(false);
+    }
+  };
+
+  // Render Steps
   if (step === "role") {
     return (
-      <AuthLayout 
-        icon={UserPlus} 
-        title="Choose your role" 
-        subtitle="Select the option that best describes you"
-      >
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
-        )}
-        <div className="space-y-4 mb-6">
-          <RoleOption
-            icon={Users}
-            title="I am a Parent"
-            description="Create and manage child accounts for learners under 13"
-            color="accent"
-            onClick={() => handleRoleSelect("parent")}
-          />
-          <RoleOption
-            icon={GraduationCap}
-            title="I am a Student"
-            description="For students aged 13+ who want to manage their own learning"
-            color="primary"
-            onClick={() => handleRoleSelect("student")}
-          />
-          <RoleOption
-            icon={BookOpen}
-            title="I am a Teacher"
-            description="Manage classes and monitor student progress"
-            color="emerald"
-            onClick={() => handleRoleSelect("teacher")}
-          />
-        </div>
-      </AuthLayout>
+      <RoleStep 
+        onSelect={handleRoleSelect} 
+        error={error} 
+      />
     );
   }
 
-  // --- Step: OTP ---
   if (step === "otp") {
     return (
-      <AuthLayout
-        icon={Mail}
-        title="Verify your email"
-        subtitle={`We sent a code to ${email}`}
-      >
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-            {error}
-          </div>
-        )}
-        <div className="flex justify-center mb-6">
-          <InputOTP
-            maxLength={6}
-            value={otpCode}
-            onChange={setOtpCode}
-            autoFocus
-            autoComplete="one-time-code"
-          >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
-        <Button
-          className="w-full h-12 font-medium"
-          onClick={handleVerify}
-          disabled={loading || otpCode.length < 6}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify"
-          )}
-        </Button>
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          Didn't receive the code?{" "}
-          <button onClick={handleResend} className="text-primary font-medium hover:underline">
-            Resend
-          </button>
-        </p>
-      </AuthLayout>
+      <OtpStep 
+        email={email}
+        otpCode={otpCode}
+        setOtpCode={setOtpCode}
+        onVerify={handleVerifyOtp}
+        onResend={handleResendOtp}
+        loading={loading}
+        error={error}
+      />
     );
   }
 
-  // --- Step: Account details ---
+  return (
+    <DetailsStep 
+      email={email}
+      setEmail={setEmail}
+      password={password}
+      setPassword={setPassword}
+      confirmPassword={confirmPassword}
+      setConfirmPassword={setConfirmPassword}
+      onSubmit={handleSubmitDetails}
+      onGoogle={handleGoogle}
+      loading={loading}
+      error={error}
+    />
+  );
+}
+
+// --- Step Components ---
+
+function DetailsStep({ email, setEmail, password, setPassword, confirmPassword, setConfirmPassword, onSubmit, onGoogle, loading, error }) {
   return (
     <AuthLayout
       icon={UserPlus}
@@ -180,7 +148,7 @@ export default function Register() {
       <Button
         variant="outline"
         className="w-full h-12 text-sm font-medium mb-6"
-        onClick={handleGoogle}
+        onClick={onGoogle}
       >
         <GoogleIcon className="w-5 h-5 mr-2" />
         Continue with Google
@@ -201,126 +169,8 @@ export default function Register() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              autoFocus
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="confirm">Confirm Password</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-            <Input
-              id="confirm"
-              type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="pl-10 h-12"
-              required
-            />
-          </div>
-        </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Creating account...
-            </>
-          ) : (
-            "Continue"
-          )}
-        </Button>
-      </form>
-    </AuthLayout>
-  );
-
-  async function handleRoleSelect(role) {
-    setLoading(true);
-    setError("");
-    try {
-      const u = await base44.auth.me();
-      await base44.auth.updateMe({ app_role: role });
-
-      // Create wallet and progress for students
-      if (role === "student") {
-        const wallets = await base44.entities.Wallet.filter({ student_id: u.id });
-        if (wallets.length === 0) {
-          await base44.entities.Wallet.create({ student_id: u.id, balance: 0 });
-        }
-        const progress = await base44.entities.Progress.filter({ student_id: u.id });
-        if (progress.length === 0) {
-          await base44.entities.Progress.create({ 
-            student_id: u.id, 
-            total_xp: 0, 
-            level: 1, 
-            streak_days: 0, 
-            total_study_time: 0 
-          });
-        }
-      }
-
-      // Redirect to profile completion
-      window.location.href = "/complete-profile";
-    } catch (err) {
-      setError(err.message || "Failed to save role");
-      setLoading(false);
-    }
-  }
-}
-
-function RoleOption({ icon: Icon, title, description, color, onClick }) {
-  const colorClasses = {
-    primary: "bg-indigo-100 text-primary border-primary",
-    accent: "bg-pink-100 text-accent border-accent",
-    emerald: "bg-emerald-100 text-emerald-600 border-emerald-600",
-  };
-
-  return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={`w-full p-4 rounded-2xl border-2 ${colorClasses[color]} transition-all flex items-start gap-4 text-left hover:shadow-md`}
-    >
-      <div className={`w-12 h-12 rounded-xl ${colorClasses[color]} flex items-center justify-center shrink-0`}>
-        <Icon className="w-6 h-6" />
-      </div>
-      <div className="flex-1">
-        <h3 className="font-heading font-semibold text-foreground">{title}</h3>
-        <p className="text-sm text-muted-foreground mt-1">{description}</p>
-      </div>
-      <CheckCircle2 className="w-5 h-5 text-primary opacity-0 hover:opacity-100 transition-opacity" />
-    </motion.button>
-  );
-}
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden
