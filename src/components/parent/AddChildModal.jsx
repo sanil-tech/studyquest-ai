@@ -115,6 +115,7 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
       });
 
       if (response.data.success) {
+        console.log('Child created successfully:', response.data);
         setCredentials(response.data.child);
         setShowCredentials(true);
         
@@ -125,9 +126,17 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
 
         // Trigger parent refresh with a small delay to ensure data propagation
         setTimeout(() => {
+          console.log('Calling onChildAdded and onLinked callbacks...');
           onChildAdded?.();
           onLinked?.();
         }, 500);
+      } else {
+        console.error('Child creation failed:', response.data);
+        toast({
+          title: "❌ Creation Failed",
+          description: response.data.error || "Unknown error occurred",
+          variant: "destructive",
+        });
       }
     } catch (err) {
       console.error("Create child account error:", err);

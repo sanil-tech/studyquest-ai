@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key, User, Edit2 } from "lucide-react";
+import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key, User, Edit2, RefreshCw } from "lucide-react";
 import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ export default function MyChildrenPage() {
 
   const loadChildren = async () => {
     try {
+      setLoading(true);
       const u = await base44.auth.me();
       setUser(u);
       console.log('Parent user:', u);
@@ -46,6 +47,10 @@ export default function MyChildrenPage() {
       });
 
       console.log(`Loaded ${relationships.length} relationships for parent ${u.id}`, relationships);
+      
+      // Debug: Show all relationships for this parent (including inactive)
+      const allRels = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id });
+      console.log(`Total relationships (all statuses): ${allRels.length}`, allRels);
 
       // Fetch child details
       const childDetails = await Promise.all(
@@ -80,10 +85,15 @@ export default function MyChildrenPage() {
       );
 
       const validChildren = childDetails.filter(c => c !== null);
-      console.log(`Loaded ${validChildren.length} children with details`);
+      console.log(`Loaded ${validChildren.length} children with details`, validChildren);
       setChildren(validChildren);
     } catch (err) {
       console.error("Failed to load children:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to load children",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -140,13 +150,28 @@ export default function MyChildrenPage() {
           <h1 className="text-2xl font-heading font-bold text-foreground">My Children</h1>
           <p className="text-sm text-muted-foreground">Manage your children's learning profiles</p>
         </div>
-        <Button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Child
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setLoading(true);
+              loadChildren();
+            }}
+            disabled={loading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Child
+          </Button>
+        </div>
       </div>
 
       {/* Children Grid */}
