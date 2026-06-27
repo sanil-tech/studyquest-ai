@@ -170,7 +170,7 @@ export default function MyChildrenPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-lg font-bold">{child.full_name || child.nickname || "Unnamed Student"}</CardTitle>
+                      <CardTitle className="text-lg font-bold">{child.nickname || child.full_name || "Unnamed Student"}</CardTitle>
                       <p className="text-xs text-muted-foreground">{child.school_year || child.education_level || "Not set"} • {child.email}</p>
                     </div>
                   </div>

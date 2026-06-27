@@ -69,7 +69,7 @@ export default function ParentDashboard() {
               });
               return {
                 ...child,
-                name: student.full_name || student.nickname || "Unnamed Student",
+                name: student.nickname || student.full_name || "Unnamed Student",
               };
             } catch (err) {
               console.error(`Failed to fetch student ${studentIds[idx]}:`, err.message);
