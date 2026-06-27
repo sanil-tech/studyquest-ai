@@ -265,16 +265,7 @@ export default function ProfilePage() {
           )}
         </div>
         
-        {editing ? (
-          <input
-            value={formData.full_name}
-            onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-            className="w-full bg-white/20 border-white/30 text-white placeholder-white/60 text-center font-heading font-bold mb-2 rounded-md px-3 py-2 max-w-xs mx-auto"
-            placeholder="Your name"
-          />
-        ) : (
-          <h1 className="text-2xl font-heading font-bold mb-1">{user?.full_name || "User"}</h1>
-        )}
+        <h1 className="text-2xl font-heading font-bold mb-1">{user?.full_name || "User"}</h1>
         <p className="text-white/80 text-sm mb-3">{user?.email}</p>
         <span className="inline-block px-4 py-1.5 rounded-full bg-white/20 text-sm font-medium capitalize backdrop-blur-sm">
           {user?.app_role || "student"}
