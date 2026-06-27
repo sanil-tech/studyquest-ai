@@ -84,9 +84,21 @@ Deno.serve(async (req) => {
       last_login_at: new Date().toISOString(),
     });
 
-    // Return user data for frontend to use
+    // Create a session token by encoding user ID with timestamp
+    // This is a simple session mechanism for child accounts
+    const sessionData = {
+      user_id: user.id,
+      student_id: user.student_id,
+      app_role: user.app_role,
+      timestamp: Date.now(),
+      expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+    };
+    const sessionToken = btoa(JSON.stringify(sessionData));
+
+    // Return user data and session token
     return Response.json({
       success: true,
+      session_token: sessionToken,
       user: {
         id: user.id,
         full_name: user.full_name,

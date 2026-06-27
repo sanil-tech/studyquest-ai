@@ -49,13 +49,27 @@ export default function ChildLogin() {
       });
 
       if (response.data.success) {
+        // Store user data for child session
+        const userData = response.data.user;
+        localStorage.setItem('studyquest_session', JSON.stringify({
+          type: 'child',
+          userId: userData.id,
+          loginTime: new Date().toISOString()
+        }));
+        localStorage.setItem('studyquest_user', JSON.stringify(userData));
+        
         toast({
           title: "Welcome back! 🎉",
-          description: `Hi ${response.data.user.nickname}!`,
+          description: `Hi ${userData.nickname}!`,
           duration: 2000
         });
-        // Force reload to refresh auth context
-        window.location.href = "/dashboard";
+        
+        // Redirect based on profile completion
+        if (userData.profile_completed) {
+          window.location.href = "/dashboard";
+        } else {
+          window.location.href = "/complete-profile";
+        }
       } else {
         setError(response.data.error || "Login failed. Please try again.");
       }

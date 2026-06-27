@@ -91,11 +91,42 @@ export const AuthProvider = ({ children }) => {
 
   const checkUserAuth = async () => {
     try {
-      // Now check if the user is authenticated
       setIsLoadingAuth(true);
-      const currentUser = await base44.auth.me();
-      setUser(currentUser);
-      setIsAuthenticated(true);
+      
+      // First, try to restore child session from localStorage
+      const sessionData = localStorage.getItem('studyquest_session');
+      const storedUser = localStorage.getItem('studyquest_user');
+      
+      if (sessionData && storedUser) {
+        try {
+          const session = JSON.parse(sessionData);
+          const user = JSON.parse(storedUser);
+          
+          // Verify user still exists and is not locked
+          const verifiedUser = await base44.asServiceRole.entities.User.get(session.userId);
+          if (verifiedUser && !verifiedUser.account_locked) {
+            setUser(verifiedUser);
+            setIsAuthenticated(true);
+            setIsLoadingAuth(false);
+            setAuthChecked(true);
+            return;
+          }
+        } catch (sessionError) {
+          console.log('Session restoration failed, clearing session');
+          localStorage.removeItem('studyquest_session');
+          localStorage.removeItem('studyquest_user');
+        }
+      }
+      
+      // If no child session, try standard Base44 auth
+      if (appParams.token) {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+      
       setIsLoadingAuth(false);
       setAuthChecked(true);
     } catch (error) {
@@ -115,6 +146,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
+    // Clear child session if exists
+    localStorage.removeItem('studyquest_session');
+    localStorage.removeItem('studyquest_user');
+    
     setUser(null);
     setIsAuthenticated(false);
     
