@@ -3,6 +3,34 @@ import { base44 } from "@/api/base44Client";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const numberToMalayWords = (num) => {
+  const ones = ["sifar", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "lapan", "sembilan"];
+  const teens = ["sepuluh", "sebelas", "dua belas", "tiga belas", "empat belas", "lima belas", "enam belas", "tujuh belas", "lapan belas", "sembilan belas"];
+  const tens = ["", "", "dua puluh", "tiga puluh", "empat puluh", "lima puluh", "enam puluh", "tujuh puluh", "lapan puluh", "sembilan puluh"];
+  
+  if (num < 10) return ones[num];
+  if (num < 20) return teens[num - 10];
+  if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? " " + ones[num % 10] : "");
+  if (num < 1000) {
+    const hundreds = Math.floor(num / 100);
+    const remainder = num % 100;
+    return (hundreds === 1 ? "seratus" : ones[hundreds] + " ratus") + (remainder > 0 ? " " + numberToMalayWords(remainder) : "");
+  }
+  if (num < 1000000) {
+    const thousands = Math.floor(num / 1000);
+    const remainder = num % 1000;
+    return numberToMalayWords(thousands) + " ribu" + (remainder > 0 ? " " + numberToMalayWords(remainder) : "");
+  }
+  return num.toString();
+};
+
+const preprocessMalayText = (text) => {
+  return text.replace(/\b(\d+)\b/g, (match, num) => {
+    const number = parseInt(num, 10);
+    return numberToMalayWords(number);
+  });
+};
+
 export default function VoicePlayer({ text, language = "auto" }) {
   const [audioUrl, setAudioUrl] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -26,8 +54,9 @@ export default function VoicePlayer({ text, language = "auto" }) {
 
     setLoading(true);
     try {
+      const processedText = language === "ms" ? preprocessMalayText(text) : text;
       const result = await base44.integrations.Core.GenerateSpeech({
-        text: text.substring(0, 5000),
+        text: processedText.substring(0, 5000),
         voice: "spark",
         language_code: language === "ms" ? "ms" : undefined,
       });
