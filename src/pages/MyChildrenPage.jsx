@@ -1,23 +1,109 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Coins, Zap, Flame, GraduationCap, Settings } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter 
+} from "@/components/ui/dialog";
+import { Loader2, Plus, Coins, Zap, Flame, GraduationCap, Settings, UserPlus } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
 export default function ParentChildrenDashboard() {
+  const queryClient = useQueryClient();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  // Form State for new child
+  const [newChild, setNewChild] = useState({
+    name: "",
+    student_id: `SQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`, // Auto-generate an ID like SQ-A1B2C
+    pin: "",
+  });
+
   // Fetch the logged-in parent and their linked children
-  const { data: children, isLoading, error } = useQuery({
+  const { data: parent, isLoading: isLoadingParent } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => base44.auth.me()
+  });
+
+  const { data: children, isLoading: isLoadingChildren, error } = useQuery({
     queryKey: ["parent-children"],
+    enabled: !!parent?.id,
     queryFn: async () => {
-      const me = await base44.auth.me();
-      // Fetch children linked to this parent
       return await base44.entities.User.filter({ 
-        parent_id: me.id,
+        parent_id: parent.id,
         app_role: "student" 
       });
     }
   });
+
+  // Mutation to create a new child profile
+  const addChildMutation = useMutation({
+    mutationFn: async (childData) => {
+      // 1. Create the Child User Record
+      const newStudent = await base44.entities.User.create({
+        name: childData.name,
+        student_id: childData.student_id,
+        pin: childData.pin, // Store the PIN for child login
+        parent_id: parent.id,
+        app_role: "student",
+      });
+
+      // 2. Initialize their Wallet (Coins)
+      await base44.entities.Wallet.create({ 
+        student_id: newStudent.id, 
+        balance: 0 
+      });
+
+      // 3. Initialize their Progress (XP, Level, Streak)
+      await base44.entities.Progress.create({ 
+        student_id: newStudent.id, 
+        total_xp: 0, 
+        level: 1, 
+        streak_days: 0, 
+        total_study_time: 0 
+      });
+
+      return newStudent;
+    },
+    onSuccess: () => {
+      toast({ title: "Success!", description: "Child profile created successfully." });
+      queryClient.invalidateQueries(["parent-children"]); // Refresh the UI immediately
+      setIsAddModalOpen(false); // Close the modal
+      
+      // Reset form with a fresh random Student ID
+      setNewChild({
+        name: "",
+        student_id: `SQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        pin: "",
+      });
+    },
+    onError: (err) => {
+      toast({ 
+        title: "Error", 
+        description: err.message || "Failed to create child profile.", 
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const handleAddSubmit = (e) => {
+    e.preventDefault();
+    if (newChild.pin.length < 4) {
+      toast({ title: "Invalid PIN", description: "PIN must be at least 4 digits.", variant: "destructive" });
+      return;
+    }
+    addChildMutation.mutate(newChild);
+  };
+
+  const isLoading = isLoadingParent || isLoadingChildren;
 
   if (isLoading) {
     return (
@@ -38,7 +124,7 @@ export default function ParentChildrenDashboard() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">My Children</h1>
           <p className="text-muted-foreground mt-1">Monitor progress, coins, and learning streaks.</p>
         </div>
-        <Button onClick={() => console.log("Navigate to Add Child route")}>
+        <Button onClick={() => setIsAddModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Add Child Profile
         </Button>
@@ -57,6 +143,80 @@ export default function ParentChildrenDashboard() {
           ))}
         </div>
       )}
+
+      {/* --- Add Child Modal --- */}
+      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" />
+              Add a Child Profile
+            </DialogTitle>
+            <DialogDescription>
+              Create a new student account. They will use the Student ID and PIN to log in.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddSubmit} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Child's Name</Label>
+              <Input
+                id="name"
+                placeholder="e.g. Alex"
+                value={newChild.name}
+                onChange={(e) => setNewChild({ ...newChild, name: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="student_id">Student ID (Login Username)</Label>
+              <Input
+                id="student_id"
+                value={newChild.student_id}
+                onChange={(e) => setNewChild({ ...newChild, student_id: e.target.value.toUpperCase() })}
+                required
+              />
+              <p className="text-xs text-muted-foreground">You can edit this ID or keep the generated one.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pin">Login PIN (4+ digits)</Label>
+              <Input
+                id="pin"
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="1234"
+                value={newChild.pin}
+                onChange={(e) => setNewChild({ ...newChild, pin: e.target.value })}
+                required
+              />
+            </div>
+
+            <DialogFooter className="pt-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsAddModalOpen(false)}
+                disabled={addChildMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addChildMutation.isPending}>
+                {addChildMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Profile"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
