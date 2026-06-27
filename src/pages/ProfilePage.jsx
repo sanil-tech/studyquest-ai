@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { User, LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen } from "lucide-react";
+import { User, LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Upload, Image } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -19,6 +19,9 @@ export default function ProfilePage() {
   const [showAvatar, setShowAvatar] = useState(false);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({ full_name: "", school_year: "", school_name: "", class_name: "" });
+  const [avatarMode, setAvatarMode] = useState("emoji"); // "emoji" or "photo"
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -50,8 +53,31 @@ export default function ProfilePage() {
   };
 
   const handleSaveAvatar = async (emoji) => {
-    await base44.auth.updateMe({ avatar_emoji: emoji });
-    setUser((prev) => ({ ...prev, avatar_emoji: emoji }));
+    await base44.auth.updateMe({ avatar_emoji: emoji, avatar_photo_url: null });
+    setUser((prev) => ({ ...prev, avatar_emoji: emoji, avatar_photo_url: null }));
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
+    try {
+      const result = await base44.integrations.Core.UploadFile({ file });
+      await base44.auth.updateMe({ avatar_photo_url: result.file_url, avatar_emoji: null });
+      setUser((prev) => ({ ...prev, avatar_photo_url: result.file_url, avatar_emoji: null }));
+      setAvatarMode("photo");
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    await base44.auth.updateMe({ avatar_photo_url: null });
+    setUser((prev) => ({ ...prev, avatar_photo_url: null }));
+    setAvatarMode("emoji");
   };
 
   const handleSaveProfile = async () => {
@@ -97,8 +123,23 @@ export default function ProfilePage() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-br from-primary to-indigo-600 rounded-3xl p-8 text-white text-center"
       >
-        <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3 text-4xl">
-          {user?.avatar_emoji || "🎓"}
+        <div className="relative inline-block">
+          <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3 overflow-hidden">
+            {user?.avatar_photo_url ? (
+              <img src={user.avatar_photo_url} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-4xl">{user?.avatar_emoji || "🎓"}</span>
+            )}
+          </div>
+          {user?.app_role === "student" && showAvatar && (
+            <button
+              onClick={handleRemovePhoto}
+              className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs hover:bg-red-600"
+              title="Remove photo"
+            >
+              ×
+            </button>
+          )}
         </div>
         {editing ? (
           <Input
@@ -120,7 +161,7 @@ export default function ProfilePage() {
               onClick={() => setShowAvatar(!showAvatar)}
               className="text-xs text-white/90 hover:text-white underline"
             >
-              {showAvatar ? "Close Avatar" : "Change Avatar"}
+              {showAvatar ? "Close" : "Change Photo"}
             </button>
             <button
               onClick={() => editing ? handleSaveProfile() : setEditing(true)}
@@ -133,9 +174,83 @@ export default function ProfilePage() {
         )}
       </motion.div>
 
-      {/* Avatar selector */}
+      {/* Avatar/Photo selector */}
       {showAvatar && user?.app_role === "student" && (
-        <AvatarSelector currentAvatar={user?.avatar_emoji} onSelect={handleSaveAvatar} />
+        <div className="bg-white rounded-2xl p-5 border border-border/50 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Image className="w-5 h-5 text-primary" />
+            <h3 className="font-heading font-bold text-foreground">Profile Photo</h3>
+          </div>
+
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            <Button
+              variant={avatarMode === "emoji" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAvatarMode("emoji")}
+              className="flex-1"
+            >
+              😊 Emoji Avatar
+            </Button>
+            <Button
+              variant={avatarMode === "photo" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAvatarMode("photo")}
+              className="flex-1"
+            >
+              📷 My Photo
+            </Button>
+          </div>
+
+          {avatarMode === "photo" && (
+            <div className="text-center py-4">
+              {user?.avatar_photo_url ? (
+                <div className="mb-4">
+                  <img
+                    src={user.avatar_photo_url}
+                    alt="Your photo"
+                    className="w-24 h-24 rounded-full object-cover mx-auto border-2 border-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">Current photo</p>
+                </div>
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <Image className="w-10 h-10 text-muted-foreground" />
+                </div>
+              )}
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full"
+              >
+                {uploading ? (
+                  <>
+                    <Upload className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    {user?.avatar_photo_url ? "Change Photo" : "Upload Photo"}
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">Optional - choose a photo or use emoji avatar</p>
+            </div>
+          )}
+
+          {avatarMode === "emoji" && (
+            <AvatarSelector currentAvatar={user?.avatar_emoji} onSelect={handleSaveAvatar} />
+          )}
+        </div>
       )}
 
       {/* Parent connection — students only */}
