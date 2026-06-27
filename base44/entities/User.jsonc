@@ -11,6 +11,10 @@
       ],
       "description": "App-specific role selected during onboarding"
     },
+    "student_id": {
+      "type": "string",
+      "description": "Unique StudyQuest Student ID (e.g., SQ-8F3K92) - auto-generated for students"
+    },
     "linked_parent_id": {
       "type": "string",
       "description": "For students - their parent's user ID"

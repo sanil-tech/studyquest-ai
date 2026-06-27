@@ -1,0 +1,38 @@
+{
+  "name": "ParentLinkCode",
+  "type": "object",
+  "properties": {
+    "child_id": {
+      "type": "string",
+      "description": "ID of the student/child user"
+    },
+    "code": {
+      "type": "string",
+      "description": "6-8 character alphanumeric link code"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the code expires (24 hours from creation)"
+    },
+    "used_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the code was used (if used)"
+    },
+    "used_by_parent_id": {
+      "type": "string",
+      "description": "ID of parent who used this code (if used)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the code is still valid"
+    }
+  },
+  "required": [
+    "child_id",
+    "code",
+    "expires_at"
+  ]
+}

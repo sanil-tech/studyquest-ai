@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import ConnectParent from "@/components/student/ConnectParent";
+import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
@@ -12,6 +13,7 @@ import ProfileForm from "@/components/profile/ProfileForm";
 import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
 import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
 import SecuritySection from "@/components/profile/SecuritySection";
+import StudentIdSection from "@/components/profile/StudentIdSection";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -269,6 +271,11 @@ export default function ProfilePage() {
         )}
       </motion.div>
 
+      {/* Student ID & Parent Link Code Section */}
+      {isStudent && (
+        <StudentIdSection user={user} />
+      )}
+
       {/* Profile Photo Section */}
       {showAvatar && isStudent && (
         <ProfilePhotoSection
@@ -290,6 +297,7 @@ export default function ProfilePage() {
       {isStudent && (
         <>
           <ConnectParent user={user} />
+          <ParentConnections user={user} />
           
           <motion.div
             initial={{ opacity: 0, y: 10 }}
