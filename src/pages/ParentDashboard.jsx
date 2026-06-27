@@ -17,44 +17,8 @@ export default function ParentDashboard() {
   const [linkEmail, setLinkEmail] = useState("");
   const [linking, setLinking] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingChild, setEditingChild] = useState(null);
-  const [editForm, setEditForm] = useState({ full_name: "", avatar_emoji: "🎓", school_year: "", school_name: "", class_name: "" });
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const { toast } = useToast();
-
-  const openEditProfile = (child) => {
-    setEditingChild(child);
-    setEditForm({
-      full_name: child.name || "",
-      avatar_emoji: child.avatar_emoji || "🎓",
-      school_year: child.school_year || "",
-      school_name: child.school_name || "",
-      class_name: child.class_name || "",
-    });
-    setEditDialogOpen(true);
-  };
-
-  const saveChildProfile = async () => {
-    setSaving(true);
-    try {
-      await base44.entities.User.update(editingChild.id, {
-        full_name: editForm.full_name,
-        avatar_emoji: editForm.avatar_emoji,
-        school_year: editForm.school_year,
-        school_name: editForm.school_name,
-        class_name: editForm.class_name,
-      });
-      toast({ title: "Profile updated! ✨", description: "Changes saved successfully." });
-      setEditDialogOpen(false);
-      loadData();
-    } catch (err) {
-      toast({ title: "Failed to update", description: err.message || "Something went wrong", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const loadData = async () => {
     try {
@@ -130,12 +94,8 @@ export default function ParentDashboard() {
     const unsubscribeLink = base44.entities.LinkRequest.subscribe(() => {
       loadData();
     });
-    const unsubscribeUser = base44.entities.User.subscribe(() => {
-      loadData();
-    });
     return () => {
       unsubscribeLink();
-      unsubscribeUser();
     };
   }, []);
 
@@ -231,71 +191,7 @@ export default function ParentDashboard() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit {editingChild?.name || "Child"}'s Profile</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="flex justify-center mb-4">
-                <div className="text-6xl">{editForm.avatar_emoji}</div>
-              </div>
-              <div className="grid grid-cols-5 gap-2 justify-center mb-4">
-                {["🎓", "👦", "👧", "🧑", "🧒", "👨‍🎓", "👩‍🎓", "⭐", "🌟", "🎯"].map((emoji) => (
-                  <button
-                    key={emoji}
-                    onClick={() => setEditForm({ ...editForm, avatar_emoji: emoji })}
-                    className={`text-2xl p-2 rounded-lg hover:bg-muted transition-colors ${editForm.avatar_emoji === emoji ? "bg-primary/10 ring-2 ring-primary" : ""}`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Full Name</label>
-                  <Input
-                    value={editForm.full_name}
-                    onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                    placeholder="Student's name"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">School Year</label>
-                  <Input
-                    value={editForm.school_year}
-                    onChange={(e) => setEditForm({ ...editForm, school_year: e.target.value })}
-                    placeholder="e.g. Standard 1, Form 3"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">School Name</label>
-                  <Input
-                    value={editForm.school_name}
-                    onChange={(e) => setEditForm({ ...editForm, school_name: e.target.value })}
-                    placeholder="School name"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Class Name</label>
-                  <Input
-                    value={editForm.class_name}
-                    onChange={(e) => setEditForm({ ...editForm, class_name: e.target.value })}
-                    placeholder="e.g. 1A, 3B"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={() => setEditDialogOpen(false)} className="flex-1 rounded-xl">
-                  Cancel
-                </Button>
-                <Button onClick={saveChildProfile} disabled={saving} className="flex-1 rounded-xl">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Changes"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+
       </div>
 
       {pendingLinkRequests.length > 0 && (
@@ -389,19 +285,16 @@ export default function ParentDashboard() {
             transition={{ delay: ci * 0.1 }}
             className="bg-white rounded-2xl border border-border/50 overflow-hidden"
           >
-            <div className="p-5 border-b border-border/50 flex items-center justify-between">
-              <div>
-                <h2 className="font-heading font-bold text-lg">{child.name}</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">{child.sessionCount} total sessions · {child.weeklyMinutes}m this week</p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-xl h-8"
-                onClick={() => openEditProfile(child)}
-              >
-                Edit Profile
-              </Button>
+            <div className="p-5 border-b border-border/50">
+              <h2 className="font-heading font-bold text-lg">{child.full_name || child.name}</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{child.sessionCount} total sessions · {child.weeklyMinutes}m this week</p>
+              {(child.school_year || child.school_name || child.class_name) && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {child.school_year && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">{child.school_year}</span>}
+                  {child.school_name && <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{child.school_name}</span>}
+                  {child.class_name && <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{child.class_name}</span>}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-4 gap-2 p-4">
