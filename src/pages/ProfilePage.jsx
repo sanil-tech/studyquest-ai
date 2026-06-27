@@ -100,31 +100,7 @@ export default function ProfilePage() {
     };
     load();
 
-    // Real-time subscription for user profile updates
-    const unsubscribe = base44.entities.User.subscribe((event) => {
-      if (event.type === "update" && event.data?.id === user?.id) {
-        setUser(event.data);
-        setFormData({
-          full_name: event.data.full_name || "",
-          nickname: event.data.nickname || "",
-          school_year: event.data.school_year || "",
-          school_name: event.data.school_name || "",
-          class_name: event.data.class_name || "",
-          gender: event.data.gender || "",
-          date_of_birth: event.data.date_of_birth || "",
-          country: event.data.country || "Malaysia",
-          state: event.data.state || "",
-          notification_preferences: event.data.notification_preferences || formData.notification_preferences,
-          learning_preferences: event.data.learning_preferences || formData.learning_preferences,
-        });
-        toast({
-          title: "Profile Updated",
-          description: "Your profile has been updated successfully.",
-        });
-      }
-    });
-
-    return () => unsubscribe();
+    return () => {};
   }, [user?.id]);
 
   const handleLogout = () => {
