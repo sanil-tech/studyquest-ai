@@ -81,7 +81,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { childData } = await req.json();
+    let body;
+
+try {
+  body = await req.json();
+} catch (e) {
+  return Response.json(
+    { error: "Invalid JSON body" },
+    { status: 400 }
+  );
+}
+
+const childData = body?.childData;
 
     // ===============================
     // VALIDATION
