@@ -66,6 +66,16 @@ export default function ProfilePage() {
         class_name: updatedUser.class_name || "",
       });
       setEditing(false);
+
+      // Sync name to any approved LinkRequest so parent dashboard shows updated name
+      if (updatedUser.app_role === "student") {
+        const linkReqs = await base44.entities.LinkRequest.filter({ student_email: updatedUser.email, status: "approved" });
+        await Promise.all(
+          linkReqs.map(req =>
+            base44.entities.LinkRequest.update(req.id, { student_name: updatedUser.full_name || updatedUser.email })
+          )
+        );
+      }
     } catch (err) {
       console.error("Failed to save profile:", err);
     }
