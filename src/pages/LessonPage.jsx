@@ -414,43 +414,53 @@ Return ONLY valid JSON, no extra text.`;
           <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-5 border border-emerald-100">
             <h3 className="font-heading font-bold text-emerald-800 mb-2">Ready to test yourself? 🎯</h3>
             <p className="text-sm text-emerald-600 mb-4">
-              Take a quiz to earn coins and XP!
+              Take a quiz to earn coins and XP! 10 coins per correct answer + 50 bonus for perfect score.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                onClick={() => generateQuiz(10)}
-                disabled={generatingQuiz}
-                className="bg-emerald-600 hover:bg-emerald-700 rounded-xl flex-1"
-              >
-                {generatingQuiz ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 mr-2" />
-                    Quiz (10 Q)
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={() => generateQuiz(20)}
-                disabled={generatingQuiz}
-                className="bg-amber-600 hover:bg-amber-700 rounded-xl flex-1"
-              >
-                {generatingQuiz ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Trophy className="w-4 h-4 mr-2" />
-                    Exam Mode (20 Q)
-                  </>
-                )}
-              </Button>
+              <div className="flex-1">
+                <Button
+                  onClick={() => generateQuiz(10)}
+                  disabled={generatingQuiz}
+                  className="bg-emerald-600 hover:bg-emerald-700 rounded-xl w-full"
+                >
+                  {generatingQuiz ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      Quiz (10 Q)
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-center text-emerald-700 font-medium mt-1.5">
+                  🪙 Up to 150 coins · ⭐ 50 XP
+                </p>
+              </div>
+              <div className="flex-1">
+                <Button
+                  onClick={() => generateQuiz(20)}
+                  disabled={generatingQuiz}
+                  className="bg-amber-600 hover:bg-amber-700 rounded-xl w-full"
+                >
+                  {generatingQuiz ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Trophy className="w-4 h-4 mr-2" />
+                      Exam Mode (20 Q)
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-center text-amber-700 font-medium mt-1.5">
+                  🪙 Up to 250 coins · ⭐ 100 XP
+                </p>
+              </div>
             </div>
           </div>
 

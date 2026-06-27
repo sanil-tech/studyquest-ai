@@ -39,13 +39,12 @@ export default function QuizPage() {
     });
     const score = Math.round((correct / questions.length) * 100);
 
-    // Calculate coins
-    let coins = 20; // base
-    if (score > 80) coins += 20;
+    // Calculate coins — 10 per correct answer, bonus 50 for perfect score
+    let coins = correct * 10;
     if (score === 100) coins += 50;
 
-    // XP earned
-    const xpEarned = Math.round(score / 2);
+    // XP earned — 5 per correct answer
+    const xpEarned = correct * 5;
 
     // Generate AI feedback
     const feedbackResult = await base44.integrations.Core.InvokeLLM({
