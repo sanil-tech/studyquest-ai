@@ -34,11 +34,10 @@ export default function RoleSetup() {
         if (progress.length === 0) {
           await base44.entities.Progress.create({ student_id: u.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
         }
-        window.location.href = "/dashboard";
       } else {
         await base44.auth.updateMe({ linked_student_ids: [] });
-        window.location.href = "/parent";
       }
+      window.location.href = "/complete-profile";
     } catch (err) {
       setError(err.message || "Failed to save role");
       setSaving(false);

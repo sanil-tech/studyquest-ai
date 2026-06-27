@@ -6,7 +6,8 @@
       "type": "string",
       "enum": [
         "student",
-        "parent"
+        "parent",
+        "teacher"
       ],
       "description": "App-specific role selected during onboarding"
     },
@@ -36,6 +37,81 @@
     "class_name": {
       "type": "string",
       "description": "Class or form name (e.g. 1A, 3B)"
+    },
+    "nickname": {
+      "type": "string",
+      "description": "Preferred name or nickname"
+    },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "male",
+        "female",
+        "other",
+        "prefer_not_to_say"
+      ],
+      "description": "Gender"
+    },
+    "date_of_birth": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of birth"
+    },
+    "country": {
+      "type": "string",
+      "default": "Malaysia",
+      "description": "Country of residence"
+    },
+    "state": {
+      "type": "string",
+      "description": "State or region"
+    },
+    "education_level": {
+      "type": "string",
+      "enum": [
+        "Standard 1",
+        "Standard 2",
+        "Standard 3",
+        "Standard 4",
+        "Standard 5",
+        "Standard 6",
+        "Form 1",
+        "Form 2",
+        "Form 3",
+        "Form 4",
+        "Form 5",
+        "Other"
+      ],
+      "description": "Current education level"
+    },
+    "grade_year": {
+      "type": "string",
+      "description": "Grade or year level"
+    },
+    "profile_picture_url": {
+      "type": "string",
+      "description": "URL to profile picture"
+    },
+    "num_children": {
+      "type": "number",
+      "description": "Number of children (for parents)"
+    },
+    "children_names": {
+      "type": "string",
+      "description": "Children's names separated by commas (for parents)"
+    },
+    "teaching_subjects": {
+      "type": "string",
+      "description": "Subjects taught (for teachers)"
+    },
+    "teaching_level": {
+      "type": "string",
+      "description": "Teaching level - primary/secondary (for teachers)"
+    },
+    "profile_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user completed onboarding profile"
     }
   }
 }

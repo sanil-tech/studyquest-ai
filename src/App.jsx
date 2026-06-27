@@ -8,12 +8,14 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import RoleRoute from '@/components/RoleRoute';
+import ProfileCompleteRoute from '@/components/ProfileCompleteRoute';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import AppLayout from '@/components/layout/AppLayout';
 import RoleSetup from '@/pages/RoleSetup';
+import CompleteProfile from '@/pages/CompleteProfile';
 import Home from '@/pages/Home';
 import StudentDashboard from '@/pages/StudentDashboard';
 import StudyPage from '@/pages/StudyPage';
@@ -61,6 +63,9 @@ const AuthenticatedApp = () => {
         {/* Role setup (no role yet) */}
         <Route path="/role-setup" element={<RoleSetup />} />
 
+        {/* Profile completion (after role setup) */}
+        <Route path="/complete-profile" element={<CompleteProfile />} />
+
         {/* Admin-only routes */}
         <Route element={<AdminRoute />}>
           <Route path="/admin/textbooks" element={<TextbookUpload />} />
@@ -72,23 +77,27 @@ const AuthenticatedApp = () => {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
 
-          {/* Student-only routes */}
-          <Route element={<RoleRoute allowedRoles={["student"]} />}>
-            <Route path="/dashboard" element={<StudentDashboard />} />
-            <Route path="/study" element={<StudyPage />} />
-            <Route path="/study/:subjectId" element={<StudyPage />} />
-            <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
-            <Route path="/quiz/:quizId" element={<QuizPage />} />
-            <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
-            <Route path="/wallet" element={<WalletPage />} />
-            <Route path="/rewards" element={<RewardsPage />} />
+          {/* Student-only routes — require profile completion */}
+          <Route element={<ProfileCompleteRoute />}>
+            <Route element={<RoleRoute allowedRoles={["student"]} />}>
+              <Route path="/dashboard" element={<StudentDashboard />} />
+              <Route path="/study" element={<StudyPage />} />
+              <Route path="/study/:subjectId" element={<StudyPage />} />
+              <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
+              <Route path="/quiz/:quizId" element={<QuizPage />} />
+              <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
+              <Route path="/wallet" element={<WalletPage />} />
+              <Route path="/rewards" element={<RewardsPage />} />
+            </Route>
           </Route>
 
-          {/* Parent-only routes */}
-          <Route element={<RoleRoute allowedRoles={["parent"]} />}>
-            <Route path="/parent" element={<ParentDashboard />} />
-            <Route path="/parent/rewards" element={<ParentRewards />} />
-            <Route path="/parent/approvals" element={<ParentApprovals />} />
+          {/* Parent-only routes — require profile completion */}
+          <Route element={<ProfileCompleteRoute />}>
+            <Route element={<RoleRoute allowedRoles={["parent"]} />}>
+              <Route path="/parent" element={<ParentDashboard />} />
+              <Route path="/parent/rewards" element={<ParentRewards />} />
+              <Route path="/parent/approvals" element={<ParentApprovals />} />
+            </Route>
           </Route>
         </Route>
       </Route>

@@ -8,16 +8,22 @@ export default function StudyPage() {
   const { subjectId } = useParams();
   const [subjects, setSubjects] = useState([]);
   const [topics, setTopics] = useState([]);
+  const [filteredTopics, setFilteredTopics] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [textbooks, setTextbooks] = useState([]);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const subs = await base44.entities.Subject.list();
+      const [subs, books, u] = await Promise.all([
+        base44.entities.Subject.list(),
+        base44.entities.Textbook.list("-created_date", 50),
+        base44.auth.me(),
+      ]);
       setSubjects(subs);
-      const books = await base44.entities.Textbook.list("-created_date", 50);
       setTextbooks(books);
+      setUser(u);
       if (subjectId) {
         const sub = subs.find(s => s.id === subjectId);
         setSelectedSubject(sub);
@@ -28,6 +34,26 @@ export default function StudyPage() {
     };
     load();
   }, [subjectId]);
+
+  // Filter topics based on user's education level
+  useEffect(() => {
+    if (!topics || !user) {
+      setFilteredTopics(topics);
+      return;
+    }
+    const userLevel = user.education_level || user.school_year;
+    if (!userLevel) {
+      setFilteredTopics(topics);
+      return;
+    }
+    // Show topics that match user's level or are marked as "All Levels"
+    const filtered = topics.filter(t => {
+      if (!t.form_level) return true;
+      if (t.form_level === "All Levels") return true;
+      return t.form_level === userLevel;
+    });
+    setFilteredTopics(filtered);
+  }, [topics, user]);
 
   const handleSelectSubject = async (sub) => {
     setSelectedSubject(sub);
@@ -128,9 +154,13 @@ export default function StudyPage() {
         </div>
       </div>
 
-      {topics.length === 0 ? (
+      {filteredTopics.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">No topics yet for this subject.</p>
+          <p className="text-muted-foreground">
+            {topics.length === 0 
+              ? "No topics yet for this subject." 
+              : `No topics available for your level (${user?.education_level || user?.school_year || "your level"}). Check back soon!`}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -168,7 +198,7 @@ export default function StudyPage() {
             </motion.div>
           )}
 
-          {topics.map((topic, i) => (
+          {filteredTopics.map((topic, i) => (
             <motion.div
               key={topic.id}
               initial={{ opacity: 0, x: -10 }}
