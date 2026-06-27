@@ -32,6 +32,7 @@ import ProfilePage from '@/pages/ProfilePage';
 import MyChildrenPage from '@/pages/MyChildrenPage';
 import TextbookUpload from '@/pages/TextbookUpload';
 import AdminRoute from '@/components/AdminRoute';
+import ChildLogin from '@/pages/ChildLogin';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
@@ -58,6 +59,7 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/child-login" element={<ChildLogin />} />
 
       {/* Authenticated routes */}
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>

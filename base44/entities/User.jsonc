@@ -190,6 +190,53 @@
         }
       },
       "description": "User learning preferences"
+    },
+    "username": {
+      "type": "string",
+      "description": "Optional username for child login (e.g., emma.tan)"
+    },
+    "password_hash": {
+      "type": "string",
+      "description": "Hashed password for child account authentication"
+    },
+    "pin_hash": {
+      "type": "string",
+      "description": "Hashed 4-6 digit PIN for younger children login"
+    },
+    "pin_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether PIN login is enabled for this child"
+    },
+    "login_method": {
+      "type": "string",
+      "enum": [
+        "password",
+        "pin",
+        "both"
+      ],
+      "default": "password",
+      "description": "Allowed login method(s) for this child"
+    },
+    "failed_login_attempts": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of consecutive failed login attempts"
+    },
+    "account_locked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether account is temporarily locked due to failed attempts"
+    },
+    "last_login_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last successful login"
+    },
+    "is_child_account": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this is a child account (under 13, no email login)"
     }
   }
 }

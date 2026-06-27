@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
+import { LogIn, Mail, Lock, Loader2, GraduationCap } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 
@@ -126,6 +126,19 @@ export default function Login() {
           )}
         </Button>
       </form>
+
+      {/* Child Login Link */}
+      <div className="mt-6 pt-6 border-t border-border">
+        <Link to="/child-login" className="block">
+          <Button variant="outline" className="w-full h-12 rounded-xl border-2 border-primary/30 bg-primary/5 hover:bg-primary/10">
+            <GraduationCap className="w-5 h-5 mr-2 text-primary" />
+            <div className="flex flex-col items-start">
+              <span className="font-semibold text-primary">Child Login</span>
+              <span className="text-xs text-muted-foreground font-normal">Login with Student ID</span>
+            </div>
+          </Button>
+        </Link>
+      </div>
     </AuthLayout>
   );
 }

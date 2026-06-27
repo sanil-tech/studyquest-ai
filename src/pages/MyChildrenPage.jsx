@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2 } from "lucide-react";
+import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,12 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from "react-router-dom";
 import AddChildModal from "@/components/parent/AddChildModal";
+import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
 
 export default function MyChildrenPage() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCredentialManager, setShowCredentialManager] = useState(false);
+  const [selectedChild, setSelectedChild] = useState(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -180,11 +183,14 @@ export default function MyChildrenPage() {
                     <Button 
                       size="sm" 
                       variant="outline"
-                      className="flex-1 text-destructive hover:text-destructive"
-                      onClick={() => handleRemoveLink(child.id, child.relationshipId, child.full_name || child.nickname || child.email)}
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedChild(child);
+                        setShowCredentialManager(true);
+                      }}
                     >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Remove
+                      <Key className="w-3 h-3 mr-1" />
+                      Credentials
                     </Button>
                   </div>
                 </CardContent>
@@ -200,8 +206,19 @@ export default function MyChildrenPage() {
           onClose={() => setShowAddModal(false)}
           onLinked={() => {
             setShowAddModal(false);
-            // Reload children
             window.location.reload();
+          }}
+        />
+      )}
+
+      {/* Credential Manager */}
+      {selectedChild && (
+        <ChildCredentialManager
+          child={selectedChild}
+          open={showCredentialManager}
+          onOpenChange={(open) => {
+            setShowCredentialManager(open);
+            if (!open) setSelectedChild(null);
           }}
         />
       )}

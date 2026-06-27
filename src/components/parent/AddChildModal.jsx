@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import CredentialsSummary from "./CredentialsSummary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,8 @@ const educationLevels = [
 export default function AddChildModal({ open, onOpenChange, onClose, onChildAdded, onLinked }) {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [credentials, setCredentials] = useState(null);
   const [childData, setChildData] = useState({
     full_name: "",
     nickname: "",
@@ -98,17 +101,33 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
         return;
       }
 
-      const age = calculateAge(childData.date_of_birth);
-      
-      toast({
-        title: "✅ Profile Saved",
-        description: "Child profile created successfully!",
+      // Create child account with credentials
+      const response = await base44.functions.invoke("createChildAccount", {
+        childData: {
+          ...childData,
+          grade_year: childData.grade_year,
+        },
       });
 
-      onChildAdded?.();
-      onLinked?.();
+      if (response.data.success) {
+        setCredentials(response.data.child);
+        setShowCredentials(true);
+        
+        toast({
+          title: "✅ Account Created",
+          description: "Please save the login credentials!",
+        });
+
+        onChildAdded?.();
+        onLinked?.();
+      }
     } catch (err) {
-      toast({ title: "Failed", description: err.message || "Please try again", variant: "destructive" });
+      console.error("Create child account error:", err);
+      toast({ 
+        title: "Failed", 
+        description: err.response?.data?.error || err.message || "Please try again", 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }
@@ -118,15 +137,16 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
   const recommendedLevel = age ? getRecommendedLevel(age) : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange || onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange || onClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5 text-primary" />
             Add Your Child's Profile
           </DialogTitle>
           <DialogDescription>
-            Create a learning profile for your child.
+            Create a learning profile for your child with secure login credentials.
           </DialogDescription>
         </DialogHeader>
 
@@ -307,7 +327,16 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
             )}
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credentials Summary Modal */}
+      <CredentialsSummary
+        open={showCredentials}
+        onOpenChange={setShowCredentials}
+        credentials={credentials}
+        childName={childData.full_name}
+      />
+    </>
   );
 }
