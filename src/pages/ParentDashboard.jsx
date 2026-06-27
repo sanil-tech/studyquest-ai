@@ -19,12 +19,41 @@ export default function ParentDashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingChild, setEditingChild] = useState(null);
+  const [editForm, setEditForm] = useState({ full_name: "", avatar_emoji: "🎓", school_year: "", school_name: "", class_name: "" });
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const { toast } = useToast();
 
   const openEditProfile = (child) => {
     setEditingChild(child);
+    setEditForm({
+      full_name: child.name || "",
+      avatar_emoji: child.avatar_emoji || "🎓",
+      school_year: child.school_year || "",
+      school_name: child.school_name || "",
+      class_name: child.class_name || "",
+    });
     setEditDialogOpen(true);
+  };
+
+  const saveChildProfile = async () => {
+    setSaving(true);
+    try {
+      await base44.entities.User.update(editingChild.id, {
+        full_name: editForm.full_name,
+        avatar_emoji: editForm.avatar_emoji,
+        school_year: editForm.school_year,
+        school_name: editForm.school_name,
+        class_name: editForm.class_name,
+      });
+      toast({ title: "Profile updated! ✨", description: "Changes saved successfully." });
+      setEditDialogOpen(false);
+      loadData();
+    } catch (err) {
+      toast({ title: "Failed to update", description: err.message || "Something went wrong", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const loadData = async () => {
@@ -188,26 +217,67 @@ export default function ParentDashboard() {
         </Dialog>
 
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>{editingChild?.name || "Child"}'s Profile</DialogTitle>
+              <DialogTitle>Edit {editingChild?.name || "Child"}'s Profile</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm">
-                <p className="text-amber-800">
-                  <strong>Note:</strong> Profile information (name, avatar, school details) can only be edited by the student from their Profile page.
-                </p>
+              <div className="flex justify-center mb-4">
+                <div className="text-6xl">{editForm.avatar_emoji}</div>
               </div>
-              <div className="text-center py-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-3xl mx-auto mb-2">
-                  🎓
+              <div className="grid grid-cols-5 gap-2 justify-center mb-4">
+                {["🎓", "👦", "👧", "🧑", "🧒", "👨‍🎓", "👩‍🎓", "⭐", "🌟", "🎯"].map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => setEditForm({ ...editForm, avatar_emoji: emoji })}
+                    className={`text-2xl p-2 rounded-lg hover:bg-muted transition-colors ${editForm.avatar_emoji === emoji ? "bg-primary/10 ring-2 ring-primary" : ""}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Full Name</label>
+                  <Input
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                    placeholder="Student's name"
+                  />
                 </div>
-                <p className="font-medium">{editingChild?.name || "Student"}</p>
-                <p className="text-xs text-muted-foreground mt-1">Student</p>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">School Year</label>
+                  <Input
+                    value={editForm.school_year}
+                    onChange={(e) => setEditForm({ ...editForm, school_year: e.target.value })}
+                    placeholder="e.g. Standard 1, Form 3"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">School Name</label>
+                  <Input
+                    value={editForm.school_name}
+                    onChange={(e) => setEditForm({ ...editForm, school_name: e.target.value })}
+                    placeholder="School name"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Class Name</label>
+                  <Input
+                    value={editForm.class_name}
+                    onChange={(e) => setEditForm({ ...editForm, class_name: e.target.value })}
+                    placeholder="e.g. 1A, 3B"
+                  />
+                </div>
               </div>
-              <Button onClick={() => setEditDialogOpen(false)} className="w-full rounded-xl">
-                Close
-              </Button>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" onClick={() => setEditDialogOpen(false)} className="flex-1 rounded-xl">
+                  Cancel
+                </Button>
+                <Button onClick={saveChildProfile} disabled={saving} className="flex-1 rounded-xl">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Changes"}
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -315,7 +385,7 @@ export default function ParentDashboard() {
                 className="rounded-xl h-8"
                 onClick={() => openEditProfile(child)}
               >
-                View Profile
+                Edit Profile
               </Button>
             </div>
 
