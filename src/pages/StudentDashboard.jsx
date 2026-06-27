@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import StatsBar from "@/components/student/StatsBar";
 import StreakBadges from "@/components/student/StreakBadges";
 import SubjectCard from "@/components/student/SubjectCard";
+import LearningOverview from "@/components/student/LearningOverview";
 import { motion } from "framer-motion";
 import moment from "moment";
 
@@ -16,6 +17,8 @@ export default function StudentDashboard() {
   const [subjects, setSubjects] = useState([]);
   const [recentSessions, setRecentSessions] = useState([]);
   const [recentAttempts, setRecentAttempts] = useState([]);
+  const [allSessions, setAllSessions] = useState([]);
+  const [allAttempts, setAllAttempts] = useState([]);
   const [todaySessionCount, setTodaySessionCount] = useState(0);
   const [todayStudyMinutes, setTodayStudyMinutes] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -32,14 +35,16 @@ export default function StudentDashboard() {
           base44.entities.Progress.filter({ student_id: u.id }),
           base44.entities.Subject.list(),
           base44.entities.StudySession.filter({ student_id: u.id }, "-created_date", 50),
-          base44.entities.QuizAttempt.filter({ student_id: u.id }, "-created_date", 3),
+          base44.entities.QuizAttempt.filter({ student_id: u.id }, "-created_date", 50),
         ]);
 
         setWallet(wallets[0] || { balance: 0 });
         setProgress(progresses[0] || { total_xp: 0, level: 1, streak_days: 0 });
         setSubjects(subs || []);
         setRecentSessions((sessions || []).slice(0, 3));
-        setRecentAttempts(attempts || []);
+        setRecentAttempts((attempts || []).slice(0, 3));
+        setAllSessions(sessions || []);
+        setAllAttempts(attempts || []);
 
         // Daily progress: sessions created today
         const today = new Date().toISOString().split("T")[0];
@@ -88,6 +93,12 @@ export default function StudentDashboard() {
 
       {/* Stats */}
       <StatsBar wallet={wallet} progress={progress} />
+
+      <LearningOverview
+        sessions={allSessions}
+        attempts={allAttempts}
+        subjectsCount={subjects.length}
+      />
 
       {/* Streak Milestones */}
       <StreakBadges streakDays={progress?.streak_days} />
