@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { User, LogOut, BookOpen, Trophy, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import ConnectParent from "@/components/student/ConnectParent";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -60,8 +61,11 @@ export default function ProfilePage() {
         </span>
       </motion.div>
 
+      {/* Connect parent — students only */}
+      {user?.app_role === "student" && <ConnectParent user={user} />}
+
       {/* Stats for students */}
-      {user?.role === "student" && (
+      {user?.app_role === "student" && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

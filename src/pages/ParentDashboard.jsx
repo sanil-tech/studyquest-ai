@@ -12,6 +12,7 @@ export default function ParentDashboard() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [pendingLinkRequests, setPendingLinkRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [linkEmail, setLinkEmail] = useState("");
   const [linking, setLinking] = useState(false);
@@ -26,7 +27,16 @@ export default function ParentDashboard() {
       setUser(u);
       const studentIds = u.linked_student_ids || [];
 
+      // Load incoming link requests matching this parent's email
+      const linkReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
+      const pendingLinks = linkReqs.filter(r => r.status === "pending" && !studentIds.includes(r.student_id));
+      setPendingLinkRequests(pendingLinks);
+
       if (studentIds.length > 0) {
+        // Build a name lookup from LinkRequest records
+        const nameMap = {};
+        linkReqs.forEach(r => { nameMap[r.student_id] = r.student_name; });
+
         const [childrenData, allPendingReqs] = await Promise.all([
           Promise.all(
             studentIds.map(async (sid) => {
@@ -36,14 +46,13 @@ export default function ParentDashboard() {
                 base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 5),
                 base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 50),
               ]);
-              const users = await base44.entities.User.filter({ id: sid });
               // Weekly study time
               const weekAgo = moment().subtract(7, "days").toDate();
               const weeklySessions = sessions.filter(s => new Date(s.created_date) >= weekAgo);
               const weeklyMinutes = weeklySessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
               return {
                 id: sid,
-                name: users[0]?.full_name || "Student",
+                name: nameMap[sid] || "Student",
                 progress: progresses[0] || { total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 },
                 wallet: wallets[0] || { balance: 0 },
                 recentAttempts: attempts || [],
@@ -76,18 +85,27 @@ export default function ParentDashboard() {
   const linkChild = async () => {
     setLinking(true);
     try {
-      const students = await base44.entities.User.filter({ email: linkEmail });
-      const student = students.find(u => u.app_role === "student");
-      if (!student) {
-        toast({ title: "Student not found", description: "No student with that email exists.", variant: "destructive" });
+      // Find a LinkRequest from this student matching the parent's email
+      const linkReqs = await base44.entities.LinkRequest.filter({
+        student_email: linkEmail,
+        parent_email: user.email,
+      });
+      const linkReq = linkReqs[0];
+      if (!linkReq) {
+        toast({
+          title: "No link request found",
+          description: "Ask your child to add your email on their Profile page first.",
+          variant: "destructive",
+        });
         return;
       }
       const currentIds = user.linked_student_ids || [];
-      if (currentIds.includes(student.id)) {
+      if (currentIds.includes(linkReq.student_id)) {
         toast({ title: "Already linked", description: "This student is already linked.", variant: "destructive" });
         return;
       }
-      await base44.auth.updateMe({ linked_student_ids: [...currentIds, student.id] });
+      await base44.auth.updateMe({ linked_student_ids: [...currentIds, linkReq.student_id] });
+      await base44.entities.LinkRequest.update(linkReq.id, { status: "approved" });
       setDialogOpen(false);
       setLinkEmail("");
       toast({ title: "Child linked! 🎉" });
@@ -149,6 +167,46 @@ export default function ParentDashboard() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Pending link requests from students */}
+      {pendingLinkRequests.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl border border-border/50 p-5"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <UserPlus className="w-5 h-5 text-primary" />
+            <h2 className="font-heading font-semibold">Link Requests</h2>
+          </div>
+          <div className="space-y-2">
+            {pendingLinkRequests.map(req => (
+              <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                  {req.student_name?.[0]?.toUpperCase() || "S"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{req.student_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{req.student_email}</p>
+                </div>
+                <Button
+                  size="sm"
+                  className="rounded-xl"
+                  onClick={async () => {
+                    const currentIds = user.linked_student_ids || [];
+                    await base44.auth.updateMe({ linked_student_ids: [...currentIds, req.student_id] });
+                    await base44.entities.LinkRequest.update(req.id, { status: "approved" });
+                    toast({ title: "Child linked! 🎉" });
+                    loadData();
+                  }}
+                >
+                  Accept
+                </Button>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Pending reward requests — always visible */}
       <motion.div

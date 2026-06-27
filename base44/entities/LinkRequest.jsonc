@@ -1,0 +1,36 @@
+{
+  "name": "LinkRequest",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student requesting the link"
+    },
+    "student_name": {
+      "type": "string",
+      "description": "Display name of the student"
+    },
+    "student_email": {
+      "type": "string",
+      "description": "Email of the student"
+    },
+    "parent_email": {
+      "type": "string",
+      "description": "Email of the parent to link with"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "student_id",
+    "student_name",
+    "student_email",
+    "parent_email"
+  ]
+}
