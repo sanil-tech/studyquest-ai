@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 import InteractiveActivity from "@/components/lesson/InteractiveActivity";
+import LessonProgress from "@/components/lesson/LessonProgress";
 
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
@@ -20,7 +21,33 @@ export default function LessonPage() {
   const [generating, setGenerating] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [lessonSteps, setLessonSteps] = useState({ lesson: false, flashcards: false, mindmap: false, activity: false });
   const studyStartRef = useRef(null);
+  const sectionRefs = useRef({});
+
+  // Mark a step as completed
+  const markStep = (key) => setLessonSteps(prev => prev[key] ? prev : { ...prev, [key]: true });
+
+  // Scroll to a section when clicking a progress step
+  const handleStepClick = (key) => {
+    const ref = sectionRefs.current[key];
+    if (ref) ref.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  // Track when sections enter the viewport
+  useEffect(() => {
+    if (!explanation) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) markStep(entry.target.dataset.step);
+        });
+      },
+      { threshold: 0.3 }
+    );
+    Object.values(sectionRefs.current).forEach((el) => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, [explanation]);
 
   useEffect(() => {
     const load = async () => {
@@ -403,13 +430,27 @@ Return ONLY valid JSON, no extra text.`;
         </motion.div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-          <div className="bg-white rounded-2xl p-6 border border-border/50 prose prose-sm max-w-none">
+          <LessonProgress steps={lessonSteps} onStepClick={handleStepClick} />
+
+          <div ref={(el) => (sectionRefs.current.lesson = el)} data-step="lesson" className="bg-white rounded-2xl p-6 border border-border/50 prose prose-sm max-w-none">
             <ReactMarkdown>{explanation}</ReactMarkdown>
           </div>
 
-          {lessonData?.flashcards?.length > 0 && <Flashcards flashcards={lessonData.flashcards} />}
-          {lessonData?.mind_map && <MindMap mindMap={lessonData.mind_map} />}
-          {lessonData?.activity && <InteractiveActivity activity={lessonData.activity} />}
+          {lessonData?.flashcards?.length > 0 && (
+            <div ref={(el) => (sectionRefs.current.flashcards = el)} data-step="flashcards">
+              <Flashcards flashcards={lessonData.flashcards} />
+            </div>
+          )}
+          {lessonData?.mind_map && (
+            <div ref={(el) => (sectionRefs.current.mindmap = el)} data-step="mindmap">
+              <MindMap mindMap={lessonData.mind_map} />
+            </div>
+          )}
+          {lessonData?.activity && (
+            <div ref={(el) => (sectionRefs.current.activity = el)} data-step="activity">
+              <InteractiveActivity activity={lessonData.activity} />
+            </div>
+          )}
 
           <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-5 border border-emerald-100">
             <h3 className="font-heading font-bold text-emerald-800 mb-2">Ready to test yourself? 🎯</h3>
