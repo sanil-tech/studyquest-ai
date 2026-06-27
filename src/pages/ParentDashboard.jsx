@@ -22,18 +22,21 @@ export default function ParentDashboard() {
   const [error, setError] = useState("");
   const { toast } = useToast();
 
+  const openEditProfile = (child) => {
+    setEditingChild(child);
+    setEditDialogOpen(true);
+  };
+
   const loadData = async () => {
     try {
       setError("");
       const u = await base44.auth.me();
       setUser(u);
 
-      // Load all link requests matching this parent's email
       const linkReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
       const pendingLinks = linkReqs.filter(r => r.status === "pending");
       setPendingLinkRequests(pendingLinks);
 
-      // Approved links = linked children
       const approvedLinks = linkReqs.filter(r => r.status === "approved");
       const studentIds = approvedLinks.map(r => r.student_id);
 
@@ -83,7 +86,6 @@ export default function ParentDashboard() {
 
   useEffect(() => { loadData(); }, []);
 
-  // Realtime: refresh when any LinkRequest changes (e.g. student accepts)
   useEffect(() => {
     const unsubscribeLink = base44.entities.LinkRequest.subscribe(() => {
       loadData();
@@ -128,11 +130,6 @@ export default function ParentDashboard() {
     } finally {
       setLinking(false);
     }
-  };
-
-  const openEditProfile = (child) => {
-    setEditingChild(child);
-    setEditDialogOpen(true);
   };
 
   if (loading) {
@@ -188,7 +185,6 @@ export default function ParentDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit child profile dialog - informational only */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -215,7 +211,6 @@ export default function ParentDashboard() {
         </Dialog>
       </div>
 
-      {/* Pending link requests sent by parent — waiting for student to accept */}
       {pendingLinkRequests.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -254,7 +249,6 @@ export default function ParentDashboard() {
         </motion.div>
       )}
 
-      {/* Pending reward requests — always visible */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -293,7 +287,6 @@ export default function ParentDashboard() {
         )}
       </motion.div>
 
-      {/* Children overview */}
       {children.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-2xl border border-border/50">
           <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -347,7 +340,6 @@ export default function ParentDashboard() {
               </div>
             </div>
 
-            {/* Recent lessons */}
             <div className="px-4 pb-4">
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Recent Lessons</h3>
               {child.recentSessions.length > 0 ? (
@@ -369,7 +361,6 @@ export default function ParentDashboard() {
               )}
             </div>
 
-            {/* Recent quizzes */}
             <div className="px-4 pb-4">
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Recent Quizzes</h3>
               {child.recentAttempts.length > 0 ? (
