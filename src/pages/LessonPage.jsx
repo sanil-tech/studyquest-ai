@@ -135,11 +135,11 @@ FLASHCARDS (flashcards): 5-6 cards. Each has "front" (simple question/term with 
 
 MIND MAP (mind_map): A visual mind map with "central_topic" (main topic) and 3-4 "branches". Each branch has "label" and "children" (2-3 sub-points as simple strings).
 
-ACTIVITY (activity): An interactive activity with "type" (one of: "matching", "fill_blank", "true_false"), "title", and "items":
-- If "matching": items are {left, right} pairs — student matches term to definition
-- If "fill_blank": items are {sentence, answer} — use ___ for the blank in sentence
-- If "true_false": items are {statement, is_true} — is_true is true or false
-Use simple, fun content with emojis. 4-5 items.`,
+ACTIVITY (activity): An interactive activity. Choose ONE type and fill ALL item fields for that type:
+- "matching": each item MUST have "left" (the term/question) AND "right" (the matching answer)
+- "fill_blank": each item MUST have "sentence" (with ___ for the blank) AND "answer" (the correct word)
+- "true_false": each item MUST have "statement" (a fun fact sentence) AND "is_true" (boolean true or false)
+ALWAYS fill every field for every item. Never return empty objects. Use simple, fun content with emojis. 4-5 items.`,
           response_json_schema: {
             type: "object",
             properties: {
@@ -178,7 +178,20 @@ Use simple, fun content with emojis. 4-5 items.`,
                 properties: {
                   type: { type: "string", enum: ["matching", "fill_blank", "true_false"] },
                   title: { type: "string" },
-                  items: { type: "array", items: { type: "object" } },
+                  items: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        left: { type: "string" },
+                        right: { type: "string" },
+                        sentence: { type: "string" },
+                        answer: { type: "string" },
+                        statement: { type: "string" },
+                        is_true: { type: "boolean" },
+                      },
+                    },
+                  },
                 },
                 required: ["type", "title", "items"],
               },

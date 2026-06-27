@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 export default function InteractiveActivity({ activity }) {
   if (!activity) return null;
   const { type, title, items = [] } = activity;
+  const validItems = items.filter(i => i && Object.keys(i).length > 0);
+  if (validItems.length === 0) return null;
 
   return (
     <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 border border-amber-100">
@@ -14,9 +16,9 @@ export default function InteractiveActivity({ activity }) {
         <h3 className="font-heading font-bold text-amber-800">{title || "Aktiviti Interaktif"}</h3>
       </div>
 
-      {type === "matching" && <MatchingActivity items={items} />}
-      {type === "fill_blank" && <FillBlankActivity items={items} />}
-      {type === "true_false" && <TrueFalseActivity items={items} />}
+      {type === "matching" && <MatchingActivity items={validItems} />}
+      {type === "fill_blank" && <FillBlankActivity items={validItems} />}
+      {type === "true_false" && <TrueFalseActivity items={validItems} />}
     </div>
   );
 }
