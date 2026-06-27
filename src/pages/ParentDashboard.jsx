@@ -26,7 +26,7 @@ export default function ParentDashboard() {
       const studentIds = relationships.map(r => r.child_id);
 
       if (studentIds.length > 0) {
-        const [childrenData, allPendingReqs, allStudents] = await Promise.all([
+        const [childrenData, allPendingReqs] = await Promise.all([
           Promise.all(
             studentIds.map(async (sid, idx) => {
               const [progresses, wallets, attempts, sessions] = await Promise.all([
@@ -55,16 +55,26 @@ export default function ParentDashboard() {
               base44.entities.RewardRequest.filter({ student_id: sid, status: "pending" }, "-created_date", 20)
             )
           ),
-          Promise.all(
-            studentIds.map(sid => base44.entities.User.filter({ id: sid }))
-          ),
         ]);
         
-        // Merge student names from User entity with children data
-        const childrenWithNames = childrenData.map((child, idx) => ({
-          ...child,
-          name: allStudents[idx]?.[0]?.full_name || "Student",
-        }));
+        // Fetch student names individually using get (avoids list permission issues)
+        const childrenWithNames = await Promise.all(
+          childrenData.map(async (child, idx) => {
+            try {
+              const student = await base44.entities.User.get(studentIds[idx]);
+              return {
+                ...child,
+                name: student.full_name || "Student",
+              };
+            } catch (err) {
+              console.error(`Failed to fetch student name for ${studentIds[idx]}:`, err);
+              return {
+                ...child,
+                name: "Student",
+              };
+            }
+          })
+        );
         
         setChildren(childrenWithNames);
         setPendingRequests(allPendingReqs.flat());

@@ -36,21 +36,23 @@ export default function MyChildrenPage() {
       // Fetch child details
       const childDetails = await Promise.all(
         relationships.map(async (rel) => {
-          const childUsers = await base44.entities.User.filter({ id: rel.child_id });
-          if (childUsers.length === 0) return null;
-          
-          const child = childUsers[0];
-          const [progress, wallet] = await Promise.all([
-            base44.entities.Progress.filter({ student_id: child.id }).then(r => r[0]),
-            base44.entities.Wallet.filter({ student_id: child.id }).then(r => r[0])
-          ]);
+          try {
+            const child = await base44.entities.User.get(rel.child_id);
+            const [progress, wallet] = await Promise.all([
+              base44.entities.Progress.filter({ student_id: child.id }).then(r => r[0]),
+              base44.entities.Wallet.filter({ student_id: child.id }).then(r => r[0])
+            ]);
 
-          return {
-            ...child,
-            progress,
-            wallet,
-            relationshipId: rel.id
-          };
+            return {
+              ...child,
+              progress,
+              wallet,
+              relationshipId: rel.id
+            };
+          } catch (err) {
+            console.error(`Failed to fetch child ${rel.child_id}:`, err);
+            return null;
+          }
         })
       );
 
