@@ -37,14 +37,5 @@
       "type": "string",
       "description": "Class or form name (e.g. 1A, 3B)"
     }
-  },
-  "rls": {
-    "read": true,
-    "create": false,
-    "update": true,
-    "delete": false,
-    "custom": {
-      "update_policy": "Users can update their own profile OR parents can update linked students (students with linked_parent_id matching the updater's user ID)"
-    }
   }
 }
