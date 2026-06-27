@@ -37,5 +37,11 @@
       "type": "string",
       "description": "Class or form name (e.g. 1A, 3B)"
     }
+  },
+  "rls": {
+    "read": true,
+    "create": false,
+    "update": true,
+    "delete": false
   }
 }
