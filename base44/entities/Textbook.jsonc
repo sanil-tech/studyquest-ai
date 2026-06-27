@@ -10,6 +10,10 @@
       "type": "string",
       "description": "URL to uploaded textbook PDF"
     },
+    "file_size": {
+      "type": "number",
+      "description": "File size in bytes"
+    },
     "subject_id": {
       "type": "string",
       "description": "ID of the linked subject"

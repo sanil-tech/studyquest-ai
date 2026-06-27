@@ -52,15 +52,22 @@ export default function TextbookUpload() {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       const user = await base44.auth.me();
       const subject = subjects.find(s => s.id === subjectId);
+      const tooLarge = file.size > 10 * 1024 * 1024;
       await base44.entities.Textbook.create({
         title,
         file_url,
+        file_size: file.size,
         subject_id: subjectId,
         subject_name: subject?.name || "",
         form_level: formLevel,
         uploaded_by: user.id,
       });
-      toast({ title: "Textbook uploaded! 📚", description: "AI will use this for lessons and quizzes." });
+      toast({
+        title: "Textbook uploaded! 📚",
+        description: tooLarge
+          ? "Note: File is over 10 MB — students can view it, but AI will use web search for lessons."
+          : "AI will use this for lessons and quizzes.",
+      });
       setTitle("");
       setSubjectId("");
       setFormLevel("All Levels");
@@ -116,6 +123,9 @@ export default function TextbookUpload() {
           <p className="text-sm text-muted-foreground">
             Upload Malaysian curriculum textbooks (PDF). The AI will use them as the primary source to generate lessons and quizzes topic by topic.
           </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+            ⚠️ Max 10 MB for AI to read the textbook. Larger files can still be shared as a student reference, but the AI will use web search instead. Split large PDFs into chapters to stay under the limit.
+          </div>
 
           <div className="space-y-3">
             <div>
@@ -150,7 +160,12 @@ export default function TextbookUpload() {
                   className="block w-full text-sm text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-medium file:cursor-pointer hover:file:bg-primary/20"
                 />
               </div>
-              {file && <p className="text-xs text-muted-foreground mt-1">Selected: {file.name}</p>}
+              {file && (
+                <p className={`text-xs mt-1 ${file.size > 10 * 1024 * 1024 ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                  Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                  {file.size > 10 * 1024 * 1024 && " — over 10 MB limit; AI will use web search instead"}
+                </p>
+              )}
             </div>
           </div>
 

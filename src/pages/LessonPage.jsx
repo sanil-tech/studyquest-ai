@@ -47,7 +47,7 @@ export default function LessonPage() {
     const user = await base44.auth.me();
     const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
     const matchingBooks = textbooks.filter(t => t.form_level === "All Levels" || t.form_level === topic.form_level);
-    const fileUrls = matchingBooks.map(t => t.file_url).filter(Boolean);
+    const fileUrls = matchingBooks.filter(t => !t.file_size || t.file_size <= 10 * 1024 * 1024).map(t => t.file_url).filter(Boolean);
     const result = await base44.integrations.Core.InvokeLLM({
       model: "gemini_3_flash",
       add_context_from_internet: true,
@@ -89,7 +89,7 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
     setGeneratingQuiz(true);
     const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
     const matchingBooks = textbooks.filter(t => t.form_level === "All Levels" || t.form_level === topic.form_level);
-    const fileUrls = matchingBooks.map(t => t.file_url).filter(Boolean);
+    const fileUrls = matchingBooks.filter(t => !t.file_size || t.file_size <= 10 * 1024 * 1024).map(t => t.file_url).filter(Boolean);
     const result = await base44.integrations.Core.InvokeLLM({
       model: "gemini_3_flash",
       add_context_from_internet: true,
