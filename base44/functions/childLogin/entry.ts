@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     // Check if this is a child account
     if (!user.is_child_account) {
-      return Response.json({ error: 'This account requires email login. Please use the main login page.' }, { status: 400 });
+      return Response.json({ error: 'This account requires parent login. Please use the main login page.' }, { status: 400 });
     }
 
     let authenticated = false;
@@ -84,16 +84,13 @@ Deno.serve(async (req) => {
       last_login_at: new Date().toISOString(),
     });
 
-    // Generate auth token for the child user
-    // Note: In Base44, we can't directly impersonate users, so we return user info
-    // The frontend will need to handle this differently or use a session token
-
+    // Return user data for frontend to use
     return Response.json({
       success: true,
       user: {
         id: user.id,
         full_name: user.full_name,
-        nickname: user.nickname,
+        nickname: user.nickname || user.full_name,
         student_id: user.student_id,
         app_role: user.app_role,
         profile_completed: user.profile_completed,

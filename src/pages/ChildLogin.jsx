@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
-import { GraduationCap, Key, Lock, AlertCircle, Loader2 } from "lucide-react";
+import { GraduationCap, Key, Lock, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,9 +51,11 @@ export default function ChildLogin() {
       if (response.data.success) {
         toast({
           title: "Welcome back! 🎉",
-          description: `Hi ${response.data.child_name}!`,
+          description: `Hi ${response.data.user.nickname}!`,
+          duration: 2000
         });
-        navigate("/dashboard");
+        // Force reload to refresh auth context
+        window.location.href = "/dashboard";
       } else {
         setError(response.data.error || "Login failed. Please try again.");
       }
@@ -201,6 +203,14 @@ export default function ChildLogin() {
                 "Login 🎯"
               )}
             </Button>
+
+            {/* Back to Main Login */}
+            <div className="pt-2">
+              <a href="/login" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                Back to Main Login
+              </a>
+            </div>
 
             {/* Help Text */}
             <p className="text-xs text-center text-muted-foreground mt-4">
