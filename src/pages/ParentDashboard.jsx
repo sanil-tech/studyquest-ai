@@ -34,7 +34,7 @@ export default function ParentDashboard() {
       const studentIds = approvedLinks.map(r => r.student_id);
 
       if (studentIds.length > 0) {
-        const [childrenData, allPendingReqs] = await Promise.all([
+        const [childrenData, allPendingReqs, allStudents] = await Promise.all([
           Promise.all(
             studentIds.map(async (sid, idx) => {
               const [progresses, wallets, attempts, sessions] = await Promise.all([
@@ -48,7 +48,7 @@ export default function ParentDashboard() {
               const weeklyMinutes = weeklySessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
               return {
                 id: sid,
-                name: approvedLinks[idx].student_name || "Student",
+                linkRequestIdx: idx,
                 progress: progresses[0] || { total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 },
                 wallet: wallets[0] || { balance: 0 },
                 recentAttempts: attempts || [],
@@ -63,8 +63,18 @@ export default function ParentDashboard() {
               base44.entities.RewardRequest.filter({ student_id: sid, status: "pending" }, "-created_date", 20)
             )
           ),
+          Promise.all(
+            studentIds.map(sid => base44.entities.User.filter({ id: sid }))
+          ),
         ]);
-        setChildren(childrenData);
+        
+        // Merge student names from User entity with children data
+        const childrenWithNames = childrenData.map((child, idx) => ({
+          ...child,
+          name: allStudents[idx]?.[0]?.full_name || approvedLinks[idx].student_name || "Student",
+        }));
+        
+        setChildren(childrenWithNames);
         setPendingRequests(allPendingReqs.flat());
       } else {
         setChildren([]);
@@ -83,8 +93,12 @@ export default function ParentDashboard() {
     const unsubscribeLink = base44.entities.LinkRequest.subscribe(() => {
       loadData();
     });
+    const unsubscribeReward = base44.entities.RewardRequest.subscribe(() => {
+      loadData();
+    });
     return () => {
       unsubscribeLink();
+      unsubscribeReward();
     };
   }, []);
 
