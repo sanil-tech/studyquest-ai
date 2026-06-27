@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 export default function RoleSetup() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [selectedRole, setSelectedRole] = useState("student");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 

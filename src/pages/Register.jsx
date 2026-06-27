@@ -18,7 +18,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState("details"); // details → otp → role
   const [otpCode, setOtpCode] = useState("");
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [selectedRole, setSelectedRole] = useState("student");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
