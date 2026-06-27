@@ -192,22 +192,44 @@ export default function StudentDashboard() {
         <h2 className="font-heading font-semibold text-foreground mb-3">Continue Learning</h2>
         {recentSessions.length > 0 ? (
           <div className="space-y-2">
-            {recentSessions.map(session => (
-              <Link
-                key={session.id}
-                to={`/study/${session.subject_id}/${session.topic_id}`}
-                className="flex items-center gap-3 p-3 bg-white rounded-xl border border-border/50 hover:shadow-sm transition-all"
-              >
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{session.topic_name}</p>
-                  <p className="text-xs text-muted-foreground">{session.subject_name}</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground" />
-              </Link>
-            ))}
+            {recentSessions.map(session => {
+              const sessionAttempts = recentAttempts.filter(a => a.quiz_id && 
+                moment(a.created_date).isAfter(moment(session.created_date)));
+              const isComplete = sessionAttempts.length > 0;
+              const bestScore = sessionAttempts.length > 0 
+                ? Math.max(...sessionAttempts.map(a => a.score))
+                : 0;
+              
+              return (
+                <Link
+                  key={session.id}
+                  to={`/study/${session.subject_id}/${session.topic_id}`}
+                  className="flex items-center gap-3 p-3 bg-white rounded-xl border border-border/50 hover:shadow-sm transition-all"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{session.topic_name}</p>
+                    <p className="text-xs text-muted-foreground">{session.subject_name}</p>
+                  </div>
+                  {isComplete ? (
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold ${bestScore >= 80 ? "text-emerald-600" : bestScore >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                        {bestScore}%
+                      </span>
+                      <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <svg className="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-full">In Progress</span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-8 bg-white rounded-2xl border border-border/50">
