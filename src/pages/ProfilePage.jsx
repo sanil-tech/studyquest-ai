@@ -9,6 +9,7 @@ import AvatarSelector from "@/components/student/AvatarSelector";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -21,7 +22,9 @@ export default function ProfilePage() {
   const [formData, setFormData] = useState({ full_name: "", school_year: "", school_name: "", class_name: "" });
   const [avatarMode, setAvatarMode] = useState("emoji"); // "emoji" or "photo"
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const load = async () => {
@@ -81,6 +84,7 @@ export default function ProfilePage() {
   };
 
   const handleSaveProfile = async () => {
+    setSaving(true);
     try {
       await base44.auth.updateMe(formData);
       const updatedUser = await base44.auth.me();
@@ -102,8 +106,20 @@ export default function ProfilePage() {
           )
         );
       }
+
+      toast({
+        title: "Profile saved! ✓",
+        description: "Your profile has been updated successfully.",
+      });
     } catch (err) {
       console.error("Failed to save profile:", err);
+      toast({
+        title: "Failed to save",
+        description: err.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -165,10 +181,11 @@ export default function ProfilePage() {
             </button>
             <button
               onClick={() => editing ? handleSaveProfile() : setEditing(true)}
-              className="text-xs text-white/90 hover:text-white underline font-medium flex items-center gap-1"
+              disabled={saving}
+              className="text-xs text-white/90 hover:text-white underline font-medium flex items-center gap-1 disabled:opacity-50"
             >
-              <Pen className="w-3 h-3" />
-              {editing ? "Save" : "Edit Profile"}
+              <Pen className={`w-3 h-3 ${saving ? "animate-spin" : ""}`} />
+              {saving ? "Saving..." : (editing ? "Save" : "Edit Profile")}
             </button>
           </div>
         )}
