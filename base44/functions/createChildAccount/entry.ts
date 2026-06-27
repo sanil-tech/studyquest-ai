@@ -16,40 +16,36 @@ const generatePassword = () => {
   const lower = 'abcdefghijkmnopqrstuvwxyz';
   const numbers = '23456789';
   const special = '@#$%';
-  
+
   let password = '';
   password += upper.charAt(Math.floor(Math.random() * upper.length));
   password += lower.charAt(Math.floor(Math.random() * lower.length));
   password += numbers.charAt(Math.floor(Math.random() * numbers.length));
   password += special.charAt(Math.floor(Math.random() * special.length));
-  
+
   for (let i = 0; i < 6; i++) {
     const all = upper + lower + numbers + special;
     password += all.charAt(Math.floor(Math.random() * all.length));
   }
-  
+
   return password.split('').sort(() => Math.random() - 0.5).join('');
 };
 
-const hashPin = (pin) => {
-  return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
-};
-
-const hashPassword = (password) => {
+const hashPassword = (password: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
 };
 
-// Retry wrapper with exponential backoff for rate limits
+// Retry wrapper with exponential backoff
 const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
   let lastError;
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
-    } catch (error) {
+    } catch (error: any) {
       lastError = error;
-      if (error.message.includes('rate limit') || error.status === 429) {
+
+      if (error?.message?.includes('rate limit') || error?.status === 429) {
         const delay = baseDelay * Math.pow(2, i);
-        console.log(`Rate limited, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
         throw error;
@@ -59,67 +55,78 @@ const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
   throw lastError || new Error('Operation failed after retries');
 };
 
-const calculateAge = (birthDate) => {
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
+// Clean full name (IMPORTANT FIX)
+const cleanFullName = (name: string) => {
+  return (name || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+// Safe display name generator (IMPORTANT FIX)
+const generateDisplayName = (fullName: string, nickname?: string) => {
+  if (nickname && nickname.trim()) return nickname.trim();
+  if (fullName) return fullName.split(' ')[0];
+  return 'Student';
 };
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    
-    // Verify parent is authenticated
+
+    // Auth check
     const parent = await base44.auth.me();
     if (!parent || parent.app_role !== 'parent') {
       return Response.json({ error: 'Unauthorized - Parent access required' }, { status: 401 });
     }
 
     const { childData } = await req.json();
-    
-    // CRITICAL VALIDATION: full_name is REQUIRED - no empty or NULL names
-    if (!childData.full_name || !childData.full_name.trim() || !childData.date_of_birth) {
-      return Response.json({ 
-        error: 'Full name and date of birth are required. Name cannot be empty.' 
+
+    // REQUIRED VALIDATION (FIXED)
+    const fullName = cleanFullName(childData.full_name);
+
+    if (!fullName || !childData.date_of_birth) {
+      return Response.json({
+        error: 'Full name and date of birth are required'
       }, { status: 400 });
     }
 
-    // Calculate age
-    const today = new Date();
+    // Age calculation
     const birth = new Date(childData.date_of_birth);
+    const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
 
     // Generate credentials
     let studentId = generateStudentId();
     const password = generatePassword();
     const passwordHash = hashPassword(password);
-    
-    // Generate username from name (optional)
+
+    // SAFE username generation (FIXED)
     let username = null;
-    if (childData.full_name) {
-      username = childData.full_name
+    if (fullName) {
+      const cleaned = fullName
         .toLowerCase()
         .replace(/[^a-z\s]/g, '')
+        .trim()
         .split(/\s+/)
         .slice(0, 2)
         .join('.');
+
+      username = cleaned || null;
     }
 
-    // Check if Student ID is unique
-    let existingUsers = await base44.asServiceRole.entities.User.filter({ student_id: studentId });
+    // Ensure unique Student ID
+    let existingUsers = await base44.asServiceRole.entities.User.filter({
+      student_id: studentId
+    });
+
     let attempts = 0;
     while (existingUsers.length > 0 && attempts < 10) {
       studentId = generateStudentId();
-      existingUsers = await base44.asServiceRole.entities.User.filter({ student_id: studentId });
+      existingUsers = await base44.asServiceRole.entities.User.filter({
+        student_id: studentId
+      });
       attempts++;
     }
 
@@ -127,12 +134,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Failed to generate unique Student ID' }, { status: 500 });
     }
 
-    // ATOMIC OPERATION: Create child user and relationship together
-    // If any step fails, the entire operation fails (no orphan records)
+    // DISPLAY NAME (CRITICAL FIX)
+    const displayName = generateDisplayName(fullName, childData.nickname);
+
+    // CREATE CHILD USER
     const childUser = await retryWithBackoff(async () => {
       return await base44.asServiceRole.entities.User.create({
-        full_name: childData.full_name.trim(),
-        nickname: childData.nickname || childData.full_name.trim().split(' ')[0],
+        full_name: fullName,
+        nickname: childData.nickname?.trim() || null,
+        display_name: displayName, // 🔥 FIX THAT SOLVES "Unnamed Student"
         email: `${studentId}@studyquest.local`,
         app_role: 'student',
         student_id: studentId,
@@ -141,100 +151,93 @@ Deno.serve(async (req) => {
         pin_hash: '',
         pin_enabled: false,
         login_method: 'password',
+
         date_of_birth: childData.date_of_birth,
         gender: childData.gender || '',
+
         school_name: childData.school_name || '',
         education_level: childData.education_level || '',
         grade_year: childData.grade_year || '',
-        class_name: childData.grade_year || '',
+
         state: childData.state || '',
         country: 'Malaysia',
+
         profile_picture_url: childData.profile_picture_url || '',
         avatar_photo_url: childData.profile_picture_url || '',
+
         profile_completed: true,
         is_child_account: true,
         linked_parent_id: parent.id,
+
         failed_login_attempts: 0,
         account_locked: false,
-        linked_student_ids: [],
-        school_year: childData.education_level || '',
-        phone_number: '',
-        num_children: 0,
-        children_names: '',
-        teaching_subjects: '',
-        teaching_level: ''
+
+        linked_student_ids: []
       });
     });
 
-    console.log(`[Step 1] User created: ${childUser.id}, student_id: ${studentId}`);
-
-    // CRITICAL: Create ParentChildRelationship immediately after user creation
-    // This ensures no orphan student records exist
+    // RELATIONSHIP
     const relationship = await retryWithBackoff(async () => {
       return await base44.asServiceRole.entities.ParentChildRelationship.create({
         parent_id: parent.id,
         child_id: childUser.id,
         relationship: 'parent',
         status: 'active',
-        linked_at: new Date().toISOString(),
+        linked_at: new Date().toISOString()
       });
     });
 
-    console.log(`[Step 2] Relationship created: ${relationship.id}, parent: ${parent.id}, child: ${childUser.id}`);
-
-    // Create Wallet and Progress for the child (with retry)
+    // WALLET + PROGRESS
     await retryWithBackoff(async () => {
       await Promise.all([
         base44.asServiceRole.entities.Wallet.create({
           student_id: childUser.id,
-          balance: 0,
+          balance: 0
         }),
         base44.asServiceRole.entities.Progress.create({
           student_id: childUser.id,
           total_xp: 0,
           level: 1,
           streak_days: 0,
-          total_study_time: 0,
-        }),
+          total_study_time: 0
+        })
       ]);
     });
 
-    console.log(`[Step 3] Wallet and Progress created for child: ${childUser.id}`);
-
-    // Update parent's linked_student_ids
+    // UPDATE PARENT LINKED IDS
     const parentData = await base44.auth.me();
     const currentLinkedIds = parentData.linked_student_ids || [];
+
     if (!currentLinkedIds.includes(childUser.id)) {
       await retryWithBackoff(async () => {
         return await base44.auth.updateMe({
-          linked_student_ids: [...currentLinkedIds, childUser.id],
+          linked_student_ids: [...currentLinkedIds, childUser.id]
         });
       });
     }
-
-    console.log(`[Step 4] Parent ${parent.id} updated with linked child: ${childUser.id}`);
 
     return Response.json({
       success: true,
       child: {
         id: childUser.id,
         full_name: childUser.full_name,
+        display_name: displayName, // 🔥 IMPORTANT FOR FRONTEND
         student_id: studentId,
         username: username,
-        password: password, // Return plain text password ONCE
-        pin: null,
-        pin_enabled: false,
+        password: password
       },
-      message: 'Child account created successfully. Please save these credentials - password will not be shown again.',
+      message: 'Child account created successfully. Save credentials once.'
     });
 
-  } catch (error) {
-    console.error('CreateChildAccount error:', error.message, error.stack);
-    // Provide specific error messages for debugging
-    let errorMessage = error.message || 'Failed to create child account';
-    if (error.message.includes('rate limit')) {
-      errorMessage = 'Service temporarily busy. Please try again in a few seconds.';
+  } catch (error: any) {
+    console.error('CreateChildAccount error:', error);
+
+    let errorMessage = error?.message || 'Failed to create child account';
+
+    if (errorMessage.includes('rate limit')) {
+      errorMessage = 'Service busy. Please try again shortly.';
     }
+
     return Response.json({ error: errorMessage }, { status: 500 });
   }
 });
