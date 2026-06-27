@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Coins, Trophy, Clock, TrendingUp, UserPlus, CheckSquare, BookOpen, Loader2 } from "lucide-react";
+import { Users, Coins, Trophy, Clock, TrendingUp, CheckSquare, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 import moment from "moment";
@@ -12,11 +10,7 @@ export default function ParentDashboard() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
-  const [pendingLinkRequests, setPendingLinkRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [linkEmail, setLinkEmail] = useState("");
-  const [linking, setLinking] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [error, setError] = useState("");
   const { toast } = useToast();
 
@@ -26,12 +20,8 @@ export default function ParentDashboard() {
       const u = await base44.auth.me();
       setUser(u);
 
-      const linkReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
-      const pendingLinks = linkReqs.filter(r => r.status === "pending");
-      setPendingLinkRequests(pendingLinks);
-
-      const approvedLinks = linkReqs.filter(r => r.status === "approved");
-      const studentIds = approvedLinks.map(r => r.student_id);
+      const relationships = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
+      const studentIds = relationships.map(r => r.child_id);
 
       if (studentIds.length > 0) {
         const [childrenData, allPendingReqs, allStudents] = await Promise.all([
@@ -71,7 +61,7 @@ export default function ParentDashboard() {
         // Merge student names from User entity with children data
         const childrenWithNames = childrenData.map((child, idx) => ({
           ...child,
-          name: allStudents[idx]?.[0]?.full_name || approvedLinks[idx].student_name || "Student",
+          name: allStudents[idx]?.[0]?.full_name || "Student",
         }));
         
         setChildren(childrenWithNames);
@@ -90,54 +80,17 @@ export default function ParentDashboard() {
   useEffect(() => { loadData(); }, []);
 
   useEffect(() => {
-    const unsubscribeLink = base44.entities.LinkRequest.subscribe(() => {
+    const unsubscribeRelationship = base44.entities.ParentChildRelationship.subscribe(() => {
       loadData();
     });
     const unsubscribeReward = base44.entities.RewardRequest.subscribe(() => {
       loadData();
     });
     return () => {
-      unsubscribeLink();
+      unsubscribeRelationship();
       unsubscribeReward();
     };
   }, []);
-
-  const linkChild = async () => {
-    setLinking(true);
-    try {
-      const existing = await base44.entities.LinkRequest.filter({
-        student_email: linkEmail,
-        parent_email: user.email,
-      });
-      const existingReq = existing[0];
-      if (existingReq?.status === "approved") {
-        toast({ title: "Already linked", description: "This student is already linked.", variant: "destructive" });
-        return;
-      }
-      if (existingReq?.status === "pending") {
-        toast({ title: "Request already sent", description: "Waiting for your child to accept.", variant: "destructive" });
-        return;
-      }
-
-      await base44.entities.LinkRequest.create({
-        student_email: linkEmail.trim(),
-        parent_email: user.email,
-        parent_id: user.id,
-        parent_name: user.full_name || "Parent",
-        initiated_by: "parent",
-        status: "pending",
-      });
-
-      setDialogOpen(false);
-      setLinkEmail("");
-      toast({ title: "Link request sent! 🎉", description: "Your child can accept it from their Profile page." });
-      loadData();
-    } catch (err) {
-      toast({ title: "Failed to send", description: err.message || "Something went wrong", variant: "destructive" });
-    } finally {
-      setLinking(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -167,73 +120,7 @@ export default function ParentDashboard() {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">Track your child's progress</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="rounded-xl">
-              <UserPlus className="w-4 h-4 mr-1" /> Link Child
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Link a Student</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <Input
-                placeholder="Student's email address"
-                value={linkEmail}
-                onChange={e => setLinkEmail(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Your child will need to accept the request from their Profile page.
-              </p>
-              <Button onClick={linkChild} disabled={linking || !linkEmail} className="w-full rounded-xl">
-                {linking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Send Link Request
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-
       </div>
-
-      {pendingLinkRequests.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl border border-border/50 p-5"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-5 h-5 text-primary" />
-            <h2 className="font-heading font-semibold">Pending Link Requests</h2>
-          </div>
-          <div className="space-y-2">
-            {pendingLinkRequests.map(req => (
-              <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                  {req.student_email?.[0]?.toUpperCase() || "S"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{req.student_email}</p>
-                  <p className="text-xs text-muted-foreground">Waiting for student to accept</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-xl text-red-500 border-red-200 hover:bg-red-50"
-                  onClick={async () => {
-                    await base44.entities.LinkRequest.delete(req.id);
-                    toast({ title: "Request cancelled" });
-                    loadData();
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -277,7 +164,7 @@ export default function ParentDashboard() {
         <div className="text-center py-12 bg-white rounded-2xl border border-border/50">
           <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
           <p className="text-muted-foreground">No children linked yet.</p>
-          <p className="text-sm text-muted-foreground mt-1">Link a student to see their progress.</p>
+          <p className="text-sm text-muted-foreground mt-1">Ask your child for their Student ID or scan their QR code from the Profile page.</p>
         </div>
       ) : (
         children.map((child, ci) => (
