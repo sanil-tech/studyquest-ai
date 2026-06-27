@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Coins, Trophy, Clock, TrendingUp, UserPlus, CheckSquare, BookOpen, Loader2, Pen, User } from "lucide-react";
+import { Users, Coins, Trophy, Clock, TrendingUp, UserPlus, CheckSquare, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 import moment from "moment";
@@ -21,7 +19,6 @@ export default function ParentDashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingChild, setEditingChild] = useState(null);
-  const [editFormData, setEditFormData] = useState({ full_name: "", school_year: "", school_name: "", class_name: "", avatar_emoji: "" });
   const [error, setError] = useState("");
   const { toast } = useToast();
 
@@ -41,7 +38,7 @@ export default function ParentDashboard() {
       const studentIds = approvedLinks.map(r => r.student_id);
 
       if (studentIds.length > 0) {
-        const [childrenData, allPendingReqs, usersData] = await Promise.all([
+        const [childrenData, allPendingReqs] = await Promise.all([
           Promise.all(
             studentIds.map(async (sid, idx) => {
               const [progresses, wallets, attempts, sessions] = await Promise.all([
@@ -70,16 +67,8 @@ export default function ParentDashboard() {
               base44.entities.RewardRequest.filter({ student_id: sid, status: "pending" }, "-created_date", 20)
             )
           ),
-          Promise.all(
-            studentIds.map(sid => base44.entities.User.get(sid))
-          ),
         ]);
-        // Merge user data into children data
-        const childrenWithUserData = childrenData.map((child, idx) => ({
-          ...child,
-          userData: usersData[idx] || {},
-        }));
-        setChildren(childrenWithUserData);
+        setChildren(childrenData);
         setPendingRequests(allPendingReqs.flat());
       } else {
         setChildren([]);
@@ -99,13 +88,8 @@ export default function ParentDashboard() {
     const unsubscribeLink = base44.entities.LinkRequest.subscribe(() => {
       loadData();
     });
-    // Also subscribe to User changes for real-time name/avatar updates
-    const unsubscribeUser = base44.entities.User.subscribe(() => {
-      loadData();
-    });
     return () => {
       unsubscribeLink();
-      unsubscribeUser();
     };
   }, []);
 
@@ -148,25 +132,7 @@ export default function ParentDashboard() {
 
   const openEditProfile = (child) => {
     setEditingChild(child);
-    setEditFormData({
-      full_name: child.userData?.full_name || child.name || "",
-      school_year: child.userData?.school_year || "",
-      school_name: child.userData?.school_name || "",
-      class_name: child.userData?.class_name || "",
-      avatar_emoji: child.userData?.avatar_emoji || "🎓",
-    });
     setEditDialogOpen(true);
-  };
-
-  const handleSaveChildProfile = async () => {
-    try {
-      await base44.entities.User.update(editingChild.id, editFormData);
-      toast({ title: "Profile updated! ✨", description: "Changes are now visible to your child." });
-      setEditDialogOpen(false);
-      loadData();
-    } catch (err) {
-      toast({ title: "Failed to update", description: err.message || "Something went wrong", variant: "destructive" });
-    }
   };
 
   if (loading) {
@@ -222,69 +188,27 @@ export default function ParentDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit child profile dialog */}
+        {/* Edit child profile dialog - informational only */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit {editingChild?.name || "Child"}'s Profile</DialogTitle>
+              <DialogTitle>{editingChild?.name || "Child"}'s Profile</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
-              <div className="text-center mb-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm">
+                <p className="text-amber-800">
+                  <strong>Note:</strong> Profile information (name, avatar, school details) can only be edited by the student from their Profile page.
+                </p>
+              </div>
+              <div className="text-center py-4">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-3xl mx-auto mb-2">
-                  {editFormData.avatar_emoji || "🎓"}
+                  🎓
                 </div>
-                <p className="text-xs text-muted-foreground">Avatar: {editFormData.avatar_emoji || "🎓"}</p>
+                <p className="font-medium">{editingChild?.name || "Student"}</p>
+                <p className="text-xs text-muted-foreground mt-1">Student</p>
               </div>
-              <div>
-                <Label>Full Name</Label>
-                <Input
-                  value={editFormData.full_name}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Student's full name"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Year Level</Label>
-                <Select value={editFormData.school_year} onValueChange={(v) => setEditFormData(prev => ({ ...prev, school_year: v }))}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Standard 1">Standard 1</SelectItem>
-                    <SelectItem value="Standard 2">Standard 2</SelectItem>
-                    <SelectItem value="Standard 3">Standard 3</SelectItem>
-                    <SelectItem value="Standard 4">Standard 4</SelectItem>
-                    <SelectItem value="Standard 5">Standard 5</SelectItem>
-                    <SelectItem value="Standard 6">Standard 6</SelectItem>
-                    <SelectItem value="Form 1">Form 1</SelectItem>
-                    <SelectItem value="Form 2">Form 2</SelectItem>
-                    <SelectItem value="Form 3">Form 3</SelectItem>
-                    <SelectItem value="Form 4">Form 4</SelectItem>
-                    <SelectItem value="Form 5">Form 5</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>School Name</Label>
-                <Input
-                  value={editFormData.school_name}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, school_name: e.target.value }))}
-                  placeholder="e.g. SK Taman Jaya"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Class</Label>
-                <Input
-                  value={editFormData.class_name}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, class_name: e.target.value }))}
-                  placeholder="e.g. 1A, 3B"
-                  className="mt-1"
-                />
-              </div>
-              <Button onClick={handleSaveChildProfile} className="w-full rounded-xl">
-                Save Changes
+              <Button onClick={() => setEditDialogOpen(false)} className="w-full rounded-xl">
+                Close
               </Button>
             </div>
           </DialogContent>
@@ -387,7 +311,7 @@ export default function ParentDashboard() {
           >
             <div className="p-5 border-b border-border/50 flex items-center justify-between">
               <div>
-                <h2 className="font-heading font-bold text-lg">{child.userData?.full_name || child.name}</h2>
+                <h2 className="font-heading font-bold text-lg">{child.name}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">{child.sessionCount} total sessions · {child.weeklyMinutes}m this week</p>
               </div>
               <Button
@@ -396,8 +320,7 @@ export default function ParentDashboard() {
                 className="rounded-xl h-8"
                 onClick={() => openEditProfile(child)}
               >
-                <Pen className="w-3 h-3 mr-1" />
-                Edit
+                View Profile
               </Button>
             </div>
 
