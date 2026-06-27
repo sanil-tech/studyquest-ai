@@ -217,17 +217,18 @@ export default function MyChildrenPage() {
       )}
 
       {/* Add Child Modal */}
-      {showAddModal && (
-        <AddChildModal
-          onClose={() => setShowAddModal(false)}
-          onLinked={() => {
-            setShowAddModal(false);
-            // Refresh data immediately (subscription will also trigger)
-            setLoading(true);
-            loadChildren();
-          }}
-        />
-      )}
+      <AddChildModal
+        open={showAddModal}
+        onOpenChange={(open) => {
+          if (!open) setShowAddModal(false);
+        }}
+        onLinked={() => {
+          setShowAddModal(false);
+          // Refresh data immediately (subscription will also trigger)
+          setLoading(true);
+          loadChildren();
+        }}
+      />
 
       {/* Credential Manager */}
       {selectedChild && (
