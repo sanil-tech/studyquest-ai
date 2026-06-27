@@ -75,7 +75,24 @@ export default function ParentChildrenDashboard() {
 
       return newStudent;
     },
-    // ... keep your existing onSuccess and onError blocks exactly the same
+    onSuccess: () => {
+      toast({ title: "Success!", description: "Child profile created successfully." });
+      queryClient.invalidateQueries(["parent-children"]);
+      setIsAddModalOpen(false);
+      setNewChild({
+        name: "",
+        student_id: `SQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        pin: "",
+      });
+    },
+    onError: (err) => {
+      toast({ 
+        title: "Error", 
+        description: err.message || "Failed to create child profile.", 
+        variant: "destructive" 
+      });
+    }
+  });
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
