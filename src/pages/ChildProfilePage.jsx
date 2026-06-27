@@ -200,7 +200,7 @@ export default function ChildProfilePage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-heading font-bold text-foreground">
-            {child.nickname || child.full_name}
+            {child.full_name?.trim() || "Profile Incomplete"}
           </h1>
           <p className="text-sm text-muted-foreground">Student Profile</p>
         </div>

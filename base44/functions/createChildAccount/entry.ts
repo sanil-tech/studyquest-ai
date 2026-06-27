@@ -82,9 +82,11 @@ Deno.serve(async (req) => {
 
     const { childData } = await req.json();
     
-    // Validate required fields
-    if (!childData.full_name || !childData.date_of_birth) {
-      return Response.json({ error: 'Full name and date of birth are required' }, { status: 400 });
+    // CRITICAL VALIDATION: full_name is REQUIRED - no empty or NULL names
+    if (!childData.full_name || !childData.full_name.trim() || !childData.date_of_birth) {
+      return Response.json({ 
+        error: 'Full name and date of birth are required. Name cannot be empty.' 
+      }, { status: 400 });
     }
 
     // Calculate age
@@ -129,8 +131,8 @@ Deno.serve(async (req) => {
     // If any step fails, the entire operation fails (no orphan records)
     const childUser = await retryWithBackoff(async () => {
       return await base44.asServiceRole.entities.User.create({
-        full_name: childData.full_name,
-        nickname: childData.nickname || childData.full_name.split(' ')[0],
+        full_name: childData.full_name.trim(),
+        nickname: childData.nickname || childData.full_name.trim().split(' ')[0],
         email: `${studentId}@studyquest.local`,
         app_role: 'student',
         student_id: studentId,

@@ -87,9 +87,13 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      // Validate required fields
-      if (!childData.full_name.trim()) {
-        toast({ title: "Missing info", description: "Please enter your child's name", variant: "destructive" });
+      // CRITICAL VALIDATION: full_name is REQUIRED - no empty names allowed
+      if (!childData.full_name || !childData.full_name.trim()) {
+        toast({ 
+          title: "⚠️ Name Required", 
+          description: "Please enter your child's full name. This field cannot be empty.", 
+          variant: "destructive" 
+        });
         return;
       }
       if (!childData.date_of_birth) {
@@ -101,10 +105,11 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
         return;
       }
 
-      // Create child account with credentials
+      // Create child account with credentials - ensure full_name is trimmed
       const response = await base44.functions.invoke("createChildAccount", {
         childData: {
           ...childData,
+          full_name: childData.full_name.trim(),
           grade_year: childData.grade_year,
         },
       });

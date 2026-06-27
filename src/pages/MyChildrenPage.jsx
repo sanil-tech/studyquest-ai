@@ -182,7 +182,9 @@ export default function MyChildrenPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-lg font-bold">{child.nickname || child.full_name || "Unnamed Student"}</CardTitle>
+                      <CardTitle className="text-lg font-bold">
+                        {child.full_name?.trim() ? child.full_name.trim() : "Profile Incomplete"}
+                      </CardTitle>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                         <span>{calculateAge(child.date_of_birth)} years</span>
                         <span>•</span>
