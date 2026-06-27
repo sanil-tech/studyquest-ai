@@ -80,6 +80,14 @@ export default function ParentDashboard() {
 
   useEffect(() => { loadData(); }, []);
 
+  // Realtime: refresh when any LinkRequest changes (e.g. student accepts)
+  useEffect(() => {
+    const unsubscribe = base44.entities.LinkRequest.subscribe(() => {
+      loadData();
+    });
+    return () => unsubscribe();
+  }, []);
+
   const linkChild = async () => {
     setLinking(true);
     try {
