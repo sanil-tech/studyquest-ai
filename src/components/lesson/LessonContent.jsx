@@ -3,6 +3,9 @@ import ReactMarkdown from "react-markdown";
 import InfoCard from "./InfoCard";
 
 export default function LessonContent({ content }) {
+  // Remove IMAGE tags from markdown content (they're rendered separately)
+  const cleanContent = content.replace(/\[IMAGE:[^\]]*\]/g, "");
+  
   // Parse info cards from markdown content
   const parseContent = (text) => {
     const parts = [];
@@ -33,7 +36,7 @@ export default function LessonContent({ content }) {
     return parts;
   };
 
-  const parts = parseContent(content);
+  const parts = parseContent(cleanContent);
 
   return (
     <div className="lesson-content space-y-4">
