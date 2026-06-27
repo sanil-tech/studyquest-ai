@@ -1,9 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
-import { v4 as uuidv4 } from 'npm:uuid@9.0.0';
 
 // Generate secure random Student ID (SQ-XXXXXX format)
 const generateStudentId = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded I, O, 0, 1 for clarity
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = 'SQ-';
   for (let i = 0; i < 6; i++) {
     id += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -32,14 +31,23 @@ const generatePassword = () => {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 };
 
-// Simple hash function for PIN (not cryptographically secure, but sufficient for 4-6 digit PIN)
 const hashPin = (pin) => {
   return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 };
 
-// Hash password using simple hashing (in production, use bcrypt)
 const hashPassword = (password) => {
   return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
+};
+
+const calculateAge = (birthDate) => {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
 };
 
 Deno.serve(async (req) => {
