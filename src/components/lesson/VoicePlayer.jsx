@@ -43,6 +43,18 @@ const preprocessText = (text, language) => {
       return numberToMalayWords(number);
     });
   }
+  // Add pauses for young learners (Tahun 1-3)
+  // Replace markdown headings with longer pauses
+  processed = processed.replace(/##\s+/g, "... ");
+  processed = processed.replace(/###\s+/g, "... ");
+  // Add pause after bullet points
+  processed = processed.replace(/-\s+/g, "... ");
+  // Add extra pause after sentences (period followed by space and capital letter or emoji)
+  processed = processed.replace(/([.!?])\s*(?=[A-Z])/g, "$1... ");
+  // Add pause before emojis
+  processed = processed.replace(/\s+([📚🎯🌟📖🎬💡🧠📝🎓✨🪙⭐🎉👏])/g, "... $1");
+  // Add pause after section markers
+  processed = processed.replace(/([.!?])\s*\n\s*\n/g, "$1...\n\n");
   return processed;
 };
 
