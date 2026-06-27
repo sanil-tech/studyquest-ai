@@ -46,13 +46,18 @@ export default function LessonPage() {
     setGenerating(true);
     const user = await base44.auth.me();
     const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are an expert tutor for Malaysian secondary school students. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum (Kurikulum Standard Sekolah Menengah, KSSM)${topic.form_level ? ` for ${topic.form_level}` : " (Form 1-5)"}.
+      prompt: `You are an expert tutor for Malaysian school students. Explain the topic "${topic.name}" from the subject "${subject.name}" strictly following the Malaysian National Curriculum.${(() => {
+        const lvl = topic.form_level || "";
+        if (lvl.startsWith("Standard")) return ` This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR). Use simpler language suited for young learners.`;
+        if (lvl.startsWith("Form")) return ` This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`;
+        return ` Follow either KSSR (primary) or KSSM (secondary) depending on the topic level.`;
+      })()}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""}
 
 Base your lesson content on the official Malaysian Ministry of Education (KPM) syllabus and learning standards for this subject and topic. Use Malaysian context, examples, and terminology where appropriate (e.g. RM for currency, local examples).
 
 Structure your explanation:
 1. **What is it?** - Simple definition
-2. **Key Concepts** - Main points to understand (aligned to KSSM learning standards)
+2. **Key Concepts** - Main points to understand (aligned to the curriculum learning standards)
 3. **How it works** - Explanation with simple language
 4. **Example** - One clear, worked example (use Malaysian context where relevant)
 5. **Quick Tip** - A memory trick or study tip
@@ -77,7 +82,12 @@ Keep it engaging and encouraging. Use emojis sparingly to make it fun.`,
   const generateQuiz = async () => {
     setGeneratingQuiz(true);
     const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Generate exactly 5 multiple choice questions about "${topic.name}" for Malaysian secondary school students, strictly following the Malaysian National Curriculum (KSSM)${topic.form_level ? ` for ${topic.form_level}` : " (Form 1-5)"}. Base questions on the official KPM syllabus learning standards for the subject "${subject?.name || ""}". Use Malaysian context where appropriate.
+      prompt: `Generate exactly 5 multiple choice questions about "${topic.name}" for Malaysian school students, strictly following the Malaysian National Curriculum.${(() => {
+        const lvl = topic.form_level || "";
+        if (lvl.startsWith("Standard")) return ` This is a primary school level (Standard 1-6) using Kurikulum Standard Sekolah Rendah (KSSR). Make questions age-appropriate for young learners.`;
+        if (lvl.startsWith("Form")) return ` This is a secondary school level (Form 1-5) using Kurikulum Standard Sekolah Menengah (KSSM).`;
+        return "";
+      })()}${topic.form_level ? ` Target level: ${topic.form_level}.` : ""} Base questions on the official KPM syllabus learning standards for the subject "${subject?.name || ""}". Use Malaysian context where appropriate.
 
 Return ONLY valid JSON, no extra text.`,
       response_json_schema: {

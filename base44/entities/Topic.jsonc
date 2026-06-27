@@ -13,17 +13,29 @@
     "form_level": {
       "type": "string",
       "enum": [
+        "Standard 1",
+        "Standard 2",
+        "Standard 3",
+        "Standard 4",
+        "Standard 5",
+        "Standard 6",
         "Form 1",
         "Form 2",
         "Form 3",
         "Form 4",
         "Form 5"
       ],
-      "description": "Secondary school form level"
+      "description": "Malaysian school level \u2014 Standard 1-6 (primary, KSSR) or Form 1-5 (secondary, KSSM)"
     }
   },
   "required": [
     "name",
     "subject_id"
-  ]
+  ],
+  "rls": {
+    "read": true,
+    "create": true,
+    "update": true,
+    "delete": true
+  }
 }
