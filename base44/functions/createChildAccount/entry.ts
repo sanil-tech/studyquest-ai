@@ -118,7 +118,6 @@ Deno.serve(async (req) => {
       pin_enabled: false,
       login_method: 'password',
       date_of_birth: childData.date_of_birth,
-      age: age,
       gender: childData.gender || '',
       school_name: childData.school_name || '',
       education_level: childData.education_level || '',
