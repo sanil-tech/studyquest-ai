@@ -47,11 +47,12 @@ export default function ParentChildrenDashboard() {
   // Mutation to create a new child profile
   const addChildMutation = useMutation({
     mutationFn: async (childData) => {
-      // 1. Create the Child User Record
+      // 1. Create the Child User Record with the correct required fields
       const newStudent = await base44.entities.User.create({
-        name: childData.name,
+        full_name: childData.name, // Changed from 'name' to 'full_name'
+        email: `${childData.student_id.toLowerCase()}@student.studyquest.local`, // Dummy email to satisfy the database
         student_id: childData.student_id,
-        pin: childData.pin, // Store the PIN for child login
+        pin: childData.pin, 
         parent_id: parent.id,
         app_role: "student",
       });
