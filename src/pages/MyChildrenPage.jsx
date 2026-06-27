@@ -51,13 +51,15 @@ export default function MyChildrenPage() {
         relationships.map(async (rel) => {
           try {
             const child = await base44.entities.User.get(rel.child_id);
+            const displayName = getDisplayName(child);
             console.log(`Fetched child ${rel.child_id}:`, { 
               full_name: child.full_name, 
               nickname: child.nickname,
-              email: child.email 
+              username: child.username,
+              student_id: child.student_id,
+              computed_display_name: displayName
             });
-            // Apply display name fallback system
-            child.display_name = getDisplayName(child);
+            child.display_name = displayName;
             const [progress, wallet] = await Promise.all([
               base44.entities.Progress.filter({ student_id: child.id }).then(r => r[0]),
               base44.entities.Wallet.filter({ student_id: child.id }).then(r => r[0])

@@ -78,6 +78,16 @@ export default function ChildProfilePage() {
         base44.entities.Wallet.filter({ student_id: childId }).then(r => r[0])
       ]);
 
+      // Compute display name immediately
+      childData.display_name = getDisplayName(childData);
+      console.log(`Child ${childId} loaded:`, {
+        full_name: childData.full_name,
+        nickname: childData.nickname,
+        username: childData.username,
+        student_id: childData.student_id,
+        display_name: childData.display_name
+      });
+      
       setChild(childData);
       setProgress(progressData || { level: 1, streak_days: 0, total_xp: 0 });
       setWallet(walletData || { balance: 0 });
@@ -201,7 +211,7 @@ export default function ChildProfilePage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-heading font-bold text-foreground">
-            {getDisplayName(child)}
+            {child.display_name || getDisplayName(child)}
           </h1>
           <p className="text-sm text-muted-foreground">Student Profile</p>
         </div>

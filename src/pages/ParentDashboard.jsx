@@ -63,15 +63,17 @@ export default function ParentDashboard() {
           childrenData.map(async (child, idx) => {
             try {
               const student = await base44.entities.User.get(studentIds[idx]);
+              const displayName = getDisplayName(student);
               console.log(`Fetched student ${studentIds[idx]}:`, { 
                 full_name: student.full_name, 
                 nickname: student.nickname,
-                email: student.email 
+                username: student.username,
+                student_id: student.student_id,
+                computed_display_name: displayName
               });
-              // CRITICAL FIX: Use display name fallback system
               return {
                 ...child,
-                name: getDisplayName(student),
+                name: displayName,
               };
             } catch (err) {
               console.error(`Failed to fetch student ${studentIds[idx]}:`, err.message);
