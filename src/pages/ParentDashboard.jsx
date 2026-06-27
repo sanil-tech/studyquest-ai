@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Coins, Trophy, Clock, TrendingUp, CheckSquare, BookOpen } from "lucide-react";
+import { Users, Coins, Trophy, Clock, TrendingUp, CheckSquare, BookOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 import moment from "moment";
+import AddChildModal from "@/components/parent/AddChildModal";
 
 export default function ParentDashboard() {
   const [user, setUser] = useState(null);
@@ -12,6 +13,7 @@ export default function ParentDashboard() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showAddChild, setShowAddChild] = useState(false);
   const { toast } = useToast();
 
   const loadData = async () => {
@@ -120,7 +122,21 @@ export default function ParentDashboard() {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">Track your child's progress</p>
         </div>
+        <Button onClick={() => setShowAddChild(true)} className="rounded-xl">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Child
+        </Button>
       </div>
+
+      {/* Add Child Modal */}
+      <AddChildModal 
+        open={showAddChild} 
+        onOpenChange={setShowAddChild}
+        onChildAdded={() => {
+          setShowAddChild(false);
+          loadData();
+        }}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}

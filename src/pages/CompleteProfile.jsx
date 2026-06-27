@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
-import { User, GraduationCap, Users, BookOpen, Loader2, Upload, X } from "lucide-react";
+import { User, GraduationCap, Users, BookOpen, Loader2, Upload, X, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,7 @@ export default function CompleteProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [step, setStep] = useState("profile"); // profile | add-child for parents
 
   // Student fields
   const [nickname, setNickname] = useState("");
@@ -45,6 +46,19 @@ export default function CompleteProfile() {
   // Teacher fields
   const [teachingSubjects, setTeachingSubjects] = useState("");
   const [teachingLevel, setTeachingLevel] = useState("");
+
+  // Child being added (for parent flow)
+  const [childData, setChildData] = useState({
+    full_name: "",
+    nickname: "",
+    date_of_birth: "",
+    gender: "",
+    school_name: "",
+    education_level: "",
+    grade_year: "",
+    country: "Malaysia",
+    state: "",
+  });
 
   useEffect(() => {
     base44.auth.me()
@@ -139,6 +153,16 @@ export default function CompleteProfile() {
           setSaving(false);
           return;
         }
+        // Age validation - must be 13+
+        if (age < 13) {
+          toast({ 
+            title: "Age requirement", 
+            description: "Students under 13 must have a parent create their account. Please register as a parent instead.", 
+            variant: "destructive" 
+          });
+          setSaving(false);
+          return;
+        }
         updateData.school_name = schoolName;
         updateData.education_level = educationLevel;
         updateData.grade_year = gradeYear;
@@ -183,9 +207,11 @@ export default function CompleteProfile() {
           if (progress.length === 0) {
             await base44.entities.Progress.create({ student_id: user.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
           }
+          // Generate student ID and link code
+          await base44.functions.invoke('generateStudentId', {});
+          await base44.functions.invoke('generateParentLinkCode', {});
         } catch (entityErr) {
           console.error("Failed to create wallet/progress:", entityErr);
-          // Continue anyway - profile is saved
         }
       }
 
@@ -223,7 +249,9 @@ export default function CompleteProfile() {
                 Complete Your Profile
               </CardTitle>
               <p className="text-muted-foreground">
-                {user.app_role === "student" && "Tell us about yourself to personalize your learning!"}
+                {user.app_role === "student" && age && age < 13 && "⚠️ You must be at least 13 years old to create a student account."}
+                {user.app_role === "student" && age && age >= 13 && "Tell us about yourself to personalize your learning!"}
+                {user.app_role === "student" && !age && "Tell us about yourself to personalize your learning!"}
                 {user.app_role === "parent" && "Let us know about your family to track progress."}
                 {user.app_role === "teacher" && "Share your teaching details to customize your experience."}
               </p>

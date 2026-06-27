@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Mail, Lock, Loader2, GraduationCap, Users, CheckCircle2 } from "lucide-react";
+import { UserPlus, Mail, Lock, Loader2, Users, GraduationCap, BookOpen, CheckCircle2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 import { toast } from "@/components/ui/use-toast";
+import { motion } from "framer-motion";
 
 export default function Register() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -18,7 +20,6 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState("details"); // details → otp → role
   const [otpCode, setOtpCode] = useState("");
-  const [selectedRole, setSelectedRole] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -68,93 +69,40 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
-  const handleConfirmRole = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const u = await base44.auth.me();
-      await base44.auth.updateMe({ app_role: selectedRole });
-
-      if (selectedRole === "student") {
-        // Create wallet and progress
-        const wallets = await base44.entities.Wallet.filter({ student_id: u.id });
-        if (wallets.length === 0) {
-          await base44.entities.Wallet.create({ student_id: u.id, balance: 0 });
-        }
-        const progress = await base44.entities.Progress.filter({ student_id: u.id });
-        if (progress.length === 0) {
-          await base44.entities.Progress.create({ student_id: u.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
-        }
-      } else {
-        await base44.auth.updateMe({ linked_student_ids: [] });
-      }
-      
-      // Redirect to profile completion
-      window.location.href = "/complete-profile";
-    } catch (err) {
-      setError(err.message || "Failed to save role");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // --- Step: Role selection ---
   if (step === "role") {
     return (
-      <AuthLayout icon={UserPlus} title="Choose your role" subtitle="You can't change this later — pick carefully!">
+      <AuthLayout 
+        icon={UserPlus} 
+        title="Choose your role" 
+        subtitle="Select the option that best describes you"
+      >
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
         )}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <button
-            type="button"
-            onClick={() => setSelectedRole("student")}
-            className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${
-              selectedRole === "student"
-                ? "border-primary bg-primary/5 shadow-md"
-                : "border-border hover:border-primary/30"
-            }`}
-          >
-            <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center">
-              <GraduationCap className="w-7 h-7 text-primary" />
-            </div>
-            <span className="font-heading font-semibold">I'm a Student</span>
-            <span className="text-xs text-muted-foreground text-center">Learn & earn coins</span>
-            {selectedRole === "student" && <CheckCircle2 className="w-5 h-5 text-primary" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedRole("parent")}
-            className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${
-              selectedRole === "parent"
-                ? "border-primary bg-primary/5 shadow-md"
-                : "border-border hover:border-primary/30"
-            }`}
-          >
-            <div className="w-14 h-14 rounded-2xl bg-pink-100 flex items-center justify-center">
-              <Users className="w-7 h-7 text-accent" />
-            </div>
-            <span className="font-heading font-semibold">I'm a Parent</span>
-            <span className="text-xs text-muted-foreground text-center">Track & reward</span>
-            {selectedRole === "parent" && <CheckCircle2 className="w-5 h-5 text-primary" />}
-          </button>
+        <div className="space-y-4 mb-6">
+          <RoleOption
+            icon={Users}
+            title="I am a Parent"
+            description="Create and manage child accounts for learners under 13"
+            color="accent"
+            onClick={() => handleRoleSelect("parent")}
+          />
+          <RoleOption
+            icon={GraduationCap}
+            title="I am a Student"
+            description="For students aged 13+ who want to manage their own learning"
+            color="primary"
+            onClick={() => handleRoleSelect("student")}
+          />
+          <RoleOption
+            icon={BookOpen}
+            title="I am a Teacher"
+            description="Manage classes and monitor student progress"
+            color="emerald"
+            onClick={() => handleRoleSelect("teacher")}
+          />
         </div>
-
-        <Button
-          className="w-full h-12 font-medium"
-          onClick={handleConfirmRole}
-          disabled={!selectedRole || loading}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Setting up...
-            </>
-          ) : (
-            "Continue 🚀"
-          )}
-        </Button>
       </AuthLayout>
     );
   }
@@ -315,5 +263,64 @@ export default function Register() {
         </Button>
       </form>
     </AuthLayout>
+  );
+
+  async function handleRoleSelect(role) {
+    setLoading(true);
+    setError("");
+    try {
+      const u = await base44.auth.me();
+      await base44.auth.updateMe({ app_role: role });
+
+      // Create wallet and progress for students
+      if (role === "student") {
+        const wallets = await base44.entities.Wallet.filter({ student_id: u.id });
+        if (wallets.length === 0) {
+          await base44.entities.Wallet.create({ student_id: u.id, balance: 0 });
+        }
+        const progress = await base44.entities.Progress.filter({ student_id: u.id });
+        if (progress.length === 0) {
+          await base44.entities.Progress.create({ 
+            student_id: u.id, 
+            total_xp: 0, 
+            level: 1, 
+            streak_days: 0, 
+            total_study_time: 0 
+          });
+        }
+      }
+
+      // Redirect to profile completion
+      window.location.href = "/complete-profile";
+    } catch (err) {
+      setError(err.message || "Failed to save role");
+      setLoading(false);
+    }
+  }
+}
+
+function RoleOption({ icon: Icon, title, description, color, onClick }) {
+  const colorClasses = {
+    primary: "bg-indigo-100 text-primary border-primary",
+    accent: "bg-pink-100 text-accent border-accent",
+    emerald: "bg-emerald-100 text-emerald-600 border-emerald-600",
+  };
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`w-full p-4 rounded-2xl border-2 ${colorClasses[color]} transition-all flex items-start gap-4 text-left hover:shadow-md`}
+    >
+      <div className={`w-12 h-12 rounded-xl ${colorClasses[color]} flex items-center justify-center shrink-0`}>
+        <Icon className="w-6 h-6" />
+      </div>
+      <div className="flex-1">
+        <h3 className="font-heading font-semibold text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{description}</p>
+      </div>
+      <CheckCircle2 className="w-5 h-5 text-primary opacity-0 hover:opacity-100 transition-opacity" />
+    </motion.button>
   );
 }

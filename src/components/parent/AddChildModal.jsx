@@ -1,301 +1,327 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { motion } from "framer-motion";
-import { X, IdCard, KeyRound, Mail, QrCode, UserPlus, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/components/ui/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, User, Upload, X } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import { motion } from "framer-motion";
 
-export default function AddChildModal({ onClose, onLinked }) {
-  const [selectedMethod, setSelectedMethod] = useState("student_id");
-  const [studentId, setStudentId] = useState("");
-  const [linkCode, setLinkCode] = useState("");
-  const [childEmail, setChildEmail] = useState("");
-  const [linking, setLinking] = useState(false);
-  const { toast } = useToast();
+const malaysianStates = [
+  "Johor", "Kedah", "Kelantan", "Kuala Lumpur", "Labuan", "Melaka", "Negeri Sembilan",
+  "Pahang", "Penang", "Perak", "Perlis", "Putrajaya", "Sabah", "Sarawak", "Selangor", "Terengganu"
+];
 
-  const handleLinkByStudentId = async () => {
-    if (!studentId.trim()) {
-      toast({
-        title: "Student ID required",
-        description: "Please enter your child's Student ID",
-        variant: "destructive",
-      });
+const educationLevels = [
+  "Standard 1", "Standard 2", "Standard 3", "Standard 4", "Standard 5", "Standard 6",
+  "Form 1", "Form 2", "Form 3", "Form 4", "Form 5"
+];
+
+export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [childData, setChildData] = useState({
+    full_name: "",
+    nickname: "",
+    date_of_birth: "",
+    gender: "",
+    school_name: "",
+    education_level: "",
+    grade_year: "",
+    country: "Malaysia",
+    state: "",
+    profile_picture_url: "",
+  });
+
+  const calculateAge = (birthDate) => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const getRecommendedLevel = (age) => {
+    if (age < 7) return "Standard 1";
+    if (age === 7) return "Standard 1";
+    if (age === 8) return "Standard 2";
+    if (age === 9) return "Standard 3";
+    if (age === 10) return "Standard 4";
+    if (age === 11) return "Standard 5";
+    if (age === 12) return "Standard 6";
+    if (age === 13) return "Form 1";
+    if (age === 14) return "Form 2";
+    if (age === 15) return "Form 3";
+    if (age === 16) return "Form 4";
+    if (age === 17) return "Form 5";
+    return "Other";
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Max 5MB allowed", variant: "destructive" });
       return;
     }
-
-    setLinking(true);
+    setUploading(true);
     try {
-      const result = await base44.functions.invoke('linkParentToChild', {
-        method: 'student_id',
-        student_id: studentId.trim().toUpperCase()
-      });
-
-      toast({
-        title: "Request Sent!",
-        description: `${result.child.name} needs to approve the link request.`,
-      });
-      onLinked();
+      const result = await base44.integrations.Core.UploadFile({ file });
+      setChildData(prev => ({ ...prev, profile_picture_url: result.file_url }));
+      toast({ title: "Photo uploaded", description: "Profile picture updated" });
     } catch (err) {
-      toast({
-        title: "Link Failed",
-        description: err.message || "Please check the Student ID and try again",
-        variant: "destructive",
-      });
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
-      setLinking(false);
+      setUploading(false);
     }
   };
 
-  const handleLinkByCode = async () => {
-    if (!linkCode.trim()) {
-      toast({
-        title: "Link Code required",
-        description: "Please enter the 8-character Link Code",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLinking(true);
+  const handleSubmit = async () => {
+    setLoading(true);
     try {
-      const result = await base44.functions.invoke('linkParentToChild', {
-        method: 'link_code',
-        link_code: linkCode.trim().toUpperCase()
+      // Validate required fields
+      if (!childData.full_name.trim()) {
+        toast({ title: "Missing info", description: "Please enter your child's name", variant: "destructive" });
+        return;
+      }
+      if (!childData.date_of_birth) {
+        toast({ title: "Missing info", description: "Please select your child's date of birth", variant: "destructive" });
+        return;
+      }
+      if (!childData.education_level) {
+        toast({ title: "Missing info", description: "Please select education level", variant: "destructive" });
+        return;
+      }
+
+      const age = calculateAge(childData.date_of_birth);
+      
+      // Note: We can't directly create user accounts from the frontend.
+      // Instead, we'll guide the parent to have their child register and then link via Student ID.
+      // For now, show instructions.
+      
+      toast({
+        title: "📝 Child Registration",
+        description: "Please have your child create their own account, then link it using their Student ID from your Parent Dashboard.",
+        duration: 5000,
       });
 
-      toast({
-        title: "Successfully Linked!",
-        description: `You are now connected to ${result.child.name}`,
-      });
-      onLinked();
+      onChildAdded?.();
     } catch (err) {
-      toast({
-        title: "Link Failed",
-        description: err.message || "Code may be expired or invalid",
-        variant: "destructive",
-      });
+      toast({ title: "Failed", description: err.message || "Please try again", variant: "destructive" });
     } finally {
-      setLinking(false);
+      setLoading(false);
     }
   };
 
-  const handleLinkByEmail = async () => {
-    if (!childEmail.trim()) {
-      toast({
-        title: "Email required",
-        description: "Please enter your child's email address",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLinking(true);
-    try {
-      const users = await base44.entities.User.filter({ email: childEmail.trim() });
-      if (users.length === 0) {
-        toast({
-          title: "User not found",
-          description: "No account found with this email",
-          variant: "destructive",
-        });
-        setLinking(false);
-        return;
-      }
-
-      const child = users[0];
-      if (child.app_role !== 'student') {
-        toast({
-          title: "Not a student account",
-          description: "This email belongs to a non-student account",
-          variant: "destructive",
-        });
-        setLinking(false);
-        return;
-      }
-
-      // Check if already linked
-      const existing = await base44.entities.LinkRequest.filter({
-        student_id: child.id,
-        parent_id: (await base44.auth.me()).id,
-        status: 'pending'
-      });
-
-      if (existing.length > 0) {
-        toast({
-          title: "Request already sent",
-          description: "A link request is already pending",
-        });
-        setLinking(false);
-        return;
-      }
-
-      await base44.entities.LinkRequest.create({
-        student_id: child.id,
-        student_email: child.email,
-        student_name: child.full_name || child.nickname || child.email,
-        parent_id: (await base44.auth.me()).id,
-        parent_email: (await base44.auth.me()).email,
-        parent_name: (await base44.auth.me()).full_name || (await base44.auth.me()).email,
-        initiated_by: 'parent',
-        status: 'pending'
-      });
-
-      toast({
-        title: "Request Sent!",
-        description: "Your child will receive a notification to approve the link.",
-      });
-      onLinked();
-    } catch (err) {
-      toast({
-        title: "Request Failed",
-        description: err.message || "Please try again",
-        variant: "destructive",
-      });
-    } finally {
-      setLinking(false);
-    }
-  };
+  const age = childData.date_of_birth ? calculateAge(childData.date_of_birth) : null;
+  const recommendedLevel = age ? getRecommendedLevel(age) : null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-heading font-bold">Add Child</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-muted rounded-full"
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="w-5 h-5 text-primary" />
+            Add Your Child's Profile
+          </DialogTitle>
+          <DialogDescription>
+            Create a learning profile for your child. They'll need to register with their own email to access lessons.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Profile Picture */}
+          <div className="space-y-2">
+            <Label>Profile Picture (optional)</Label>
+            <div className="flex items-center gap-4">
+              {childData.profile_picture_url ? (
+                <div className="relative">
+                  <img 
+                    src={childData.profile_picture_url} 
+                    alt="Profile" 
+                    className="w-20 h-20 rounded-full object-cover border-2 border-primary" 
+                  />
+                  <button
+                    onClick={() => setChildData(prev => ({ ...prev, profile_picture_url: "" }))}
+                    className="absolute -top-2 -right-2 p-1 rounded-full bg-destructive text-white hover:bg-destructive/90"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="w-8 h-8 text-primary" />
+                </div>
+              )}
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="hidden"
+                  id="child-profile-upload"
+                />
+                <Label htmlFor="child-profile-upload" className="cursor-pointer">
+                  <Button variant="outline" asChild disabled={uploading}>
+                    <span>
+                      <Upload className="w-4 h-4 mr-2" />
+                      {uploading ? "Uploading..." : "Upload Photo"}
+                    </span>
+                  </Button>
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Basic Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Full Name *</Label>
+              <Input
+                id="full_name"
+                value={childData.full_name}
+                onChange={(e) => setChildData(prev => ({ ...prev, full_name: e.target.value }))}
+                placeholder="e.g. Ahmad bin Abu"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nickname">Nickname (optional)</Label>
+              <Input
+                id="nickname"
+                value={childData.nickname}
+                onChange={(e) => setChildData(prev => ({ ...prev, nickname: e.target.value }))}
+                placeholder="What to call them"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dob">Date of Birth *</Label>
+              <Input
+                id="dob"
+                type="date"
+                value={childData.date_of_birth}
+                onChange={(e) => setChildData(prev => ({ ...prev, date_of_birth: e.target.value }))}
+              />
+              {age && (
+                <p className="text-xs text-muted-foreground">Age: {age} years old</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gender">Gender</Label>
+              <Select 
+                value={childData.gender} 
+                onValueChange={(val) => setChildData(prev => ({ ...prev, gender: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="state">State</Label>
+            <Select 
+              value={childData.state} 
+              onValueChange={(val) => setChildData(prev => ({ ...prev, state: val }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select your state" />
+              </SelectTrigger>
+              <SelectContent>
+                {malaysianStates.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="school">School Name</Label>
+            <Input
+              id="school"
+              value={childData.school_name}
+              onChange={(e) => setChildData(prev => ({ ...prev, school_name: e.target.value }))}
+              placeholder="e.g. SK Taman Jaya"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="education">Education Level *</Label>
+              <Select 
+                value={childData.education_level} 
+                onValueChange={(val) => setChildData(prev => ({ ...prev, education_level: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {educationLevels.map(level => (
+                    <SelectItem key={level} value={level}>{level}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {recommendedLevel && !childData.education_level && (
+                <p className="text-xs text-emerald-600 font-medium">
+                  💡 Recommended for age {age}: {recommendedLevel}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="grade">Grade/Year (optional)</Label>
+              <Input
+                id="grade"
+                value={childData.grade_year}
+                onChange={(e) => setChildData(prev => ({ ...prev, grade_year: e.target.value }))}
+                placeholder="e.g. 1A, 3B"
+              />
+            </div>
+          </div>
+
+          {/* Info box */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Next Steps:</strong> After saving, your child will need to:
+            </p>
+            <ol className="text-sm text-blue-700 mt-2 list-decimal list-inside space-y-1">
+              <li>Register with their own email address</li>
+              <li>Complete their profile</li>
+              <li>Share their Student ID with you to link accounts</li>
+            </ol>
+          </div>
+
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full h-12 rounded-xl text-base font-semibold"
           >
-            <X className="w-5 h-5" />
-          </button>
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Child Profile & Continue"
+            )}
+          </Button>
         </div>
-
-        <Tabs value={selectedMethod} onValueChange={setSelectedMethod}>
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="student_id" className="flex items-center gap-2">
-              <IdCard className="w-4 h-4" />
-              <span className="hidden sm:inline">Student ID</span>
-            </TabsTrigger>
-            <TabsTrigger value="link_code" className="flex items-center gap-2">
-              <KeyRound className="w-4 h-4" />
-              <span className="hidden sm:inline">Link Code</span>
-            </TabsTrigger>
-            <TabsTrigger value="email" className="flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              <span className="hidden sm:inline">Email</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="student_id" className="space-y-4">
-            <div className="bg-primary/5 rounded-lg p-4 mb-4">
-              <p className="text-sm text-muted-foreground">
-                Enter your child's unique StudyQuest Student ID. They can find it in their Profile page.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="studentId">Student ID</Label>
-              <Input
-                id="studentId"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value.toUpperCase())}
-                placeholder="SQ-XXXXXX"
-                className="font-mono uppercase"
-              />
-            </div>
-            <Button
-              onClick={handleLinkByStudentId}
-              disabled={linking}
-              className="w-full"
-            >
-              {linking ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending Request...
-                </>
-              ) : (
-                "Send Link Request"
-              )}
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="link_code" className="space-y-4">
-            <div className="bg-primary/5 rounded-lg p-4 mb-4">
-              <p className="text-sm text-muted-foreground">
-                Enter the 8-character Parent Link Code from your child's Profile. Valid for 24 hours.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="linkCode">Parent Link Code</Label>
-              <Input
-                id="linkCode"
-                value={linkCode}
-                onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
-                placeholder="XXXXXXXX"
-                className="font-mono uppercase"
-                maxLength={8}
-              />
-            </div>
-            <Button
-              onClick={handleLinkByCode}
-              disabled={linking}
-              className="w-full"
-            >
-              {linking ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Linking...
-                </>
-              ) : (
-                "Link Account"
-              )}
-            </Button>
-          </TabsContent>
-
-          <TabsContent value="email" className="space-y-4">
-            <div className="bg-primary/5 rounded-lg p-4 mb-4">
-              <p className="text-sm text-muted-foreground">
-                Send a link request to your child's email address. They'll need to approve it.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="childEmail">Child's Email</Label>
-              <Input
-                id="childEmail"
-                type="email"
-                value={childEmail}
-                onChange={(e) => setChildEmail(e.target.value)}
-                placeholder="child@example.com"
-              />
-            </div>
-            <Button
-              onClick={handleLinkByEmail}
-              disabled={linking}
-              className="w-full"
-            >
-              {linking ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                "Send Email Request"
-              )}
-            </Button>
-          </TabsContent>
-        </Tabs>
-
-        <div className="mt-6 pt-4 border-t">
-          <p className="text-xs text-muted-foreground text-center">
-            Need help? Ask your child to share their Student ID or Link Code from their Profile page.
-          </p>
-        </div>
-      </motion.div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

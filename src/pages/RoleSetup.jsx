@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { GraduationCap, Users, CheckCircle2, Loader2 } from "lucide-react";
+import { GraduationCap, Users, BookOpen, CheckCircle2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function RoleSetup() {
@@ -34,7 +34,7 @@ export default function RoleSetup() {
         if (progress.length === 0) {
           await base44.entities.Progress.create({ student_id: u.id, total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 });
         }
-      } else {
+      } else if (selectedRole === "parent") {
         await base44.auth.updateMe({ linked_student_ids: [] });
       }
       window.location.href = "/complete-profile";
@@ -73,39 +73,62 @@ export default function RoleSetup() {
             <p className="text-muted-foreground mt-2">Choose your role to get started.</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => setSelectedRole("student")}
-              disabled={saving}
-              className={`p-6 rounded-2xl bg-white border-2 transition-all flex flex-col items-center gap-3 ${
-                selectedRole === "student"
-                  ? "border-primary shadow-lg"
-                  : "border-border hover:border-primary/30 hover:shadow-md"
-              }`}
-            >
-              <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center">
-                <GraduationCap className="w-8 h-8 text-primary" />
-              </div>
-              <span className="font-heading font-semibold">I'm a Student</span>
-              <span className="text-xs text-muted-foreground">Learn & earn coins</span>
-              {selectedRole === "student" && <CheckCircle2 className="w-5 h-5 text-primary" />}
-            </button>
-
+          <div className="space-y-4">
             <button
               onClick={() => setSelectedRole("parent")}
               disabled={saving}
-              className={`p-6 rounded-2xl bg-white border-2 transition-all flex flex-col items-center gap-3 ${
+              className={`w-full p-4 rounded-2xl border-2 transition-all flex items-start gap-4 text-left ${
                 selectedRole === "parent"
-                  ? "border-primary shadow-lg"
+                  ? "border-accent bg-accent/5 shadow-lg"
                   : "border-border hover:border-accent/30 hover:shadow-md"
               }`}
             >
-              <div className="w-16 h-16 rounded-2xl bg-pink-100 flex items-center justify-center">
-                <Users className="w-8 h-8 text-accent" />
+              <div className="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center shrink-0">
+                <Users className="w-6 h-6 text-accent" />
               </div>
-              <span className="font-heading font-semibold">I'm a Parent</span>
-              <span className="text-xs text-muted-foreground">Track & reward</span>
-              {selectedRole === "parent" && <CheckCircle2 className="w-5 h-5 text-primary" />}
+              <div className="flex-1">
+                <span className="font-heading font-semibold block">I am a Parent</span>
+                <span className="text-sm text-muted-foreground">Create and manage child accounts for learners under 13</span>
+              </div>
+              {selectedRole === "parent" && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
+            </button>
+
+            <button
+              onClick={() => setSelectedRole("student")}
+              disabled={saving}
+              className={`w-full p-4 rounded-2xl border-2 transition-all flex items-start gap-4 text-left ${
+                selectedRole === "student"
+                  ? "border-primary bg-primary/5 shadow-lg"
+                  : "border-border hover:border-primary/30 hover:shadow-md"
+              }`}
+            >
+              <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <span className="font-heading font-semibold block">I am a Student</span>
+                <span className="text-sm text-muted-foreground">For students aged 13+ who want to manage their own learning</span>
+              </div>
+              {selectedRole === "student" && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
+            </button>
+
+            <button
+              onClick={() => setSelectedRole("teacher")}
+              disabled={saving}
+              className={`w-full p-4 rounded-2xl border-2 transition-all flex items-start gap-4 text-left ${
+                selectedRole === "teacher"
+                  ? "border-emerald-600 bg-emerald-600/5 shadow-lg"
+                  : "border-border hover:border-emerald-600/30 hover:shadow-md"
+              }`}
+            >
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                <BookOpen className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div className="flex-1">
+                <span className="font-heading font-semibold block">I am a Teacher</span>
+                <span className="text-sm text-muted-foreground">Manage classes and monitor student progress</span>
+              </div>
+              {selectedRole === "teacher" && <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />}
             </button>
           </div>
 
