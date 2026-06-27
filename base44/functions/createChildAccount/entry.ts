@@ -109,12 +109,12 @@ Deno.serve(async (req) => {
     const childUser = await base44.asServiceRole.entities.User.create({
       full_name: childData.full_name,
       nickname: childData.nickname || childData.full_name.split(' ')[0],
-      email: `${studentId}@studyquest.local`, // Placeholder email
+      email: `${studentId}@studyquest.local`,
       app_role: 'student',
       student_id: studentId,
       username: username,
       password_hash: passwordHash,
-      pin_hash: null,
+      pin_hash: '',
       pin_enabled: false,
       login_method: 'password',
       date_of_birth: childData.date_of_birth,
@@ -132,6 +132,20 @@ Deno.serve(async (req) => {
       linked_parent_id: parent.id,
       failed_login_attempts: 0,
       account_locked: false,
+      last_login_at: null,
+      linked_student_ids: [],
+      notification_preferences: {
+        email_notifications: true,
+        push_notifications: true,
+        quiz_reminders: true,
+        daily_learning_reminder: true,
+        parent_progress_reports: true,
+        weekly_achievement_summary: true
+      },
+      learning_preferences: {
+        daily_goal_minutes: 20,
+        difficulty_preference: 'medium'
+      }
     });
 
     // Create ParentChildRelationship
