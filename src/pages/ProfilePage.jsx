@@ -45,10 +45,32 @@ export default function ProfilePage() {
           school_name: u.school_name || "",
           class_name: u.class_name || "",
         });
+      } else if (u.app_role === "parent") {
+        setFormData({
+          full_name: u.full_name || "",
+          school_year: u.school_year || "",
+          school_name: u.school_name || "",
+          class_name: u.class_name || "",
+        });
       }
       setLoading(false);
     };
     load();
+
+    // Real-time subscription for user profile updates
+    const unsubscribe = base44.entities.User.subscribe((event) => {
+      if (event.data?.id === user?.id) {
+        setUser(event.data);
+        setFormData({
+          full_name: event.data.full_name || "",
+          school_year: event.data.school_year || "",
+          school_name: event.data.school_name || "",
+          class_name: event.data.class_name || "",
+        });
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleLogout = () => {
@@ -171,14 +193,16 @@ export default function ProfilePage() {
         <span className="inline-block mt-2 px-3 py-1 rounded-full bg-white/20 text-xs font-medium capitalize">
           {user?.app_role || "student"}
         </span>
-        {user?.app_role === "student" && (
+        {(user?.app_role === "student" || user?.app_role === "parent") && (
           <div className="flex items-center justify-center gap-3 mt-3">
-            <button
-              onClick={() => setShowAvatar(!showAvatar)}
-              className="text-xs text-white/90 hover:text-white underline"
-            >
-              {showAvatar ? "Close" : "Change Photo"}
-            </button>
+            {user?.app_role === "student" && (
+              <button
+                onClick={() => setShowAvatar(!showAvatar)}
+                className="text-xs text-white/90 hover:text-white underline"
+              >
+                {showAvatar ? "Close" : "Change Photo"}
+              </button>
+            )}
             <button
               onClick={() => editing ? handleSaveProfile() : setEditing(true)}
               disabled={saving}
@@ -191,7 +215,7 @@ export default function ProfilePage() {
         )}
       </motion.div>
 
-      {/* Avatar/Photo selector */}
+      {/* Avatar/Photo selector — students only */}
       {showAvatar && user?.app_role === "student" && (
         <div className="bg-white rounded-2xl p-5 border border-border/50 space-y-4">
           <div className="flex items-center gap-2 mb-2">
@@ -298,70 +322,74 @@ export default function ProfilePage() {
               <p className="text-[10px] text-muted-foreground">Coins</p>
             </div>
           </motion.div>
-
-          {/* Profile editor */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="bg-white rounded-2xl p-5 border border-border/50"
-          >
-            <h3 className="font-heading font-bold text-foreground mb-4">School Profile</h3>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs text-muted-foreground">Year Level</Label>
-                {editing ? (
-                  <Select value={formData.school_year} onValueChange={(v) => setFormData(prev => ({ ...prev, school_year: v }))}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Standard 1">Standard 1</SelectItem>
-                      <SelectItem value="Standard 2">Standard 2</SelectItem>
-                      <SelectItem value="Standard 3">Standard 3</SelectItem>
-                      <SelectItem value="Standard 4">Standard 4</SelectItem>
-                      <SelectItem value="Standard 5">Standard 5</SelectItem>
-                      <SelectItem value="Standard 6">Standard 6</SelectItem>
-                      <SelectItem value="Form 1">Form 1</SelectItem>
-                      <SelectItem value="Form 2">Form 2</SelectItem>
-                      <SelectItem value="Form 3">Form 3</SelectItem>
-                      <SelectItem value="Form 4">Form 4</SelectItem>
-                      <SelectItem value="Form 5">Form 5</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-sm font-medium mt-1">{user?.school_year || "Not set"}</p>
-                )}
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">School Name</Label>
-                {editing ? (
-                  <Input
-                    value={formData.school_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, school_name: e.target.value }))}
-                    placeholder="e.g. SK Taman Jaya"
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="text-sm font-medium mt-1">{user?.school_name || "Not set"}</p>
-                )}
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Class</Label>
-                {editing ? (
-                  <Input
-                    value={formData.class_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
-                    placeholder="e.g. 1A, 3B"
-                    className="mt-1"
-                  />
-                ) : (
-                  <p className="text-sm font-medium mt-1">{user?.class_name || "Not set"}</p>
-                )}
-              </div>
-            </div>
-          </motion.div>
         </>
+      )}
+
+      {/* Profile editor — both students and parents */}
+      {(user?.app_role === "student" || user?.app_role === "parent") && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-white rounded-2xl p-5 border border-border/50"
+        >
+          <h3 className="font-heading font-bold text-foreground mb-4">
+            {user?.app_role === "student" ? "School Profile" : "Profile Details"}
+          </h3>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-muted-foreground">Year Level</Label>
+              {editing ? (
+                <Select value={formData.school_year} onValueChange={(v) => setFormData(prev => ({ ...prev, school_year: v }))}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Standard 1">Standard 1</SelectItem>
+                    <SelectItem value="Standard 2">Standard 2</SelectItem>
+                    <SelectItem value="Standard 3">Standard 3</SelectItem>
+                    <SelectItem value="Standard 4">Standard 4</SelectItem>
+                    <SelectItem value="Standard 5">Standard 5</SelectItem>
+                    <SelectItem value="Standard 6">Standard 6</SelectItem>
+                    <SelectItem value="Form 1">Form 1</SelectItem>
+                    <SelectItem value="Form 2">Form 2</SelectItem>
+                    <SelectItem value="Form 3">Form 3</SelectItem>
+                    <SelectItem value="Form 4">Form 4</SelectItem>
+                    <SelectItem value="Form 5">Form 5</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm font-medium mt-1">{user?.school_year || "Not set"}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">School Name</Label>
+              {editing ? (
+                <Input
+                  value={formData.school_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, school_name: e.target.value }))}
+                  placeholder={user?.app_role === "student" ? "e.g. SK Taman Jaya" : "Your school name"}
+                  className="mt-1"
+                />
+              ) : (
+                <p className="text-sm font-medium mt-1">{user?.school_name || "Not set"}</p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Class</Label>
+              {editing ? (
+                <Input
+                  value={formData.class_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
+                  placeholder={user?.app_role === "student" ? "e.g. 1A, 3B" : "Your class/grade"}
+                  className="mt-1"
+                />
+              ) : (
+                <p className="text-sm font-medium mt-1">{user?.class_name || "Not set"}</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {/* Admin tools */}
