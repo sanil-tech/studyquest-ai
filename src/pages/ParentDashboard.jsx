@@ -54,6 +54,7 @@ export default function ParentDashboard() {
                 progress: progresses[0] || { total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 },
                 wallet: wallets[0] || { balance: 0 },
                 recentAttempts: attempts || [],
+                recentSessions: sessions.slice(0, 5),
                 weeklyMinutes,
                 sessionCount: sessions.length,
               };
@@ -301,6 +302,28 @@ export default function ParentDashboard() {
                 <p className="font-bold text-sm text-blue-700">{child.progress.streak_days}</p>
                 <p className="text-[10px] text-blue-500">Streak</p>
               </div>
+            </div>
+
+            {/* Recent lessons */}
+            <div className="px-4 pb-4">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">Recent Lessons</h3>
+              {child.recentSessions.length > 0 ? (
+                <div className="space-y-2">
+                  {child.recentSessions.map(s => (
+                    <div key={s.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 text-sm">
+                      <span className="truncate">{s.topic_name || "Lesson"}</span>
+                      <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                        {moment(s.created_date).format("DD MMM, h:mm a")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                  <BookOpen className="w-4 h-4" />
+                  No lessons started yet
+                </div>
+              )}
             </div>
 
             {/* Recent quizzes */}
