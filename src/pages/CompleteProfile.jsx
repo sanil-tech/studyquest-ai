@@ -173,11 +173,6 @@ export default function CompleteProfile() {
           setSaving(false);
           return;
         }
-        if (!profilePictureUrl) {
-          toast({ title: "Profile photo required", description: "Please upload a profile photo to continue", variant: "destructive" });
-          setSaving(false);
-          return;
-        }
         updateData.num_children = parseInt(numChildren);
         updateData.children_names = childrenNames;
       } else if (user.app_role === "teacher") {
@@ -269,7 +264,7 @@ export default function CompleteProfile() {
             <CardContent className="space-y-6 pt-6">
               {/* Profile Picture */}
               <div className="space-y-2">
-                <Label>Profile Picture {user.app_role === "parent" ? "(required)" : "(optional)"}</Label>
+                <Label>Profile Picture (optional)</Label>
                 <div className="flex items-center gap-4">
                   {profilePictureUrl ? (
                     <div className="relative">
