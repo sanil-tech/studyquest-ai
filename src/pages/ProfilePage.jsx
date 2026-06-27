@@ -55,9 +55,20 @@ export default function ProfilePage() {
   };
 
   const handleSaveProfile = async () => {
-    await base44.auth.updateMe(formData);
-    setUser((prev) => ({ ...prev, ...formData }));
-    setEditing(false);
+    try {
+      await base44.auth.updateMe(formData);
+      const updatedUser = await base44.auth.me();
+      setUser(updatedUser);
+      setFormData({
+        full_name: updatedUser.full_name || "",
+        school_year: updatedUser.school_year || "",
+        school_name: updatedUser.school_name || "",
+        class_name: updatedUser.class_name || "",
+      });
+      setEditing(false);
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+    }
   };
 
   if (loading) {
