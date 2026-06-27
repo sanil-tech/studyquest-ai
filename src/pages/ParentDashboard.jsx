@@ -18,55 +18,63 @@ export default function ParentDashboard() {
   const { toast } = useToast();
 
   const loadData = async () => {
-    const u = await base44.auth.me();
-    setUser(u);
-    const studentIds = u.linked_student_ids || [];
-    if (studentIds.length > 0) {
-      const childrenData = await Promise.all(
-        studentIds.map(async (sid) => {
-          const [progresses, wallets, attempts] = await Promise.all([
-            base44.entities.Progress.filter({ student_id: sid }),
-            base44.entities.Wallet.filter({ student_id: sid }),
-            base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 5),
-          ]);
-          const users = await base44.entities.User.filter({ id: sid });
-          return {
-            id: sid,
-            name: users[0]?.full_name || "Student",
-            progress: progresses[0] || { total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 },
-            wallet: wallets[0] || { balance: 0 },
-            recentAttempts: attempts,
-          };
-        })
-      );
-      setChildren(childrenData);
+    try {
+      const u = await base44.auth.me();
+      setUser(u);
+      const studentIds = u.linked_student_ids || [];
+      if (studentIds.length > 0) {
+        const childrenData = await Promise.all(
+          studentIds.map(async (sid) => {
+            const [progresses, wallets, attempts] = await Promise.all([
+              base44.entities.Progress.filter({ student_id: sid }),
+              base44.entities.Wallet.filter({ student_id: sid }),
+              base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 5),
+            ]);
+            const users = await base44.entities.User.filter({ id: sid });
+            return {
+              id: sid,
+              name: users[0]?.full_name || "Student",
+              progress: progresses[0] || { total_xp: 0, level: 1, streak_days: 0, total_study_time: 0 },
+              wallet: wallets[0] || { balance: 0 },
+              recentAttempts: attempts,
+            };
+          })
+        );
+        setChildren(childrenData);
+      }
+    } catch (e) {
+      console.error("Failed to load parent data", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { loadData(); }, []);
 
   const linkChild = async () => {
     setLinking(true);
-    const allUsers = await base44.entities.User.list();
-    const student = allUsers.find(u => u.email === linkEmail && u.role === "student");
-    if (!student) {
-      toast({ title: "Student not found", description: "No student with that email exists.", variant: "destructive" });
+    try {
+      const students = await base44.entities.User.filter({ email: linkEmail });
+      const student = students.find(u => u.app_role === "student");
+      if (!student) {
+        toast({ title: "Student not found", description: "No student with that email exists.", variant: "destructive" });
+        return;
+      }
+      const currentIds = user.linked_student_ids || [];
+      if (currentIds.includes(student.id)) {
+        toast({ title: "Already linked", description: "This student is already linked.", variant: "destructive" });
+        return;
+      }
+      await base44.auth.updateMe({ linked_student_ids: [...currentIds, student.id] });
+      setDialogOpen(false);
+      setLinkEmail("");
+      toast({ title: "Child linked! 🎉" });
+      loadData();
+    } catch (err) {
+      toast({ title: "Failed to link", description: err.message || "Something went wrong", variant: "destructive" });
+    } finally {
       setLinking(false);
-      return;
     }
-    const currentIds = user.linked_student_ids || [];
-    if (currentIds.includes(student.id)) {
-      toast({ title: "Already linked", description: "This student is already linked.", variant: "destructive" });
-      setLinking(false);
-      return;
-    }
-    await base44.auth.updateMe({ linked_student_ids: [...currentIds, student.id] });
-    setDialogOpen(false);
-    setLinkEmail("");
-    setLinking(false);
-    toast({ title: "Child linked! 🎉" });
-    loadData();
   };
 
   if (loading) {
