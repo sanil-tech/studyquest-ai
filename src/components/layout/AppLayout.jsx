@@ -12,9 +12,9 @@ const studentNav = [
 
 const parentNav = [
   { path: "/parent", icon: Home, label: "Home" },
+  { path: "/parent/children", icon: Users, label: "Children" },
   { path: "/parent/rewards", icon: Gift, label: "Rewards" },
   { path: "/parent/approvals", icon: CheckSquare, label: "Approvals" },
-  { path: "/notifications", icon: Bell, label: "Alerts" },
 ];
 
 export default function AppLayout() {
@@ -41,7 +41,7 @@ export default function AppLayout() {
   useEffect(() => {
     if (!user) return;
     const studentPaths = ["/dashboard", "/study", "/quiz", "/wallet", "/rewards"];
-    const parentPaths = ["/parent"];
+    const parentPaths = ["/parent", "/parent/children", "/parent/rewards", "/parent/approvals"];
 
     const onStudentPath = studentPaths.some(p => location.pathname.startsWith(p));
     const onParentPath = parentPaths.some(p => location.pathname.startsWith(p));

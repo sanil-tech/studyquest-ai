@@ -9,6 +9,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
+import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
+import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
+import SecuritySection from "@/components/profile/SecuritySection";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -28,6 +31,19 @@ export default function ProfilePage() {
     date_of_birth: "",
     country: "Malaysia",
     state: "",
+    notification_preferences: {
+      email_notifications: true,
+      push_notifications: true,
+      quiz_reminders: true,
+      daily_learning_reminder: true,
+      parent_progress_reports: true,
+      weekly_achievement_summary: true,
+    },
+    learning_preferences: {
+      daily_goal_minutes: 20,
+      difficulty_preference: "medium",
+      favorite_subjects: [],
+    },
   });
   const [avatarMode, setAvatarMode] = useState("emoji");
   const [uploading, setUploading] = useState(false);
@@ -62,6 +78,19 @@ export default function ProfilePage() {
           date_of_birth: u.date_of_birth || "",
           country: u.country || "Malaysia",
           state: u.state || "",
+          notification_preferences: u.notification_preferences || {
+            email_notifications: true,
+            push_notifications: true,
+            quiz_reminders: true,
+            daily_learning_reminder: true,
+            parent_progress_reports: true,
+            weekly_achievement_summary: true,
+          },
+          learning_preferences: u.learning_preferences || {
+            daily_goal_minutes: 20,
+            difficulty_preference: "medium",
+            favorite_subjects: [],
+          },
         });
       } catch (err) {
         console.error("Failed to load profile:", err);
@@ -85,6 +114,8 @@ export default function ProfilePage() {
           date_of_birth: event.data.date_of_birth || "",
           country: event.data.country || "Malaysia",
           state: event.data.state || "",
+          notification_preferences: event.data.notification_preferences || formData.notification_preferences,
+          learning_preferences: event.data.learning_preferences || formData.learning_preferences,
         });
         toast({
           title: "Profile Updated",
@@ -153,6 +184,8 @@ export default function ProfilePage() {
         date_of_birth: updatedUser.date_of_birth || "",
         country: updatedUser.country || "Malaysia",
         state: updatedUser.state || "",
+        notification_preferences: updatedUser.notification_preferences || formData.notification_preferences,
+        learning_preferences: updatedUser.learning_preferences || formData.learning_preferences,
       });
       setEditing(false);
 
@@ -330,6 +363,40 @@ export default function ProfilePage() {
           formData={formData}
           setFormData={setFormData}
           isStudent={isStudent}
+        />
+      )}
+
+      {/* Notification Preferences */}
+      {editing && (
+        <NotificationPreferencesSection
+          editing={editing}
+          formData={formData}
+          setFormData={setFormData}
+        />
+      )}
+
+      {/* Learning Preferences */}
+      {isStudent && editing && (
+        <LearningPreferencesSection
+          editing={editing}
+          formData={formData}
+          setFormData={setFormData}
+        />
+      )}
+
+      {/* Security Settings */}
+      {editing && (
+        <SecuritySection
+          editing={editing}
+          formData={formData}
+          setFormData={setFormData}
+          onSavePassword={async (passwordData) => {
+            toast({
+              title: "Password change",
+              description: "Please use the forgot password flow to reset your password",
+              variant: "destructive",
+            });
+          }}
         />
       )}
 

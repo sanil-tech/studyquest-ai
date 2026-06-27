@@ -29,6 +29,7 @@ import ParentRewards from '@/pages/ParentRewards';
 import ParentApprovals from '@/pages/ParentApprovals';
 import NotificationsPage from '@/pages/NotificationsPage';
 import ProfilePage from '@/pages/ProfilePage';
+import MyChildrenPage from '@/pages/MyChildrenPage';
 import TextbookUpload from '@/pages/TextbookUpload';
 import AdminRoute from '@/components/AdminRoute';
 
@@ -95,6 +96,7 @@ const AuthenticatedApp = () => {
           <Route element={<ProfileCompleteRoute />}>
             <Route element={<RoleRoute allowedRoles={["parent"]} />}>
               <Route path="/parent" element={<ParentDashboard />} />
+              <Route path="/parent/children" element={<MyChildrenPage />} />
               <Route path="/parent/rewards" element={<ParentRewards />} />
               <Route path="/parent/approvals" element={<ParentApprovals />} />
             </Route>
