@@ -1,10 +1,14 @@
-export default async function childLogin({ input, context }) {
+export default async function childLogin(params, context) {
   try {
-    const { student_id, password, pin } = input;
+    // ✅ SAFE PARAM HANDLING (FIXES YOUR ERROR)
+    const input = params || {};
 
-    const studentId = String(student_id || "").trim().toUpperCase();
-    const cleanPassword = String(password || "").trim();
-    const cleanPin = String(pin || "").trim();
+    const studentId = String(input.student_id || "")
+      .trim()
+      .toUpperCase();
+
+    const password = String(input.password || "").trim();
+    const pin = String(input.pin || "").trim();
 
     if (!studentId) {
       return { success: false, error: "Student ID is required" };
@@ -22,65 +26,35 @@ export default async function childLogin({ input, context }) {
     }
 
     // =========================
-    // LOGIN VIA PIN (RECOMMENDED)
+    // PIN LOGIN (PRIMARY)
     // =========================
-    if (cleanPin) {
+    if (pin) {
       if (!student.pin) {
-        return {
-          success: false,
-          error: "PIN not set. Please ask parent to create PIN."
-        };
+        return { success: false, error: "PIN not set by parent" };
       }
 
-      if (String(student.pin).trim() !== cleanPin) {
+      if (String(student.pin).trim() !== pin) {
         return { success: false, error: "Incorrect PIN" };
       }
     }
 
     // =========================
-    // LOGIN VIA PASSWORD (OPTIONAL)
+    // PASSWORD LOGIN (OPTIONAL)
     // =========================
-    else if (cleanPassword) {
+    else if (password) {
       if (!student.password) {
-        return {
-          success: false,
-          error: "Password not set. Please ask parent to set password."
-        };
+        return { success: false, error: "Password not set by parent" };
       }
 
-      if (student.password !== cleanPassword) {
+      if (student.password !== password) {
         return { success: false, error: "Incorrect password" };
       }
     }
 
-    // =========================
-    // NO INPUT
-    // =========================
     else {
-      return {
-        success: false,
-        error: "Enter PIN or password"
-      };
+      return { success: false, error: "Enter PIN or password" };
     }
 
     // SUCCESS
     return {
-      success: true,
-      user: {
-        id: student.id,
-        student_id: student.student_id,
-        name: student.name,
-        nickname: student.nickname || student.name,
-        parent_id: student.parent_id || null
-      }
-    };
-
-  } catch (err) {
-    console.error("childLogin error:", err);
-
-    return {
-      success: false,
-      error: "Server error"
-    };
-  }
-}
+      success:
