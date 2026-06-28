@@ -80,6 +80,8 @@ Deno.serve(async (req) => {
     const newUser = await base44.asServiceRole.entities.User.create({
       full_name: fullName,
       nickname: nickname,
+      email: dummyEmail,           // <-- FIX 1: Actually save the dummy email
+      app_role: 'student',         // <-- FIX 2: Ensure they are flagged as a student
       date_of_birth: payload.date_of_birth,
       gender: payload.gender || null,
       student_id: studentId,
