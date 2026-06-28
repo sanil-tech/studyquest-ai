@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
+// Using YOUR exact correct import path!
+import { base44 } from '@/api/base44Client';
 
 export default function MyChildrenPage() {
   const { user: currentUser } = useAuth();
@@ -16,36 +18,24 @@ export default function MyChildrenPage() {
         setIsLoading(true);
         setError(null);
         
-        const userToken = localStorage.getItem('sb-access-token') || '';
+        console.log("Calling backend to get children for parent:", currentUser.id);
 
-        // Ask the secure backend function to do everything!
-        // We use a direct POST request to bypass needing the SDK import.
-        const response = await fetch("https://study-quest-glow.base44.app/api/functions/linkParentToChild", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${userToken}`
-          },
-          body: JSON.stringify({ 
-            method: "get_children" 
-          })
+        // Ask the secure backend function to do everything using the SDK!
+        const response = await base44.functions.invoke("linkParentToChild", {
+          method: "get_children"
         });
 
-        if (!response.ok) {
-          throw new Error(`Server returned ${response.status}`);
-        }
+        console.log("Backend response:", response);
 
-        const data = await response.json();
-
-        if (data && data.success) {
-          setChildren(data.children || []);
+        if (response.data && response.data.success) {
+          setChildren(response.data.children || []);
         } else {
-          throw new Error(data?.error || "Failed to fetch student profiles from backend.");
+          throw new Error(response.data?.error || "Failed to fetch student profiles from backend.");
         }
 
       } catch (err) {
         console.error("Backend fetch failure:", err);
-        setError("Failed to load children. Please check your connection or backend function.");
+        setError("Failed to load children. Check console for details.");
       } finally {
         setIsLoading(false);
       }
@@ -77,7 +67,6 @@ export default function MyChildrenPage() {
     <div className="container mx-auto p-4 sm:p-6 max-w-5xl">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold text-gray-900">My Children</h1>
-        {/* You can add your "Link Student Account" button here */}
         <button className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
           Link Account
         </button>
