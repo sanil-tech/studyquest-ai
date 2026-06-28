@@ -1,240 +1,182 @@
-import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { useNavigate } from "react-router-dom";
-import { GraduationCap, Key, Lock, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { motion } from "framer-motion";
-import { toast } from "@/components/ui/use-toast";
+// childLogin Edge Function
 
-export default function ChildLogin() {
-  const navigate = useNavigate();
-  const [studentId, setStudentId] = useState("");
-  const [password, setPassword] = useState("");
-  const [pin, setPin] = useState("");
-  const [loginMethod, setLoginMethod] = useState("password"); // password | pin
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+import { db } from "./dbClient";
+import bcrypt from "bcryptjs";
 
-const handleLogin = async () => {
-    setLoading(true);
-    setError("");
+export async function onRequest(req) {
+  try {
+    // Parse request body safely
+    const body = await req.json();
 
-    try {
-      if (!studentId.trim()) {
-        setError("Please enter your Student ID");
-        setLoading(false);
-        return;
-      }
+    const student_id = body.student_id ?? "";
+    const password = body.password ?? "";
+    const pin = body.pin ?? "";
 
-      if (loginMethod === "password" && !password.trim()) {
-        setError("Please enter your password");
-        setLoading(false);
-        return;
-      }
+    // Clean input
+    const cleanStudentId = String(student_id).trim().toUpperCase();
+    const cleanPassword = String(password).trim();
+    const cleanPin = String(pin).trim();
 
-      if (loginMethod === "pin" && (!pin || pin.length < 4)) {
-        setError("Please enter your 4-6 digit PIN");
-        setLoading(false);
-        return;
-      }
-
-      // Add .trim() to the password payload here!
-      const response = await base44.functions.invoke("childLogin", {
-        student_id: studentId.trim().toUpperCase(),
-        password: loginMethod === "password" ? password.trim() : null,
-        pin: loginMethod === "pin" ? pin.trim() : null,
-      });
-
-      if (response.data.success) {
-        // Store user data for child session
-        const userData = response.data.user;
-        localStorage.setItem('studyquest_session', JSON.stringify({
-          type: 'child',
-          userId: userData.id,
-          loginTime: new Date().toISOString()
-        }));
-        localStorage.setItem('studyquest_user', JSON.stringify(userData));
-        
-        toast({
-          title: "Welcome back! 🎉",
-          description: `Hi ${userData.nickname}!`,
-          duration: 2000
-        });
-        
-        // Redirect based on profile completion
-        if (userData.profile_completed) {
-          window.location.href = "/dashboard";
-        } else {
-          window.location.href = "/complete-profile";
+    // Validate Student ID
+    if (!cleanStudentId) {
+      return Response.json(
+        {
+          success: false,
+          error: "Student ID is required."
+        },
+        {
+          status: 400
         }
-      } else {
-        // Show specific backend error (e.g., "Account temporarily locked")
-        setError(response.data.error || "Login failed. Please try again.");
+      );
+    }
+
+    // Find student
+    const { data: student, error: dbError } = await db
+      .from("students")
+      .select("*")
+      .eq("student_id", cleanStudentId)
+      .maybeSingle();
+
+    if (dbError) {
+      console.error("Database Error:", dbError);
+
+      return Response.json(
+        {
+          success: false,
+          error: "Database error."
+        },
+        {
+          status: 500
+        }
+      );
+    }
+
+    if (!student) {
+      return Response.json(
+        {
+          success: false,
+          error: "Incorrect Student ID or password."
+        },
+        {
+          status: 401
+        }
+      );
+    }
+
+    // ==========================
+    // PASSWORD LOGIN
+    // ==========================
+    if (cleanPassword) {
+      if (!student.password_hash) {
+        return Response.json(
+          {
+            success: false,
+            error: "Password has not been set."
+          },
+          {
+            status: 400
+          }
+        );
       }
-    } catch (err) {
-      console.error("Child login error:", err);
-      setError(err.response?.data?.error || "Incorrect details, please try again.");
-    } finally {
-      setLoading(false);
+
+      const passwordMatched = await bcrypt.compare(
+        cleanPassword,
+        student.password_hash
+      );
+
+      if (!passwordMatched) {
+        return Response.json(
+          {
+            success: false,
+            error: "Incorrect Student ID or password."
+          },
+          {
+            status: 401
+          }
+        );
+      }
     }
-  };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleLogin();
+    // ==========================
+    // PIN LOGIN
+    // ==========================
+    else if (cleanPin) {
+      if (
+        student.pin === null ||
+        student.pin === undefined ||
+        student.pin === ""
+      ) {
+        return Response.json(
+          {
+            success: false,
+            error: "PIN has not been set."
+          },
+          {
+            status: 400
+          }
+        );
+      }
+
+      if (String(student.pin).trim() !== cleanPin) {
+        return Response.json(
+          {
+            success: false,
+            error: "Incorrect PIN code."
+          },
+          {
+            status: 401
+          }
+        );
+      }
     }
-  };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Card className="w-full max-w-md border-2 border-primary/20 shadow-xl">
-          <CardHeader className="text-center pb-2">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <GraduationCap className="w-8 h-8 text-primary" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold text-primary">
-              Welcome to StudyQuest! 🚀
-            </CardTitle>
-            <CardDescription className="text-base mt-2">
-              Login with your Student ID
-            </CardDescription>
-          </CardHeader>
+    // ==========================
+    // NO AUTH METHOD PROVIDED
+    // ==========================
+    else {
+      return Response.json(
+        {
+          success: false,
+          error: "Password or PIN is required."
+        },
+        {
+          status: 400
+        }
+      );
+    }
 
-          <CardContent className="space-y-4 pt-4">
-            {/* Login Method Toggle */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg">
-              <Button
-                variant={loginMethod === "password" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setLoginMethod("password");
-                  setPin("");
-                  setError("");
-                }}
-                className={loginMethod === "password" ? "shadow" : ""}
-              >
-                <Key className="w-4 h-4 mr-1" />
-                Password
-              </Button>
-              <Button
-                variant={loginMethod === "pin" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setLoginMethod("pin");
-                  setPassword("");
-                  setError("");
-                }}
-                className={loginMethod === "pin" ? "shadow" : ""}
-              >
-                <Lock className="w-4 h-4 mr-1" />
-                PIN
-              </Button>
-            </div>
+    // ==========================
+    // LOGIN SUCCESS
+    // ==========================
+    return Response.json(
+      {
+        success: true,
+        user: {
+          id: student.id,
+          student_id: student.student_id,
+          nickname: student.nickname ?? student.name,
+          name: student.name,
+          avatar: student.avatar ?? null,
+          level: student.level ?? 1,
+          profile_completed: Boolean(student.profile_completed)
+        }
+      },
+      {
+        status: 200
+      }
+    );
 
-            {/* Student ID Input */}
-            <div className="space-y-2">
-              <Label htmlFor="studentId" className="text-base font-semibold">
-                Student ID
-              </Label>
-              <Input
-                id="studentId"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value.toUpperCase())}
-                onKeyPress={handleKeyPress}
-                placeholder="SQ-ABC123"
-                className="text-lg h-12 font-mono tracking-wide"
-                maxLength={9}
-                autoFocus
-              />
-            </div>
+  } catch (err) {
+    console.error("Authentication Error:", err);
 
-            {/* Password or PIN Input */}
-            {loginMethod === "password" ? (
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-base font-semibold">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter your password"
-                  className="text-lg h-12"
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="pin" className="text-base font-semibold">
-                  PIN (4-6 digits)
-                </Label>
-                <Input
-                  id="pin"
-                  type="password"
-                  inputMode="numeric"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  onKeyPress={handleKeyPress}
-                  placeholder="••••"
-                  className="text-lg h-12 font-mono tracking-widest"
-                  maxLength={6}
-                />
-              </div>
-            )}
-
-            {/* Error Message */}
-            {error && (
-              <Alert variant="destructive" className="border-red-200 bg-red-50">
-                <AlertCircle className="w-4 h-4" />
-                <AlertDescription className="text-sm">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Login Button */}
-            <Button
-              onClick={handleLogin}
-              disabled={loading}
-              className="w-full h-14 text-lg font-bold rounded-xl mt-4"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                "Login 🎯"
-              )}
-            </Button>
-
-            {/* Back to Main Login */}
-            <div className="pt-2">
-              <a href="/login" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-                Back to Main Login
-              </a>
-            </div>
-
-            {/* Help Text */}
-            <p className="text-xs text-center text-muted-foreground mt-4">
-              Forgot your credentials? Ask your parent to help! 👨‍👩‍👧
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
-  );
+    return Response.json(
+      {
+        success: false,
+        error: "Internal server authentication error."
+      },
+      {
+        status: 500
+      }
+    );
+  }
 }
