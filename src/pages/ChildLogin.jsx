@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useNavigate } from "react-router-dom";
 import { GraduationCap, Key, Lock, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +11,11 @@ import { motion } from "framer-motion";
 import { toast } from "@/components/ui/use-toast";
 
 export default function ChildLogin() {
+  const navigate = useNavigate();
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
-  const [loginMethod, setLoginMethod] = useState("password");
+  const [loginMethod, setLoginMethod] = useState("password"); // password | pin
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,7 +48,7 @@ export default function ChildLogin() {
         pin: loginMethod === "pin" ? pin.trim() : null,
       });
 
-      if (response.data.success) {
+      if (response.data?.success) {
         const userData = response.data.user;
         localStorage.setItem('studyquest_session', JSON.stringify({
           type: 'child',
@@ -54,20 +56,20 @@ export default function ChildLogin() {
           loginTime: new Date().toISOString()
         }));
         localStorage.setItem('studyquest_user', JSON.stringify(userData));
-
+        
         toast({
           title: "Welcome back! 🎉",
-          description: `Hi ${userData.nickname || userData.name || "Student"}!`,
-          duration: 2000,
+          description: `Hi ${userData.nickname}!`,
+          duration: 2000
         });
-
+        
         if (userData.profile_completed) {
           window.location.href = "/dashboard";
         } else {
           window.location.href = "/complete-profile";
         }
       } else {
-        setError(response.data.error || "Login failed. Please try again.");
+        setError(response.data?.error || "Login failed. Please try again.");
       }
     } catch (err) {
       console.error("Child login error:", err);
@@ -106,6 +108,7 @@ export default function ChildLogin() {
           </CardHeader>
 
           <CardContent className="space-y-4 pt-4">
+            {/* Login Method Toggle */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg">
               <Button
                 variant={loginMethod === "password" ? "default" : "ghost"}
@@ -135,11 +138,13 @@ export default function ChildLogin() {
               </Button>
             </div>
 
+            {/* Student ID Input - STABILIZED WITH KEY */}
             <div className="space-y-2">
               <Label htmlFor="studentId" className="text-base font-semibold">
                 Student ID
               </Label>
               <Input
+                key="student-id-input"
                 id="studentId"
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value.toUpperCase())}
@@ -147,16 +152,17 @@ export default function ChildLogin() {
                 placeholder="SQ-ABC123"
                 className="text-lg h-12 font-mono tracking-wide"
                 maxLength={9}
-                autoFocus
               />
             </div>
 
+            {/* Password or PIN Input - FIX APPLIED HERE */}
             {loginMethod === "password" ? (
-              <div className="space-y-2">
+              <div className="space-y-2" key="password-field-container">
                 <Label htmlFor="password" className="text-base font-semibold">
                   Password
                 </Label>
                 <Input
+                  key="password-input-element"
                   id="password"
                   type="password"
                   value={password}
@@ -167,11 +173,12 @@ export default function ChildLogin() {
                 />
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2" key="pin-field-container">
                 <Label htmlFor="pin" className="text-base font-semibold">
                   PIN (4-6 digits)
                 </Label>
                 <Input
+                  key="pin-input-element"
                   id="pin"
                   type="password"
                   inputMode="numeric"
@@ -185,13 +192,17 @@ export default function ChildLogin() {
               </div>
             )}
 
+            {/* Error Message */}
             {error && (
               <Alert variant="destructive" className="border-red-200 bg-red-50">
                 <AlertCircle className="w-4 h-4" />
-                <AlertDescription className="text-sm">{error}</AlertDescription>
+                <AlertDescription className="text-sm">
+                  {error}
+                </AlertDescription>
               </Alert>
             )}
 
+            {/* Login Button */}
             <Button
               onClick={handleLogin}
               disabled={loading}
@@ -207,16 +218,15 @@ export default function ChildLogin() {
               )}
             </Button>
 
+            {/* Back to Main Login */}
             <div className="pt-2">
-              <a
-                href="/login"
-                className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
+              <a href="/login" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <ArrowLeft className="w-4 h-4" />
                 Back to Main Login
               </a>
             </div>
 
+            {/* Help Text */}
             <p className="text-xs text-center text-muted-foreground mt-4">
               Forgot your credentials? Ask your parent to help! 👨‍👩‍👧
             </p>
