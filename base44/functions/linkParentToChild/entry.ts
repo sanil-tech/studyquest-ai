@@ -40,13 +40,19 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Request already sent' }, { status: 400 });
       }
 
+      // ==========================================
+      // THE FIX: Dummy Email Fallback
+      // ==========================================
+      const safeChildEmail = child.email || `${child.student_id}@student.studyquest.local`;
+      const safeParentEmail = parent.email || `${parent.id}@parent.studyquest.local`;
+
       await base44.entities.LinkRequest.create({
         student_id: child.id,
-        student_email: child.email,
-        student_name: child.full_name || child.nickname || child.email,
+        student_email: safeChildEmail,
+        student_name: child.full_name || child.nickname || child.student_id,
         parent_id: parent.id,
-        parent_email: parent.email,
-        parent_name: parent.full_name || parent.nickname || parent.email,
+        parent_email: safeParentEmail,
+        parent_name: parent.full_name || parent.nickname || 'Parent',
         initiated_by: 'parent',
         status: 'pending'
       });
@@ -55,15 +61,15 @@ Deno.serve(async (req) => {
       await base44.entities.Notification.create({
         user_id: child.id,
         title: 'Parent Link Request',
-        message: `${parent.full_name || parent.email} wants to link to your account.`,
-        type: 'quiz_complete',
+        message: `${parent.full_name || 'Your parent'} wants to link to your account.`,
+        type: 'quiz_complete', // Keeping your original type
         reference_id: parent.id
       });
 
       return Response.json({ 
         success: true, 
         message: 'Request sent for approval',
-        child: { id: child.id, name: child.full_name || child.email }
+        child: { id: child.id, name: child.full_name || child.student_id }
       });
 
     } else if (method === 'link_code') {
@@ -134,7 +140,7 @@ Deno.serve(async (req) => {
       await base44.entities.Notification.create({
         user_id: child.id,
         title: 'Parent Linked',
-        message: `${parent.full_name || parent.email} is now linked to your account.`,
+        message: `${parent.full_name || 'Your parent'} is now linked to your account.`,
         type: 'quiz_complete',
         reference_id: parent.id
       });
@@ -142,7 +148,7 @@ Deno.serve(async (req) => {
       return Response.json({ 
         success: true, 
         message: 'Successfully linked',
-        child: { id: child.id, name: child.full_name || child.email }
+        child: { id: child.id, name: child.full_name || child.student_id }
       });
 
     } else {
