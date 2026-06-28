@@ -1,29 +1,23 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Exact matching hash formulas from your login function
-const hashPassword = (password) => {
-  return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
-};
-
-const hashPin = (pin) => {
-  return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
-};
-
-// Helper to clean up strings
+// Hashes for secure login
+const hashPassword = (password) => btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
+const hashPin = (pin) => btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 const cleanName = (name) => name ? name.trim() : '';
 
-// Generators for credentials
-const generateStudentId = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let id = '';
+// 1. Generate unique Student ID (Using your improved confusion-free logic!)
+const generateId = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1
+  let id = 'SQ-';
   for (let i = 0; i < 6; i++) {
     id += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return `SQ-${id}`;
+  return id;
 };
 
+// 2. Generate random password
 const generatePassword = () => {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$';
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ23456789!@#$';
   let pwd = '';
   for (let i = 0; i < 6; i++) {
     pwd += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -45,16 +39,31 @@ Deno.serve(async (req) => {
     const payload = body?.childData || body || {};
 
     if (!payload.full_name || !payload.date_of_birth) {
-      return Response.json(
-        { error: 'Full name and date of birth are required' },
-        { status: 400 }
-      );
+      return Response.json({ error: 'Full name and date of birth are required' }, { status: 400 });
     }
 
     const fullName = cleanName(payload.full_name);
     const nickname = payload.nickname ? cleanName(payload.nickname) : fullName.split(' ')[0];
     
-    const studentId = generateStudentId();
+    // ==========================================
+    // SECURE UNIQUE ID GENERATION
+    // ==========================================
+    let studentId = generateId();
+    let attempts = 0;
+    while (attempts < 10) {
+      const existing = await base44.asServiceRole.entities.User.filter({ student_id: studentId });
+      if (existing.length === 0) break;
+      studentId = generateId();
+      attempts++;
+    }
+
+    if (attempts >= 10) {
+      return Response.json({ error: 'Failed to generate a unique Student ID' }, { status: 500 });
+    }
+
+    // ==========================================
+    // CREDENTIAL SETUP
+    // ==========================================
     const dummyEmail = `${studentId}@student.studyquest.local`;
     const password = generatePassword();
     const passwordHash = hashPassword(password);
@@ -66,7 +75,9 @@ Deno.serve(async (req) => {
       loginMethod = 'both';
     }
 
-    // 1. CREATE THE USER ACCOUNT
+    // ==========================================
+    // SAVE USER TO DATABASE
+    // ==========================================
     const newUser = await base44.asServiceRole.entities.User.create({
       full_name: fullName,
       nickname: nickname,
@@ -85,7 +96,9 @@ Deno.serve(async (req) => {
       profile_completed: false
     });
 
-    // 2. CREATE THE RELATIONSHIP LINK (THE MISSING PIECE!)
+    // ==========================================
+    // LINK TO PARENT (So they appear on My Children)
+    // ==========================================
     if (payload.parent_id) {
       await base44.asServiceRole.entities.ParentChildRelationship.create({
         parent_id: payload.parent_id,
@@ -96,6 +109,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Return the plain-text credentials so the parent's frontend popup can show them!
     return Response.json({
       success: true,
       user: newUser,
