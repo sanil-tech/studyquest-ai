@@ -87,7 +87,6 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      // CRITICAL VALIDATION: full_name is REQUIRED - no empty names allowed
       if (!childData.full_name || !childData.full_name.trim()) {
         toast({ 
           title: "⚠️ Name Required", 
@@ -105,18 +104,24 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
         return;
       }
 
-      // Create child account with credentials - ensure full_name is trimmed
+      // Fetch the parent user session to pass down parent_id automatically
+      const currentParent = await base44.auth.me();
+
+      // Create child account with credentials
       const response = await base44.functions.invoke("createChildAccount", {
         childData: {
           ...childData,
           full_name: childData.full_name.trim(),
           grade_year: childData.grade_year,
+          parent_id: currentParent?.id || null // Ensures the database linking step functions correctly
         },
       });
 
-      if (response.data.success) {
+      if (response.data && response.data.success) {
         console.log('Child created successfully:', response.data);
-        setCredentials(response.data.child);
+        
+        // FIX: Match the object key returned by your backend endpoint
+        setCredentials(response.data.credentials);
         setShowCredentials(true);
         
         toast({
@@ -124,7 +129,7 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
           description: "Please save the login credentials!",
         });
 
-        // Trigger parent refresh with a small delay to ensure data propagation
+        // Trigger parent dashboard refresh with a small delay
         setTimeout(() => {
           console.log('Calling onChildAdded and onLinked callbacks...');
           onChildAdded?.();
@@ -134,7 +139,7 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
         console.error('Child creation failed:', response.data);
         toast({
           title: "❌ Creation Failed",
-          description: response.data.error || "Unknown error occurred",
+          description: response.data?.error || "Unknown error occurred",
           variant: "destructive",
         });
       }
@@ -158,192 +163,190 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
       <Dialog open={open} onOpenChange={onOpenChange || onClose}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="w-5 h-5 text-primary" />
-            Add Your Child's Profile
-          </DialogTitle>
-          <DialogDescription>
-            Create a learning profile for your child with secure login credentials.
-          </DialogDescription>
-        </DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-primary" />
+              Add Your Child's Profile
+            </DialogTitle>
+            <DialogDescription>
+              Create a learning profile for your child with secure login credentials.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Profile Picture */}
-          <div className="space-y-2">
-            <Label>Profile Picture (optional)</Label>
-            <div className="flex items-center gap-4">
-              {childData.profile_picture_url ? (
-                <div className="relative">
-                  <img 
-                    src={childData.profile_picture_url} 
-                    alt="Profile" 
-                    className="w-20 h-20 rounded-full object-cover border-2 border-primary" 
+          <div className="space-y-4 py-4">
+            {/* Profile Picture */}
+            <div className="space-y-2">
+              <Label>Profile Picture (optional)</Label>
+              <div className="flex items-center gap-4">
+                {childData.profile_picture_url ? (
+                  <div className="relative">
+                    <img 
+                      src={childData.profile_picture_url} 
+                      alt="Profile" 
+                      className="w-20 h-20 rounded-full object-cover border-2 border-primary" 
+                    />
+                    <button
+                      onClick={() => setChildData(prev => ({ ...prev, profile_picture_url: "" }))}
+                      className="absolute -top-2 -right-2 p-1 rounded-full bg-destructive text-white hover:bg-destructive/90"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="w-8 h-8 text-primary" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    className="hidden"
+                    id="child-profile-upload"
                   />
-                  <button
-                    onClick={() => setChildData(prev => ({ ...prev, profile_picture_url: "" }))}
-                    className="absolute -top-2 -right-2 p-1 rounded-full bg-destructive text-white hover:bg-destructive/90"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  <Label htmlFor="child-profile-upload" className="cursor-pointer">
+                    <Button variant="outline" asChild disabled={uploading}>
+                      <span>
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploading ? "Uploading..." : "Upload Photo"}
+                      </span>
+                    </Button>
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
                 </div>
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="w-8 h-8 text-primary" />
-                </div>
-              )}
-              <div className="flex-1">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  disabled={uploading}
-                  className="hidden"
-                  id="child-profile-upload"
-                />
-                <Label htmlFor="child-profile-upload" className="cursor-pointer">
-                  <Button variant="outline" asChild disabled={uploading}>
-                    <span>
-                      <Upload className="w-4 h-4 mr-2" />
-                      {uploading ? "Uploading..." : "Upload Photo"}
-                    </span>
-                  </Button>
-                </Label>
-                <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
               </div>
             </div>
-          </div>
 
-          {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Full Name *</Label>
-              <Input
-                id="full_name"
-                value={childData.full_name}
-                onChange={(e) => setChildData(prev => ({ ...prev, full_name: e.target.value }))}
-                placeholder="e.g. Ahmad bin Abu"
-              />
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="full_name">Full Name *</Label>
+                <Input
+                  id="full_name"
+                  value={childData.full_name}
+                  onChange={(e) => setChildData(prev => ({ ...prev, full_name: e.target.value }))}
+                  placeholder="e.g. Ahmad bin Abu"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="nickname">Nickname (optional)</Label>
+                <Input
+                  id="nickname"
+                  value={childData.nickname}
+                  onChange={(e) => setChildData(prev => ({ ...prev, nickname: e.target.value }))}
+                  placeholder="What to call them"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="nickname">Nickname (optional)</Label>
-              <Input
-                id="nickname"
-                value={childData.nickname}
-                onChange={(e) => setChildData(prev => ({ ...prev, nickname: e.target.value }))}
-                placeholder="What to call them"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="dob">Date of Birth *</Label>
-              <Input
-                id="dob"
-                type="date"
-                value={childData.date_of_birth}
-                onChange={(e) => setChildData(prev => ({ ...prev, date_of_birth: e.target.value }))}
-              />
-              {age && (
-                <p className="text-xs text-muted-foreground">Age: {age} years old</p>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dob">Date of Birth *</Label>
+                <Input
+                  id="dob"
+                  type="date"
+                  value={childData.date_of_birth}
+                  onChange={(e) => setChildData(prev => ({ ...prev, date_of_birth: e.target.value }))}
+                />
+                {age && (
+                  <p className="text-xs text-muted-foreground">Age: {age} years old</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gender">Gender</Label>
+                <Select 
+                  value={childData.gender} 
+                  onValueChange={(val) => setChildData(prev => ({ ...prev, gender: val }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="gender">Gender</Label>
+              <Label htmlFor="state">State</Label>
               <Select 
-                value={childData.gender} 
-                onValueChange={(val) => setChildData(prev => ({ ...prev, gender: val }))}
+                value={childData.state} 
+                onValueChange={(val) => setChildData(prev => ({ ...prev, state: val }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select" />
+                  <SelectValue placeholder="Select your state" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="state">State</Label>
-            <Select 
-              value={childData.state} 
-              onValueChange={(val) => setChildData(prev => ({ ...prev, state: val }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select your state" />
-              </SelectTrigger>
-              <SelectContent>
-                {malaysianStates.map(s => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="school">School Name</Label>
-            <Input
-              id="school"
-              value={childData.school_name}
-              onChange={(e) => setChildData(prev => ({ ...prev, school_name: e.target.value }))}
-              placeholder="e.g. SK Taman Jaya"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="education">Education Level *</Label>
-              <Select 
-                value={childData.education_level} 
-                onValueChange={(val) => setChildData(prev => ({ ...prev, education_level: val }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {educationLevels.map(level => (
-                    <SelectItem key={level} value={level}>{level}</SelectItem>
+                  {malaysianStates.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {recommendedLevel && !childData.education_level && (
-                <p className="text-xs text-emerald-600 font-medium">
-                  💡 Recommended for age {age}: {recommendedLevel}
-                </p>
-              )}
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="grade">Class (optional)</Label>
+              <Label htmlFor="school">School Name</Label>
               <Input
-                id="grade"
-                value={childData.grade_year}
-                onChange={(e) => setChildData(prev => ({ ...prev, grade_year: e.target.value }))}
-                placeholder="e.g. Jaya, Bestari"
+                id="school"
+                value={childData.school_name}
+                onChange={(e) => setChildData(prev => ({ ...prev, school_name: e.target.value }))}
+                placeholder="e.g. SK Taman Jaya"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="education">Education Level *</Label>
+                <Select 
+                  value={childData.education_level} 
+                  onValueChange={(val) => setChildData(prev => ({ ...prev, education_level: val }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {educationLevels.map(level => (
+                      <SelectItem key={level} value={level}>{level}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {recommendedLevel && !childData.education_level && (
+                  <p className="text-xs text-emerald-600 font-medium">
+                    💡 Recommended for age {age}: {recommendedLevel}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="grade">Class (optional)</Label>
+                <Input
+                  id="grade"
+                  value={childData.grade_year}
+                  onChange={(e) => setChildData(prev => ({ ...prev, grade_year: e.target.value }))}
+                  placeholder="e.g. Jaya, Bestari"
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full h-12 rounded-xl text-base font-semibold"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Child Profile & Continue"
+              )}
+            </Button>
           </div>
-
-
-
-          <Button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full h-12 rounded-xl text-base font-semibold"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Child Profile & Continue"
-            )}
-          </Button>
-        </div>
         </DialogContent>
       </Dialog>
 
