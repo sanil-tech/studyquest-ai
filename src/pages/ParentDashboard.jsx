@@ -62,7 +62,10 @@ export default function ParentDashboard() {
         const childrenWithNames = await Promise.all(
           childrenData.map(async (child, idx) => {
             try {
-              const student = await base44.entities.User.get(studentIds[idx]);
+              return {
+  ...child,
+  name: `Student ${idx + 1}`,
+};
               const displayName = getDisplayName(student);
               console.log(`Fetched student ${studentIds[idx]}:`, { 
                 full_name: student.full_name, 
