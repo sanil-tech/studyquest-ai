@@ -1,76 +1,196 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { base44 } from "@/api/base44";
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
+import { appParams } from '@/lib/app-params';
+import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
+  const [authError, setAuthError] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
 
   useEffect(() => {
-    initAuth();
+    checkAppState();
   }, []);
 
-  const initAuth = async () => {
+  const checkAppState = async () => {
     try {
-      // 👶 CHECK STUDENT SESSION FIRST
-      const student = JSON.parse(localStorage.getItem("student"));
-
-      if (student) {
-        setUser(student);
-        setRole("student");
-        setLoading(false);
-        return;
+      setIsLoadingPublicSettings(true);
+      setAuthError(null);
+      
+      // First, check app public settings (with token if available)
+      // This will tell us if auth is required, user not registered, etc.
+      const appClient = createAxiosClient({
+        baseURL: `/api/apps/public`,
+        headers: {
+          'X-App-Id': appParams.appId
+        },
+        token: appParams.token, // Include token if available
+        interceptResponses: true
+      });
+      
+      try {
+        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+        setAppPublicSettings(publicSettings);
+        
+        // If we got the app public settings successfully, check if user is authenticated
+        if (appParams.token) {
+          await checkUserAuth();
+        } else {
+          setIsLoadingAuth(false);
+          setIsAuthenticated(false);
+          setAuthChecked(true);
+        }
+        setIsLoadingPublicSettings(false);
+      } catch (appError) {
+        console.error('App state check failed:', appError);
+        
+        // Handle app-level errors
+        if (appError.status === 403 && appError.data?.extra_data?.reason) {
+          const reason = appError.data.extra_data.reason;
+          if (reason === 'auth_required') {
+            setAuthError({
+              type: 'auth_required',
+              message: 'Authentication required'
+            });
+          } else if (reason === 'user_not_registered') {
+            setAuthError({
+              type: 'user_not_registered',
+              message: 'User not registered for this app'
+            });
+          } else {
+            setAuthError({
+              type: reason,
+              message: appError.message
+            });
+          }
+        } else {
+          setAuthError({
+            type: 'unknown',
+            message: appError.message || 'Failed to load app'
+          });
+        }
+        setIsLoadingPublicSettings(false);
+        setIsLoadingAuth(false);
       }
-
-      // 👨 CHECK PARENT SESSION (Base44)
-      const parent = await base44.auth.me();
-
-      if (parent) {
-        setUser(parent);
-        setRole("parent");
-      }
-
-    } catch (err) {
-      console.log("Auth error:", err);
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      setAuthError({
+        type: 'unknown',
+        message: error.message || 'An unexpected error occurred'
+      });
+      setIsLoadingPublicSettings(false);
+      setIsLoadingAuth(false);
     }
-
-    setLoading(false);
   };
 
-  const loginStudent = (studentData) => {
-    localStorage.setItem("student", JSON.stringify(studentData));
-    setUser(studentData);
-    setRole("student");
-  };
-
-  const logout = async () => {
-    localStorage.removeItem("student");
-
+  const checkUserAuth = async () => {
     try {
-      await base44.auth.logout();
-    } catch {}
+      setIsLoadingAuth(true);
+      
+      // First, try to restore child session from localStorage
+      const sessionData = localStorage.getItem('studyquest_session');
+      const storedUser = localStorage.getItem('studyquest_user');
+      
+      if (sessionData && storedUser) {
+        try {
+          const session = JSON.parse(sessionData);
+          const user = JSON.parse(storedUser);
+          
+          // Verify user still exists and is not locked
+          const verifiedUser = await base44.asServiceRole.entities.User.get(session.userId);
+          if (verifiedUser && !verifiedUser.account_locked) {
+            setUser(verifiedUser);
+            setIsAuthenticated(true);
+            setIsLoadingAuth(false);
+            setAuthChecked(true);
+            return;
+          }
+        } catch (sessionError) {
+          console.log('Session restoration failed, clearing session');
+          localStorage.removeItem('studyquest_session');
+          localStorage.removeItem('studyquest_user');
+        }
+      }
+      
+      // If no child session, try standard Base44 auth
+      if (appParams.token) {
+        const currentUser = await base44.auth.me();
+        setUser(currentUser);
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+      
+      setIsLoadingAuth(false);
+      setAuthChecked(true);
+    } catch (error) {
+      console.error('User auth check failed:', error);
+      setIsLoadingAuth(false);
+      setIsAuthenticated(false);
+      setAuthChecked(true);
+      
+      // If user auth fails, it might be an expired token
+      if (error.status === 401 || error.status === 403) {
+        setAuthError({
+          type: 'auth_required',
+          message: 'Authentication required'
+        });
+      }
+    }
+  };
 
+  const logout = (shouldRedirect = true) => {
+    // Clear child session if exists
+    localStorage.removeItem('studyquest_session');
+    localStorage.removeItem('studyquest_user');
+    localStorage.removeItem('student');
+    
     setUser(null);
-    setRole(null);
+    setIsAuthenticated(false);
+    
+    if (shouldRedirect) {
+      // Use the SDK's logout method which handles token cleanup and redirect
+      base44.auth.logout(window.location.href);
+    } else {
+      // Just remove the token without redirect
+      base44.auth.logout();
+    }
+  };
+
+  const navigateToLogin = () => {
+    // Use the SDK's redirectToLogin method
+    base44.auth.redirectToLogin(window.location.href);
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        role,
-        loading,
-        loginStudent,
-        logout,
-        isStudent: role === "student",
-        isParent: role === "parent"
-      }}
-    >
+    <AuthContext.Provider value={{ 
+      user, 
+      isAuthenticated, 
+      isLoadingAuth,
+      isLoadingPublicSettings,
+      authError,
+      appPublicSettings,
+      authChecked,
+      logout,
+      navigateToLogin,
+      checkUserAuth,
+      checkAppState
+    }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};

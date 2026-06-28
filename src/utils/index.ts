@@ -1,4 +1,8 @@
-import { base44 } from "@/api/base44";
+import { base44 } from "@/api/base44Client";
+
+export function createPageUrl(pageName: string) {
+    return '/' + pageName.replace(/ /g, '-');
+}
 
 export async function childLogin(data: {
   student_id?: string;
@@ -8,12 +12,11 @@ export async function childLogin(data: {
   try {
     const res = await base44.functions.invoke("childLogin", data);
 
-    if (res.success) {
-      // 🔥 MUST match AuthContext
-      localStorage.setItem("student", JSON.stringify(res.user));
+    if (res.data?.success) {
+      localStorage.setItem("student", JSON.stringify(res.data.user));
     }
 
-    return res;
+    return res.data;
   } catch (err) {
     console.error("childLogin error:", err);
 
