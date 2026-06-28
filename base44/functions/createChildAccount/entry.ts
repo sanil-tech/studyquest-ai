@@ -42,10 +42,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    // ==========================================
-    // VALIDATION (CRASH FIX APPLIED HERE)
-    // ==========================================
-    // Safely grab the data whether it is wrapped in 'childData' or sent flat
     const payload = body?.childData || body || {};
 
     if (!payload.full_name || !payload.date_of_birth) {
@@ -58,15 +54,11 @@ Deno.serve(async (req) => {
     const fullName = cleanName(payload.full_name);
     const nickname = payload.nickname ? cleanName(payload.nickname) : fullName.split(' ')[0];
     
-    // ==========================================
-    // GENERATE CREDENTIALS
-    // ==========================================
-    const studentId = generateStudentId(); // e.g., SQ-987654
-    const dummyEmail = `${studentId}@student.studyquest.local`; // SQ-987654@student.studyquest.local
+    const studentId = generateStudentId();
+    const dummyEmail = `${studentId}@student.studyquest.local`;
     const password = generatePassword();
     const passwordHash = hashPassword(password);
     
-    // Support PIN if the frontend sent one
     let pinHash = null;
     let loginMethod = 'password';
     if (payload.pin) {
@@ -74,14 +66,12 @@ Deno.serve(async (req) => {
       loginMethod = 'both';
     }
 
-    // ==========================================
-    // SAVE TO DATABASE
-    // ==========================================
+    // 1. CREATE THE USER ACCOUNT
     const newUser = await base44.asServiceRole.entities.User.create({
       full_name: fullName,
       nickname: nickname,
-      email: dummyEmail,           // <-- FIX 1: Actually save the dummy email
-      app_role: 'student',         // <-- FIX 2: Ensure they are flagged as a student
+      email: dummyEmail,
+      app_role: 'student',
       date_of_birth: payload.date_of_birth,
       gender: payload.gender || null,
       student_id: studentId,
@@ -95,7 +85,17 @@ Deno.serve(async (req) => {
       profile_completed: false
     });
 
-    // Return the plain-text credentials to the frontend so the parent can see/copy them
+    // 2. CREATE THE RELATIONSHIP LINK (THE MISSING PIECE!)
+    if (payload.parent_id) {
+      await base44.asServiceRole.entities.ParentChildRelationship.create({
+        parent_id: payload.parent_id,
+        child_id: newUser.id,
+        relationship: 'parent',
+        status: 'active',
+        linked_at: new Date().toISOString()
+      });
+    }
+
     return Response.json({
       success: true,
       user: newUser,
