@@ -1,24 +1,19 @@
-// childLogin Edge Function
-
 import { db } from "./dbClient";
-import bcrypt from "bcryptjs";
 
-export async function onRequest(req) {
+export async function onRequest(request) {
   try {
-    // Parse request body safely
-    const body = await req.json();
+    // Parse request body
+    const body = await request.json();
 
-    const student_id = body.student_id ?? "";
-    const password = body.password ?? "";
-    const pin = body.pin ?? "";
+    const studentId = String(body.student_id || "")
+      .trim()
+      .toUpperCase();
 
-    // Clean input
-    const cleanStudentId = String(student_id).trim().toUpperCase();
-    const cleanPassword = String(password).trim();
-    const cleanPin = String(pin).trim();
+    const password = String(body.password || "").trim();
+    const pin = String(body.pin || "").trim();
 
     // Validate Student ID
-    if (!cleanStudentId) {
+    if (!studentId) {
       return Response.json(
         {
           success: false,
@@ -30,15 +25,15 @@ export async function onRequest(req) {
       );
     }
 
-    // Find student
-    const { data: student, error: dbError } = await db
+    // Get student record
+    const { data: student, error } = await db
       .from("students")
       .select("*")
-      .eq("student_id", cleanStudentId)
+      .eq("student_id", studentId)
       .maybeSingle();
 
-    if (dbError) {
-      console.error("Database Error:", dbError);
+    if (error) {
+      console.error("Database Error:", error);
 
       return Response.json(
         {
@@ -63,28 +58,12 @@ export async function onRequest(req) {
       );
     }
 
-    // ==========================
     // PASSWORD LOGIN
-    // ==========================
-    if (cleanPassword) {
-      if (!student.password_hash) {
-        return Response.json(
-          {
-            success: false,
-            error: "Password has not been set."
-          },
-          {
-            status: 400
-          }
-        );
-      }
+    if (password) {
 
-      const passwordMatched = await bcrypt.compare(
-        cleanPassword,
-        student.password_hash
-      );
-
-      if (!passwordMatched) {
+      // Plain-text comparison
+      // Replace with your hashing method if Base44 supports one.
+      if (student.password !== password) {
         return Response.json(
           {
             success: false,
@@ -95,45 +74,29 @@ export async function onRequest(req) {
           }
         );
       }
+
     }
 
-    // ==========================
     // PIN LOGIN
-    // ==========================
-    else if (cleanPin) {
-      if (
-        student.pin === null ||
-        student.pin === undefined ||
-        student.pin === ""
-      ) {
-        return Response.json(
-          {
-            success: false,
-            error: "PIN has not been set."
-          },
-          {
-            status: 400
-          }
-        );
-      }
+    else if (pin) {
 
-      if (String(student.pin).trim() !== cleanPin) {
+      if (String(student.pin || "").trim() !== pin) {
         return Response.json(
           {
             success: false,
-            error: "Incorrect PIN code."
+            error: "Incorrect PIN."
           },
           {
             status: 401
           }
         );
       }
+
     }
 
-    // ==========================
-    // NO AUTH METHOD PROVIDED
-    // ==========================
+    // Neither password nor PIN supplied
     else {
+
       return Response.json(
         {
           success: false,
@@ -143,40 +106,36 @@ export async function onRequest(req) {
           status: 400
         }
       );
+
     }
 
-    // ==========================
-    // LOGIN SUCCESS
-    // ==========================
-    return Response.json(
-      {
-        success: true,
-        user: {
-          id: student.id,
-          student_id: student.student_id,
-          nickname: student.nickname ?? student.name,
-          name: student.name,
-          avatar: student.avatar ?? null,
-          level: student.level ?? 1,
-          profile_completed: Boolean(student.profile_completed)
-        }
-      },
-      {
-        status: 200
+    // Success
+    return Response.json({
+      success: true,
+      user: {
+        id: student.id,
+        student_id: student.student_id,
+        name: student.name,
+        nickname: student.nickname || student.name,
+        avatar: student.avatar || null,
+        level: student.level || 1,
+        profile_completed: !!student.profile_completed
       }
-    );
+    });
 
   } catch (err) {
-    console.error("Authentication Error:", err);
+
+    console.error(err);
 
     return Response.json(
       {
         success: false,
-        error: "Internal server authentication error."
+        error: "Internal server error."
       },
       {
         status: 500
       }
     );
+
   }
 }
