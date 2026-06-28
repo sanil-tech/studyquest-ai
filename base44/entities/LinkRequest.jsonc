@@ -48,5 +48,59 @@
   "required": [
     "student_email",
     "parent_email"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        }
+      ]
+    }
+  }
 }
