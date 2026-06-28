@@ -61,7 +61,8 @@ Deno.serve(async (req) => {
     // ==========================================
     // GENERATE CREDENTIALS
     // ==========================================
-    const studentId = generateStudentId();
+    const studentId = generateStudentId(); // e.g., SQ-987654
+    const dummyEmail = `${studentId}@student.studyquest.local`; // SQ-987654@student.studyquest.local
     const password = generatePassword();
     const passwordHash = hashPassword(password);
     
