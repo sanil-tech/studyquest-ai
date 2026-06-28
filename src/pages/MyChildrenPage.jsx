@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
-// Check this import to ensure it points to your initialized Base44 client
-import { base44 } from '@/lib/base44'; 
 
 export default function MyChildrenPage() {
   const { user: currentUser } = useAuth();
@@ -11,27 +9,43 @@ export default function MyChildrenPage() {
 
   useEffect(() => {
     const fetchChildrenSafely = async () => {
-      // Wait until the parent's context is loaded
+      // Wait until the parent's context is fully loaded
       if (!currentUser?.id) return;
       
       try {
         setIsLoading(true);
         setError(null);
         
-        // Let the backend do all the heavy lifting and bypass security blocks!
-        const response = await base44.functions.invoke("linkParentToChild", {
-          method: "get_children"
+        const userToken = localStorage.getItem('sb-access-token') || '';
+
+        // Ask the secure backend function to do everything!
+        // We use a direct POST request to bypass needing the SDK import.
+        const response = await fetch("https://study-quest-glow.base44.app/api/functions/linkParentToChild", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${userToken}`
+          },
+          body: JSON.stringify({ 
+            method: "get_children" 
+          })
         });
 
-        if (response.data && response.data.success) {
-          setChildren(response.data.children || []);
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data && data.success) {
+          setChildren(data.children || []);
         } else {
-          throw new Error(response.data?.error || "Failed to fetch student profiles.");
+          throw new Error(data?.error || "Failed to fetch student profiles from backend.");
         }
 
       } catch (err) {
         console.error("Backend fetch failure:", err);
-        setError("Failed to load children. Please check your connection.");
+        setError("Failed to load children. Please check your connection or backend function.");
       } finally {
         setIsLoading(false);
       }
@@ -63,6 +77,7 @@ export default function MyChildrenPage() {
     <div className="container mx-auto p-4 sm:p-6 max-w-5xl">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold text-gray-900">My Children</h1>
+        {/* You can add your "Link Student Account" button here */}
         <button className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
           Link Account
         </button>
