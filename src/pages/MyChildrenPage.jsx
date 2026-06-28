@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
-// TODO: Update this import to match where your Base44 frontend client is initialized
-import { base44 } from '@/lib/base44'; 
+import { base44 } from '@/api/base44Client';
 
 export default function MyChildrenPage() {
   const { user: currentUser } = useAuth();
