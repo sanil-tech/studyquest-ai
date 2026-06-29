@@ -168,7 +168,7 @@ export default function ParentApprovals() {
                         </h3>
                       </div>
                       <span className="text-[11px] font-medium text-slate-400 shrink-0 bg-slate-50 px-2 py-1 rounded-lg">
-                        {moment(req.created_date).fromNow()}
+                        {moment(req.created_date).utcOffset("+08:00").fromNow()}
                       </span>
                     </div>
 
@@ -248,7 +248,7 @@ export default function ParentApprovals() {
                       <p className="text-xs text-slate-400 font-medium flex items-center flex-wrap gap-1 mt-0.5">
                         <span className="font-bold text-slate-500">{req._student_name}</span> 
                         <span>•</span>
-                        <span>{moment(req.created_date).format("MMM Do YYYY, h:mm a")}</span>
+                        <span>{moment(req.created_date).utcOffset("+08:00").format("MMM Do YYYY, h:mm a")}</span>
                         {req.parent_response_message && (
                           <>
                             <span>•</span>
