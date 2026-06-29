@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
-  Trash2
+  Users, Coins, Trophy, Clock,
+  TrendingUp, CheckSquare, BookOpen, Plus, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { motion } from "framer-motion";
 import moment from "moment";
+import AddChildModal from "@/components/parent/AddChildModal";
 
 export default function ParentDashboard() {
   const [user, setUser] = useState(null);
@@ -14,22 +17,6 @@ export default function ParentDashboard() {
   const [loading, setLoading] = useState(true);
 
   const { toast } = useToast();
-
-  // ======================
-  // SAFE NAME RESOLVER
-  // ======================
-  const getChildName = (student) => {
-    if (!student) return "Unknown";
-
-    return (
-      student.full_name ||
-      student.nickname ||
-      student.username ||
-      student.student_id ||
-      (student.email ? student.email.split("@")[0] : null) ||
-      `Student ${student.id.slice(-5)}`
-    );
-  };
 
   // ======================
   // UNLINK CHILD
@@ -82,7 +69,7 @@ export default function ParentDashboard() {
       }
 
       // ======================
-      // CHILD DATA (SAFE)
+      // CHILD DATA (NO USER.GET)
       // ======================
       const childrenData = await Promise.all(
         studentIds.map(async (sid) => {
@@ -113,27 +100,16 @@ export default function ParentDashboard() {
       );
 
       // ======================
-      // GET USER DATA SAFELY (NO PERMISSION ERROR)
+      // SAFE NAME RESOLUTION
+      // (NO USER PERMISSION ERROR)
       // ======================
-      const enrichedChildren = await Promise.all(
-        childrenData.map(async (c) => {
-          let student = null;
-
-          try {
-            student = await base44.entities.User.get(c.id);
-          } catch (e) {
-            student = null;
-          }
-
-          return {
-            ...c,
-            name: getChildName(student),
-          };
-        })
-      );
+      const enrichedChildren = childrenData.map(c => ({
+        ...c,
+        name: `Student ${c.id.slice(-5)}`
+      }));
 
       // ======================
-      // REWARD REQUESTS
+      // REWARD REQUESTS (ALL CHILDREN)
       // ======================
       const rewardNested = await Promise.all(
         studentIds.map(sid =>
@@ -159,7 +135,7 @@ export default function ParentDashboard() {
   }, []);
 
   // ======================
-  // LOADING
+  // LOADING UI
   // ======================
   if (loading) {
     return (
@@ -175,7 +151,9 @@ export default function ParentDashboard() {
   return (
     <div className="space-y-6">
 
-      <h1 className="text-2xl font-bold">Parent Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Parent Dashboard</h1>
+      </div>
 
       {/* REWARD REQUESTS */}
       <div className="bg-white p-4 rounded-xl">
@@ -224,15 +202,11 @@ export default function ParentDashboard() {
             <div className="mt-2">
               <p className="text-xs font-semibold">Recent Lessons</p>
 
-              {child.sessions.length === 0 ? (
-                <p className="text-xs text-gray-400">No lessons yet</p>
-              ) : (
-                child.sessions.slice(0, 3).map(s => (
-                  <div key={s.id} className="text-xs text-gray-500">
-                    {s.topic_name || "Lesson"} - {moment(s.created_date).fromNow()}
-                  </div>
-                ))
-              )}
+              {child.sessions.slice(0, 3).map(s => (
+                <div key={s.id} className="text-xs text-gray-500">
+                  {s.topic_name || "Lesson"} - {moment(s.created_date).fromNow()}
+                </div>
+              ))}
             </div>
 
           </div>
