@@ -1,18 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
-  Users,
-  Coins,
-  Trophy,
-  Clock,
-  TrendingUp,
-  CheckSquare,
-  BookOpen,
-  Plus,
-  Trash2,
+  Users, Coins, Trophy, Clock,
+  TrendingUp, CheckSquare, BookOpen, Plus, Trash2
 } from "lucide-react";
-
-import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
@@ -22,14 +13,14 @@ import AddChildModal from "@/components/parent/AddChildModal";
 export default function ParentDashboard() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
+  const [rewardRequests, setRewardRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddChild, setShowAddChild] = useState(false);
+
   const { toast } = useToast();
 
-  // =========================
+  // ======================
   // UNLINK CHILD
-  // =========================
+  // ======================
   const handleUnlinkChild = async (childId) => {
     try {
       await base44.functions.invoke("linkParentToChild", {
@@ -52,9 +43,9 @@ export default function ParentDashboard() {
     }
   };
 
-  // =========================
+  // ======================
   // LOAD DATA
-  // =========================
+  // ======================
   const loadData = async () => {
     try {
       setLoading(true);
@@ -68,71 +59,60 @@ export default function ParentDashboard() {
           status: "active",
         });
 
-      const uniqueChildIds = [
-        ...new Set(relationships.map((r) => r.child_id)),
-      ];
+      const studentIds = relationships.map(r => r.child_id);
 
-      const childrenList = [];
+      if (!studentIds.length) {
+        setChildren([]);
+        setRewardRequests([]);
+        setLoading(false);
+        return;
+      }
 
-      for (const sid of uniqueChildIds) {
-        try {
-          const [progresses, wallets, attempts, sessions] =
+      // ======================
+      // CHILD DATA (NO USER.GET)
+      // ======================
+      const childrenData = await Promise.all(
+        studentIds.map(async (sid) => {
+
+          const [progress, wallet, sessions, quizzes] =
             await Promise.all([
               base44.entities.Progress.filter({ student_id: sid }),
               base44.entities.Wallet.filter({ student_id: sid }),
-              base44.entities.QuizAttempt.filter(
-                { student_id: sid },
-                "-created_date",
-                5
-              ),
-              base44.entities.StudySession.filter(
-                { student_id: sid },
-                "-created_date",
-                50
-              ),
+              base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 10),
+              base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 5),
             ]);
 
-          const student = await base44.entities.User.get(sid).catch(() => null);
+          const weekAgo = moment().subtract(7, "days");
 
-          const displayName = student
-            ? getDisplayName(student)
-            : "Unknown Child";
+          const weeklyMinutes = sessions
+            .filter(s => moment(s.created_date).isAfter(weekAgo))
+            .reduce((a, b) => a + (b.duration_minutes || 0), 0);
 
-          const weekAgo = moment().subtract(7, "days").toDate();
-
-          const weeklySessions = sessions.filter(
-            (s) => new Date(s.created_date) >= weekAgo
-          );
-
-          childrenList.push({
+          return {
             id: sid,
-            name: displayName,
-            progress: progresses?.[0] || {
-              total_xp: 0,
-              level: 1,
-              streak_days: 0,
-            },
-            wallet: wallets?.[0] || { balance: 0 },
-            recentAttempts: attempts || [],
-            recentSessions: sessions.slice(0, 5),
-            weeklyMinutes: weeklySessions.reduce(
-              (sum, s) => sum + (s.duration_minutes || 0),
-              0
-            ),
-            sessionCount: sessions.length,
-          });
-        } catch (err) {
-          console.error("Child load error:", err);
-        }
-      }
+            progress: progress?.[0] || { level: 1, total_xp: 0, streak_days: 0 },
+            wallet: wallet?.[0] || { balance: 0 },
+            sessions,
+            quizzes,
+            weeklyMinutes,
+          };
+        })
+      );
 
-      setChildren(childrenList);
+      // ======================
+      // SAFE NAME RESOLUTION
+      // (NO USER PERMISSION ERROR)
+      // ======================
+      const enrichedChildren = childrenData.map(c => ({
+        ...c,
+        name: `Student ${c.id.slice(-5)}`
+      }));
 
-      // =========================
-      // 🔥 RESTORED REWARD REQUESTS
-      // =========================
-      const rewardRequests = await Promise.all(
-        uniqueChildIds.map((sid) =>
+      // ======================
+      // REWARD REQUESTS (ALL CHILDREN)
+      // ======================
+      const rewardNested = await Promise.all(
+        studentIds.map(sid =>
           base44.entities.RewardRequest.filter({
             student_id: sid,
             status: "pending",
@@ -140,14 +120,12 @@ export default function ParentDashboard() {
         )
       );
 
-      setPendingRequests(rewardRequests.flat());
+      setChildren(enrichedChildren);
+      setRewardRequests(rewardNested.flat());
+      setLoading(false);
+
     } catch (err) {
-      toast({
-        title: "Error",
-        description: err.message,
-        variant: "destructive",
-      });
-    } finally {
+      console.error(err);
       setLoading(false);
     }
   };
@@ -156,127 +134,53 @@ export default function ParentDashboard() {
     loadData();
   }, []);
 
-  // =========================
-  // LOADING
-  // =========================
+  // ======================
+  // LOADING UI
+  // ======================
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex justify-center py-20">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
+  // ======================
+  // UI
+  // ======================
   return (
     <div className="space-y-6">
 
-      {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            Hi {user?.full_name?.split(" ")[0] || "Parent"} 👋
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Track your child's progress
-          </p>
-        </div>
-
-        <Button onClick={() => setShowAddChild(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Child
-        </Button>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Parent Dashboard</h1>
       </div>
 
-      {/* ADD CHILD MODAL */}
-      <AddChildModal
-        open={showAddChild}
-        onOpenChange={setShowAddChild}
-        onChildAdded={() => {
-          setShowAddChild(false);
-          loadData();
-        }}
-      />
+      {/* REWARD REQUESTS */}
+      <div className="bg-white p-4 rounded-xl">
+        <h2 className="font-semibold mb-2">
+          Reward Requests ({rewardRequests.length})
+        </h2>
 
-      {/* =========================
-          🔥 REWARD REQUEST SECTION
-          ========================= */}
-      <motion.div
-        className="bg-white rounded-xl border p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <CheckSquare className="w-5 h-5 text-amber-500" />
-            <h2 className="font-semibold">Reward Requests</h2>
-          </div>
-
-          <span className="text-xs bg-amber-100 px-2 py-1 rounded-full">
-            {pendingRequests.length} pending
-          </span>
-        </div>
-
-        {pendingRequests.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No pending requests
-          </p>
+        {rewardRequests.length === 0 ? (
+          <p className="text-sm text-gray-500">No pending requests</p>
         ) : (
-          <div className="space-y-2">
-            {pendingRequests.map((req) => {
-              const child = children.find((c) => c.id === req.student_id);
-
-              return (
-                <div
-                  key={req.id}
-                  className="flex items-center justify-between p-2 bg-amber-50 rounded-lg"
-                >
-                  <div>
-                    <p className="text-sm font-medium">
-                      {req.reward_title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {child?.name || "Unknown Child"} ·{" "}
-                      {moment(req.created_date).fromNow()}
-                    </p>
-                  </div>
-
-                  <span className="text-sm font-bold text-amber-600">
-                    {req.coin_cost}🪙
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          rewardRequests.map(r => (
+            <div key={r.id} className="flex justify-between p-2 border-b">
+              <span>{r.reward_title}</span>
+              <span>{r.coin_cost} coins</span>
+            </div>
+          ))
         )}
-      </motion.div>
+      </div>
 
-      {/* =========================
-          CHILDREN LIST
-          ========================= */}
-      {children.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border">
-          <Users className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
-          <p>No children linked yet</p>
-        </div>
-      ) : (
-        children.map((child) => (
-          <motion.div
-            key={child.id}
-            className="bg-white border rounded-xl p-4"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+      {/* CHILD LIST */}
+      <div className="space-y-4">
+        {children.map(child => (
+          <div key={child.id} className="bg-white p-4 rounded-xl">
 
-            {/* HEADER */}
-            <div className="flex justify-between items-center mb-3">
-              <div>
-                <h2 className="font-bold">{child.name}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {child.sessionCount} sessions · {child.weeklyMinutes} min/week
-                </p>
-              </div>
+            <div className="flex justify-between">
+              <h3 className="font-bold">{child.name}</h3>
 
-              {/* UNLINK */}
               <Button
                 size="sm"
                 variant="destructive"
@@ -286,29 +190,29 @@ export default function ParentDashboard() {
               </Button>
             </div>
 
-            {/* STATS */}
-            <div className="grid grid-cols-4 text-center text-xs gap-2">
-              <div>
-                <TrendingUp className="w-4 h-4 mx-auto" />
-                Lv {child.progress.level}
-              </div>
-              <div>
-                <Coins className="w-4 h-4 mx-auto" />
-                {child.wallet.balance}
-              </div>
-              <div>
-                <Trophy className="w-4 h-4 mx-auto" />
-                {child.progress.total_xp}
-              </div>
-              <div>
-                <Clock className="w-4 h-4 mx-auto" />
-                {child.progress.streak_days}
-              </div>
+            <p className="text-sm text-gray-500">
+              Level {child.progress.level} • XP {child.progress.total_xp}
+            </p>
+
+            <p className="text-sm">
+              Weekly Study: {child.weeklyMinutes} min
+            </p>
+
+            {/* LESSON PROGRESS */}
+            <div className="mt-2">
+              <p className="text-xs font-semibold">Recent Lessons</p>
+
+              {child.sessions.slice(0, 3).map(s => (
+                <div key={s.id} className="text-xs text-gray-500">
+                  {s.topic_name || "Lesson"} - {moment(s.created_date).fromNow()}
+                </div>
+              ))}
             </div>
 
-          </motion.div>
-        ))
-      )}
+          </div>
+        ))}
+      </div>
+
     </div>
   );
 }
