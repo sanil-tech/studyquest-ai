@@ -1,120 +1,306 @@
-import React from "react";
-import { Trash2, Clock, Coins, BookOpen, Calendar, Award } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import {
+  Users, Coins, Trophy, Clock,
+  CheckSquare, BookOpen, Plus, Trash2
+} from "lucide-react";
+import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
+import moment from "moment";
+import AddChildModal from "@/components/parent/AddChildModal";
 
-export default function ChildCard({ child }) {
-  // Mock data falling back to your provided state values
-  const name = child?.name || "MORRY";
-  const level = child?.level || 1;
-  const xp = child?.xp || 150;
-  const nextLevelXp = (level || 1) * 200;
-  const xpPercentage = Math.min((xp / nextLevelXp) * 100, 100);
-  const weeklyStudy = child?.weekly_study || "1 min";
-  const walletCoins = child?.coins || 100;
-  const recentLesson = child?.recent_lesson || "Suku Kata & Bacaan";
-  const recentLessonTime = child?.recent_lesson_time || "9 hours ago";
-  const avatarEmoji = child?.avatar_emoji || "👦🏽"; // Or an <img> tag if you use illustration URLs
+export default function ParentDashboard() {
+  const [user, setUser] = useState(null);
+  const [children, setChildren] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddChild, setShowAddChild] = useState(false);
+  const { toast } = useToast();
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-xl bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"
-    >
-      {/* Top Banner & Header Section */}
-      <div className="bg-gradient-to-b from-slate-50 to-white px-6 pt-6 pb-4 relative flex flex-col items-center">
-        {/* Delete Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute right-4 top-4 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-xl w-9 h-9"
-          onClick={() => { /* Handle delete functionality */ }}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+  // =========================
+  // UNLINK CHILD
+  // =========================
+  const handleUnlinkChild = async (childId, childName) => {
+    if (!confirm(`Remove ${childName}?`)) return;
 
-        {/* Profile Avatar Frame */}
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-sky-400 to-emerald-500 p-[3px] shadow-sm flex items-center justify-center text-4xl mb-3">
-          <div className="w-full h-full bg-white rounded-full flex items-center justify-center overflow-hidden">
-            {avatarEmoji}
-          </div>
-        </div>
+    try {
+      const rel = await base44.entities.ParentChildRelationship.filter({
+        parent_id: user.id,
+        child_id: childId,
+        status: "active",
+      });
 
-        {/* Child Name */}
-        <h2 className="text-xl font-bold tracking-wide text-slate-800 uppercase font-heading">
-          {name}
-        </h2>
+      if (rel?.[0]) {
+        await base44.entities.ParentChildRelationship.update(rel[0].id, {
+          status: "inactive",
+        });
+      }
+
+      toast({
+        title: "Child Removed",
+        description: `${childName} unlinked successfully`,
+      });
+
+      loadData();
+    } catch (err) {
+      toast({
+        title: "Failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // =========================
+  // LOAD DATA
+  // =========================
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      const u = await base44.auth.me();
+      setUser(u);
+
+      const relationships = await base44.entities.ParentChildRelationship.filter({
+        parent_id: u.id,
+        status: "active",
+      });
+
+      const studentIds = relationships.map(r => r.child_id);
+
+      if (!studentIds.length) {
+        setChildren([]);
+        setPendingRequests([]);
+        setLoading(false);
+        return;
+      }
+
+      // =========================
+      // CHILD DATA
+      // =========================
+      const childrenData = await Promise.all(
+        studentIds.map(async (sid) => {
+          const [progress, wallet, sessions, quizzes] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: sid }),
+            base44.entities.Wallet.filter({ student_id: sid }),
+            base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 20),
+            base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 10),
+          ]);
+
+          const weekAgo = moment().subtract(7, "days");
+
+          const weeklyMinutes = (sessions || [])
+            .filter(s => moment(s.created_date).isAfter(weekAgo))
+            .reduce((a, b) => a + (b.duration_minutes || 0), 0);
+
+          return {
+            id: sid,
+            progress: progress?.[0] || {
+              level: 1,
+              total_xp: 0,
+              streak_days: 0,
+            },
+            wallet: wallet?.[0] || { balance: 0 },
+            sessions: sessions || [],
+            quizzes: quizzes || [],
+            weeklyMinutes,
+          };
+        })
+      );
+
+      // =========================
+      // FIX NAME (NO "Student afxxx")
+      // =========================
+      const enriched = await Promise.all(
+        childrenData.map(async (c) => {
+          try {
+            const user = await base44.entities.User.get(c.id);
+            return {
+              ...c,
+              name: getDisplayName(user), // nickname → full_name → fallback
+            };
+          } catch {
+            return {
+              ...c,
+              name: "Student",
+            };
+          }
+        })
+      );
+
+      // =========================
+      // REWARD REQUESTS
+      // =========================
+      const rewardNested = await Promise.all(
+        studentIds.map(sid =>
+          base44.entities.RewardRequest.filter({
+            student_id: sid,
+            status: "pending",
+          })
+        )
+      );
+
+      setChildren(enriched);
+      setPendingRequests(rewardNested.flat());
+      setLoading(false);
+
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // =========================
+  // LOADING
+  // =========================
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
+    );
+  }
 
-      {/* Progress & Stats Section */}
-      <div className="px-6 pb-6 space-y-4">
-        {/* XP Level Text Header */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-1.5 font-medium text-slate-700">
-            <span>Level {level}</span>
-            <span className="text-slate-300">•</span>
-            <span className="text-slate-500 font-normal">XP {xp}</span>
-          </div>
-          <div className="flex items-center gap-1 text-amber-600 font-medium text-xs bg-amber-50 px-2 py-0.5 rounded-full">
-            <Award className="w-3.5 h-3.5" />
-            <span>Excellent!</span>
-          </div>
-        </div>
+  // =========================
+  // UI
+  // =========================
+  return (
+    <div className="space-y-6">
 
-        {/* Animated Custom Progress Bar */}
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
         <div>
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${xpPercentage}%` }}
-              transition={{ duration: 1, ease: "easeOut" }}
-              className="h-full bg-emerald-600 rounded-full"
-            />
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1.5 font-medium">
-            Progress to Level {level + 1}: {Math.round(xpPercentage)}%
+          <h1 className="text-2xl font-bold">
+            Hi {user?.full_name?.split(" ")[0] || "Parent"} 👋
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Track your child learning progress
           </p>
         </div>
 
-        {/* Quick Insights Grid */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div className="flex items-center gap-2.5 p-3 bg-sky-50/60 rounded-xl border border-sky-100/40">
-            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center shadow-xs">
-              <Clock className="w-4 h-4 text-sky-600" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-sky-500">Weekly Study</p>
-              <p className="text-sm font-semibold text-slate-700">{weeklyStudy}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 p-3 bg-amber-50/60 rounded-xl border border-amber-100/40">
-            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center shadow-xs">
-              <Coins className="w-4 h-4 text-amber-500" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-amber-500">Wallet Balance</p>
-              <p className="text-sm font-semibold text-slate-700">{walletCoins} coins</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Lesson Panel */}
-        <div className="p-3.5 bg-amber-50/30 border border-amber-100/30 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-100/50 flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-amber-700" />
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-slate-400 tracking-wide uppercase">Recent Lessons</p>
-              <p className="text-sm font-semibold text-slate-700 mt-0.5">{recentLesson}</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">{recentLessonTime}</p>
-            </div>
-          </div>
-          <Calendar className="w-4 h-4 text-amber-700/40 mr-1" />
-        </div>
+        <Button onClick={() => setShowAddChild(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Child
+        </Button>
       </div>
-    </motion.div>
+
+      <AddChildModal
+        open={showAddChild}
+        onOpenChange={setShowAddChild}
+        onLinked={loadData}
+      />
+
+      {/* REWARD REQUESTS */}
+      <div className="bg-white rounded-2xl p-4 border">
+        <div className="flex items-center gap-2 mb-3">
+          <CheckSquare className="w-5 h-5 text-amber-500" />
+          <h2 className="font-semibold">
+            Reward Requests ({pendingRequests.length})
+          </h2>
+        </div>
+
+        {pendingRequests.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No pending requests</p>
+        ) : (
+          pendingRequests.map(r => (
+            <div key={r.id} className="flex justify-between text-sm py-2 border-b">
+              <span>{r.reward_title}</span>
+              <span className="text-amber-600 font-semibold">{r.coin_cost} 🪙</span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* CHILD CARDS */}
+      <div className="grid gap-4">
+        {children.map(child => (
+          <motion.div
+            key={child.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border bg-white overflow-hidden shadow-sm"
+          >
+
+            {/* HEADER */}
+            <div className="p-5 flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-bold">{child.name}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {child.sessions.length} sessions • {child.weeklyMinutes} min/week
+                </p>
+              </div>
+
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => handleUnlinkChild(child.id, child.name)}
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </Button>
+            </div>
+
+            {/* STATS */}
+            <div className="grid grid-cols-4 gap-2 px-4 pb-4">
+
+              <Stat icon={<Trophy />} label="Level" value={child.progress.level} />
+              <Stat icon={<Coins />} label="Coins" value={child.wallet.balance} />
+              <Stat icon={<Clock />} label="Streak" value={child.progress.streak_days} />
+              <Stat icon={<BookOpen />} label="XP" value={child.progress.total_xp} />
+
+            </div>
+
+            {/* LESSONS */}
+            <div className="px-4 pb-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">
+                Recent Lessons
+              </p>
+
+              {child.sessions.slice(0, 3).map(s => (
+                <div key={s.id} className="text-xs flex justify-between text-muted-foreground">
+                  <span>{s.topic_name || "Lesson"}</span>
+                  <span>{moment(s.created_date).fromNow()}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* QUIZZES */}
+            <div className="px-4 pb-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">
+                Recent Quizzes
+              </p>
+
+              {child.quizzes.slice(0, 3).map(q => (
+                <div key={q.id} className="text-xs flex justify-between">
+                  <span>{q.topic_name || "Quiz"}</span>
+                  <span className="font-semibold">
+                    {q.score}%
+                  </span>
+                </div>
+              ))}
+            </div>
+
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// =========================
+// SMALL UI COMPONENT
+// =========================
+function Stat({ icon, label, value }) {
+  return (
+    <div className="text-center p-3 rounded-xl bg-gray-50">
+      <div className="flex justify-center text-gray-600">{icon}</div>
+      <p className="font-bold text-sm">{value}</p>
+      <p className="text-[10px] text-gray-500">{label}</p>
+    </div>
   );
 }
