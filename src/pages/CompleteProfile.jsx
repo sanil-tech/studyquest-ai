@@ -160,24 +160,18 @@ export default function CompleteProfile() {
   };
 
   const validateStep = (step) => {
-    if (step === 1) {
-      if (user.app_role === "student") {
-        if (!dateOfBirth) {
-          toast({ title: "⚠️ Missing Info", description: "Please select your date of birth", variant: "destructive" });
-          return false;
-        }
-        const age = calculateAge(dateOfBirth);
-        if (age < 13) {
-          toast({ 
-            title: "⚠️ Age Requirement", 
-            description: `You must be 13 or older. If you're under 13, ask your parent to create an account for you. (Your age: ${age})`, 
-            variant: "destructive" 
-          });
-          return false;
-        }
-      }
-      return true;
-    }
+   if (step === 1) {
+  if (user.app_role === "student" && !dateOfBirth) {
+    toast({
+      title: "⚠️ Missing Info",
+      description: "Please select your date of birth",
+      variant: "destructive"
+    });
+    return false;
+  }
+
+  return true;
+}
     
     if (step === 2) {
       if (user.app_role === "student") {
