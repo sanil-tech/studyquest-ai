@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         user_id: child.id,
         title: 'Parent Link Request',
         message: `${parent.full_name || parent.email} wants to link to your account.`,
-        type: 'parent_link',
+        type: 'quiz_complete',
         reference_id: parent.id
       });
 
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
         user_id: child.id,
         title: 'Parent Linked',
         message: `${parent.full_name || parent.email} is now linked to your account.`,
-        type: 'parent_link',
+        type: 'quiz_complete',
         reference_id: parent.id
       });
 

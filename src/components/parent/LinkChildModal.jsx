@@ -16,13 +16,13 @@ export default function LinkChildModal({ onClose, onLinked }) {
   const [childEmail, setChildEmail] = useState("");
   const [linking, setLinking] = useState(false);
   const [scanMode, setScanMode] = useState(false);
-  
-// ADD inside successful handlers (ALL 3 methods)
 
-onLinked();
-setStudentId("");
-setLinkCode("");
-setChildEmail("");
+  const resetForm = () => {
+    setStudentId("");
+    setLinkCode("");
+    setChildEmail("");
+  };
+
   const handleLinkByStudentId = async () => {
     if (!studentId.trim()) {
       toast({
@@ -40,11 +40,13 @@ setChildEmail("");
         student_id: studentId.trim().toUpperCase()
       });
 
+      const childName = result?.data?.child?.name || result?.child?.name || "your child";
       toast({
         title: "Link Request Sent!",
-        description: `${result.child.name} needs to approve the connection.`,
+        description: `${childName} needs to approve the connection.`,
       });
-      onLinked();
+      resetForm();
+      onLinked?.();
     } catch (err) {
       toast({
         title: "Link Failed",
@@ -73,11 +75,13 @@ setChildEmail("");
         link_code: linkCode.trim().toUpperCase()
       });
 
+      const childName = result?.data?.child?.name || result?.child?.name || "your child";
       toast({
         title: "Successfully Linked!",
-        description: `You are now connected to ${result.child.name}`,
+        description: `You are now connected to ${childName}`,
       });
-      onLinked();
+      resetForm();
+      onLinked?.();
     } catch (err) {
       toast({
         title: "Link Failed",
@@ -113,7 +117,8 @@ setChildEmail("");
         title: "Request Sent!",
         description: "Your child will receive a notification to approve the link.",
       });
-      onLinked();
+      resetForm();
+      onLinked?.();
     } catch (err) {
       toast({
         title: "Request Failed",
