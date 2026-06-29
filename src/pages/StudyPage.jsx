@@ -14,7 +14,7 @@ export default function StudyPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // State to track which subject's textbooks are being viewed in the library modal/drawer
+  // State to track which subject's textbooks are being viewed in the library drawer
   const [activeLibrarySubject, setActiveLibrarySubject] = useState(null);
 
   useEffect(() => {
@@ -64,12 +64,15 @@ export default function StudyPage() {
     setLoading(false);
   };
 
-  // Group books by subject name for a simplified, clean visual display
+  // Group books by subject name for a simplified visual display
   const booksBySubject = textbooks.reduce((acc, book) => {
     if (!acc[book.subject_name]) acc[book.subject_name] = [];
     acc[book.subject_name].push(book);
     return acc;
   }, {});
+
+  // Extract the student's first name, or fallback if not available
+  const studentFirstName = user?.name ? user.name.split(" ")[0] : "Explorer";
 
   if (loading) {
     return (
@@ -85,24 +88,24 @@ export default function StudyPage() {
     return (
       <div className="space-y-8 max-w-5xl mx-auto px-2 pb-12">
         
-        {/* Friendly Greeting Header (Tailored for all ages) */}
+        {/* Deeply Personalized Greeting Header */}
         <div className="bg-gradient-to-br from-amber-400/10 via-pink-400/5 to-indigo-400/10 rounded-3xl p-6 border-2 border-slate-100 relative overflow-hidden shadow-sm">
           <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-1.5 text-amber-600 font-bold text-xs uppercase tracking-wider bg-amber-400/15 px-3 py-1 rounded-full w-max mb-3">
-                <Sparkles className="w-3.5 h-3.5 fill-current" /> Fun Learning Quest
+                <Sparkles className="w-3.5 h-3.5 fill-current" /> Personalized Learning Quest
               </div>
               <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight text-slate-800">
-                Hi, {user?.name?.split(" ")[0] || "Explorer"}! Let's Learn! ✨
+                Ready to study, {studentFirstName}? ✨
               </h1>
               <p className="text-slate-500 text-sm mt-1">
-                Choose a subject below to start your journey and unlock new badges!
+                Pick a subject below to tackle your goals for <span className="font-bold text-indigo-600">{user?.education_level || user?.school_year || "your grade"}</span> today!
               </p>
             </div>
-            {user?.education_level && (
+            {(user?.education_level || user?.school_year) && (
               <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border-2 border-slate-100 shadow-sm self-start sm:self-auto">
                 <GraduationCap className="w-5 h-5 text-indigo-500" />
-                <span className="text-xs font-bold text-slate-700">{user.education_level}</span>
+                <span className="text-xs font-bold text-slate-700">{user.education_level || user.school_year}</span>
               </div>
             )}
           </div>
@@ -111,7 +114,7 @@ export default function StudyPage() {
         {/* Dynamic Cards Grid */}
         <div>
           <h2 className="text-lg font-heading font-black text-slate-700 mb-4 flex items-center gap-2">
-            <span>Choose Your Subject</span>
+            <span>Your Subjects</span>
             <span className="h-1.5 w-10 bg-amber-400 rounded-full" />
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -144,7 +147,7 @@ export default function StudyPage() {
           </div>
         </div>
 
-        {/* Simplified Library: Shows Folders Instead of a Massive List */}
+        {/* Simplified Library: Shows Subject Cabinets instead of a massive list */}
         {textbooks.length > 0 && (
           <div className="bg-slate-50 rounded-3xl border-2 border-slate-100 p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -152,8 +155,8 @@ export default function StudyPage() {
                 <Library className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="font-heading font-black text-slate-800 text-lg">Digital Textbook Vault</h2>
-                <p className="text-xs text-slate-500">Pick a subject cabinet to view your school books.</p>
+                <h2 className="font-heading font-black text-slate-800 text-lg">Your Textbook Cabinets</h2>
+                <p className="text-xs text-slate-500">Pick a subject to look inside your digital school books.</p>
               </div>
             </div>
 
@@ -181,7 +184,7 @@ export default function StudyPage() {
               ))}
             </div>
 
-            {/* Expanded Folder Contents (Shows books only for selected subject) */}
+            {/* Expanded Folder Contents */}
             {activeLibrarySubject && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -201,7 +204,7 @@ export default function StudyPage() {
                       <p className="text-[10px] text-slate-400 font-semibold">{book.form_level || "General Level"}</p>
                     </div>
                     <span className="text-[11px] font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 group-hover:border-indigo-200 group-hover:text-indigo-600 shrink-0">
-                      Open 📖
+                      Open Book 📖
                     </span>
                   </a>
                 ))}
@@ -234,7 +237,7 @@ export default function StudyPage() {
               {selectedSubject.name}
             </h1>
           </div>
-          <p className="text-slate-400 text-xs font-medium">Select your learning journey step below!</p>
+          <p className="text-slate-400 text-xs font-medium">Hey {studentFirstName}, choose your chapter roadmap mission below!</p>
         </div>
       </div>
 
@@ -243,7 +246,7 @@ export default function StudyPage() {
           <span className="text-4xl block mb-3">🗺️</span>
           <h3 className="font-heading font-black text-slate-800">Quest Coming Soon!</h3>
           <p className="text-slate-400 text-xs max-w-xs mx-auto mt-1 px-4">
-            Our educators are crafting amazing activities for this topic. Stay tuned!
+            Our educators are crafting amazing activities for this topic. Stay tuned, {studentFirstName}!
           </p>
         </div>
       ) : (
@@ -253,7 +256,7 @@ export default function StudyPage() {
             <div className="bg-amber-400/10 rounded-2xl border border-amber-400/20 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-xl">📕</span>
-                <p className="text-xs font-bold text-amber-800">Need the official textbook for reference?</p>
+                <p className="text-xs font-bold text-amber-800">Need the textbook reference for this subject?</p>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {subjectBooks.map(book => (
@@ -274,7 +277,7 @@ export default function StudyPage() {
           {/* Clean Roadmap Chapters List */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold tracking-wider text-slate-400 uppercase">Learning Map</span>
+              <span className="text-xs font-bold tracking-wider text-slate-400 uppercase">Your Study Map</span>
               <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">{filteredTopics.length} Chapters</span>
             </div>
 
