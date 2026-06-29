@@ -80,7 +80,7 @@ export default function ParentDashboard() {
       }
 
       // ======================
-      // CHILD DATA
+      // CHILD DATA (NO WALLET TRANSACTION)
       // ======================
       const childrenData = await Promise.all(
         studentIds.map(async (sid) => {
@@ -89,16 +89,12 @@ export default function ParentDashboard() {
             progress,
             wallet,
             sessions,
-            quizzes,
-            transactions
+            quizzes
           ] = await Promise.all([
             base44.entities.Progress.filter({ student_id: sid }),
             base44.entities.Wallet.filter({ student_id: sid }),
             base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 10),
             base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 5),
-            base44.entities.WalletTransaction
-              ? base44.entities.WalletTransaction.filter({ student_id: sid }, "-created_date", 10)
-              : Promise.resolve([])
           ]);
 
           const weekAgo = moment().subtract(7, "days");
@@ -109,11 +105,14 @@ export default function ParentDashboard() {
 
           return {
             id: sid,
-            progress: progress?.[0] || { level: 1, total_xp: 0, streak_days: 0 },
+            progress: progress?.[0] || {
+              level: 1,
+              total_xp: 0,
+              streak_days: 0,
+            },
             wallet: wallet?.[0] || { balance: 0 },
             sessions: sessions || [],
             quizzes: quizzes || [],
-            transactions: transactions || [],
             recentSessions: sessions?.slice(0, 5) || [],
             recentQuizzes: quizzes || [],
             weeklyMinutes,
@@ -122,7 +121,7 @@ export default function ParentDashboard() {
       );
 
       // ======================
-      // NAME FIX (IMPORTANT)
+      // NAME FIX (FULL + NICKNAME PRIORITY)
       // ======================
       const enriched = await Promise.all(
         childrenData.map(async (c) => {
@@ -162,7 +161,7 @@ export default function ParentDashboard() {
       setLoading(false);
 
     } catch (err) {
-      setError(err.message || "Failed to load");
+      setError(err.message || "Failed to load data");
       setLoading(false);
     }
   };
@@ -172,7 +171,7 @@ export default function ParentDashboard() {
   }, []);
 
   // ======================
-  // UI
+  // LOADING
   // ======================
   if (loading) {
     return (
@@ -190,6 +189,9 @@ export default function ParentDashboard() {
     );
   }
 
+  // ======================
+  // UI
+  // ======================
   return (
     <div className="space-y-6">
 
@@ -258,7 +260,7 @@ export default function ParentDashboard() {
               Wallet: {child.wallet.balance} coins
             </p>
 
-            {/* LESSON PROGRESS */}
+            {/* LESSONS */}
             <div className="mt-3">
               <p className="text-xs font-semibold">Recent Lessons</p>
 
@@ -288,24 +290,10 @@ export default function ParentDashboard() {
               )}
             </div>
 
-            {/* TRANSACTIONS */}
-            <div className="mt-3">
-              <p className="text-xs font-semibold">Transactions</p>
-
-              {child.transactions.length === 0 ? (
-                <p className="text-xs text-gray-400">No transactions</p>
-              ) : (
-                child.transactions.slice(0, 3).map(t => (
-                  <div key={t.id} className="text-xs text-gray-500">
-                    {t.type} • {t.amount}
-                  </div>
-                ))
-              )}
-            </div>
-
           </div>
         ))}
       </div>
+
     </div>
   );
 }
