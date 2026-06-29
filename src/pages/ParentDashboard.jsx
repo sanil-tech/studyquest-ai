@@ -16,7 +16,27 @@ export default function ParentDashboard() {
   const [error, setError] = useState("");
   const [showAddChild, setShowAddChild] = useState(false);
   const { toast } = useToast();
+const handleUnlinkChild = async (childId) => {
+  try {
+    await base44.functions.invoke("linkParentToChild", {
+      method: "unlink_child",
+      child_id: childId,
+    });
 
+    toast({
+      title: "Child Removed",
+      description: "Child unlinked successfully",
+    });
+
+    loadData(); // refresh UI
+  } catch (err) {
+    toast({
+      title: "Unlink Failed",
+      description: err.message,
+      variant: "destructive",
+    });
+  }
+};
   const loadData = async () => {
     try {
       setError("");
