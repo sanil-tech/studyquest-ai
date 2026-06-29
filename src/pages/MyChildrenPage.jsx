@@ -1,325 +1,295 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Plus, UserPlus, Search, X, ChevronRight, Eye, Trash2, Key, User, Edit2, RefreshCw } from "lucide-react";
-import { getDisplayName } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { X, IdCard, KeyRound, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Link } from "react-router-dom";
-import AddChildModal from "@/components/parent/AddChildModal";
-import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from "@/components/ui/tabs";
 
-export default function MyChildrenPage() {
-  const [user, setUser] = useState(null);
-  const [children, setChildren] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showCredentialManager, setShowCredentialManager] = useState(false);
-  const [selectedChild, setSelectedChild] = useState(null);
+export default function LinkChildModal({ onClose, onLinked }) {
   const { toast } = useToast();
 
-  const calculateAge = (birthDate) => {
-    if (!birthDate) return "N/A";
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-      age--;
+  const [selectedMethod, setSelectedMethod] = useState("student_id");
+
+  const [studentId, setStudentId] = useState("");
+  const [linkCode, setLinkCode] = useState("");
+  const [childEmail, setChildEmail] = useState("");
+
+  const [linking, setLinking] = useState(false);
+
+  // =========================
+  // LINK BY STUDENT ID
+  // =========================
+  const handleLinkByStudentId = async () => {
+    if (!studentId.trim()) {
+      return toast({
+        title: "Student ID required",
+        description: "Please enter your child's Student ID",
+        variant: "destructive",
+      });
     }
-    return age;
-  };
 
-  const loadChildren = async () => {
+    setLinking(true);
+
     try {
-      setLoading(true);
-      const u = await base44.auth.me();
-      setUser(u);
-      console.log('Parent user:', u);
-
-      // Get linked children from ParentChildRelationship
-      const relationships = await base44.entities.ParentChildRelationship.filter({
-        parent_id: u.id,
-        status: "active"
+      const result = await base44.functions.invoke("linkParentToChild", {
+        method: "student_id",
+        student_id: studentId.trim().toUpperCase(),
       });
 
-      console.log(`Loaded ${relationships.length} relationships for parent ${u.id}`, relationships);
-      
-      // Debug: Show all relationships for this parent (including inactive)
-      const allRels = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id });
-      console.log(`Total relationships (all statuses): ${allRels.length}`, allRels);
-
-      // Fetch child details
-      const childDetails = await Promise.all(
-        relationships.map(async (rel) => {
-          try {
-            const child = await base44.entities.User.get(rel.child_id);
-            const displayName = getDisplayName(child);
-            console.log(`Fetched child ${rel.child_id}:`, { 
-              full_name: child.full_name, 
-              nickname: child.nickname,
-              username: child.username,
-              student_id: child.student_id,
-              computed_display_name: displayName
-            });
-            child.display_name = displayName;
-            const [progress, wallet] = await Promise.all([
-              base44.entities.Progress.filter({ student_id: child.id }).then(r => r[0]),
-              base44.entities.Wallet.filter({ student_id: child.id }).then(r => r[0])
-            ]);
-
-            return {
-              ...child,
-              progress,
-              wallet,
-              relationshipId: rel.id
-            };
-          } catch (err) {
-            console.error(`Failed to fetch child ${rel.child_id}:`, err.message);
-            return null;
-          }
-        })
-      );
-
-      const validChildren = childDetails.filter(c => c !== null);
-      console.log(`Loaded ${validChildren.length} children with details`, validChildren);
-      setChildren(validChildren);
-    } catch (err) {
-      console.error("Failed to load children:", err);
       toast({
-        title: "Error",
-        description: err.message || "Failed to load children",
+        title: "Request Sent!",
+        description: `${result?.child?.name || "Child"} needs to approve connection.`,
+      });
+
+      onLinked?.();
+    } catch (err) {
+      toast({
+        title: "Link Failed",
+        description: err.message || "Invalid Student ID",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setLinking(false);
     }
   };
 
-  useEffect(() => {
-    loadChildren();
-  }, []);
-
-  // Subscribe to relationship changes for real-time updates
-  useEffect(() => {
-    const unsubscribe = base44.entities.ParentChildRelationship.subscribe(() => {
-      console.log('Relationship changed, reloading children...');
-      loadChildren();
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleRemoveLink = async (childId, relationshipId, childName) => {
-    if (!confirm(`Remove link to ${childName}? This won't delete their account.`)) return;
-
-    try {
-      await base44.entities.ParentChildRelationship.update(relationshipId, {
-        status: 'inactive'
-      });
-
-      setChildren(prev => prev.filter(c => c.id !== childId));
-      toast({
-        title: "Link Removed",
-        description: "You are no longer linked to this child.",
-      });
-    } catch (err) {
-      toast({
-        title: "Failed",
-        description: err.message || "Could not remove link",
+  // =========================
+  // LINK BY CODE
+  // =========================
+  const handleLinkByCode = async () => {
+    if (!linkCode.trim()) {
+      return toast({
+        title: "Link Code required",
+        description: "Please enter the 8-character code",
         variant: "destructive",
       });
     }
+
+    setLinking(true);
+
+    try {
+      const result = await base44.functions.invoke("linkParentToChild", {
+        method: "link_code",
+        link_code: linkCode.trim().toUpperCase(),
+      });
+
+      toast({
+        title: "Successfully Linked!",
+        description: `Connected to ${result?.child?.name || "child"}`,
+      });
+
+      onLinked?.();
+    } catch (err) {
+      toast({
+        title: "Link Failed",
+        description: err.message || "Code invalid or expired",
+        variant: "destructive",
+      });
+    } finally {
+      setLinking(false);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  // =========================
+  // LINK BY EMAIL
+  // =========================
+  const handleLinkByEmail = async () => {
+    if (!childEmail.trim()) {
+      return toast({
+        title: "Email required",
+        description: "Please enter child's email",
+        variant: "destructive",
+      });
+    }
+
+    setLinking(true);
+
+    try {
+      const me = await base44.auth.me();
+
+      await base44.entities.LinkRequest.create({
+        student_email: childEmail.trim(),
+        parent_email: me?.email,
+        initiated_by: "parent",
+        status: "pending",
+      });
+
+      toast({
+        title: "Request Sent!",
+        description: "Waiting for child approval",
+      });
+
+      onLinked?.();
+    } catch (err) {
+      toast({
+        title: "Request Failed",
+        description: err.message || "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setLinking(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 pb-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold text-foreground">My Children</h1>
-          <p className="text-sm text-muted-foreground">Manage your children's learning profiles</p>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      >
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">Add Child</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setLoading(true);
-              loadChildren();
-            }}
-            disabled={loading}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Child
-          </Button>
-        </div>
-      </div>
 
-      {/* Children Grid */}
-      {children.length === 0 ? (
-        <Card className="border-border/50">
-          <CardContent className="p-8 text-center">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-heading font-bold text-foreground mb-2">No children linked yet</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Link your child's account to monitor their progress
-            </p>
-            <Button onClick={() => setShowAddModal(true)}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Link Your First Child
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {children.map((child, index) => (
-            <motion.div
-              key={child.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+        {/* TABS */}
+        <Tabs
+          value={selectedMethod}
+          onValueChange={setSelectedMethod}
+          defaultValue="student_id"
+        >
+          <TabsList className="grid grid-cols-3 w-full mb-6">
+            <TabsTrigger value="student_id">
+              <IdCard className="w-4 h-4 mr-1" />
+              ID
+            </TabsTrigger>
+
+            <TabsTrigger value="link_code">
+              <KeyRound className="w-4 h-4 mr-1" />
+              Code
+            </TabsTrigger>
+
+            <TabsTrigger value="email">
+              <Mail className="w-4 h-4 mr-1" />
+              Email
+            </TabsTrigger>
+          </TabsList>
+
+          {/* =========================
+              STUDENT ID TAB
+          ========================= */}
+          <TabsContent value="student_id" className="space-y-4">
+            <div className="text-sm text-gray-500 bg-blue-50 p-3 rounded">
+              Enter your child’s Student ID (example: SQ-7XK92A)
+            </div>
+
+            <div className="space-y-2">
+              <Label>Student ID</Label>
+              <Input
+                value={studentId}
+                onChange={(e) =>
+                  setStudentId(e.target.value.toUpperCase())
+                }
+                placeholder="SQ-XXXXXX"
+                className="font-mono uppercase"
+              />
+            </div>
+
+            <Button
+              onClick={handleLinkByStudentId}
+              disabled={linking}
+              className="w-full"
             >
-              <Card className="border-border/50 hover:border-primary/50 transition-colors">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                      {child.profile_picture_url || child.avatar_photo_url ? (
-                        <img
-                          src={child.profile_picture_url || child.avatar_photo_url}
-                          alt={child.display_name || getDisplayName(child)}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="w-6 h-6 text-primary" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg font-bold">
-                        {child.display_name || getDisplayName(child)}
-                      </CardTitle>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                        <span>{calculateAge(child.date_of_birth)} years</span>
-                        <span>•</span>
-                        <span>{child.education_level || "Not set"}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{child.school_name || "No school set"}</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Progress Stats */}
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-primary/5 rounded-lg p-2">
-                      <p className="text-lg font-bold text-primary">{child.progress?.level || 1}</p>
-                      <p className="text-[10px] text-muted-foreground">Level</p>
-                    </div>
-                    <div className="bg-amber-50 rounded-lg p-2">
-                      <p className="text-lg font-bold text-amber-600">{child.wallet?.balance || 0}</p>
-                      <p className="text-[10px] text-muted-foreground">Coins</p>
-                    </div>
-                    <div className="bg-accent/5 rounded-lg p-2">
-                      <p className="text-lg font-bold text-accent">{child.progress?.streak_days || 0}</p>
-                      <p className="text-[10px] text-muted-foreground">Day Streak</p>
-                    </div>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-medium">{child.progress?.level || 1}%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary transition-all"
-                        style={{ width: `${Math.min((child.progress?.level || 1) * 5, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 pt-2">
-                    <Link
-                      to={`/parent/children/${child.id}`}
-                      className="flex-1"
-                    >
-                      <Button variant="outline" size="sm" className="w-full">
-                        <User className="w-3 h-3 mr-1" />
-                        View Profile
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => {
-                        setSelectedChild(child);
-                        setShowCredentialManager(true);
-                      }}
-                    >
-                      <Key className="w-3 h-3 mr-1" />
-                      Credentials
-                    </Button>
-                    <Link
-                      to="/parent"
-                      className="flex-1"
-                    >
-                      <Button variant="outline" size="sm" className="w-full">
-                        <Eye className="w-3 h-3 mr-1" />
-                        View Progress
-                      </Button>
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+              {linking ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Request"
+              )}
+            </Button>
+          </TabsContent>
+
+          {/* =========================
+              LINK CODE TAB
+          ========================= */}
+          <TabsContent value="link_code" className="space-y-4">
+            <div className="text-sm text-gray-500 bg-blue-50 p-3 rounded">
+              Enter 8-character code from child
+            </div>
+
+            <div className="space-y-2">
+              <Label>Link Code</Label>
+              <Input
+                value={linkCode}
+                onChange={(e) =>
+                  setLinkCode(e.target.value.toUpperCase())
+                }
+                maxLength={8}
+                placeholder="ABCDEFGH"
+                className="font-mono uppercase"
+              />
+            </div>
+
+            <Button
+              onClick={handleLinkByCode}
+              disabled={linking}
+              className="w-full"
+            >
+              {linking ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Linking...
+                </>
+              ) : (
+                "Link Child"
+              )}
+            </Button>
+          </TabsContent>
+
+          {/* =========================
+              EMAIL TAB
+          ========================= */}
+          <TabsContent value="email" className="space-y-4">
+            <div className="text-sm text-gray-500 bg-blue-50 p-3 rounded">
+              Send request to child email
+            </div>
+
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={childEmail}
+                onChange={(e) => setChildEmail(e.target.value)}
+                placeholder="child@email.com"
+              />
+            </div>
+
+            <Button
+              onClick={handleLinkByEmail}
+              disabled={linking}
+              className="w-full"
+            >
+              {linking ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Request"
+              )}
+            </Button>
+          </TabsContent>
+        </Tabs>
+
+        {/* FOOTER */}
+        <div className="mt-6 text-xs text-center text-gray-400">
+          Ask your child to share their Student ID or Link Code
         </div>
-      )}
-
-      {/* Add Child Modal */}
-      <AddChildModal
-        open={showAddModal}
-        onOpenChange={(open) => {
-          if (!open) setShowAddModal(false);
-        }}
-        onLinked={() => {
-          setShowAddModal(false);
-          // Refresh data immediately (subscription will also trigger)
-          setLoading(true);
-          loadChildren();
-        }}
-      />
-
-      {/* Credential Manager */}
-      {selectedChild && (
-        <ChildCredentialManager
-          child={selectedChild}
-          open={showCredentialManager}
-          onOpenChange={(open) => {
-            setShowCredentialManager(open);
-            if (!open) setSelectedChild(null);
-          }}
-        />
-      )}
+      </motion.div>
     </div>
   );
 }
