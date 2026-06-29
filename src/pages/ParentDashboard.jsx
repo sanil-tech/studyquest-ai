@@ -4,6 +4,7 @@ import {
   Users, Coins, Trophy, Clock,
   TrendingUp, CheckSquare, BookOpen, Plus, Trash2
 } from "lucide-react";
+import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
@@ -13,14 +14,15 @@ import AddChildModal from "@/components/parent/AddChildModal";
 export default function ParentDashboard() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
-  const [rewardRequests, setRewardRequests] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [error, setError] = useState("");
+  const [showAddChild, setShowAddChild] = useState(false);
   const { toast } = useToast();
 
-  // ======================
+  // =========================
   // UNLINK CHILD
-  // ======================
+  // =========================
   const handleUnlinkChild = async (childId) => {
     try {
       await base44.functions.invoke("linkParentToChild", {
@@ -29,25 +31,26 @@ export default function ParentDashboard() {
       });
 
       toast({
-        title: "Unlinked",
-        description: "Child removed successfully",
+        title: "Child Removed",
+        description: "Successfully unlinked child",
       });
 
       loadData();
     } catch (err) {
       toast({
-        title: "Failed",
+        title: "Unlink Failed",
         description: err.message,
         variant: "destructive",
       });
     }
   };
 
-  // ======================
+  // =========================
   // LOAD DATA
-  // ======================
+  // =========================
   const loadData = async () => {
     try {
+      setError("");
       setLoading(true);
 
       const u = await base44.auth.me();
@@ -59,60 +62,79 @@ export default function ParentDashboard() {
           status: "active",
         });
 
-      const studentIds = relationships.map(r => r.child_id);
+      const studentIds = relationships.map((r) => r.child_id);
 
-      if (!studentIds.length) {
+      if (studentIds.length === 0) {
         setChildren([]);
-        setRewardRequests([]);
+        setPendingRequests([]);
         setLoading(false);
         return;
       }
 
-      // ======================
-      // CHILD DATA (NO USER.GET)
-      // ======================
+      // =========================
+      // CHILD DATA
+      // =========================
       const childrenData = await Promise.all(
         studentIds.map(async (sid) => {
-
-          const [progress, wallet, sessions, quizzes] =
+          const [progress, wallet, attempts, sessions] =
             await Promise.all([
               base44.entities.Progress.filter({ student_id: sid }),
               base44.entities.Wallet.filter({ student_id: sid }),
-              base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 10),
               base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 5),
+              base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 10),
             ]);
 
           const weekAgo = moment().subtract(7, "days");
 
-          const weeklyMinutes = sessions
-            .filter(s => moment(s.created_date).isAfter(weekAgo))
-            .reduce((a, b) => a + (b.duration_minutes || 0), 0);
+          const weeklySessions = sessions.filter(
+            (s) => moment(s.created_date).isAfter(weekAgo)
+          );
+
+          const weeklyMinutes = weeklySessions.reduce(
+            (sum, s) => sum + (s.duration_minutes || 0),
+            0
+          );
 
           return {
             id: sid,
-            progress: progress?.[0] || { level: 1, total_xp: 0, streak_days: 0 },
+            progress: progress?.[0] || {
+              total_xp: 0,
+              level: 1,
+              streak_days: 0,
+            },
             wallet: wallet?.[0] || { balance: 0 },
-            sessions,
-            quizzes,
+            recentAttempts: attempts || [],
+            recentSessions: sessions || [],
             weeklyMinutes,
           };
         })
       );
 
-      // ======================
-      // SAFE NAME RESOLUTION
-      // (NO USER PERMISSION ERROR)
-      // ======================
-      const enrichedChildren = childrenData.map(c => ({
-        ...c,
-        name: `Student ${c.id.slice(-5)}`
-      }));
+      // =========================
+      // CHILD NAMES (SAFE GET)
+      // =========================
+      const childrenWithNames = await Promise.all(
+        childrenData.map(async (child, idx) => {
+          try {
+            const student = await base44.entities.User.get(studentIds[idx]);
+            return {
+              ...child,
+              name: getDisplayName(student),
+            };
+          } catch {
+            return {
+              ...child,
+              name: "Unknown Student",
+            };
+          }
+        })
+      );
 
-      // ======================
+      // =========================
       // REWARD REQUESTS (ALL CHILDREN)
-      // ======================
-      const rewardNested = await Promise.all(
-        studentIds.map(sid =>
+      // =========================
+      const rewardRequestsNested = await Promise.all(
+        studentIds.map((sid) =>
           base44.entities.RewardRequest.filter({
             student_id: sid,
             status: "pending",
@@ -120,12 +142,11 @@ export default function ParentDashboard() {
         )
       );
 
-      setChildren(enrichedChildren);
-      setRewardRequests(rewardNested.flat());
+      setChildren(childrenWithNames);
+      setPendingRequests(rewardRequestsNested.flat());
       setLoading(false);
-
     } catch (err) {
-      console.error(err);
+      setError(err.message || "Failed to load dashboard");
       setLoading(false);
     }
   };
@@ -134,85 +155,33 @@ export default function ParentDashboard() {
     loadData();
   }, []);
 
-  // ======================
-  // LOADING UI
-  // ======================
+  // =========================
+  // UI STATES
+  // =========================
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
+      <div className="flex items-center justify-center py-20">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
-  // ======================
-  // UI
-  // ======================
+  if (error) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-muted-foreground">{error}</p>
+        <Button className="mt-4" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  // =========================
+  // RENDER
+  // =========================
   return (
     <div className="space-y-6">
 
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Parent Dashboard</h1>
-      </div>
-
-      {/* REWARD REQUESTS */}
-      <div className="bg-white p-4 rounded-xl">
-        <h2 className="font-semibold mb-2">
-          Reward Requests ({rewardRequests.length})
-        </h2>
-
-        {rewardRequests.length === 0 ? (
-          <p className="text-sm text-gray-500">No pending requests</p>
-        ) : (
-          rewardRequests.map(r => (
-            <div key={r.id} className="flex justify-between p-2 border-b">
-              <span>{r.reward_title}</span>
-              <span>{r.coin_cost} coins</span>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* CHILD LIST */}
-      <div className="space-y-4">
-        {children.map(child => (
-          <div key={child.id} className="bg-white p-4 rounded-xl">
-
-            <div className="flex justify-between">
-              <h3 className="font-bold">{child.name}</h3>
-
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => handleUnlinkChild(child.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <p className="text-sm text-gray-500">
-              Level {child.progress.level} • XP {child.progress.total_xp}
-            </p>
-
-            <p className="text-sm">
-              Weekly Study: {child.weeklyMinutes} min
-            </p>
-
-            {/* LESSON PROGRESS */}
-            <div className="mt-2">
-              <p className="text-xs font-semibold">Recent Lessons</p>
-
-              {child.sessions.slice(0, 3).map(s => (
-                <div key={s.id} className="text-xs text-gray-500">
-                  {s.topic_name || "Lesson"} - {moment(s.created_date).fromNow()}
-                </div>
-              ))}
-            </div>
-
-          </div>
-        ))}
-      </div>
-
-    </div>
-  );
-}
+      {/* HEADER */}
+      <div
