@@ -53,7 +53,7 @@ export default function ParentDashboard() {
   };
 
   // =========================
-  // LOAD DASHBOARD DATA
+  // LOAD DATA
   // =========================
   const loadData = async () => {
     try {
@@ -68,7 +68,6 @@ export default function ParentDashboard() {
           status: "active",
         });
 
-      // ✅ prevent duplicates
       const uniqueChildIds = [
         ...new Set(relationships.map((r) => r.child_id)),
       ];
@@ -100,6 +99,7 @@ export default function ParentDashboard() {
             : "Unknown Child";
 
           const weekAgo = moment().subtract(7, "days").toDate();
+
           const weeklySessions = sessions.filter(
             (s) => new Date(s.created_date) >= weekAgo
           );
@@ -128,11 +128,19 @@ export default function ParentDashboard() {
 
       setChildren(childrenList);
 
-      const pending = await base44.entities.RewardRequest.filter({
-        status: "pending",
-      }).catch(() => []);
+      // =========================
+      // 🔥 RESTORED REWARD REQUESTS
+      // =========================
+      const rewardRequests = await Promise.all(
+        uniqueChildIds.map((sid) =>
+          base44.entities.RewardRequest.filter({
+            student_id: sid,
+            status: "pending",
+          })
+        )
+      );
 
-      setPendingRequests(pending || []);
+      setPendingRequests(rewardRequests.flat());
     } catch (err) {
       toast({
         title: "Error",
@@ -149,7 +157,7 @@ export default function ParentDashboard() {
   }, []);
 
   // =========================
-  // UI STATES
+  // LOADING
   // =========================
   if (loading) {
     return (
@@ -161,6 +169,7 @@ export default function ParentDashboard() {
 
   return (
     <div className="space-y-6">
+
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
@@ -188,7 +197,62 @@ export default function ParentDashboard() {
         }}
       />
 
-      {/* CHILDREN EMPTY */}
+      {/* =========================
+          🔥 REWARD REQUEST SECTION
+          ========================= */}
+      <motion.div
+        className="bg-white rounded-xl border p-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <CheckSquare className="w-5 h-5 text-amber-500" />
+            <h2 className="font-semibold">Reward Requests</h2>
+          </div>
+
+          <span className="text-xs bg-amber-100 px-2 py-1 rounded-full">
+            {pendingRequests.length} pending
+          </span>
+        </div>
+
+        {pendingRequests.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No pending requests
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {pendingRequests.map((req) => {
+              const child = children.find((c) => c.id === req.student_id);
+
+              return (
+                <div
+                  key={req.id}
+                  className="flex items-center justify-between p-2 bg-amber-50 rounded-lg"
+                >
+                  <div>
+                    <p className="text-sm font-medium">
+                      {req.reward_title}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {child?.name || "Unknown Child"} ·{" "}
+                      {moment(req.created_date).fromNow()}
+                    </p>
+                  </div>
+
+                  <span className="text-sm font-bold text-amber-600">
+                    {req.coin_cost}🪙
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
+
+      {/* =========================
+          CHILDREN LIST
+          ========================= */}
       {children.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border">
           <Users className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
@@ -198,12 +262,13 @@ export default function ParentDashboard() {
         children.map((child) => (
           <motion.div
             key={child.id}
+            className="bg-white border rounded-xl p-4"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl border p-4"
           >
+
             {/* HEADER */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex justify-between items-center mb-3">
               <div>
                 <h2 className="font-bold">{child.name}</h2>
                 <p className="text-xs text-muted-foreground">
@@ -211,7 +276,7 @@ export default function ParentDashboard() {
                 </p>
               </div>
 
-              {/* UNLINK BUTTON */}
+              {/* UNLINK */}
               <Button
                 size="sm"
                 variant="destructive"
@@ -222,7 +287,7 @@ export default function ParentDashboard() {
             </div>
 
             {/* STATS */}
-            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="grid grid-cols-4 text-center text-xs gap-2">
               <div>
                 <TrendingUp className="w-4 h-4 mx-auto" />
                 Lv {child.progress.level}
@@ -241,24 +306,6 @@ export default function ParentDashboard() {
               </div>
             </div>
 
-            {/* UNITS */}
-            <div className="mt-3 text-sm">
-              <p className="font-medium text-muted-foreground">
-                Recent Activity
-              </p>
-
-              {child.recentSessions.length === 0 ? (
-                <p className="text-xs text-muted-foreground mt-1">
-                  No sessions yet
-                </p>
-              ) : (
-                child.recentSessions.slice(0, 3).map((s) => (
-                  <div key={s.id} className="text-xs mt-1">
-                    {s.topic_name || "Lesson"}
-                  </div>
-                ))
-              )}
-            </div>
           </motion.div>
         ))
       )}
