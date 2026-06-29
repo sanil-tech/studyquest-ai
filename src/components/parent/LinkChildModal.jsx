@@ -16,7 +16,13 @@ export default function LinkChildModal({ onClose, onLinked }) {
   const [childEmail, setChildEmail] = useState("");
   const [linking, setLinking] = useState(false);
   const [scanMode, setScanMode] = useState(false);
+  
+// ADD inside successful handlers (ALL 3 methods)
 
+onLinked();
+setStudentId("");
+setLinkCode("");
+setChildEmail("");
   const handleLinkByStudentId = async () => {
     if (!studentId.trim()) {
       toast({
