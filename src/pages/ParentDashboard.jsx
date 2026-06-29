@@ -41,14 +41,28 @@ export default function ParentDashboard() {
   useEffect(() => {
     const loadParentData = async () => {
       try {
-        // Fetch children managed by this account
-        const kids = await base44.entities.Student.list();
+        const parent = await base44.auth.me();
+        const relationships = await base44.entities.ParentChildRelationship.filter({
+          parent_id: parent.id,
+          status: "active",
+        });
+
+        const kids = await Promise.all(
+          relationships.map(async (rel) => {
+            const child = await base44.entities.User.get(rel.child_id);
+            return {
+              id: child.id,
+              name: child.nickname || child.full_name || child.email || "Student",
+              education_level: child.education_level,
+              school_year: child.school_year,
+            };
+          })
+        );
+
         setChildren(kids);
-        
         if (kids.length > 0) {
-          const firstChild = kids[0];
-          setSelectedChild(firstChild);
-          await loadChildMetrics(firstChild.id);
+          setSelectedChild(kids[0]);
+          await loadChildMetrics(kids[0].id);
         }
       } catch (err) {
         console.error("Error loading profile details:", err);
@@ -88,6 +102,10 @@ export default function ParentDashboard() {
   };
 
   const triggerKudosReward = () => {
+    if (!selectedChild) {
+      alert("Please link or select a child before sending kudos.");
+      return;
+    }
     alert(`🎉 Awesome! A 'Superstar Star Sparkleburst' badge and matching pop-up celebration has been sent straight to ${selectedChild.name}'s study view!`);
   };
 
@@ -149,7 +167,8 @@ export default function ParentDashboard() {
             </div>
             <button 
               onClick={triggerKudosReward}
-              className="w-full sm:w-auto shrink-0 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold px-5 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 group"
+              disabled={!selectedChild}
+              className="w-full sm:w-auto shrink-0 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold px-5 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Heart className="w-4 h-4 text-rose-400 fill-current group-hover:scale-110 transition-transform" />
               <span>Send Sparkle Kudos</span>
