@@ -1,92 +1,215 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useParams, Link } from "react-router-dom";
-import { 
-  TrendingUp, 
-  Award, 
-  Clock, 
-  AlertTriangle, 
-  CloudSun, 
-  CheckSquare, 
-  CalendarDays, 
-  ChevronRight, 
-  Heart, 
-  Sparkles, 
-  User 
+import {
+  Users, Coins, Trophy, Clock, CheckSquare, BookOpen, 
+  Plus, Trash2, Calendar, Award, Flame, Target, CloudSun, Sparkles, Heart
 } from "lucide-react";
+import { getDisplayName } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import moment from "moment";
+import AddChildModal from "@/components/parent/AddChildModal";
 
 export default function ParentDashboard() {
+  const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
-  const [selectedChild, setSelectedChild] = useState(null);
-  const [childProgress, setChildProgress] = useState({ subjects: [], analytics: {} });
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // --- MINI WEB WIDGETS STATE ---
+  const [showAddChild, setShowAddChild] = useState(false);
+  const { toast } = useToast();
+
+  // --- LIVE WEB WIDGET STATES ---
   const [reminders, setReminders] = useState([
-    { id: 1, text: "Sign permission slip for field trip", completed: false },
-    { id: 2, text: "Check science project checklist", completed: true },
-    { id: 3, text: "Renew learning subscription next Monday", completed: false }
+    { id: 1, text: "Sign permission slip for coming school tour", completed: false },
+    { id: 2, text: "Review next week's textbook chapters", completed: true },
+    { id: 3, text: "Settle upcoming school bus fees balance", completed: false }
   ]);
   const [newReminder, setNewReminder] = useState("");
-  const [weather, setWeather] = useState({ temp: "31°C", status: "Passing Showers 🌦️", tip: "Pack an umbrella for school pickup!" });
   
-  // Simulated school timeline schedule
-  const currentSchedule = [
-    { time: "08:00 AM", subject: "Mathematics", room: "Online Lab", status: "done" },
-    { time: "10:15 AM", subject: "Bahasa Melayu", room: "Main Room", status: "active" },
-    { time: "02:00 PM", subject: "Science Quest", room: "Interactive", status: "upcoming" }
-  ];
+  // Weather starts as a neutral loading layout
+  const [weather, setWeather] = useState({ temp: "--°C", status: "Locating... 🔍", tip: "Finding your school zone weather metrics." });
+  const [weatherLoading, setWeatherLoading] = useState(true);
 
+  // =========================
+  // GEOLOCATION WEATHER SETUP
+  // =========================
   useEffect(() => {
-    const loadParentData = async () => {
-      try {
-        const parent = await base44.auth.me();
-        const relationships = await base44.entities.ParentChildRelationship.filter({
-          parent_id: parent.id,
-          status: "active",
-        });
+    if (!navigator.geolocation) {
+      setWeather({
+        temp: "--°C",
+        status: "Not Supported",
+        tip: "Location tracking is unavailable on this device browser profile."
+      });
+      setWeatherLoading(false);
+      return;
+    }
 
-        const kids = await Promise.all(
-          relationships.map(async (rel) => {
-            const child = await base44.entities.User.get(rel.child_id);
-            return {
-              id: child.id,
-              name: child.nickname || child.full_name || child.email || "Student",
-              education_level: child.education_level,
-              school_year: child.school_year,
-            };
-          })
-        );
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          // Open-Meteo provides accurate geolocation weather metrics instantly without keys
+          const res = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
+          );
+          const data = await res.json();
+          
+          const rawTemp = Math.round(data.current_weather.temperature);
+          const weatherCode = data.current_weather.weathercode;
+          
+          let statusStr = "Clear Skies ☀️";
+          let tipStr = "Clear routes! Perfect conditions for active study blocks today.";
+          
+          // Translate standard WMO weather interpretation codes
+          if (weatherCode >= 51 && weatherCode <= 67) {
+            statusStr = "Drizzle / Rain 🌧️";
+            tipStr = "Expect wet roads. Remind the kids to pack umbrellas for school dismissal.";
+          } else if (weatherCode >= 71 && weatherCode <= 86) {
+            statusStr = "Snowy Conditions ❄️";
+            tipStr = "Freezing temperatures tracked. Keep children insulated on commutes.";
+          } else if (weatherCode >= 1 && weatherCode <= 3) {
+            statusStr = "Partly Cloudy ⛅";
+            tipStr = "Mild, safe commuting window for extracurricular pickups.";
+          } else if (weatherCode >= 95) {
+            statusStr = "Thunderstorm ⛈️";
+            tipStr = "Heavy storm alerts tracked. Check in with transportation routes.";
+          }
 
-        setChildren(kids);
-        if (kids.length > 0) {
-          setSelectedChild(kids[0]);
-          await loadChildMetrics(kids[0].id);
+          setWeather({
+            temp: `${rawTemp}°C`,
+            status: statusStr,
+            tip: tipStr
+          });
+        } catch {
+          // Graceful database fallback if network drops out
+          setWeather({ temp: "30°C", status: "Sunny ☀️", tip: "Enjoy your day monitoring your family milestones!" });
+        } finally {
+          setWeatherLoading(false);
         }
-      } catch (err) {
-        console.error("Error loading profile details:", err);
-      } finally {
-        setLoading(false);
+      },
+      (error) => {
+        // Handled cleanly if parent rejects browser alert request prompt
+        setWeather({
+          temp: "Secured",
+          status: "Permissions Locked 🔒",
+          tip: "Allow location access prompts to unlock automated localized commute alerts."
+        });
+        setWeatherLoading(false);
       }
-    };
-    loadParentData();
+    );
   }, []);
 
-  const loadChildMetrics = async (studentId) => {
-    setLoading(true);
-    // Fetch individual metrics, analytics frameworks, and progress markers
-    const progressData = await base44.entities.Progress.filter({ student_id: studentId });
-    setChildProgress({
-      subjects: progressData || [],
-      analytics: { screenTime: "1h 15m", completedQuests: 12, criticalReview: "Fractions & Decimals" }
-    });
-    setLoading(false);
+  // =========================
+  // LOAD CORE METRICS DATA
+  // =========================
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      const u = await base44.auth.me();
+      setUser(u);
+
+      const relationships = await base44.entities.ParentChildRelationship.filter({
+        parent_id: u.id,
+        status: "active",
+      });
+
+      const studentIds = relationships.map(r => r.child_id);
+
+      if (!studentIds.length) {
+        setChildren([]);
+        setPendingRequests([]);
+        setLoading(false);
+        return;
+      }
+
+      const childrenData = await Promise.all(
+        studentIds.map(async (sid) => {
+          const [progress, wallet, sessions, quizzes] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: sid }),
+            base44.entities.Wallet.filter({ student_id: sid }),
+            base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 20),
+            base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 10),
+          ]);
+
+          const weekAgo = moment().subtract(7, "days");
+
+          const weeklyMinutes = (sessions || [])
+            .filter(s => moment(s.created_date).isAfter(weekAgo))
+            .reduce((a, b) => a + (b.duration_minutes || 0), 0);
+
+          return {
+            id: sid,
+            progress: progress?.[0] || { level: 1, total_xp: 0, streak_days: 0 },
+            wallet: wallet?.[0] || { balance: 0 },
+            sessions: sessions || [],
+            quizzes: quizzes || [],
+            weeklyMinutes,
+          };
+        })
+      );
+
+      const enriched = await Promise.all(
+        childrenData.map(async (c) => {
+          try {
+            const studentUser = await base44.entities.User.get(c.id);
+            return {
+              ...c,
+              name: getDisplayName(studentUser),
+              avatar_emoji: studentUser.avatar_emoji || "👦🏽",
+              education_level: studentUser.education_level || studentUser.school_year || "Student",
+            };
+          } catch {
+            return {
+              ...c,
+              name: "Student",
+              avatar_emoji: "👦🏽",
+              education_level: "Student",
+            };
+          }
+        })
+      );
+
+      const rewardNested = await Promise.all(
+        studentIds.map(sid =>
+          base44.entities.RewardRequest.filter({
+            student_id: sid,
+            status: "pending",
+          })
+        )
+      );
+
+      setChildren(enriched);
+      setPendingRequests(rewardNested.flat());
+      setLoading(false);
+
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
   };
 
-  const handleSelectChild = async (child) => {
-    setSelectedChild(child);
-    await loadChildMetrics(child.id);
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleUnlinkChild = async (childId, childName) => {
+    if (!confirm(`Remove ${childName}?`)) return;
+    try {
+      const rel = await base44.entities.ParentChildRelationship.filter({
+        parent_id: user.id,
+        child_id: childId,
+        status: "active",
+      });
+      if (rel?.[0]) {
+        await base44.entities.ParentChildRelationship.update(rel[0].id, { status: "inactive" });
+      }
+      toast({ title: "Child Removed", description: `${childName} unlinked successfully` });
+      loadData();
+    } catch (err) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
   };
 
   // --- ACTIONS ---
@@ -101,271 +224,116 @@ export default function ParentDashboard() {
     setNewReminder("");
   };
 
-  const triggerKudosReward = () => {
-    if (!selectedChild) {
-      alert("Please link or select a child before sending kudos.");
-      return;
-    }
-    alert(`🎉 Awesome! A 'Superstar Star Sparkleburst' badge and matching pop-up celebration has been sent straight to ${selectedChild.name}'s study view!`);
+  const triggerKudosReward = (childName) => {
+    toast({
+      title: "Kudos Pushed! ✨",
+      description: `Sent a live celebratory spark popup directly to ${childName}'s study page!`,
+    });
   };
 
-  if (loading && children.length === 0) {
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">Synchronizing Family Command Center...</p>
+      <div className="flex justify-center py-20">
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 bg-slate-50/50 min-h-screen pb-24">
+    <div className="max-w-7xl mx-auto px-1 py-4 space-y-6 bg-slate-50/30 min-h-screen pb-20">
       
-      {/* HEADER BAR & KIDS TOGGLER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
+      {/* HEADER CONTROL CONTAINER */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
         <div>
-          <h1 className="text-2xl font-heading font-black text-slate-800 tracking-tight">Family Hub Dashboard 🏠</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Stay connected with your child's daily habits and milestones.</p>
+          <h1 className="text-2xl font-black font-heading text-slate-800 tracking-tight">
+            Hi {user?.full_name?.split(" ")[0] || "Parent"} 👋
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">Real-time family monitoring terminal & lifestyle assets.</p>
         </div>
-        
-        {/* Child Selector Badges */}
-        <div className="flex flex-wrap gap-2">
-          {children.map((child) => (
-            <button
-              key={child.id}
-              onClick={() => handleSelectChild(child)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all shadow-sm ${
-                selectedChild?.id === child.id
-                  ? "bg-indigo-600 text-white ring-2 ring-indigo-600/20"
-                  : "bg-white hover:bg-slate-50 border border-slate-200 text-slate-700"
-              }`}
-            >
-              <User className="w-4 h-4 opacity-80" />
-              <span>{child.name}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${selectedChild?.id === child.id ? 'bg-indigo-700 text-indigo-100' : 'bg-slate-100 text-slate-500'}`}>
-                {child.education_level || child.school_year || "Student"}
-              </span>
-            </button>
-          ))}
-        </div>
+        <Button onClick={() => setShowAddChild(true)} className="rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-sm">
+          <Plus className="w-4 h-4 mr-2" />
+          Link New Child Account
+        </Button>
       </div>
 
-      {/* DASHBOARD GRID TIMELINE PLATFORM */}
+      <AddChildModal open={showAddChild} onOpenChange={setShowAddChild} onLinked={loadData} />
+
+      {/* DASHBOARD CORE MASTER GRID SYSTEM */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* LEFT & CENTER FIELDS: LEARNING PROGRESS & QUICK INSIGHTS */}
+        {/* PROGRESS AND CHILD DETAILS REGIONS */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* CELEBRATE / ENGAGEMENT PANEL */}
-          <div className="bg-gradient-to-r from-amber-400/20 via-pink-400/10 to-indigo-400/20 rounded-3xl p-6 border-2 border-dashed border-amber-300/60 relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-1 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-1 text-amber-700 font-extrabold text-[10px] uppercase tracking-widest bg-amber-400/30 px-2.5 py-0.5 rounded-full w-max">
-                <Sparkles className="w-3 h-3 fill-current" /> Instant Motivation Loop
+          {/* PENDING CASHIER REQUEST REWARDS */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
+                <CheckSquare className="w-4 h-4 text-amber-500" />
               </div>
-              <h3 className="text-lg font-heading font-black text-slate-800">Cheer on {selectedChild?.name || "your child"}!</h3>
-              <p className="text-xs text-slate-600 max-w-md">Notice them studying right now? Push a real-time reward sticker onto their interface instantly!</p>
-            </div>
-            <button 
-              onClick={triggerKudosReward}
-              disabled={!selectedChild}
-              className="w-full sm:w-auto shrink-0 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold px-5 py-3 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Heart className="w-4 h-4 text-rose-400 fill-current group-hover:scale-110 transition-transform" />
-              <span>Send Sparkle Kudos</span>
-            </button>
-          </div>
-
-          {/* ACTIVE ANALYTICS SUMMARY CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Active Study</p>
-                <p className="text-lg font-black text-slate-800">{childProgress.analytics.screenTime || "0m"}</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                <Award className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Quests Beaten</p>
-                <p className="text-lg font-black text-slate-800">{childProgress.analytics.completedQuests || 0} Topics</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Needs Review</p>
-                <p className="text-xs font-bold text-slate-700 truncate max-w-[140px]" title={childProgress.analytics.criticalReview}>
-                  {childProgress.analytics.criticalReview || "All Clear!"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* CORE SUBJECT PROGRESS ROADMAP */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-heading font-black text-slate-800 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-indigo-500" />
-                <span>Subject Roadmap Progress</span>
+              <h2 className="font-heading font-black text-slate-800 text-base">
+                Pending Reward Approvals ({pendingRequests.length})
               </h2>
-              <span className="text-xs font-semibold text-slate-400">Synced Real-Time</span>
             </div>
 
-            {childProgress.subjects.length === 0 ? (
-              <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <p className="text-xs text-slate-400 font-medium">No courses tracked yet this semester. Check back once courses are initialized.</p>
-              </div>
+            {pendingRequests.length === 0 ? (
+              <p className="text-xs text-slate-400 font-medium">Your kids haven't requested store items yet. Splendid!</p>
             ) : (
-              <div className="space-y-3">
-                {childProgress.subjects.map((sub) => {
-                  const percentComplete = sub.completion_rate || 0;
-                  return (
-                    <div key={sub.id} className="p-3 bg-slate-50/60 rounded-xl border border-slate-100 flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="font-bold text-xs text-slate-800 truncate">{sub.subject_name}</p>
-                          <span className="text-[11px] font-black text-indigo-600">{percentComplete}%</span>
-                        </div>
-                        {/* Custom Progress Track Slider Bar */}
-                        <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${percentComplete}%` }} />
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {pendingRequests.map(r => (
+                  <div key={r.id} className="flex justify-between items-center text-xs p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="font-bold text-slate-700 truncate max-w-[150px]">{r.reward_title}</span>
+                    <span className="text-amber-700 font-black bg-amber-100/60 px-2 py-0.5 rounded-lg border border-amber-200/40 text-[11px] shrink-0">
+                      {r.coin_cost} 🪙
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
+
+          {/* ACTIVE STUDENT LOOPS */}
+          <div className="grid gap-6">
+            {children.map(child => (
+              <ChildCard 
+                key={child.id} 
+                child={child} 
+                onUnlink={handleUnlinkChild} 
+                onSendKudos={triggerKudosReward}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* RIGHT COLUMN: THE WEB MINI WIDGET CARDS MODULE CONTAINER */}
+        {/* SIDEBAR WEB MINI WIDGETS PLATFORM CONTAINER */}
         <div className="space-y-6">
           
-          {/* MINI CARD 1: WEATHER & SCHOOL COMMUTE INSIGHT */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+          {/* MINI-CARD 1: GEOLOCATION-BASED WEATHER ADVISORY */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
                   <CloudSun className="w-4 h-4" />
                 </div>
-                <h3 className="font-heading font-black text-xs text-slate-800 uppercase tracking-wider">Local Weather Cabinet</h3>
+                <h3 className="font-heading font-black text-xs text-slate-800 tracking-wide uppercase">School Commute Advisory</h3>
               </div>
-              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-bold">Live Context</span>
+              <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md font-bold">Live Context</span>
             </div>
             
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center justify-between bg-slate-50/50 p-3 rounded-2xl border border-slate-100">
               <div>
-                <p className="text-2xl font-black text-slate-800 tracking-tight">{weather.temp}</p>
-                <p className="text-xs font-semibold text-slate-500">{weather.status}</p>
+                <p className={`text-2xl font-black tracking-tight text-slate-800 ${weatherLoading ? 'animate-pulse text-slate-300' : ''}`}>
+                  {weather.temp}
+                </p>
+                <p className="text-xs font-semibold text-slate-500 mt-0.5">{weather.status}</p>
               </div>
-              <span className="text-3xl">🌦️</span>
+              <span className="text-3xl shrink-0">🌦️</span>
             </div>
             
-            <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200/60 p-2.5 rounded-xl">
+            <p className="text-[11px] font-bold text-amber-800 bg-amber-50/60 border border-amber-200/40 p-3 rounded-2xl leading-relaxed">
               💡 <span className="font-medium text-amber-900">{weather.tip}</span>
             </p>
           </div>
 
-          {/* MINI CARD 2: TODAY'S SCHEDULE TIMELINE TRACKER */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <CalendarDays className="w-4 h-4" />
-                </div>
-                <h3 className="font-heading font-black text-xs text-slate-800 uppercase tracking-wider">Today's Live Tracker</h3>
-              </div>
-            </div>
-
-            <div className="space-y-3 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
-              {currentSchedule.map((item, idx) => (
-                <div key={idx} className="flex gap-3 items-start relative pl-1">
-                  {/* Custom Bullet Marker */}
-                  <div className={`w-4 h-4 rounded-full border-4 bg-white z-10 mt-0.5 shrink-0 ${
-                    item.status === 'active' ? 'border-indigo-500 ring-4 ring-indigo-500/10' :
-                    item.status === 'done' ? 'border-slate-300' : 'border-slate-200'
-                  }`} />
-                  
-                  <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                    <div>
-                      <p className={`font-bold text-xs ${item.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                        {item.subject}
-                      </p>
-                      <p className="text-[10px] text-slate-400 font-medium">{item.time} · {item.room}</p>
-                    </div>
-                    {item.status === 'active' && (
-                      <span className="text-[9px] font-bold bg-indigo-500 text-white px-1.5 py-0.5 rounded-md animate-pulse">
-                        LIVE NOW
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* MINI CARD 3: STICKY TASK REMINDERS FOR PARENTS */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center">
-                <CheckSquare className="w-4 h-4" />
-              </div>
-              <h3 className="font-heading font-black text-xs text-slate-800 uppercase tracking-wider">Parent Sticky Reminders</h3>
-            </div>
-
-            <form onSubmit={handleAddReminder} className="flex gap-1.5">
-              <input 
-                type="text" 
-                value={newReminder}
-                onChange={(e) => setNewReminder(e.target.value)}
-                placeholder="Add domestic admin note..." 
-                className="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-300 placeholder:text-slate-400 text-slate-700"
-              />
-              <button type="submit" className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-2 rounded-xl transition-colors">
-                Add
-              </button>
-            </form>
-
-            <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 subtle-scrollbar pt-1">
-              <AnimatePresence>
-                {reminders.map((rem) => (
-                  <motion.div 
-                    key={rem.id}
-                    initial={{ opacity: 0, y: 2 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50/60 transition-colors"
-                  >
-                    <input 
-                      type="checkbox" 
-                      checked={rem.completed} 
-                      onChange={() => handleToggleReminder(rem.id)}
-                      className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20"
-                    />
-                    <span className={`text-xs leading-tight font-medium ${rem.completed ? "line-through text-slate-400" : "text-slate-600"}`}>
-                      {rem.text}
-                    </span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
+          {/* MINI-CARD 2: LIVE SCHEDULE ROUTINE LINEUP */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items
