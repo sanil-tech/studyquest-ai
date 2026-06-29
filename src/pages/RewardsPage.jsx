@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Gift, Coins, Check, Clock, X, Loader2 } from "lucide-react";
+import { Gift, Coins, Check, Clock, X, Loader2, Sparkles, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
@@ -15,143 +15,233 @@ export default function RewardsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const user = await base44.auth.me();
-      const [rws, wallets, reqs] = await Promise.all([
-        base44.entities.Reward.filter({ student_id: user.id, status: "active" }),
-        base44.entities.Wallet.filter({ student_id: user.id }),
-        base44.entities.RewardRequest.filter({ student_id: user.id }, "-created_date", 20),
-      ]);
-      setRewards(rws);
-      setWallet(wallets[0] || { balance: 0 });
-      setRequests(reqs);
-      setLoading(false);
+      try {
+        const user = await base44.auth.me();
+        const [rws, wallets, reqs] = await Promise.all([
+          base44.entities.Reward.filter({ student_id: user.id, status: "active" }),
+          base44.entities.Wallet.filter({ student_id: user.id }),
+          base44.entities.RewardRequest.filter({ student_id: user.id }, "-created_date", 20),
+        ]);
+        setRewards(rws);
+        setWallet(wallets[0] || { balance: 0 });
+        setRequests(reqs);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);
 
   const requestReward = async (reward) => {
     if ((wallet?.balance || 0) < reward.coin_cost) {
-      toast({ title: "Not enough coins!", description: `You need ${reward.coin_cost} coins for this reward.`, variant: "destructive" });
+      toast({ 
+        title: "Not enough coins! 🪙", 
+        description: `You need ${reward.coin_cost} coins for this reward. Keep studying!`, 
+        variant: "destructive" 
+      });
       return;
     }
+    
     setRequesting(reward.id);
-    const user = await base44.auth.me();
-    const req = await base44.entities.RewardRequest.create({
-      student_id: user.id,
-      reward_id: reward.id,
-      reward_title: reward.title,
-      coin_cost: reward.coin_cost,
-    });
-
-    // Notify parent
-    if (reward.parent_id) {
-      await base44.entities.Notification.create({
-        user_id: reward.parent_id,
-        title: "Reward Request! 🎁",
-        message: `${user.full_name || "Your child"} requested "${reward.title}" (${reward.coin_cost} coins)`,
-        type: "reward_requested",
-        reference_id: req.id,
+    try {
+      const user = await base44.auth.me();
+      const req = await base44.entities.RewardRequest.create({
+        student_id: user.id,
+        reward_id: reward.id,
+        reward_title: reward.title,
+        coin_cost: reward.coin_cost,
       });
-    }
 
-    setRequests(prev => [req, ...prev]);
-    setRequesting(null);
-    toast({ title: "Request sent! 🎉", description: "Your parent will review your request." });
+      // Notify parent
+      if (reward.parent_id) {
+        await base44.entities.Notification.create({
+          user_id: reward.parent_id,
+          title: "Reward Request! 🎁",
+          message: `${user.nickname || user.full_name || "Your child"} requested "${reward.title}" (${reward.coin_cost} coins)`,
+          type: "reward_requested",
+          reference_id: req.id,
+        });
+      }
+
+      setRequests(prev => [req, ...prev]);
+      toast({ 
+        title: "Request sent! 🎉", 
+        description: "Your parent has been notified to review your request." 
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to send request. Try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setRequesting(null);
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <div className="w-10 h-10 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+        <p className="text-sm font-medium text-slate-500 animate-pulse">Opening the Treasure Shop...</p>
       </div>
     );
   }
 
   const statusIcon = {
-    pending: <Clock className="w-4 h-4 text-amber-500" />,
-    approved: <Check className="w-4 h-4 text-emerald-500" />,
-    rejected: <X className="w-4 h-4 text-red-500" />,
+    pending: <Clock className="w-3.5 h-3.5" />,
+    approved: <Check className="w-3.5 h-3.5" />,
+    rejected: <X className="w-3.5 h-3.5" />,
   };
 
   const statusStyle = {
     pending: "bg-amber-50 text-amber-700 border-amber-200",
     approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    rejected: "bg-red-50 text-red-700 border-red-200",
+    rejected: "bg-rose-50 text-rose-700 border-rose-200",
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-heading font-bold">Rewards Shop 🎁</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          You have <span className="font-bold text-amber-600">{wallet?.balance || 0} coins</span>
-        </p>
+    <div className="space-y-8 pb-12 max-w-5xl mx-auto px-1">
+      
+      {/* 1. HERO COIN VAULT BANNER */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 rounded-3xl p-6 sm:p-8 text-white shadow-md">
+        <div className="absolute -right-6 -top-6 w-36 h-36 bg-white/10 rounded-full blur-xl" />
+        <div className="absolute right-20 -bottom-10 w-28 h-28 bg-yellow-400/30 rounded-full blur-lg" />
+        
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-1.5 mb-1 bg-black/10 w-fit px-2.5 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider text-yellow-100">
+              <Sparkles className="w-3.5 h-3.5 fill-yellow-200" />
+              Rewards Shop
+            </div>
+            <h1 className="text-3xl font-black font-heading tracking-tight">Turn Gold into Prizes!</h1>
+            <p className="text-orange-50 text-sm mt-1 max-w-sm">
+              Trade the coins earned from finishing lessons and acing quizzes for real-world rewards.
+            </p>
+          </div>
+
+          {/* Balance Display Box */}
+          <div className="bg-white/15 backdrop-blur-md rounded-2xl p-4 flex items-center gap-4 border border-white/20 shadow-inner shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-md animate-bounce">
+              <Coins className="w-7 h-7 text-amber-500 fill-amber-400/30" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-orange-100 uppercase tracking-wide">Your Balance</p>
+              <p className="text-2xl font-black tracking-tight">{wallet?.balance || 0} <span className="text-lg font-medium text-yellow-200">Coins</span></p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Available rewards */}
-      {rewards.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-2xl border border-border/50">
-          <Gift className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground">No rewards available yet.</p>
-          <p className="text-xs text-muted-foreground mt-1">Ask your parent to set up rewards!</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3">
-          {rewards.map((reward, i) => {
-            const canAfford = (wallet?.balance || 0) >= reward.coin_cost;
-            const hasPending = requests.some(r => r.reward_id === reward.id && r.status === "pending");
-            return (
-              <motion.div
-                key={reward.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="bg-white rounded-2xl p-5 border border-border/50"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl shrink-0">
-                    {reward.icon || "🎁"}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-heading font-semibold">{reward.title}</h3>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Coins className="w-4 h-4 text-amber-500" />
-                      <span className="font-bold text-amber-600">{reward.coin_cost}</span>
+      {/* 2. AVAILABLE REWARDS GRID */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-extrabold text-slate-800 font-heading">Available Rewards</h2>
+        
+        {rewards.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-3xl border border-slate-100 shadow-sm">
+            <Gift className="w-14 h-14 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-slate-700">Vault is empty!</h3>
+            <p className="text-slate-400 text-sm max-w-xs mx-auto mt-1">
+              There are no active rewards right now. Ask your parent to create some exciting rewards for you!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rewards.map((reward, i) => {
+              const currentBalance = wallet?.balance || 0;
+              const canAfford = currentBalance >= reward.coin_cost;
+              const hasPending = requests.some(r => r.reward_id === reward.id && r.status === "pending");
+              
+              return (
+                <motion.div
+                  key={reward.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  className={`bg-white rounded-3xl p-5 border shadow-sm transition-all flex flex-col justify-between group ${
+                    canAfford ? "border-slate-100 hover:shadow-md" : "border-slate-100 opacity-90"
+                  }`}
+                >
+                  <div>
+                    {/* Icon Header Row */}
+                    <div className="flex justify-between items-start mb-4">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-sm border shrink-0 transition-transform group-hover:scale-105 ${
+                        canAfford ? "bg-amber-50 border-amber-100" : "bg-slate-50 border-slate-100"
+                      }`}>
+                        {reward.icon || "🎁"}
+                      </div>
+                      
+                      {/* Price Badge */}
+                      <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl font-black text-sm border shadow-2xs ${
+                        canAfford ? "bg-amber-50/50 text-amber-600 border-amber-100" : "bg-slate-50 text-slate-400 border-slate-100"
+                      }`}>
+                        <Coins className="w-4 h-4 text-amber-500 fill-amber-400/20" />
+                        {reward.coin_cost}
+                      </div>
                     </div>
+
+                    {/* Title */}
+                    <h3 className="font-extrabold text-slate-800 text-base leading-snug tracking-tight mb-4">
+                      {reward.title}
+                    </h3>
                   </div>
+
+                  {/* Action Button */}
                   <Button
-                    size="sm"
                     onClick={() => requestReward(reward)}
                     disabled={!canAfford || hasPending || requesting === reward.id}
-                    className="rounded-xl shrink-0"
+                    className={`w-full rounded-xl font-bold py-5 shadow-xs transition-colors border-0 ${
+                      hasPending 
+                        ? "bg-amber-100 text-amber-700 hover:bg-amber-100" 
+                        : !canAfford 
+                        ? "bg-slate-100 text-slate-400 hover:bg-slate-100" 
+                        : "bg-indigo-600 text-white hover:bg-indigo-700"
+                    }`}
                   >
                     {requesting === reward.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : hasPending ? (
-                      "Pending"
+                      <span className="flex items-center gap-1.5 justify-center">
+                        <Clock className="w-4 h-4" /> Pending Approval
+                      </span>
+                    ) : !canAfford ? (
+                      <span className="flex items-center gap-1.5 justify-center text-xs">
+                        <Lock className="w-3.5 h-3.5" /> Locked (Need {reward.coin_cost - currentBalance} more)
+                      </span>
                     ) : (
-                      "Request"
+                      "Claim Reward"
                     )}
                   </Button>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-      {/* Request history */}
+      {/* 3. REQUEST HISTORY SECTION */}
       {requests.length > 0 && (
-        <div>
-          <h2 className="font-heading font-semibold text-foreground mb-3">Your Requests</h2>
-          <div className="space-y-2">
+        <div className="space-y-4 pt-4">
+          <h2 className="font-extrabold text-slate-800 font-heading text-lg">Your Order History</h2>
+          
+          <div className="grid gap-2 sm:grid-cols-2">
             {requests.map(req => (
-              <div key={req.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-border/50">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{req.reward_title}</p>
-                  <p className="text-xs text-muted-foreground">{req.coin_cost} coins</p>
+              <div 
+                key={req.id} 
+                className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 shadow-2xs hover:border-slate-200 transition-colors"
+              >
+                <div className="min-w-0 pr-3">
+                  <p className="text-sm font-bold text-slate-700 truncate">{req.reward_title}</p>
+                  <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400 font-medium">
+                    <Coins className="w-3.5 h-3.5 text-amber-500/80" />
+                    <span>{req.coin_cost} gold coins</span>
+                  </div>
                 </div>
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${statusStyle[req.status]}`}>
+                
+                {/* Clean Status Pill */}
+                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold border capitalize shrink-0 shadow-2xs ${statusStyle[req.status]}`}>
                   {statusIcon[req.status]}
                   {req.status}
                 </span>
@@ -160,6 +250,7 @@ export default function RewardsPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
