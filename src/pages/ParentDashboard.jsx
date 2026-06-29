@@ -336,4 +336,276 @@ export default function ParentDashboard() {
 
           {/* MINI-CARD 2: LIVE SCHEDULE ROUTINE LINEUP */}
           <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-            <div className="flex items
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <h3 className="font-heading font-black text-xs text-slate-800 tracking-wide uppercase">Today's Class Timelines</h3>
+            </div>
+
+            {children.length === 0 ? (
+              <p className="text-xs text-slate-400">Link child accounts to compile course scheduling assets.</p>
+            ) : (
+              <div className="space-y-4">
+                {children.map((child) => {
+                  const latestSession = child.sessions?.[0];
+                  return (
+                    <div key={child.id} className="space-y-2 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-slate-400">{child.avatar_emoji}</span>
+                        <p className="text-xs font-black text-slate-700 uppercase tracking-wide">{child.name}</p>
+                      </div>
+
+                      <div className="relative pl-3 border-l-2 border-indigo-100 ml-1.5 space-y-1">
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="font-bold text-slate-600 truncate max-w-[150px]">
+                            {latestSession?.topic_name || "Self Directed Study Blocks"}
+                          </span>
+                          <span className="font-semibold text-indigo-600 bg-indigo-50/80 px-1.5 py-0.2 rounded text-[10px] shrink-0 animate-pulse">
+                            ACTIVE
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400">Duration: {latestSession?.duration_minutes || "30"} mins active sequence</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* MINI-CARD 3: PRIVATE CHECKLIST CHECKBOX ITEMS */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center">
+                <CheckSquare className="w-4 h-4" />
+              </div>
+              <h3 className="font-heading font-black text-xs text-slate-800 tracking-wide uppercase">Domestic Admin Reminders</h3>
+            </div>
+
+            <form onSubmit={handleAddReminder} className="flex gap-1.5">
+              <input 
+                type="text" 
+                value={newReminder}
+                onChange={(e) => setNewReminder(e.target.value)}
+                placeholder="Drop a private quick sticknote..." 
+                className="flex-1 text-xs px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-200 text-slate-700 font-medium"
+              />
+              <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 rounded-xl transition-colors">
+                Add
+              </button>
+            </form>
+
+            <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 subtle-scrollbar pt-1">
+              <AnimatePresence>
+                {reminders.map((rem) => (
+                  <motion.div 
+                    key={rem.id}
+                    initial={{ opacity: 0, y: 2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="flex items-start gap-2.5 p-2 rounded-xl hover:bg-slate-50/50 transition-colors"
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={rem.completed} 
+                      onChange={() => handleToggleReminder(rem.id)}
+                      className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 w-3.5 h-3.5 shrink-0 cursor-pointer"
+                    />
+                    <span className={`text-xs leading-tight font-medium ${rem.completed ? "line-through text-slate-400" : "text-slate-600"}`}>
+                      {rem.text}
+                    </span>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+// ==========================================
+// DETAILED PROFILE SCOREBOARD SUBSECTION
+// ==========================================
+function ChildCard({ child, onUnlink, onSendKudos }) {
+  const name = child?.name || "Student";
+  const level = child?.progress?.level || 1;
+  const xp = child?.progress?.total_xp || 0;
+  const nextLevelXp = level * 200;
+  const xpPercentage = Math.min((xp / nextLevelXp) * 100, 100);
+  const avatarEmoji = child?.avatar_emoji || "👦🏽";
+  const schoolTrack = child?.education_level || "Student";
+  
+  const streakDays = child?.progress?.streak_days || 0;
+  const weeklyStudy = `${child?.weeklyMinutes || 0}m`;
+  const walletCoins = child?.wallet?.balance || 0;
+
+  const todayDateString = moment().format("YYYY-MM-DD");
+  const todaysSessions = (child?.sessions || []).filter(s => moment(s.created_date).isSame(todayDateString, 'day'));
+  const todayMinutes = todaysSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+  const todaySessionCount = todaysSessions.length;
+
+  const latestSession = child?.sessions?.[0];
+  const recentLesson = latestSession?.topic_name || "No active modules launched yet";
+  const recentLessonTime = latestSession ? moment(latestSession.created_date).fromNow() : "--";
+
+  const latestQuiz = child?.quizzes?.[0];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"
+    >
+      <div className="bg-gradient-to-b from-slate-50 to-white px-6 pt-5 pb-3 relative flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-50">
+        <div className="flex flex-col sm:flex-row items-center gap-3.5 text-center sm:text-left">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 p-0.5 shadow-inner flex items-center justify-center text-3xl shrink-0">
+            {avatarEmoji}
+          </div>
+          <div>
+            <div className="flex items-center justify-center sm:justify-start gap-2">
+              <h2 className="text-lg font-heading font-black text-slate-800 tracking-tight uppercase">
+                {name}
+              </h2>
+              <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100/50 px-2 py-0.5 rounded-md">
+                {schoolTrack}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">Linked Student Reference Account ID: ...{child.id?.slice(-6)}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
+          <button
+            onClick={() => onSendKudos(name)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 text-xs font-black rounded-xl shadow-sm transition-transform active:scale-95"
+          >
+            <Heart className="w-3.5 h-3.5 fill-current text-rose-800/80" />
+            <span>Send Sparkle Popup</span>
+          </button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl w-9 h-9 border border-slate-100 shrink-0 transition-colors"
+            onClick={() => onUnlink(child.id, name)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-5">
+        <div>
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-slate-600">
+              <span>Grade Rank Level {level}</span>
+              <span className="text-slate-200">•</span>
+              <span className="text-slate-400 font-semibold">Accumulated {xp} XP points</span>
+            </div>
+            {xpPercentage >= 75 && (
+              <div className="flex items-center gap-1 text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <Award className="w-3 h-3 fill-current" /> Near Upgrade!
+              </div>
+            )}
+          </div>
+          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${xpPercentage}%` }}
+              transition={{ duration: 1, ease: "easeOut" }}
+              className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-3 bg-sky-50/40 rounded-2xl border border-sky-100/50">
+            <div className="flex items-center gap-2 text-sky-600 font-bold text-[10px] uppercase tracking-wider mb-1">
+              <Target className="w-3.5 h-3.5" />
+              <span>Today</span>
+            </div>
+            <p className="text-base font-black text-slate-800 tracking-tight">
+              {todayMinutes}m <span className="text-[11px] font-medium text-slate-400">({todaySessionCount}x)</span>
+            </p>
+          </div>
+
+          <div className="p-3 bg-orange-50/40 rounded-2xl border border-orange-100/50">
+            <div className="flex items-center gap-2 text-orange-600 font-bold text-[10px] uppercase tracking-wider mb-1">
+              <Flame className="w-3.5 h-3.5" />
+              <span>Streak</span>
+            </div>
+            <p className="text-base font-black text-slate-800 tracking-tight">{streakDays} Active Days</p>
+          </div>
+
+          <div className="p-3 bg-indigo-50/40 rounded-2xl border border-indigo-100/50">
+            <div className="flex items-center gap-2 text-indigo-600 font-bold text-[10px] uppercase tracking-wider mb-1">
+              <Clock className="w-3.5 h-3.5" />
+              <span>7-Day Cycle</span>
+            </div>
+            <p className="text-base font-black text-slate-800 tracking-tight">{weeklyStudy}</p>
+          </div>
+
+          <div className="p-3 bg-amber-50/40 rounded-2xl border border-amber-100/50">
+            <div className="flex items-center gap-2 text-amber-600 font-bold text-[10px] uppercase tracking-wider mb-1">
+              <Coins className="w-3.5 h-3.5" />
+              <span>Wallet Bank</span>
+            </div>
+            <p className="text-base font-black text-slate-800 tracking-tight">{walletCoins} Balance</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+          <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between min-w-0">
+            <div className="flex items-center gap-3 truncate">
+              <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-slate-100 flex items-center justify-center shrink-0">
+                <BookOpen className="w-4 h-4 text-slate-500" />
+              </div>
+              <div className="truncate">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Last Module Visited</p>
+                <p className="text-xs font-bold text-slate-700 truncate" title={recentLesson}>{recentLesson}</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-medium text-slate-400 shrink-0 ml-2 whitespace-nowrap">{recentLessonTime}</span>
+          </div>
+
+          {latestQuiz ? (
+            <div className="p-3 bg-emerald-50/40 border border-emerald-100/40 rounded-2xl flex items-center justify-between min-w-0">
+              <div className="flex items-center gap-3 truncate">
+                <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-emerald-100 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="truncate">
+                  <p className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-wide">Latest Quiz Attempt</p>
+                  <p className="text-xs font-bold text-slate-700 truncate" title={latestQuiz.topic_name}>{latestQuiz.topic_name || "Quiz Evaluation"}</p>
+                </div>
+              </div>
+              <div className="shrink-0 ml-2 text-right whitespace-nowrap">
+                <span className={`text-xs font-black ${latestQuiz.score >= 80 ? "text-emerald-600" : latestQuiz.score >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                  {latestQuiz.score}%
+                </span>
+                <p className="text-[9px] text-slate-400 mt-0.5">{moment(latestQuiz.created_date).fromNow(true)} ago</p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-slate-50/60 border border-slate-100 rounded-2xl flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-slate-100 flex items-center justify-center shrink-0 text-slate-300">
+                🏆
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Latest Quiz Attempt</p>
+                <p className="text-xs font-medium text-slate-400">No test scores submitted yet</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
