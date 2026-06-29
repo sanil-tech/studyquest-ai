@@ -4,24 +4,24 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Mail, Lock, Loader2, GraduationCap, Users, BookOpen } from "lucide-react";
+import { UserPlus, Mail, Lock, Loader2, Users, GraduationCap, BookOpen, CheckCircle2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
 import { toast } from "@/components/ui/use-toast";
+import { motion } from "framer-motion";
 
 export default function Register() {
   const navigate = useNavigate();
-  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState("details");
+  const [step, setStep] = useState("details"); // details → otp → role
   const [otpCode, setOtpCode] = useState("");
 
-  const handleSubmitDetails = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     if (password !== confirmPassword) {
@@ -39,7 +39,7 @@ export default function Register() {
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerify = async () => {
     setError("");
     setLoading(true);
     try {
@@ -55,7 +55,7 @@ export default function Register() {
     }
   };
 
-  const handleResendOtp = async () => {
+  const handleResend = async () => {
     setError("");
     try {
       await base44.auth.resendOtp(email);
@@ -69,53 +69,100 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
-  const handleRoleSelect = async (role) => {
-    setLoading(true);
-    setError("");
-    try {
-      await base44.auth.updateMe({ app_role: role });
-      navigate("/complete-profile");
-    } catch (err) {
-      setError(err.message || "Failed to save role");
-      setLoading(false);
-    }
-  };
-
+  // --- Step: Role selection ---
   if (step === "role") {
-    return <RoleStep onSelect={handleRoleSelect} error={error} />;
-  }
-
-  if (step === "otp") {
     return (
-      <OtpStep 
-        email={email}
-        otpCode={otpCode}
-        setOtpCode={setOtpCode}
-        onVerify={handleVerifyOtp}
-        onResend={handleResendOtp}
-        loading={loading}
-        error={error}
-      />
+      <AuthLayout 
+        icon={UserPlus} 
+        title="Choose your role" 
+        subtitle="Select the option that best describes you"
+      >
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
+        )}
+        <div className="space-y-4 mb-6">
+          <RoleOption
+            icon={Users}
+            title="I am a Parent"
+            description="Create and manage child accounts for learners under 13"
+            color="accent"
+            onClick={() => handleRoleSelect("parent")}
+          />
+          <RoleOption
+            icon={GraduationCap}
+            title="I am a Student"
+            description="For students aged 13+ who want to manage their own learning"
+            color="primary"
+            onClick={() => handleRoleSelect("student")}
+          />
+          <RoleOption
+            icon={BookOpen}
+            title="I am a Teacher"
+            description="Manage classes and monitor student progress"
+            color="emerald"
+            onClick={() => handleRoleSelect("teacher")}
+          />
+        </div>
+      </AuthLayout>
     );
   }
 
-  return (
-    <DetailsStep 
-      email={email}
-      setEmail={setEmail}
-      password={password}
-      setPassword={setPassword}
-      confirmPassword={confirmPassword}
-      setConfirmPassword={setConfirmPassword}
-      onSubmit={handleSubmitDetails}
-      onGoogle={handleGoogle}
-      loading={loading}
-      error={error}
-    />
-  );
-}
+  // --- Step: OTP ---
+  if (step === "otp") {
+    return (
+      <AuthLayout
+        icon={Mail}
+        title="Verify your email"
+        subtitle={`We sent a code to ${email}`}
+      >
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+            {error}
+          </div>
+        )}
+        <div className="flex justify-center mb-6">
+          <InputOTP
+            maxLength={6}
+            value={otpCode}
+            onChange={setOtpCode}
+            autoFocus
+            autoComplete="one-time-code"
+          >
+            <InputOTPGroup>
+              <InputOTPSlot index={0} />
+              <InputOTPSlot index={1} />
+              <InputOTPSlot index={2} />
+              <InputOTPSlot index={3} />
+              <InputOTPSlot index={4} />
+              <InputOTPSlot index={5} />
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
+        <Button
+          className="w-full h-12 font-medium"
+          onClick={handleVerify}
+          disabled={loading || otpCode.length < 6}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Verifying...
+            </>
+          ) : (
+            "Verify"
+          )}
+        </Button>
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          Didn't receive the code?{" "}
+          <button onClick={handleResend} className="text-primary font-medium hover:underline">
+            Resend
+          </button>
+        </p>
+      </AuthLayout>
+    );
+  }
 
-function DetailsStep({ email, setEmail, password, setPassword, confirmPassword, setConfirmPassword, onSubmit, onGoogle, loading, error }) {
+  // --- Step: Account details ---
   return (
     <AuthLayout
       icon={UserPlus}
@@ -133,7 +180,7 @@ function DetailsStep({ email, setEmail, password, setPassword, confirmPassword, 
       <Button
         variant="outline"
         className="w-full h-12 text-sm font-medium mb-6"
-        onClick={onGoogle}
+        onClick={handleGoogle}
       >
         <GoogleIcon className="w-5 h-5 mr-2" />
         Continue with Google
@@ -154,188 +201,126 @@ function DetailsStep({ email, setEmail, password, setPassword, confirmPassword, 
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
               id="email"
               type="email"
+              autoComplete="email"
+              autoFocus
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="pl-10"
+              className="pl-10 h-12"
               required
             />
           </div>
         </div>
-
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
               id="password"
               type="password"
+              autoComplete="new-password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="pl-10"
+              className="pl-10 h-12"
               required
-              minLength={8}
             />
           </div>
         </div>
-
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Label htmlFor="confirm">Confirm Password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
-              id="confirmPassword"
+              id="confirm"
               type="password"
+              autoComplete="new-password"
+              placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              className="pl-10"
+              className="pl-10 h-12"
               required
-              minLength={8}
             />
           </div>
         </div>
-
-        <Button type="submit" className="w-full h-12" disabled={loading}>
+        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Creating account...
             </>
           ) : (
-            <>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Create Account
-            </>
+            "Continue"
           )}
         </Button>
       </form>
     </AuthLayout>
   );
+
+  async function handleRoleSelect(role) {
+    setLoading(true);
+    setError("");
+    try {
+      const u = await base44.auth.me();
+      await base44.auth.updateMe({ app_role: role });
+
+      // Create wallet and progress for students
+      if (role === "student") {
+        const wallets = await base44.entities.Wallet.filter({ student_id: u.id });
+        if (wallets.length === 0) {
+          await base44.entities.Wallet.create({ student_id: u.id, balance: 0 });
+        }
+        const progress = await base44.entities.Progress.filter({ student_id: u.id });
+        if (progress.length === 0) {
+          await base44.entities.Progress.create({ 
+            student_id: u.id, 
+            total_xp: 0, 
+            level: 1, 
+            streak_days: 0, 
+            total_study_time: 0 
+          });
+        }
+      }
+
+      // Redirect to profile completion
+      window.location.href = "/complete-profile";
+    } catch (err) {
+      setError(err.message || "Failed to save role");
+      setLoading(false);
+    }
+  }
 }
 
-function OtpStep({ email, otpCode, setOtpCode, onVerify, onResend, loading, error }) {
-  return (
-    <AuthLayout
-      icon={Lock}
-      title="Verify your email"
-      subtitle="Enter the 6-digit code we sent to your email"
-    >
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-4">
-        <div className="flex justify-center">
-          <InputOTP
-            maxLength={6}
-            value={otpCode}
-            onChange={setOtpCode}
-          >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
-
-        <Button 
-          onClick={onVerify} 
-          className="w-full h-12" 
-          disabled={otpCode.length !== 6 || loading}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify Code"
-          )}
-        </Button>
-
-        <div className="text-center text-sm">
-          <span className="text-muted-foreground">Didn't receive code? </span>
-          <Button variant="link" className="p-0 h-auto" onClick={onResend} disabled={loading}>
-            Resend
-          </Button>
-        </div>
-      </div>
-    </AuthLayout>
-  );
-}
-
-function RoleStep({ onSelect, error }) {
-  const roles = [
-    { 
-      id: "student", 
-      title: "Student", 
-      desc: "I want to learn and earn rewards",
-      icon: GraduationCap,
-      color: "bg-primary/10 hover:bg-primary/20"
-    },
-    { 
-      id: "parent", 
-      title: "Parent", 
-      desc: "I want to monitor my child's progress",
-      icon: Users,
-      color: "bg-accent/10 hover:bg-accent/20"
-    },
-    { 
-      id: "teacher", 
-      title: "Teacher", 
-      desc: "I want to track my students",
-      icon: BookOpen,
-      color: "bg-emerald-100 hover:bg-emerald-200"
-    },
-  ];
+function RoleOption({ icon: Icon, title, description, color, onClick }) {
+  const colorClasses = {
+    primary: "bg-indigo-100 text-primary border-primary",
+    accent: "bg-pink-100 text-accent border-accent",
+    emerald: "bg-emerald-100 text-emerald-600 border-emerald-600",
+  };
 
   return (
-    <AuthLayout
-      icon={UserPlus}
-      title="Choose your role"
-      subtitle="This helps us personalize your experience"
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`w-full p-4 rounded-2xl border-2 ${colorClasses[color]} transition-all flex items-start gap-4 text-left hover:shadow-md`}
     >
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {roles.map((role) => (
-          <button
-            key={role.id}
-            onClick={() => onSelect(role.id)}
-            className={`w-full p-4 rounded-xl border-2 border-border text-left transition-all hover:border-primary ${role.color}`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-white/50 flex items-center justify-center">
-                <role.icon className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-bold text-foreground">{role.title}</h3>
-                <p className="text-sm text-muted-foreground">{role.desc}</p>
-              </div>
-            </div>
-          </button>
-        ))}
+      <div className={`w-12 h-12 rounded-xl ${colorClasses[color]} flex items-center justify-center shrink-0`}>
+        <Icon className="w-6 h-6" />
       </div>
-    </AuthLayout>
+      <div className="flex-1">
+        <h3 className="font-heading font-semibold text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{description}</p>
+      </div>
+      <CheckCircle2 className="w-5 h-5 text-primary opacity-0 hover:opacity-100 transition-opacity" />
+    </motion.button>
   );
 }

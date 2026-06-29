@@ -9,46 +9,27 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { method, student_id, link_code } = body;
+    if (parent.app_role !== 'parent') {
+      return Response.json({ error: 'Only parents can link to children' }, { status: 403 });
+    }
+
+    const { method, student_id, link_code } = await req.json();
 
     let child;
 
-    // ==========================================
-    // BULLETPROOF FIX: Fetch everything server-side
-    // ==========================================
-    if (method === 'get_children') {
-      // 1. Find the relationships securely
-      const relationships = await base44.asServiceRole.entities.ParentChildRelationship.filter({
-        parent_id: parent.id,
-        status: 'active'
-      });
-
-      if (relationships.length === 0) {
-        return Response.json({ success: true, children: [] });
-      }
-
-      // 2. Extract child IDs
-      const childIds = relationships.map(rel => rel.child_id);
-
-      // 3. Fetch the profiles securely
-      const children = await base44.asServiceRole.entities.User.filter({
-        id: { $in: childIds }
-      });
-      
-      return Response.json({ success: true, children });
-    }
-
-    // ==========================================
-    // Existing Student ID logic
-    // ==========================================
     if (method === 'student_id') {
+      // Find child by Student ID
       const users = await base44.entities.User.filter({ student_id: student_id });
       if (users.length === 0) {
         return Response.json({ error: 'Student ID not found' }, { status: 404 });
       }
       child = users[0];
+      
+      if (child.app_role !== 'student') {
+        return Response.json({ error: 'Not a student account' }, { status: 400 });
+      }
 
+      // Create LinkRequest for approval
       const existing = await base44.entities.LinkRequest.filter({
         student_id: child.id,
         parent_id: parent.id,
@@ -59,30 +40,34 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Request already sent' }, { status: 400 });
       }
 
-      const safeChildEmail = child.email || `${child.student_id}@student.studyquest.local`;
-      const safeParentEmail = parent.email || `${parent.id}@parent.studyquest.local`;
-
       await base44.entities.LinkRequest.create({
         student_id: child.id,
-        student_email: safeChildEmail,
-        student_name: child.full_name || child.nickname || child.student_id,
+        student_email: child.email,
+        student_name: child.full_name || child.nickname || child.email,
         parent_id: parent.id,
-        parent_email: safeParentEmail,
-        parent_name: parent.full_name || parent.nickname || 'Parent',
+        parent_email: parent.email,
+        parent_name: parent.full_name || parent.nickname || parent.email,
         initiated_by: 'parent',
         status: 'pending'
+      });
+
+      // Create notification for child
+      await base44.entities.Notification.create({
+        user_id: child.id,
+        title: 'Parent Link Request',
+        message: `${parent.full_name || parent.email} wants to link to your account.`,
+        type: 'quiz_complete',
+        reference_id: parent.id
       });
 
       return Response.json({ 
         success: true, 
         message: 'Request sent for approval',
-        child: { id: child.id, name: child.full_name || child.student_id }
+        child: { id: child.id, name: child.full_name || child.email }
       });
 
-    // ==========================================
-    // Existing Link Code logic
-    // ==========================================
     } else if (method === 'link_code') {
+      // Find active link code
       const codes = await base44.entities.ParentLinkCode.filter({
         code: link_code,
         is_active: true
@@ -94,19 +79,23 @@ Deno.serve(async (req) => {
 
       const linkCode = codes[0];
       
+      // Check if expired
       const now = new Date();
       const expiresAt = new Date(linkCode.expires_at);
       if (now > expiresAt) {
+        // Mark as inactive
         await base44.entities.ParentLinkCode.update(linkCode.id, { is_active: false });
         return Response.json({ error: 'Link Code has expired' }, { status: 400 });
       }
 
+      // Get child
       const users = await base44.entities.User.filter({ id: linkCode.child_id });
       if (users.length === 0) {
         return Response.json({ error: 'Child not found' }, { status: 404 });
       }
       child = users[0];
 
+      // Check if already linked
       const existing = await base44.entities.ParentChildRelationship.filter({
         parent_id: parent.id,
         child_id: child.id,
@@ -117,6 +106,7 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Already linked to this child' }, { status: 400 });
       }
 
+      // Create relationship
       await base44.entities.ParentChildRelationship.create({
         parent_id: parent.id,
         child_id: child.id,
@@ -125,16 +115,34 @@ Deno.serve(async (req) => {
         linked_at: new Date().toISOString()
       });
 
+      // Mark code as used
       await base44.entities.ParentLinkCode.update(linkCode.id, {
         used_at: new Date().toISOString(),
         used_by_parent_id: parent.id,
         is_active: false
       });
 
+      // Update parent's linked_student_ids
+      const currentLinked = parent.linked_student_ids || [];
+      if (!currentLinked.includes(child.id)) {
+        await base44.auth.updateMe({ 
+          linked_student_ids: [...currentLinked, child.id]
+        });
+      }
+
+      // Create notification for child
+      await base44.entities.Notification.create({
+        user_id: child.id,
+        title: 'Parent Linked',
+        message: `${parent.full_name || parent.email} is now linked to your account.`,
+        type: 'quiz_complete',
+        reference_id: parent.id
+      });
+
       return Response.json({ 
         success: true, 
         message: 'Successfully linked',
-        child: { id: child.id, name: child.full_name || child.student_id }
+        child: { id: child.id, name: child.full_name || child.email }
       });
 
     } else {

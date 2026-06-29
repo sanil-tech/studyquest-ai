@@ -149,7 +149,6 @@ export const AuthProvider = ({ children }) => {
     // Clear child session if exists
     localStorage.removeItem('studyquest_session');
     localStorage.removeItem('studyquest_user');
-    localStorage.removeItem('student');
     
     setUser(null);
     setIsAuthenticated(false);

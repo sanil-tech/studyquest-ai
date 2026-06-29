@@ -11,16 +11,11 @@ import { Key, Lock, RefreshCw, Copy, Check, AlertCircle, Eye, EyeOff } from "luc
 import { toast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
-export default function ChildCredentialManager({ open, onOpenChange, child, onChildUpdated }) {
+export default function ChildCredentialManager({ open, onOpenChange, child }) {
   const [resetting, setResetting] = useState(null);
   const [resetResult, setResetResult] = useState(null);
   const [newPin, setNewPin] = useState("");
   const [copied, setCopied] = useState(null);
-
-  if (!child) return null;
-
-  // FIX: Read backend state correctly using login_method fallback
-  const isPinEnabled = child.login_method === "pin" || child.login_method === "both" || !!child.pin_enabled;
 
   const copyToClipboard = async (text, field) => {
     try {
@@ -44,7 +39,6 @@ export default function ChildCredentialManager({ open, onOpenChange, child, onCh
       if (response.data.success) {
         setResetResult({ type: "password", value: response.data.password });
         toast({ title: "Password Reset", description: "New password generated" });
-        onChildUpdated?.(); // Keep parent view fresh
       } else {
         toast({ title: "Failed", description: response.data.error, variant: "destructive" });
       }
@@ -73,7 +67,6 @@ export default function ChildCredentialManager({ open, onOpenChange, child, onCh
         setResetResult({ type: "pin", value: newPin });
         toast({ title: "PIN Set", description: "PIN login enabled" });
         setNewPin("");
-        onChildUpdated?.(); // Keep parent view fresh
       } else {
         toast({ title: "Failed", description: response.data.error, variant: "destructive" });
       }
@@ -85,21 +78,19 @@ export default function ChildCredentialManager({ open, onOpenChange, child, onCh
   };
 
   const handleTogglePin = async () => {
-    // FIX: Base toggle action on verified backend field structure
-    const action = isPinEnabled ? "disable_pin" : "enable_pin";
+    const action = child.pin_enabled ? "disable_pin" : "enable_pin";
     try {
       const response = await base44.functions.invoke("resetChildCredentials", {
         child_id: child.id,
         action: action,
-        new_pin: newPin || undefined,
+        new_pin: newPin,
       });
 
       if (response.data.success) {
         toast({ 
-          title: isPinEnabled ? "PIN Disabled" : "PIN Enabled", 
+          title: child.pin_enabled ? "PIN Disabled" : "PIN Enabled", 
           description: response.data.message 
         });
-        onChildUpdated?.(); // Trigger immediate list refetch
         onOpenChange(false);
       }
     } catch (err) {
@@ -116,13 +107,14 @@ export default function ChildCredentialManager({ open, onOpenChange, child, onCh
 
       if (response.data.success) {
         toast({ title: "Account Unlocked", description: "Your child can now login again" });
-        onChildUpdated?.(); // Instantly clears red lock banners on dashboard
         onOpenChange(false);
       }
     } catch (err) {
       toast({ title: "Failed", description: err.message, variant: "destructive" });
     }
   };
+
+  if (!child) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -214,8 +206,8 @@ export default function ChildCredentialManager({ open, onOpenChange, child, onCh
                   <Lock className="w-4 h-4" />
                   PIN Login
                 </CardTitle>
-                <Badge variant={isPinEnabled ? "default" : "secondary"}>
-                  {isPinEnabled ? "Enabled" : "Disabled"}
+                <Badge variant={child.pin_enabled ? "default" : "secondary"}>
+                  {child.pin_enabled ? "Enabled" : "Disabled"}
                 </Badge>
               </div>
               <CardDescription>4-6 digit PIN for younger children</CardDescription>
@@ -265,7 +257,7 @@ export default function ChildCredentialManager({ open, onOpenChange, child, onCh
                 variant="outline"
                 className="w-full"
               >
-                {isPinEnabled ? (
+                {child.pin_enabled ? (
                   <>
                     <EyeOff className="w-4 h-4 mr-2" />
                     Disable PIN Login

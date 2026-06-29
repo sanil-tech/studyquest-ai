@@ -30,7 +30,7 @@ export default function ChildLogin() {
         return;
       }
 
-      if (loginMethod === "password" && !password.trim()) {
+      if (loginMethod === "password" && !password) {
         setError("Please enter your password");
         setLoading(false);
         return;
@@ -44,11 +44,12 @@ export default function ChildLogin() {
 
       const response = await base44.functions.invoke("childLogin", {
         student_id: studentId.trim().toUpperCase(),
-        password: loginMethod === "password" ? password.trim() : null,
-        pin: loginMethod === "pin" ? pin.trim() : null,
+        password: loginMethod === "password" ? password : null,
+        pin: loginMethod === "pin" ? pin : null,
       });
 
-      if (response.data?.success) {
+      if (response.data.success) {
+        // Store user data for child session
         const userData = response.data.user;
         localStorage.setItem('studyquest_session', JSON.stringify({
           type: 'child',
@@ -63,13 +64,14 @@ export default function ChildLogin() {
           duration: 2000
         });
         
+        // Redirect based on profile completion
         if (userData.profile_completed) {
           window.location.href = "/dashboard";
         } else {
           window.location.href = "/complete-profile";
         }
       } else {
-        setError(response.data?.error || "Login failed. Please try again.");
+        setError(response.data.error || "Login failed. Please try again.");
       }
     } catch (err) {
       console.error("Child login error:", err);
@@ -138,13 +140,12 @@ export default function ChildLogin() {
               </Button>
             </div>
 
-            {/* Student ID Input - STABILIZED WITH KEY */}
+            {/* Student ID Input */}
             <div className="space-y-2">
               <Label htmlFor="studentId" className="text-base font-semibold">
                 Student ID
               </Label>
               <Input
-                key="student-id-input"
                 id="studentId"
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value.toUpperCase())}
@@ -152,17 +153,17 @@ export default function ChildLogin() {
                 placeholder="SQ-ABC123"
                 className="text-lg h-12 font-mono tracking-wide"
                 maxLength={9}
+                autoFocus
               />
             </div>
 
-            {/* Password or PIN Input - FIX APPLIED HERE */}
+            {/* Password or PIN Input */}
             {loginMethod === "password" ? (
-              <div className="space-y-2" key="password-field-container">
+              <div className="space-y-2">
                 <Label htmlFor="password" className="text-base font-semibold">
                   Password
                 </Label>
                 <Input
-                  key="password-input-element"
                   id="password"
                   type="password"
                   value={password}
@@ -173,12 +174,11 @@ export default function ChildLogin() {
                 />
               </div>
             ) : (
-              <div className="space-y-2" key="pin-field-container">
+              <div className="space-y-2">
                 <Label htmlFor="pin" className="text-base font-semibold">
                   PIN (4-6 digits)
                 </Label>
                 <Input
-                  key="pin-input-element"
                   id="pin"
                   type="password"
                   inputMode="numeric"
