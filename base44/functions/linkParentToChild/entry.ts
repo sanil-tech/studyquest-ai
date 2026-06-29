@@ -22,22 +22,19 @@ Deno.serve(async (req) => {
     // =========================
     if (method === 'student_id') {
 
-      // FIX: use GET properly (no filter)
-      try {
-        child = await base44.entities.User.get(student_id);
-      } catch (err) {
+      // FIXED: correct lookup by student_code
+      const users = await base44.entities.User.filter({
+        student_code: student_id
+      });
+
+      if (!users.length) {
         return Response.json(
-          { error: 'Student ID not found' },
+          { error: "Student not found" },
           { status: 404 }
         );
       }
 
-      if (!child) {
-        return Response.json(
-          { error: 'Student ID not found' },
-          { status: 404 }
-        );
-      }
+      child = users[0];
 
       if (child.app_role !== 'student') {
         return Response.json(
@@ -96,7 +93,7 @@ Deno.serve(async (req) => {
         is_active: true
       });
 
-      if (codes.length === 0) {
+      if (!codes.length) {
         return Response.json(
           { error: 'Invalid or expired Link Code' },
           { status: 404 }
@@ -119,22 +116,19 @@ Deno.serve(async (req) => {
         );
       }
 
-      // FIX: use GET correctly
-      try {
-        child = await base44.entities.User.get(linkCode.child_id);
-      } catch (err) {
+      // FIXED: correct user lookup
+      const users = await base44.entities.User.filter({
+        id: linkCode.child_id
+      });
+
+      if (!users.length) {
         return Response.json(
           { error: 'Child not found' },
           { status: 404 }
         );
       }
 
-      if (!child) {
-        return Response.json(
-          { error: 'Child not found' },
-          { status: 404 }
-        );
-      }
+      child = users[0];
 
       const existing = await base44.entities.ParentChildRelationship.filter({
         parent_id: parent.id,
