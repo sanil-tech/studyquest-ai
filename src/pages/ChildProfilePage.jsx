@@ -21,7 +21,8 @@ export default function StudentParentConnections({ studentId }) {
   const loadConnections = async () => {
     try {
       setLoading(true);
-      // 1. Fetch active relationships and pending parent link requests concurrently
+      
+      // Fetch data using Base44 filter parameters
       const [activeData, pendingData] = await Promise.all([
         base44.entities.ParentChildRelationship.filter({
           child_id: studentId,
@@ -29,15 +30,14 @@ export default function StudentParentConnections({ studentId }) {
         }),
         base44.entities.LinkRequest.filter({
           student_id: studentId,
-          status: "pending",
-          initiated_by: "parent"
+          status: "pending"
         })
       ]);
 
-      setActiveConnections(activeData);
-      setPendingRequests(pendingData);
+      setActiveConnections(activeData || []);
+      setPendingRequests(pendingData || []);
     } catch (err) {
-      console.error("Failed to load connections:", err);
+      console.error("Failed to load connection workflows:", err);
     } finally {
       setLoading(false);
     }
@@ -47,10 +47,10 @@ export default function StudentParentConnections({ studentId }) {
     setProcessingId(request.id);
     try {
       if (action === "accept") {
-        // Update the link request status
+        // 1. Progress approval status in LinkRequest collection
         await base44.entities.LinkRequest.update(request.id, { status: "approved" });
 
-        // Create the official active connection pair
+        // 2. Spawn verified mapping row inside ParentChildRelationship record layout
         await base44.entities.ParentChildRelationship.create({
           parent_id: request.parent_id,
           child_id: studentId,
@@ -61,23 +61,22 @@ export default function StudentParentConnections({ studentId }) {
 
         toast({
           title: "Connection Linked!",
-          description: `You are now successfully linked with ${request.parent_name || request.parent_email}.`,
+          description: "You are now successfully linked with your parent.",
         });
       } else {
-        // Rejecting simply marks it as declined
+        // Mark as declined to strip visibility parameters
         await base44.entities.LinkRequest.update(request.id, { status: "declined" });
         toast({
           title: "Request Declined",
-          description: "The link request was removed.",
+          description: "The incoming link request was ignored.",
         });
       }
 
-      // Refresh layout data state
       await loadConnections();
     } catch (err) {
       toast({
         title: "Action Failed",
-        description: err.message || "Failed to process the parent request",
+        description: err.message || "Failed to finalize workflow.",
         variant: "destructive"
       });
     } finally {
@@ -86,7 +85,7 @@ export default function StudentParentConnections({ studentId }) {
   };
 
   if (loading) {
-    return <div className="text-center py-4 text-sm text-muted-foreground animate-pulse">Loading connections...</div>;
+    return <div className="text-center py-6 text-sm text-muted-foreground animate-pulse">Checking approval logs...</div>;
   }
 
   return (
@@ -97,14 +96,12 @@ export default function StudentParentConnections({ studentId }) {
           Parent Connections
         </CardTitle>
         <CardDescription>
-          Manage parents who have access to view your learning tracks and progress.
+          Manage parents who have access to monitor your learning tracks and progression.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         
-        {/* ========================================= */}
-        {/* SECTION 1: PENDING INCOMING REQUESTS      */}
-        {/* ========================================= */}
+        {/* Pending Parent Link Requests */}
         {pendingRequests.length > 0 && (
           <div className="space-y-2">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-600 flex items-center gap-1">
@@ -118,9 +115,9 @@ export default function StudentParentConnections({ studentId }) {
                 >
                   <div>
                     <p className="font-medium text-sm text-foreground">
-                      {request.parent_name || "Parent User"}
+                      {request.parent_name || "Parent Request"}
                     </p>
-                    <p className="text-xs text-muted-foreground">{request.parent_email}</p>
+                    <p className="text-xs text-muted-foreground">{request.parent_email || "Pending verification"}</p>
                   </div>
                   <div className="flex gap-2 self-end sm:self-center">
                     <Button
@@ -147,18 +144,16 @@ export default function StudentParentConnections({ studentId }) {
           </div>
         )}
 
-        {/* ========================================= */}
-        {/* SECTION 2: ACTIVE CONNECTIONS             */}
-        {/* ========================================= */}
+        {/* Confirmed Active Supervisor Mappings */}
         <div className="space-y-2 pt-2">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Linked Parents ({activeConnections.length})
           </h4>
 
           {activeConnections.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 border border-dashed rounded-lg bg-muted/20">
-              <User className="w-8 h-8 text-muted-foreground/40 mb-2" />
-              <p className="text-xs text-muted-foreground">No linked parents yet.</p>
+            <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg bg-muted/20">
+              <User className="w-8 h-8 text-muted-foreground/30 mb-2" />
+              <p className="text-xs text-muted-foreground">No linked supervision accounts detected.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2">
@@ -173,9 +168,9 @@ export default function StudentParentConnections({ studentId }) {
                     </div>
                     <div>
                       <p className="font-medium text-sm">
-                        {conn.parent_name || conn.parent_email || "Linked Parent"}
+                        {conn.parent_name || conn.parent_email || "Linked Profile"}
                       </p>
-                      <p className="text-xs text-muted-foreground">Authorized supervisor</p>
+                      <p className="text-xs text-muted-foreground">Authorized Supervisor</p>
                     </div>
                   </div>
                 </div>
