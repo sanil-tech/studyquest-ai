@@ -26,10 +26,20 @@ export default function ParentRewards() {
     try {
       const u = await base44.auth.me();
       setUser(u);
+      
+      // Fetch rewards assigned to this parent
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
-      const linkReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email, status: "approved" });
-      setChildren(linkReqs.map(r => ({ id: r.student_id, full_name: r.student_name, email: r.student_email })));
+      
+      // Bypassed verification restriction to catch pending request flows
+      const allReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
+      const validLinks = allReqs.filter(r => r.status === "approved" || r.status === "pending");
+      
+      setChildren(validLinks.map(r => ({ 
+        id: r.student_id, 
+        full_name: r.student_name || `Pending Profile (${r.student_email?.split("@")[0]})`, 
+        email: r.student_email 
+      })));
     } catch (err) {
       console.error(err);
     } finally {
@@ -41,7 +51,6 @@ export default function ParentRewards() {
 
   const openCreate = () => {
     setEditingReward(null);
-    // FIX: Default to "all" if there are multiple children
     setForm({ 
       title: "", 
       coin_cost: "", 
@@ -63,7 +72,6 @@ export default function ParentRewards() {
     
     try {
       if (editingReward) {
-        // Editing existing individual reward record
         const data = {
           title: form.title,
           coin_cost: Number(form.coin_cost),
@@ -75,9 +83,8 @@ export default function ParentRewards() {
         await base44.entities.Reward.update(editingReward.id, data);
         toast({ title: "Reward updated! ✨" });
       } else {
-        // Creating new reward records
         if (form.student_id === "all") {
-          // FIX: Loop through every child and create separate records so everyone gets a copy
+          // Creates distinct custom row entries per child safely in parallel
           await Promise.all(
             children.map(child => 
               base44.entities.Reward.create({
@@ -92,7 +99,6 @@ export default function ParentRewards() {
           );
           toast({ title: "Reward published to all children! 🎁🎉" });
         } else {
-          // Standard creation for a single child selection
           await base44.entities.Reward.create({
             title: form.title,
             coin_cost: Number(form.coin_cost),
@@ -205,14 +211,12 @@ export default function ParentRewards() {
                   }`}
                 >
                   <div className="flex items-start gap-4">
-                    {/* Emoji Box Container */}
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-2xs border shrink-0 transition-transform ${
                       isActive ? "bg-indigo-50/60 border-indigo-100/80" : "bg-slate-200 border-slate-300"
                     }`}>
                       {reward.icon || "🎁"}
                     </div>
 
-                    {/* Reward details text */}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-extrabold text-slate-800 text-base tracking-tight truncate leading-tight">
                         {reward.title}
@@ -232,14 +236,12 @@ export default function ParentRewards() {
                     </div>
                   </div>
 
-                  {/* Actions Drawer Bar */}
                   <div className="flex items-center justify-between border-t border-slate-100 mt-4 pt-3">
                     <span className={`text-[11px] font-bold tracking-wide uppercase ${isActive ? "text-emerald-600" : "text-slate-400"}`}>
                       {isActive ? "● Live in shop" : "○ Disabled"}
                     </span>
                     
                     <div className="flex items-center gap-1 bg-slate-50 p-0.5 rounded-xl border border-slate-100">
-                      {/* Active Toggle Button */}
                       <button 
                         onClick={() => toggleStatus(reward)} 
                         title={isActive ? "Deactivate Reward" : "Activate Reward"}
@@ -252,7 +254,6 @@ export default function ParentRewards() {
                         )}
                       </button>
 
-                      {/* Edit Button */}
                       <button 
                         onClick={() => openEdit(reward)} 
                         title="Edit Details"
@@ -261,7 +262,6 @@ export default function ParentRewards() {
                         <Edit2 className="w-4 h-4" />
                       </button>
 
-                      {/* Delete Button */}
                       <button 
                         onClick={() => deleteReward(reward.id)} 
                         title="Delete Permanently"
@@ -346,7 +346,6 @@ export default function ParentRewards() {
                     <SelectValue placeholder="Choose a child profile" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
-                    {/* FIX: Add an 'All Children' choice block into the selection popup menu */}
                     {!editingReward && (
                       <SelectItem value="all" className="rounded-lg font-bold text-indigo-600 hover:text-indigo-700">
                         ✨ All Children
