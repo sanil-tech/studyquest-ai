@@ -44,19 +44,27 @@ export default function ChildLogin() {
         return;
       }
 
-      // --- DYNAMIC ID RESOLUTION BRIDGE ---
-      // If student logs in using the friendly "SQ-XXXXXX" code, locate the primary database hash first
+      // --- CLIENT-SIDE ID RESOLUTION BRIDGE ---
+      // If the student types the user-friendly "SQ-XXXXXX" code, look up their actual DB entry ID
       if (resolvedStudentId.startsWith("SQ-")) {
         try {
-          const matchedProfiles = await base44.entities.User.filter({
+          // Check standard schema possibilities for user-friendly ID matching
+          let matchedProfiles = await base44.entities.User.filter({
             student_id: resolvedStudentId
           });
 
+          // Fallback check if field is named display_student_id
+          if (!matchedProfiles || matchedProfiles.length === 0) {
+            matchedProfiles = await base44.entities.User.filter({
+              display_student_id: resolvedStudentId
+            });
+          }
+
           if (matchedProfiles && matchedProfiles.length > 0) {
-            resolvedStudentId = matchedProfiles[0].id;
+            resolvedStudentId = matchedProfiles[0].id; // Swap to internal database hash string
           }
         } catch (lookupErr) {
-          console.warn("Display code cross-check lookup skipped:", lookupErr);
+          console.warn("Display code conversion lookup bypassed:", lookupErr);
         }
       }
 
@@ -67,7 +75,6 @@ export default function ChildLogin() {
       });
 
       if (response.data.success) {
-        // Store user data for child session
         const userData = response.data.user;
         localStorage.setItem('studyquest_session', JSON.stringify({
           type: 'child',
@@ -82,7 +89,6 @@ export default function ChildLogin() {
           duration: 2000
         });
         
-        // Redirect based on profile completion
         if (userData.profile_completed) {
           window.location.href = "/dashboard";
         } else {
