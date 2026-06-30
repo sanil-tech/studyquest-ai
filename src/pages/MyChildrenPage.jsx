@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
   Users, Plus, Eye, Key, User, RefreshCw, Trash2, 
-  GraduationCap, Award, Flame, ShieldAlert, Sparkles, 
-  TrendingUp, Calendar, ArrowRight, Settings, X, Search, AlertCircle, ShieldCheck, UserPlus
+  GraduationCap, Award, Flame, ArrowRight, X, Search, AlertCircle, ShieldCheck
 } from "lucide-react";
 import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,18 +13,14 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
-// 1. IMPORT YOUR ADD CHILD MODAL (Verify path matching)
 import AddChildModal from "@/components/parent/AddChildModal"; 
 
 export default function MyChildrenPage() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false); // Controls the ID Linking Modal
-  
-  // 2. ADD STATE FOR THE CREATION MODAL
+  const [showAddModal, setShowAddModal] = useState(false); 
   const [showCreateModal, setShowCreateModal] = useState(false); 
-  
   const [showCredentialManager, setShowCredentialManager] = useState(false);
   const [selectedChild, setSelectedChild] = useState(null);
   
@@ -100,9 +95,6 @@ export default function MyChildrenPage() {
     loadChildren();
   }, [loadChildren]);
 
-  // ============================================================================
-  // SECURE UNIQUE STUDENT ID LINKING CONTROLLER
-  // ============================================================================
   const handleLinkStudentById = async (e) => {
     e.preventDefault();
     const cleanId = studentIdInput.trim();
@@ -200,7 +192,7 @@ export default function MyChildrenPage() {
           </p>
         </div>
         
-        {/* ACTION BUTTONS */}
+        {/* ACTION BUTTONS HEADER */}
         <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
           <Button variant="outline" size="sm" onClick={loadChildren} disabled={loading} className="h-10 bg-background shadow-xs hover:bg-muted/50">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -212,10 +204,9 @@ export default function MyChildrenPage() {
             Link Existing ID
           </Button>
 
-          {/* 3. NEW ADD CHILD ACCOUNT TRIGGER BUTTON */}
           <Button onClick={() => setShowCreateModal(true)} className="h-10 shadow-sm bg-primary hover:bg-primary/90 font-semibold px-4">
             <Plus className="w-4 h-4 mr-2 stroke-[2.5]" />
-            Create Child Profile
+            Add New Child/Student
           </Button>
         </div>
       </div>
@@ -242,7 +233,7 @@ export default function MyChildrenPage() {
               </Button>
               <Button onClick={() => setShowCreateModal(true)} className="shadow-md font-medium">
                 <Plus className="w-4 h-4 mr-2 stroke-[2.5]" />
-                Create New Profile
+                Add New Child/Student
               </Button>
             </div>
           </CardContent>
@@ -490,9 +481,7 @@ export default function MyChildrenPage() {
         )}
       </AnimatePresence>
 
-      {/* ============================================================================
-          4. NEW CODE: ADD CHILD PROFILES CREATION LAYER MODAL
-          ============================================================================ */}
+      {/* ADD CHILD PROFILES CREATION LAYER MODAL */}
       <AddChildModal
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
