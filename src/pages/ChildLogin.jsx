@@ -24,7 +24,9 @@ export default function ChildLogin() {
     setError("");
 
     try {
-      if (!studentId.trim()) {
+      let resolvedStudentId = studentId.trim().toUpperCase();
+
+      if (!resolvedStudentId) {
         setError("Please enter your Student ID");
         setLoading(false);
         return;
@@ -42,8 +44,24 @@ export default function ChildLogin() {
         return;
       }
 
+      // --- DYNAMIC ID RESOLUTION BRIDGE ---
+      // If student logs in using the friendly "SQ-XXXXXX" code, locate the primary database hash first
+      if (resolvedStudentId.startsWith("SQ-")) {
+        try {
+          const matchedProfiles = await base44.entities.User.filter({
+            student_id: resolvedStudentId
+          });
+
+          if (matchedProfiles && matchedProfiles.length > 0) {
+            resolvedStudentId = matchedProfiles[0].id;
+          }
+        } catch (lookupErr) {
+          console.warn("Display code cross-check lookup skipped:", lookupErr);
+        }
+      }
+
       const response = await base44.functions.invoke("childLogin", {
-        student_id: studentId.trim().toUpperCase(),
+        student_id: resolvedStudentId,
         password: loginMethod === "password" ? password : null,
         pin: loginMethod === "pin" ? pin : null,
       });
@@ -60,7 +78,7 @@ export default function ChildLogin() {
         
         toast({
           title: "Welcome back! 🎉",
-          description: `Hi ${userData.nickname}!`,
+          description: `Hi ${userData.nickname || userData.display_name || "Hero"}!`,
           duration: 2000
         });
         
@@ -152,7 +170,6 @@ export default function ChildLogin() {
                 onKeyPress={handleKeyPress}
                 placeholder="SQ-ABC123"
                 className="text-lg h-12 font-mono tracking-wide"
-                maxLength={9}
                 autoFocus
               />
             </div>
