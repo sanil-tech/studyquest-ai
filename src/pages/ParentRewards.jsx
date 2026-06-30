@@ -31,13 +31,13 @@ export default function ParentRewards() {
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
       
-      // Bypassed verification restriction to catch pending request flows
+      // Fetch all links matching parent email (bypass pending status checks)
       const allReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
-      const validLinks = allReqs.filter(r => r.status === "approved" || r.status === "pending");
+      const validLinks = allReqs.filter(r => r.status === "approved" || r.status === "pending" || !r.status);
       
       setChildren(validLinks.map(r => ({ 
         id: r.student_id, 
-        full_name: r.student_name || `Pending Profile (${r.student_email?.split("@")[0]})`, 
+        full_name: r.student_name || `Profile (${r.student_email?.split("@")[0]})`, 
         email: r.student_email 
       })));
     } catch (err) {
@@ -72,19 +72,23 @@ export default function ParentRewards() {
     
     try {
       if (editingReward) {
+        // Find child mapping details
+        const selectedChild = children.find(c => c.id === form.student_id);
         const data = {
           title: form.title,
           coin_cost: Number(form.coin_cost),
           icon: form.icon,
           student_id: form.student_id,
+          student_email: selectedChild ? selectedChild.email : "",
           parent_id: user.id,
+          parent_email: user.email,
           status: editingReward.status || "active",
         };
         await base44.entities.Reward.update(editingReward.id, data);
         toast({ title: "Reward updated! ✨" });
       } else {
         if (form.student_id === "all") {
-          // Creates distinct custom row entries per child safely in parallel
+          // Double-down data injection mapping across all variables so children queries match
           await Promise.all(
             children.map(child => 
               base44.entities.Reward.create({
@@ -92,19 +96,24 @@ export default function ParentRewards() {
                 coin_cost: Number(form.coin_cost),
                 icon: form.icon,
                 student_id: child.id,
+                student_email: child.email, 
                 parent_id: user.id,
+                parent_email: user.email,
                 status: "active",
               })
             )
           );
           toast({ title: "Reward published to all children! 🎁🎉" });
         } else {
+          const selectedChild = children.find(c => c.id === form.student_id);
           await base44.entities.Reward.create({
             title: form.title,
             coin_cost: Number(form.coin_cost),
             icon: form.icon,
             student_id: form.student_id,
+            student_email: selectedChild ? selectedChild.email : "",
             parent_id: user.id,
+            parent_email: user.email,
             status: "active",
           });
           toast({ title: "Reward created for selected child! 🎁" });
@@ -197,7 +206,7 @@ export default function ParentRewards() {
         <div className="grid gap-3 sm:grid-cols-2">
           <AnimatePresence>
             {rewards.map((reward, i) => {
-              const assignedChild = children.find(c => c.id === reward.student_id);
+              const assignedChild = children.find(c => c.id === reward.student_id || c.email === reward.student_email);
               const isActive = reward.status === "active";
 
               return (
@@ -227,7 +236,7 @@ export default function ParentRewards() {
                           {reward.coin_cost} coins
                         </span>
                         
-                        {assignedChild && children.length > 1 && (
+                        {assignedChild && (
                           <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg max-w-[140px] truncate">
                             👤 {assignedChild.full_name?.split(" ")[0]}
                           </span>
