@@ -41,7 +41,13 @@ export default function ParentRewards() {
 
   const openCreate = () => {
     setEditingReward(null);
-    setForm({ title: "", coin_cost: "", icon: "🎁", student_id: children[0]?.id || "" });
+    // FIX: Default to "all" if there are multiple children
+    setForm({ 
+      title: "", 
+      coin_cost: "", 
+      icon: "🎁", 
+      student_id: children.length > 1 ? "all" : (children[0]?.id || "") 
+    });
     setDialogOpen(true);
   };
 
@@ -54,22 +60,51 @@ export default function ParentRewards() {
   const handleSave = async () => {
     if (!form.title || !form.coin_cost || !form.student_id) return;
     setSaving(true);
-    const data = {
-      title: form.title,
-      coin_cost: Number(form.coin_cost),
-      icon: form.icon,
-      student_id: form.student_id,
-      parent_id: user.id,
-      status: "active",
-    };
+    
     try {
       if (editingReward) {
+        // Editing existing individual reward record
+        const data = {
+          title: form.title,
+          coin_cost: Number(form.coin_cost),
+          icon: form.icon,
+          student_id: form.student_id,
+          parent_id: user.id,
+          status: editingReward.status || "active",
+        };
         await base44.entities.Reward.update(editingReward.id, data);
+        toast({ title: "Reward updated! ✨" });
       } else {
-        await base44.entities.Reward.create(data);
+        // Creating new reward records
+        if (form.student_id === "all") {
+          // FIX: Loop through every child and create separate records so everyone gets a copy
+          await Promise.all(
+            children.map(child => 
+              base44.entities.Reward.create({
+                title: form.title,
+                coin_cost: Number(form.coin_cost),
+                icon: form.icon,
+                student_id: child.id,
+                parent_id: user.id,
+                status: "active",
+              })
+            )
+          );
+          toast({ title: "Reward published to all children! 🎁🎉" });
+        } else {
+          // Standard creation for a single child selection
+          await base44.entities.Reward.create({
+            title: form.title,
+            coin_cost: Number(form.coin_cost),
+            icon: form.icon,
+            student_id: form.student_id,
+            parent_id: user.id,
+            status: "active",
+          });
+          toast({ title: "Reward created for selected child! 🎁" });
+        }
       }
       setDialogOpen(false);
-      toast({ title: editingReward ? "Reward updated! ✨" : "Reward created! 🎁" });
       loadData();
     } catch (err) {
       toast({ title: "Error saving reward", variant: "destructive" });
@@ -311,6 +346,12 @@ export default function ParentRewards() {
                     <SelectValue placeholder="Choose a child profile" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
+                    {/* FIX: Add an 'All Children' choice block into the selection popup menu */}
+                    {!editingReward && (
+                      <SelectItem value="all" className="rounded-lg font-bold text-indigo-600 hover:text-indigo-700">
+                        ✨ All Children
+                      </SelectItem>
+                    )}
                     {children.map(c => (
                       <SelectItem key={c.id} value={c.id} className="rounded-lg font-medium text-slate-700">
                         {c.full_name || c.email}
