@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useNavigate } from "react-router-dom";
-import { GraduationCap, Key, Lock, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
+import { GraduationCap, Key, Lock, AlertCircle, Loader2, ArrowLeft, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,10 +12,11 @@ import { toast } from "@/components/ui/use-toast";
 
 export default function ChildLogin() {
   const navigate = useNavigate();
-  const [studentId, setStudentId] = useState("");
+  // Changed state from studentId to username
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
-  const [loginMethod, setLoginMethod] = useState("password"); // password | pin
+  const [loginMethod, setLoginMethod] = useState("password");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,10 +25,10 @@ export default function ChildLogin() {
     setError("");
 
     try {
-      const cleanStudentId = studentId.trim().toUpperCase();
+      const cleanUsername = username.trim();
 
-      if (!cleanStudentId) {
-        setError("Please enter your Student ID");
+      if (!cleanUsername) {
+        setError("Please enter your Username");
         setLoading(false);
         return;
       }
@@ -44,9 +45,9 @@ export default function ChildLogin() {
         return;
       }
 
-      // Call the backend function we just updated with X-Ray diagnostics
+      // Send 'username' to our new backend function
       const response = await base44.functions.invoke("childLogin", {
-        student_id: cleanStudentId,
+        username: cleanUsername,
         password: loginMethod === "password" ? password : null,
         pin: loginMethod === "pin" ? pin : null,
       });
@@ -54,7 +55,6 @@ export default function ChildLogin() {
       if (response.data.success) {
         const userData = response.data.user;
         
-        // Save session locally
         localStorage.setItem('studyquest_session', JSON.stringify({
           type: 'child',
           userId: userData.id,
@@ -68,20 +68,17 @@ export default function ChildLogin() {
           duration: 2000
         });
         
-        // Route based on profile completion
         if (userData.profile_completed) {
           navigate("/dashboard");
         } else {
           navigate("/complete-profile");
         }
       } else {
-        // This will print the custom X-Ray diagnostic error from the backend
         setError(response.data.error || "Login failed. Please try again.");
       }
     } catch (err) {
       console.error("Child login error:", err);
-      // Fallback error capture
-      setError(err.response?.data?.error || err.message || "Cannot connect to server. Please try again.");
+      setError(err.response?.data?.error || "Cannot connect to server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -112,12 +109,11 @@ export default function ChildLogin() {
               Welcome to StudyQuest! 🚀
             </CardTitle>
             <CardDescription className="text-base mt-2">
-              Login with your Student ID
+              Login with your Username
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4 pt-4">
-            {/* Login Method Toggle */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg">
               <Button
                 variant={loginMethod === "password" ? "default" : "ghost"}
@@ -147,23 +143,23 @@ export default function ChildLogin() {
               </Button>
             </div>
 
-            {/* Student ID Input */}
+            {/* Now asking for Username instead of Student ID */}
             <div className="space-y-2">
-              <Label htmlFor="studentId" className="text-sm font-semibold">
-                Student ID
+              <Label htmlFor="username" className="text-sm font-semibold flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Username
               </Label>
               <Input
-                id="studentId"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value.toUpperCase())}
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase())}
                 onKeyPress={handleKeyPress}
-                placeholder="e.g. SQ-ABC123"
-                className="text-lg h-12 font-mono tracking-wide bg-white"
+                placeholder="e.g. testing"
+                className="text-lg h-12 bg-white"
                 autoFocus
               />
             </div>
 
-            {/* Password or PIN Input */}
             {loginMethod === "password" ? (
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-semibold">
@@ -198,7 +194,6 @@ export default function ChildLogin() {
               </div>
             )}
 
-            {/* Diagnostic Error Message */}
             {error && (
               <Alert variant="destructive" className="border-red-300 bg-red-50 text-red-900">
                 <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -208,7 +203,6 @@ export default function ChildLogin() {
               </Alert>
             )}
 
-            {/* Login Button */}
             <Button
               onClick={handleLogin}
               disabled={loading}
@@ -224,7 +218,6 @@ export default function ChildLogin() {
               )}
             </Button>
 
-            {/* Back to Main Login */}
             <div className="pt-4 pb-2 border-t mt-6">
               <Button 
                 variant="ghost" 
