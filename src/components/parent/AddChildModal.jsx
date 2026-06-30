@@ -346,4 +346,152 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
                       id="child-profile-upload"
                     />
                     <Label htmlFor="child-profile-upload" className="cursor-pointer">
-                      <Button variant="outline" asChild disabled={uploading
+                      <Button variant="outline" asChild disabled={uploading}>
+                        <span>
+                          <Upload className="w-4 h-4 mr-2" />
+                          {uploading ? "Uploading..." : "Upload Photo"}
+                        </span>
+                      </Button>
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fields Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="full_name">Full Name *</Label>
+                  <Input
+                    id="full_name"
+                    value={childData.full_name}
+                    onChange={(e) => setChildData(prev => ({ ...prev, full_name: e.target.value }))}
+                    placeholder="e.g. Ahmad bin Abu"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nickname">Nickname (optional)</Label>
+                  <Input
+                    id="nickname"
+                    value={childData.nickname}
+                    onChange={(e) => setChildData(prev => ({ ...prev, nickname: e.target.value }))}
+                    placeholder="What to call them"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dob">Date of Birth *</Label>
+                  <Input
+                    id="dob"
+                    type="date"
+                    value={childData.date_of_birth}
+                    onChange={(e) => setChildData(prev => ({ ...prev, date_of_birth: e.target.value }))}
+                  />
+                  {age && (
+                    <p className="text-xs text-muted-foreground">Age: {age} years old</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select 
+                    value={childData.gender} 
+                    onValueChange={(val) => setChildData(prev => ({ ...prev, gender: val }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Select 
+                  value={childData.state} 
+                  onValueChange={(val) => setChildData(prev => ({ ...prev, state: val }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select your state" /></SelectTrigger>
+                  <SelectContent>
+                    {malaysianStates.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="school">School Name</Label>
+                <Input
+                  id="school"
+                  value={childData.school_name}
+                  onChange={(e) => setChildData(prev => ({ ...prev, school_name: e.target.value }))}
+                  placeholder="e.g. SK Taman Jaya"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="education">Education Level *</Label>
+                  <Select 
+                    value={childData.education_level} 
+                    onValueChange={(val) => setChildData(prev => ({ ...prev, education_level: val }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
+                    <SelectContent>
+                      {educationLevels.map(level => (
+                        <SelectItem key={level} value={level}>{level}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {recommendedLevel && !childData.education_level && (
+                    <p className="text-xs text-emerald-600 font-medium">
+                      💡 Recommended for age {age}: {recommendedLevel}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="grade">Class (optional)</Label>
+                  <Input
+                    id="grade"
+                    value={childData.grade_year}
+                    onChange={(e) => setChildData(prev => ({ ...prev, grade_year: e.target.value }))}
+                    placeholder="e.g. Jaya, Bestari"
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="w-full h-12 rounded-xl text-base font-semibold mt-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Child Profile & Continue"
+                )}
+              </Button>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credentials Summary Modal */}
+      <CredentialsSummary
+        open={showCredentials}
+        onOpenChange={handleCloseCredentialsSummary}
+        credentials={credentials}
+        childName={savedChildName}
+      />
+    </>
+  );
+}
