@@ -12,31 +12,31 @@ import moment from "moment";
 import AddChildModal from "@/components/parent/AddChildModal";
 
 // ============================================================================
-// WMO WEATHER INTERPRETATION UTILS
+// WMO WEATHER CODE TRANSLATION DICTIONARY
 // ============================================================================
 const parseWmoCode = (code) => {
   const map = {
-    0: { status: "Sunny ☀️", tip: "Clear routes! Perfect conditions for outdoor school blocks today." },
-    1: { status: "Mainly Clear 🌤️", tip: "Great commuting window for school drop-offs & activities." },
-    2: { status: "Partly Cloudy ⛅", tip: "Nice, mild weather for a standard school day balance." },
-    3: { status: "Overcast ☁️", tip: "Overcast conditions. No instant weather alerts expected." },
-    45: { status: "Foggy 🌫️", tip: "Reduced visibility. Drive with caution during school rush hours." },
-    48: { status: "Depositing Rime Fog 🌫️", tip: "Misty conditions. Keep car headlights on for safety." },
-    51: { status: "Light Drizzle 🌧️", tip: "Slight dampness out. Remind kids to dress appropriately." },
-    53: { status: "Moderate Drizzle 🌧️", tip: "Persistent light rain. Umbrellas might be useful today." },
-    55: { status: "Dense Drizzle 🌧️", tip: "Thick drizzle active. Grab a light raincoat for dismissal paths." },
-    61: { status: "Slight Rain 🌧️", tip: "Mild showers. Pack an umbrella inside their bags this morning." },
-    63: { status: "Moderate Rain 🌧️", tip: "Wet roads tracking. Plan for extra minutes on the drive home." },
-    65: { status: "Heavy Rain 🌧️", tip: "Heavy downpour. Indoor dismissals likely. Stay dry out there!" },
-    71: { status: "Slight Snow ❄️", tip: "Light winter flurries. Ensure coats are zipped up well." },
-    73: { status: "Moderate Snow ❄️", tip: "Snow accumulative track. Bundle up kids in full winter layers." },
-    75: { status: "Heavy Snow ❄️", tip: "Thick snowfall active. Watch out for delayed school transit buses." },
-    80: { status: "Slight Rain Showers 🌦️", tip: "Passing raindrops. Safe commute windows should open soon." },
-    81: { status: "Moderate Showers 🌦️", tip: "Intermittent sudden rain. Keep rain protection on hand." },
-    82: { status: "Violent Showers ⛈️", tip: "Heavy cloud bursts. Recommend delayed pick-ups if possible." },
-    95: { status: "Thunderstorm ⛈️", tip: "Storm alerts tracked. Keep devices close for school announcements." },
+    0: { status: "Sunny", emoji: "☀️", tip: "Perfect conditions for outdoor school blocks today." },
+    1: { status: "Mainly Clear", emoji: "🌤️", tip: "Great commuting window for school drop-offs." },
+    2: { status: "Partly Cloudy", emoji: "⛅", tip: "Nice, mild weather for a standard school day balance." },
+    3: { status: "Overcast", emoji: "☁️", tip: "Overcast conditions. No instant weather alerts expected." },
+    45: { status: "Foggy", emoji: "🌫️", tip: "Reduced visibility. Drive with caution during school rush hours." },
+    48: { status: "Misty Fog", emoji: "🌫️", tip: "Misty conditions. Keep car headlights on for safety." },
+    51: { status: "Light Drizzle", emoji: "🌧️", tip: "Slight dampness out. Remind kids to pack rain gear." },
+    53: { status: "Mod. Drizzle", emoji: "🌧️", tip: "Persistent light rain. Umbrellas might be useful today." },
+    55: { status: "Thick Drizzle", emoji: "🌧️", tip: "Thick drizzle active. Grab a raincoat for dismissal paths." },
+    61: { status: "Slight Rain", emoji: "🌧️", tip: "Mild showers. Pack an umbrella inside their bags this morning." },
+    63: { status: "Moderate Rain", emoji: "🌧️", tip: "Wet roads tracking. Plan for extra minutes on the drive home." },
+    65: { status: "Heavy Rain", emoji: "🌧️", tip: "Heavy downpour. Indoor school dismissals likely." },
+    71: { status: "Light Snow", emoji: "❄️", tip: "Light winter flurries. Ensure coats are zipped up well." },
+    73: { status: "Moderate Snow", emoji: "❄️", tip: "Snow accumulative track. Bundle up kids in full winter layers." },
+    75: { status: "Heavy Snow", emoji: "❄️", tip: "Thick snowfall active. Watch out for delayed transit buses." },
+    80: { status: "Slight Showers", emoji: "🌦️", tip: "Passing raindrops. Safe commute windows should open soon." },
+    81: { status: "Mod. Showers", emoji: "🌦️", tip: "Intermittent sudden rain. Keep rain protection on hand." },
+    82: { status: "Violent Showers", emoji: "⛈️", tip: "Heavy cloud bursts. Recommend delayed pick-ups if possible." },
+    95: { status: "Thunderstorm", emoji: "⛈️", tip: "Storm alerts tracked. Keep devices close for school announcements." },
   };
-  return map[code] || { status: "Clear Skies ☀️", tip: "Enjoy your day monitoring your family milestones!" };
+  return map[code] || { status: "Clear Skies", emoji: "☀️", tip: "Enjoy your day monitoring your family milestones!" };
 };
 
 export default function ParentDashboard() {
@@ -55,21 +55,17 @@ export default function ParentDashboard() {
   ]);
   const [newReminder, setNewReminder] = useState("");
   
-  // Custom Weather Initialization
-  const [weather, setWeather] = useState({ temp: "--°C", status: "Locating Area... 🔍", tip: "Resolving live school zone tracking variables.", fallback: false });
+  // --- UPGRADED HOURLY FORECAST STATES ---
+  const [weather, setWeather] = useState({ temp: "--°C", status: "Locating... 🔍", emoji: "☀️", tip: "Resolving live school zone tracking variables.", fallback: false });
+  const [hourlyForecast, setHourlyForecast] = useState([]); 
   const [weatherLoading, setWeatherLoading] = useState(true);
 
   // ============================================================================
-  // WEATHER ENGINE CONTROLLER (GEOLOCATION API)
+  // WEATHER ENGINE CONTROLLER (GEOLOCATION 24H API)
   // ============================================================================
   const fetchLiveWeather = useCallback(() => {
     if (!navigator.geolocation) {
-      setWeather({
-        temp: "--",
-        status: "Unsupported browser",
-        tip: "Geolocation tracking is unavailable on this device browser profile.",
-        fallback: true
-      });
+      setWeather(prev => ({ ...prev, status: "Unsupported browser", fallback: true }));
       setWeatherLoading(false);
       return;
     }
@@ -80,38 +76,68 @@ export default function ParentDashboard() {
         const { latitude, longitude } = position.coords;
         try {
           const res = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,weathercode`
           );
           if (!res.ok) throw new Error("API Outage");
           const data = await res.json();
           
+          // 1. Core Current Conditions
           const rawTemp = Math.round(data.current_weather.temperature);
-          const weatherData = parseWmoCode(data.current_weather.weathercode);
+          const currentMeta = parseWmoCode(data.current_weather.weathercode);
           
           setWeather({
             temp: `${rawTemp}°C`,
-            status: weatherData.status,
-            tip: weatherData.tip,
+            status: currentMeta.status,
+            emoji: currentMeta.emoji,
+            tip: currentMeta.tip,
             fallback: false
           });
+
+          // 2. Parse 24-Hour Forecast Array into next 5 upcoming hours
+          const currentHourIndex = moment().hour(); 
+          const shortTimeline = [];
+
+          for (let i = 0; i < 5; i++) {
+            const targetIndex = currentHourIndex + i;
+            if (data.hourly && data.hourly.time[targetIndex]) {
+              const timeString = data.hourly.time[targetIndex];
+              const parsedMeta = parseWmoCode(data.hourly.weathercode[targetIndex]);
+              
+              shortTimeline.push({
+                time: moment(timeString).format("h A"), 
+                temp: `${Math.round(data.hourly.temperature_2m[targetIndex])}°C`,
+                emoji: parsedMeta.emoji,
+                status: parsedMeta.status
+              });
+            }
+          }
+          setHourlyForecast(shortTimeline);
+
         } catch (err) {
-          // Soft fallbacks if third party network crashes
           setWeather({ 
             temp: "24°C", 
             status: "Offline Mode 🌤️", 
+            emoji: "🌤️",
             tip: "Displaying generalized weather profiles. App is running optimally.",
             fallback: true 
           });
+          setHourlyForecast([
+            { time: "Now", temp: "24°C", emoji: "🌤️" },
+            { time: "+1h", temp: "25°C", emoji: "☀️" },
+            { time: "+2h", temp: "23°C", emoji: "☁️" },
+            { time: "+3h", temp: "22°C", emoji: "🌧️" },
+            { time: "+4h", temp: "23°C", emoji: "🌤️" },
+          ]);
         } finally {
           setWeatherLoading(false);
         }
       },
       (error) => {
-        // Clean fallback state if user refuses to grant location permissions
         setWeather({
           temp: "Locked",
           status: "Location Off",
-          tip: "Tap browser lock icon to authorize location access for real-time commute updates.",
+          emoji: "🔒",
+          tip: "Authorize location access for real-time local school commute alerts.",
           fallback: true
         });
         setWeatherLoading(false);
@@ -332,7 +358,7 @@ export default function ParentDashboard() {
         {/* RIGHT SIDEBAR MODULE CONTEXT PLATFORM */}
         <div className="space-y-6">
           
-          {/* SUB-WIDGET 1: LIVE CONTEXT COMMUTE INTELLIGENCE */}
+          {/* UPGRADED SUB-WIDGET 1: LIVE CONTEXT COMMUTE INTELLIGENCE WITH HOURLY TRACKER */}
           <div className="bg-white p-5 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -350,6 +376,7 @@ export default function ParentDashboard() {
               </button>
             </div>
             
+            {/* MAIN CURRENT WEATHER DISPATCH */}
             <div className="flex items-center justify-between bg-gradient-to-br from-slate-50 to-slate-100/60 p-4 rounded-2xl border border-slate-100 shadow-inner">
               <div>
                 {weatherLoading ? (
@@ -369,12 +396,42 @@ export default function ParentDashboard() {
                   <MapPinOff className="w-5 h-5" />
                 </div>
               ) : (
-                <span className="text-3xl shrink-0 filter drop-shadow">🌦️</span>
+                <span className="text-3xl shrink-0 filter drop-shadow">{weather.emoji}</span>
               )}
             </div>
+
+            {/* HOURLY TIMELINE SCROLL */}
+            {!weather.fallback && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Next 5 Hours</p>
+                <div className="flex gap-2 overflow-x-auto pb-1.5 subtle-scrollbar scrollbar-none justify-between">
+                  {weatherLoading ? (
+                    Array(5).fill(0).map((_, idx) => (
+                      <div key={idx} className="w-[58px] h-[68px] bg-slate-50 rounded-xl border border-slate-100 animate-pulse shrink-0" />
+                    ))
+                  ) : (
+                    hourlyForecast.map((hour, idx) => (
+                      <div 
+                        key={idx} 
+                        className={`flex flex-col items-center justify-center py-2 px-2.5 rounded-xl border shrink-0 text-center w-[58px] ${
+                          idx === 0 
+                            ? 'bg-indigo-50/60 border-indigo-100 text-indigo-900' 
+                            : 'bg-slate-50/50 border-slate-100 text-slate-600'
+                        }`}
+                      >
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">{idx === 0 ? "Now" : hour.time}</span>
+                        <span className="text-base my-1 filter drop-shadow-sm">{hour.emoji}</span>
+                        <span className="text-[11px] font-black tracking-tight">{hour.temp}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
             
+            {/* SYSTEM LOG METRIC TIPS FOR PARENTS */}
             <div className={`text-[11px] leading-relaxed p-3.5 rounded-2xl border ${weather.fallback ? 'bg-slate-50 border-slate-200/50 text-slate-500' : 'bg-amber-50/50 border-amber-200/40 text-amber-950 font-medium'}`}>
-              <span className="font-bold">{weather.fallback ? "📋 Setup Notice:" : "💡 Quick Tip:"}</span> {weather.tip}
+              <span className="font-bold">{weather.fallback ? "📋 Setup Notice:" : "💡 Commute Tip:"}</span> {weather.tip}
             </div>
           </div>
 
