@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   Coins, Trophy, Clock, BookOpen, Flame, 
-  Target, Sparkles, Award, ArrowRight, Play, CheckCircle2, UserCheck, UserX, ShieldAlert
+  Target, Sparkles, Award, ArrowRight, Play, CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,14 +15,12 @@ export default function StudentDashboard() {
   const [wallet, setWallet] = useState({ balance: 0 });
   const [sessions, setSessions] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
 
-  // =========================
-  // LOAD STUDENT DATA
-  // =========================
+  // ==========================================
+  // LOAD DATA & AUTO-REPAIR PARENT LINKS
+  // ==========================================
   const loadDashboardData = async () => {
     try {
       setLoading(true);
@@ -31,23 +29,49 @@ export default function StudentDashboard() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
 
-      // 2. Fetch parallel student entity blocks + Pending Family Link Requests
-      const [progressData, walletData, sessionData, quizData, linkRequests] = await Promise.all([
+      // 2. Fetch baseline data blocks
+      const [progressData, walletData, sessionData, quizData] = await Promise.all([
         base44.entities.Progress.filter({ student_id: currentUser.id }),
         base44.entities.Wallet.filter({ student_id: currentUser.id }),
         base44.entities.StudySession.filter({ student_id: currentUser.id }, "-created_date", 10),
         base44.entities.QuizAttempt.filter({ student_id: currentUser.id }, "-created_date", 10),
-        base44.entities.LinkRequest.filter({ student_id: currentUser.id, status: "pending" })
       ]);
 
       if (progressData?.[0]) setProgress(progressData[0]);
       if (walletData?.[0]) setWallet(walletData[0]);
       if (sessionData) setSessions(sessionData);
       if (quizData) setQuizzes(quizData);
-      if (linkRequests) setPendingRequests(linkRequests);
+
+      // 3. BACKGROUND LINK SYNC (Bypasses manual button click)
+      // Pull all pending link requests across the platform
+      const allPending = await base44.entities.LinkRequest.filter({ status: "pending" });
+      
+      // Match against this specific logged-in student using multiple fallbacks
+      const matchingRequest = allPending.find(req => 
+        String(req.student_id) === String(currentUser.id) ||
+        (req.student_email && String(req.student_email).toLowerCase() === String(currentUser.email).toLowerCase()) ||
+        (req.student_username && String(req.student_username).toLowerCase() === String(currentUser.username || currentUser.nickname).toLowerCase()) ||
+        (req.username && String(req.username).toLowerCase() === String(currentUser.username || currentUser.nickname).toLowerCase())
+      );
+
+      // If a match is found, auto-trigger approval route to configure data relations
+      if (matchingRequest) {
+        const response = await fetch("/api/approve-link-request", { 
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            link_request_id: matchingRequest.id,
+            action: "approve"
+          })
+        });
+        
+        if (response.ok) {
+          console.log(`Successfully synced and auto-linked family account for request: ${matchingRequest.id}`);
+        }
+      }
 
     } catch (err) {
-      console.error("Error loading student dashboard:", err);
+      console.error("Error loading student dashboard data links:", err);
       toast({
         title: "Oops!",
         description: "Failed to load your learning data.",
@@ -61,42 +85,6 @@ export default function StudentDashboard() {
   useEffect(() => {
     loadDashboardData();
   }, []);
-
-  // ==========================================
-  // HANDLE LINK APPROVAL / REJECTION TRIGGER
-  // ==========================================
-  const handleLinkAction = async (linkRequestId, actionType) => {
-    setActionLoading(true);
-    try {
-      // Calls your Deno edge function route
-      const response = await fetch("/api/approve-link-request", { 
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          link_request_id: linkRequestId,
-          action: actionType // 'approve' | 'reject'
-        })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        toast({ 
-          title: actionType === "approve" ? "Account Linked! 🎉" : "Request Declined",
-          description: actionType === "approve" ? "Your parent can now assign and reward you custom items!" : ""
-        });
-        // Re-trigger global dashboard load to clear the pending UI notification
-        loadDashboardData();
-      } else {
-        toast({ title: data.error || "Action failed", variant: "destructive" });
-      }
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Network error processing request", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   // =========================
   // CALCULATIONS
@@ -157,45 +145,6 @@ export default function StudentDashboard() {
           </Button>
         </div>
       </div>
-
-      {/* 🚨 ADDED: FAMILY LINK NOTIFICATION SYSTEM */}
-      {pendingRequests.length > 0 && (
-        <div className="bg-amber-50/70 border border-amber-200 rounded-3xl p-5 space-y-3 shadow-3xs">
-          <div className="flex items-center gap-2 text-amber-800 font-extrabold text-sm tracking-tight">
-            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-            Pending Parent Link Request
-          </div>
-          
-          {pendingRequests.map(req => (
-            <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-amber-100 shadow-2xs">
-              <div>
-                <p className="text-sm font-black text-slate-800 tracking-tight">Parent Connection Invite</p>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">{req.parent_email}</p>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Button 
-                  size="sm" 
-                  disabled={actionLoading}
-                  onClick={() => handleLinkAction(req.id, "approve")}
-                  className="bg-emerald-600 hover:bg-emerald-700 font-extrabold text-xs rounded-xl px-4 h-9 shadow-2xs border-0"
-                >
-                  <UserCheck className="w-3.5 h-3.5 mr-1.5 stroke-[2.5]" /> Accept
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  disabled={actionLoading}
-                  onClick={() => handleLinkAction(req.id, "reject")}
-                  className="border-slate-200 text-slate-500 hover:bg-slate-50 font-extrabold text-xs rounded-xl px-4 h-9 shadow-3xs"
-                >
-                  <UserX className="w-3.5 h-3.5 mr-1.5" /> Decline
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* 2. STATS & MILESTONES GRID */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
