@@ -17,9 +17,28 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Student ID is required' }, { status: 400 });
     }
 
-    // Find user by Student ID
-    const users = await base44.asServiceRole.entities.User.filter({ student_id: student_id });
+    const cleanInputId = student_id.trim();
+
+    // 1. Try finding user by the custom Student ID column (e.g., "SQ-QG2XQA")
+    let users = await base44.asServiceRole.entities.User.filter({ student_id: cleanInputId });
     
+    // 2. Fallback: If not found, try searching case-insensitive or by internal database ID
+    if (users.length === 0) {
+      users = await base44.asServiceRole.entities.User.filter({ student_id: cleanInputId.toUpperCase() });
+    }
+    
+    if (users.length === 0) {
+      try {
+        const structuralUser = await base44.asServiceRole.entities.User.get(cleanInputId);
+        if (structuralUser) {
+          users = [structuralUser];
+        }
+      } catch (e) {
+        // Not a valid internal ID string, skip fallback
+      }
+    }
+    
+    // If still no user found after all pathways, return error
     if (users.length === 0) {
       return Response.json({ error: 'Incorrect Student ID' }, { status: 401 });
     }
@@ -73,7 +92,7 @@ Deno.serve(async (req) => {
 
       return Response.json({ 
         error: 'Incorrect details, please try again',
-        attempts_remaining: lockThreshold - newAttempts,
+        attempts_remaining: Math.max(0, lockThreshold - newAttempts),
       }, { status: 401 });
     }
 
@@ -85,7 +104,6 @@ Deno.serve(async (req) => {
     });
 
     // Create a session token by encoding user ID with timestamp
-    // This is a simple session mechanism for child accounts
     const sessionData = {
       user_id: user.id,
       student_id: user.student_id,
