@@ -17,43 +17,42 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Student ID is required' }, { status: 400 });
     }
 
-    const cleanInputId = student_id.trim();
+    const rawInput = student_id.trim();
+    const uppercaseInput = rawInput.toUpperCase();
+    const cleanNoDash = uppercaseInput.replace(/[^A-Z0-9]/g, ''); // e.g., "SQQG2XQA"
+
     let user = null;
+    let searchResults = [];
 
-    // --- STRATEGIC TRIPLE-FALLBACK LOOKUP MATRIX ---
-    
-    // Pathway 1: Try checking the custom `student_id` column explicitly
-    let searchResults = await base44.asServiceRole.entities.User.filter({ student_id: cleanInputId });
-    if (searchResults.length === 0) {
-      searchResults = await base44.asServiceRole.entities.User.filter({ student_id: cleanInputId.toUpperCase() });
-    }
+    // --- DEEP ENTITY FIELD SCANNING MATRIX ---
 
-    // Pathway 2: If not found, try filtering by username or email field in case it saved there
-    if (searchResults.length === 0) {
-      searchResults = await base44.asServiceRole.entities.User.filter({ username: cleanInputId.toLowerCase() });
-    }
-    if (searchResults.length === 0) {
-      searchResults = await base44.asServiceRole.entities.User.filter({ email: cleanInputId.toLowerCase() });
-    }
+    // 1. Try scanning the standard student_id field variations
+    searchResults = await base44.asServiceRole.entities.User.filter({ student_id: uppercaseInput });
+    if (searchResults.length === 0) searchResults = await base44.asServiceRole.entities.User.filter({ student_id: rawInput });
+    if (searchResults.length === 0) searchResults = await base44.asServiceRole.entities.User.filter({ student_id: cleanNoDash });
 
-    // Assign if any filter matches hit a record
+    // 2. Try scanning alternate possible field keys if your modal saved it elsewhere
+    if (searchResults.length === 0) searchResults = await base44.asServiceRole.entities.User.filter({ username: rawInput.toLowerCase() });
+    if (searchResults.length === 0) searchResults = await base44.asServiceRole.entities.User.filter({ username: uppercaseInput });
+    if (searchResults.length === 0) searchResults = await base44.asServiceRole.entities.User.filter({ display_id: uppercaseInput });
+    if (searchResults.length === 0) searchResults = await base44.asServiceRole.entities.User.filter({ display_student_id: uppercaseInput });
+
+    // Assign user if any matching filter query returns data
     if (searchResults && searchResults.length > 0) {
       user = searchResults[0];
     }
 
-    // Pathway 3: Fallback straight to direct internal record ID matching
+    // 3. Last resort fallback: Check direct database row primary key matching
     if (!user) {
       try {
-        const structuralRecord = await base44.asServiceRole.entities.User.get(cleanInputId);
-        if (structuralRecord) {
-          user = structuralRecord;
-        }
+        const structuralRecord = await base44.asServiceRole.entities.User.get(rawInput);
+        if (structuralRecord) user = structuralRecord;
       } catch (e) {
-        // Not a structural database ID layout string, ignore error safely
+        // Not a valid primary UUID format string, ignore safely
       }
     }
 
-    // If absolutely nothing matched the user collection, break out safely
+    // If absolutely no user row matches, stop execution safely
     if (!user) {
       return Response.json({ error: 'Incorrect Student ID' }, { status: 401 });
     }
@@ -119,7 +118,7 @@ Deno.serve(async (req) => {
     // Create a session token by encoding user ID with timestamp
     const sessionData = {
       user_id: user.id,
-      student_id: user.student_id || cleanInputId,
+      student_id: user.student_id || rawInput,
       app_role: user.app_role,
       timestamp: Date.now(),
       expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
@@ -134,7 +133,7 @@ Deno.serve(async (req) => {
         id: user.id,
         full_name: user.full_name,
         nickname: user.nickname || user.full_name,
-        student_id: user.student_id || cleanInputId,
+        student_id: user.student_id || rawInput,
         app_role: user.app_role,
         profile_completed: user.profile_completed,
         avatar_photo_url: user.avatar_photo_url,
