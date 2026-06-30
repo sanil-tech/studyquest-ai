@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import {
-  Users, Coins, Trophy, Clock, CheckSquare, BookOpen, 
-  Plus, Trash2, Calendar, Award, Flame, Target, CloudSun, Heart, MapPinOff
+  Coins, Trophy, Clock, CheckSquare, BookOpen, 
+  Trash2, Calendar, Award, Flame, Target, CloudSun, Heart, MapPinOff
 } from "lucide-react";
 import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
-import AddChildModal from "@/components/parent/AddChildModal";
 
 // ============================================================================
 // WMO WEATHER CODE TRANSLATION DICTIONARY
@@ -44,7 +43,6 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddChild, setShowAddChild] = useState(false);
   const { toast } = useToast();
 
   // --- WIDGET LOGIC MANAGEMENT STATES ---
@@ -283,18 +281,12 @@ export default function ParentDashboard() {
       {/* HEADER HERO ACTIONS CONTROLLER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Welcome Back, {user?.full_name?.split(" ")[0] || "Parent"} 👋
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
+            Welcome Back, {user?.full_name || "Parent"} 👋
           </h1>
           <p className="text-xs text-slate-400 font-medium mt-0.5">Real-time household study insights and system logs.</p>
         </div>
-        <Button onClick={() => setShowAddChild(true)} className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-md shadow-indigo-600/10">
-          <Plus className="w-4 h-4 mr-1.5" />
-          Connect Student Account
-        </Button>
       </div>
-
-      <AddChildModal open={showAddChild} onOpenChange={setShowAddChild} onLinked={loadData} />
 
       {/* CORE INTEGRATION MESH SYSTEM */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -337,10 +329,7 @@ export default function ParentDashboard() {
               <div className="bg-white p-8 rounded-3xl border border-dashed border-slate-200 text-center space-y-3">
                 <div className="text-4xl">👥</div>
                 <h3 className="font-bold text-slate-700 text-sm">No Student Profiles Connected</h3>
-                <p className="text-xs text-slate-400 max-w-xs mx-auto">Link your student accounts to watch their live XP milestones, logs, and activity streams.</p>
-                <Button variant="outline" size="sm" onClick={() => setShowAddChild(true)} className="rounded-xl text-xs font-bold border-slate-200">
-                  Link Account Now
-                </Button>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">Link student profiles via your workspace directory tab to look over activity logs.</p>
               </div>
             ) : (
               children.map(child => (
@@ -445,7 +434,7 @@ export default function ParentDashboard() {
             </div>
 
             {children.length === 0 ? (
-              <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">Link child accounts to compile course scheduling assets.</p>
+              <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">Attached student profiles map schedules here.</p>
             ) : (
               <div className="space-y-4">
                 {children.map((child) => {
@@ -572,7 +561,7 @@ function ChildCard({ child, onUnlink, onSendKudos }) {
           </div>
           <div>
             <div className="flex items-center justify-center sm:justify-start gap-2">
-              <h2 className="text-base font-black text-slate-900 tracking-tight">
+              <h2 className="text-base font-black text-slate-900 tracking-tight uppercase">
                 {name}
               </h2>
               <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg border border-slate-200/40">
