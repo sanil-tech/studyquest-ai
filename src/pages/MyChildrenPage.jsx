@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { 
   Users, Plus, Eye, Key, User, RefreshCw, Trash2, 
   GraduationCap, Award, Flame, ShieldAlert, Sparkles, 
-  TrendingUp, Calendar, ArrowRight, Settings 
+  TrendingUp, Calendar, ArrowRight, Settings, X, Search, AlertCircle, ShieldCheck
 } from "lucide-react";
 import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import AddChildModal from "@/components/parent/AddChildModal";
 import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
 
 export default function MyChildrenPage() {
@@ -23,6 +22,12 @@ export default function MyChildrenPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCredentialManager, setShowCredentialManager] = useState(false);
   const [selectedChild, setSelectedChild] = useState(null);
+  
+  // --- STUDENT ID LINKING INTERFACE STATES ---
+  const [studentIdInput, setStudentIdInput] = useState("");
+  const [modalSubmitting, setModalSubmitting] = useState(false);
+  const [modalError, setModalError] = useState("");
+
   const { toast } = useToast();
 
   const calculateAge = (birthDate) => {
@@ -38,6 +43,7 @@ export default function MyChildrenPage() {
   const loadChildren = useCallback(async () => {
     try {
       setLoading(true);
+      setModalError("");
       const u = await base44.auth.me();
       setUser(u);
 
@@ -88,6 +94,68 @@ export default function MyChildrenPage() {
     loadChildren();
   }, [loadChildren]);
 
+  // ============================================================================
+  // SECURE UNIQUE STUDENT ID LINKING CONTROLLER
+  // ============================================================================
+  const handleLinkStudentById = async (e) => {
+    e.preventDefault();
+    const cleanId = studentIdInput.trim();
+
+    if (!cleanId) {
+      setModalError("Please specify a valid alphanumeric student tracking key.");
+      return;
+    }
+
+    setModalSubmitting(true);
+    setModalError("");
+
+    try {
+      // 1. Verify that the child profile exists in the system database
+      let targetedStudent;
+      try {
+        targetedStudent = await base44.entities.User.get(cleanId);
+      } catch (err) {
+        throw new Error("No active student profiles discovered matching this custom unique ID.");
+      }
+
+      // Safeguard against self-linking loops
+      if (targetedStudent.id === user.id) {
+        throw new Error("Invalid operation: You cannot link a parental dashboard back to yourself.");
+      }
+
+      // 2. Scan database to avoid conflicting duplicate mappings
+      const preExisting = await base44.entities.ParentChildRelationship.filter({
+        parent_id: user.id,
+        child_id: cleanId,
+        status: "active",
+      });
+
+      if (preExisting && preExisting.length > 0) {
+        throw new Error("This profile account link is already securely bound to your dashboard.");
+      }
+
+      // 3. Create the parent-child relational node link
+      await base44.entities.ParentChildRelationship.create({
+        parent_id: user.id,
+        child_id: cleanId,
+        status: "active",
+      });
+
+      toast({
+        title: "Profile Linked! 🎉",
+        description: `Successfully added ${getDisplayName(targetedStudent)} to your monitoring grid.`,
+      });
+
+      setStudentIdInput("");
+      setShowAddModal(false);
+      loadChildren();
+    } catch (err) {
+      setModalError(err.message || "Network exception saving database tracking pointers.");
+    } finally {
+      setModalSubmitting(false);
+    }
+  };
+
   const handleRemoveLink = async (child) => {
     if (!confirm(`Are you sure you want to unlink ${child.display_name}? They will lose access to parent-guided features.`)) return;
     try {
@@ -97,11 +165,6 @@ export default function MyChildrenPage() {
     } catch (err) {
       toast({ title: "Failed", description: err.message || "Could not remove link", variant: "destructive" });
     }
-  };
-
-  const handleModalSuccess = () => {
-    setShowAddModal(false);
-    loadChildren();
   };
 
   if (loading) {
@@ -155,7 +218,7 @@ export default function MyChildrenPage() {
             </div>
             <h3 className="text-xl font-bold text-foreground mb-2">No profiles connected</h3>
             <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-              Link your student's workspace account to monitor continuous level progressions, track streaks, and safely verify app credentials.
+              Link your student's workspace account using their unique generated student ID to monitor level progressions, tracking lines, and coins.
             </p>
             <Button onClick={() => setShowAddModal(true)} size="lg" className="shadow-md font-medium">
               <Plus className="w-4 h-4 mr-2 stroke-[2.5]" />
@@ -168,7 +231,6 @@ export default function MyChildrenPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <AnimatePresence>
             {children.map((child, index) => {
-              // Simulated XP progress calculation for clean visual bar displays
               const currentXpPercentage = child.progress?.xp_score ? (child.progress.xp_score % 100) : 65;
 
               return (
@@ -196,12 +258,12 @@ export default function MyChildrenPage() {
                                   src={child.profile_picture_url || child.avatar_photo_url}
                                   alt={child.display_name}
                                   className="w-full h-full object-cover"
+                                  loading="lazy"
                                 />
                               ) : (
                                 <User className="w-8 h-8 text-muted-foreground/70" />
                               )}
                             </div>
-                            {/* Visual activity status pill indicator */}
                             <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-background border-2 border-background">
                               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                             </span>
@@ -224,7 +286,6 @@ export default function MyChildrenPage() {
                           </div>
                         </div>
 
-                        {/* Top Utility Cog Operations */}
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
@@ -236,6 +297,14 @@ export default function MyChildrenPage() {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
+                      </div>
+
+                      {/* ID Hash Section */}
+                      <div className="text-[11px] font-medium text-muted-foreground flex items-center justify-between bg-muted/30 p-2 rounded-xl border border-border/20">
+                        <span>STUDENT UNIQUE HASH:</span>
+                        <span className="font-mono bg-background px-2 py-0.5 rounded border text-foreground font-semibold selection:bg-indigo-200">
+                          {child.id}
+                        </span>
                       </div>
 
                       {/* Level Milestones Metrics Progress Rail */}
@@ -330,13 +399,90 @@ export default function MyChildrenPage() {
         </div>
       )}
 
-      {/* Account Creation / Verification Overlays */}
-      <AddChildModal
-        open={showAddModal}
-        onOpenChange={setShowAddModal}
-        onChildAdded={handleModalSuccess}
-        onLinked={handleModalSuccess}
-      />
+      {/* ============================================================================
+          DYNAMIC INLINE INDIVIDUAL STUDENT ID VERIFICATION OVERLAY DIALOG 
+          ============================================================================ */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { if (!modalSubmitting) setShowAddModal(false); }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
+            />
+
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              className="bg-card text-card-foreground border rounded-2xl p-6 shadow-xl max-w-md w-full relative z-10 space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-bold text-lg tracking-tight text-foreground">Link Account Registry</h3>
+                </div>
+                <button 
+                  disabled={modalSubmitting}
+                  onClick={() => setShowAddModal(false)}
+                  className="p-1 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Connect an existing student account to your manager dashboard view by entering their system generated unique ID code.
+              </p>
+
+              {modalError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-xs font-semibold flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{modalError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleLinkStudentById} className="space-y-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    disabled={modalSubmitting}
+                    value={studentIdInput}
+                    onChange={(e) => setStudentIdInput(e.target.value)}
+                    placeholder="e.g. usr_8k92f1m04..."
+                    className="w-full text-xs font-mono font-bold tracking-wider pl-9 pr-4 py-3 bg-muted/40 border border-input rounded-xl text-foreground focus:outline-none focus:border-primary transition-all duration-150"
+                  />
+                  <Search className="w-3.5 h-3.5 text-muted-foreground/40 absolute left-3 top-3.5" />
+                </div>
+
+                <div className="flex gap-2 justify-end pt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={modalSubmitting}
+                    onClick={() => setShowAddModal(false)}
+                    className="rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted h-10 px-4"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={modalSubmitting}
+                    className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 px-5 shadow-xs min-w-[110px]"
+                  >
+                    {modalSubmitting ? "Verifying..." : "Link Profile"}
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {selectedChild && (
         <ChildCredentialManager
