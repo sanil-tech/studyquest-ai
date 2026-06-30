@@ -31,14 +31,15 @@ export default function ParentRewards() {
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
       
-      // Fetch all links matching parent email (bypass pending status checks)
+      // Fetch link requests (capturing all states: approved, pending, etc.)
       const allReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
       const validLinks = allReqs.filter(r => r.status === "approved" || r.status === "pending" || !r.status);
       
       setChildren(validLinks.map(r => ({ 
-        id: r.student_id, 
-        full_name: r.student_name || `Profile (${r.student_email?.split("@")[0]})`, 
-        email: r.student_email 
+        id: r.student_id || "", 
+        full_name: r.student_name || r.student_username || `Profile (${r.student_email?.split("@")[0]})`, 
+        email: r.student_email || "",
+        username: r.student_username || r.username || "" 
       })));
     } catch (err) {
       console.error(err);
@@ -55,7 +56,7 @@ export default function ParentRewards() {
       title: "", 
       coin_cost: "", 
       icon: "🎁", 
-      student_id: children.length > 1 ? "all" : (children[0]?.id || "") 
+      student_id: children.length > 1 ? "all" : (children[0]?.id || children[0]?.email || children[0]?.username || "") 
     });
     setDialogOpen(true);
   };
@@ -72,14 +73,17 @@ export default function ParentRewards() {
     
     try {
       if (editingReward) {
-        // Find child mapping details
-        const selectedChild = children.find(c => c.id === form.student_id);
+        // Find matching child configuration details
+        const selectedChild = children.find(c => c.id === form.student_id || c.email === form.student_id || c.username === form.student_id);
         const data = {
           title: form.title,
           coin_cost: Number(form.coin_cost),
           icon: form.icon,
-          student_id: form.student_id,
+          // Fallback mechanism if profile is stuck in pending state
+          student_id: form.student_id || selectedChild?.id || selectedChild?.email || selectedChild?.username,
           student_email: selectedChild ? selectedChild.email : "",
+          student_username: selectedChild ? selectedChild.username : "",
+          username: selectedChild ? selectedChild.username : "",
           parent_id: user.id,
           parent_email: user.email,
           status: editingReward.status || "active",
@@ -88,30 +92,37 @@ export default function ParentRewards() {
         toast({ title: "Reward updated! ✨" });
       } else {
         if (form.student_id === "all") {
-          // Double-down data injection mapping across all variables so children queries match
+          // Clone complete payloads across all identifier paradigms so any child query matches
           await Promise.all(
-            children.map(child => 
-              base44.entities.Reward.create({
+            children.map(child => {
+              const targetedId = child.id || child.email || child.username;
+              return base44.entities.Reward.create({
                 title: form.title,
                 coin_cost: Number(form.coin_cost),
                 icon: form.icon,
-                student_id: child.id,
+                student_id: targetedId,
                 student_email: child.email, 
+                student_username: child.username, 
+                username: child.username, 
                 parent_id: user.id,
                 parent_email: user.email,
                 status: "active",
-              })
-            )
+              });
+            })
           );
           toast({ title: "Reward published to all children! 🎁🎉" });
         } else {
-          const selectedChild = children.find(c => c.id === form.student_id);
+          const selectedChild = children.find(c => c.id === form.student_id || c.email === form.student_id || c.username === form.student_id);
+          const targetedId = form.student_id || selectedChild?.id || selectedChild?.email || selectedChild?.username;
+          
           await base44.entities.Reward.create({
             title: form.title,
             coin_cost: Number(form.coin_cost),
             icon: form.icon,
-            student_id: form.student_id,
+            student_id: targetedId,
             student_email: selectedChild ? selectedChild.email : "",
+            student_username: selectedChild ? selectedChild.username : "",
+            username: selectedChild ? selectedChild.username : "", 
             parent_id: user.id,
             parent_email: user.email,
             status: "active",
@@ -122,6 +133,7 @@ export default function ParentRewards() {
       setDialogOpen(false);
       loadData();
     } catch (err) {
+      console.error(err);
       toast({ title: "Error saving reward", variant: "destructive" });
     } finally {
       setSaving(false);
@@ -206,7 +218,13 @@ export default function ParentRewards() {
         <div className="grid gap-3 sm:grid-cols-2">
           <AnimatePresence>
             {rewards.map((reward, i) => {
-              const assignedChild = children.find(c => c.id === reward.student_id || c.email === reward.student_email);
+              const assignedChild = children.find(c => 
+                (c.id && c.id === reward.student_id) || 
+                (c.email && c.email === reward.student_email) || 
+                (c.username && c.username === reward.student_username) ||
+                (c.email && c.email === reward.student_id) ||
+                (c.username && c.username === reward.student_id)
+              );
               const isActive = reward.status === "active";
 
               return (
@@ -346,7 +364,7 @@ export default function ParentRewards() {
               />
             </div>
 
-            {/* Target Assignment (Only visible if multi-child accounts present) */}
+            {/* Target Assignment */}
             {children.length > 1 && (
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Target Recipient</Label>
@@ -360,11 +378,14 @@ export default function ParentRewards() {
                         ✨ All Children
                       </SelectItem>
                     )}
-                    {children.map(c => (
-                      <SelectItem key={c.id} value={c.id} className="rounded-lg font-medium text-slate-700">
-                        {c.full_name || c.email}
-                      </SelectItem>
-                    ))}
+                    {children.map(c => {
+                      const selectionValue = c.id || c.email || c.username;
+                      return (
+                        <SelectItem key={selectionValue} value={selectionValue} className="rounded-lg font-medium text-slate-700">
+                          {c.full_name}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
