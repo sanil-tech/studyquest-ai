@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
   Users, Plus, Eye, Key, User, RefreshCw, Trash2, 
-  GraduationCap, Award, Flame, ArrowRight, X, Search, AlertCircle, ShieldCheck, TrendingUp
+  GraduationCap, Award, Flame, ArrowRight, X, Search, AlertCircle, ShieldCheck
 } from "lucide-react";
 import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -161,18 +161,6 @@ export default function MyChildrenPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 border-4 border-primary/10 rounded-full" />
-          <div className="absolute inset-0 border-4 border-t-primary rounded-full animate-spin" />
-        </div>
-        <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading parent portal telemetry...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 sm:px-6 pb-16">
       
@@ -211,8 +199,17 @@ export default function MyChildrenPage() {
         </div>
       </div>
 
-      {/* Empty Slate Screen */}
-      {children.length === 0 ? (
+      {/* Main Content Hub */}
+      {loading && children.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-32 space-y-4">
+          <div className="relative w-12 h-12">
+            <div className="absolute inset-0 border-4 border-primary/10 rounded-full" />
+            <div className="absolute inset-0 border-4 border-t-primary rounded-full animate-spin" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading parent portal telemetry...</p>
+        </div>
+      ) : children.length === 0 ? (
+        /* Empty State Card */
         <Card className="border-dashed border-2 border-border/80 bg-muted/20 backdrop-blur-xs">
           <CardContent className="py-20 text-center max-w-md mx-auto space-y-6">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto shadow-xs">
@@ -225,7 +222,6 @@ export default function MyChildrenPage() {
               </p>
             </div>
             
-            {/* Split Options inside empty slate */}
             <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
               <Button variant="outline" onClick={() => setShowAddModal(true)} className="font-medium">
                 <Search className="w-4 h-4 mr-2" />
@@ -239,7 +235,7 @@ export default function MyChildrenPage() {
           </CardContent>
         </Card>
       ) : (
-        /* Profiles Monitoring Hub Grid */
+        /* Profiles Grid */
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <AnimatePresence>
             {children.map((child, index) => {
@@ -257,8 +253,6 @@ export default function MyChildrenPage() {
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary/80 via-accent/80 to-transparent" />
                     
                     <div className="p-6 space-y-6">
-                      
-                      {/* Identity Module */}
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className="relative">
@@ -309,7 +303,6 @@ export default function MyChildrenPage() {
                         </div>
                       </div>
 
-                      {/* ID Hash Section */}
                       <div className="text-[11px] font-medium text-muted-foreground flex items-center justify-between bg-muted/30 p-2 rounded-xl border border-border/20">
                         <span>STUDENT UNIQUE HASH:</span>
                         <span className="font-mono bg-background px-2 py-0.5 rounded border text-foreground font-semibold">
@@ -317,11 +310,10 @@ export default function MyChildrenPage() {
                         </span>
                       </div>
 
-                      {/* Progress Rail */}
                       <div className="space-y-2 bg-muted/20 dark:bg-muted/5 border border-border/40 rounded-xl p-3.5">
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-1.5 font-semibold text-muted-foreground">
-                            <TrendingUp className="w-3.5 h-3.5 text-primary" />
+                            <Plus className="w-3.5 h-3.5 text-primary" />
                             <span>Milestone Progress</span>
                           </div>
                           <span className="font-bold text-foreground">Level {child.progress?.level || 1}</span>
@@ -329,7 +321,6 @@ export default function MyChildrenPage() {
                         <Progress value={currentXpPercentage} className="h-2 bg-muted-foreground/10" />
                       </div>
 
-                      {/* Telemetry Grid */}
                       <div className="grid grid-cols-3 gap-3">
                         <div className="flex flex-col items-center justify-center p-3 rounded-xl border border-border/50 bg-background/50 text-center">
                           <div className="p-1.5 rounded-lg bg-primary/5 text-primary mb-1">
@@ -356,7 +347,6 @@ export default function MyChildrenPage() {
                         </div>
                       </div>
 
-                      {/* Navigation Systems */}
                       <div className="pt-2 border-t border-border/40 flex flex-col sm:flex-row items-center gap-2">
                         <Link to="/parent" className="w-full sm:flex-1">
                           <Button variant="default" size="sm" className="w-full h-10 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold shadow-xs gap-2 group">
@@ -396,9 +386,7 @@ export default function MyChildrenPage() {
         </div>
       )}
 
-      {/* ============================================================================
-          LINK EXISTING STUDENT DIALOG OVERLAY (By ID Hash Key)
-          ============================================================================ */}
+      {/* LINK EXISTING STUDENT DIALOG OVERLAY */}
       <AnimatePresence>
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -485,7 +473,10 @@ export default function MyChildrenPage() {
       <AddChildModal
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          loadChildren(); // <-- AUTOMATIC TELEMETRY REFRESH UPON CLOSING CREATION CARD
+        }}
         onChildAdded={loadChildren}
         onLinked={loadChildren}
       />
