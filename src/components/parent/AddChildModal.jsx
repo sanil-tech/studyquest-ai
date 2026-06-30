@@ -125,27 +125,36 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
         throw new Error("You cannot link your own account profile to yourself.");
       }
 
-      // Check for preexisting active relationship
-      const dynamicMatches = await base44.entities.ParentChildRelationship.filter({
+      // Check for preexisting active or pending relationship rows
+      const existingMatches = await base44.entities.ParentChildRelationship.filter({
         parent_id: currentUser.id,
         child_id: targetedStudent.id,
-        status: "active",
       });
 
-      if (dynamicMatches && dynamicMatches.length > 0) {
-        throw new Error("This child account is already connected to your parental dashboard.");
+      if (existingMatches && existingMatches.length > 0) {
+        const currentRel = existingMatches[0];
+        if (currentRel.status === "active") {
+          throw new Error("This child account is already active and connected to your parental dashboard.");
+        } else if (currentRel.status === "pending") {
+          throw new Error("A link request is already pending verification from this student account.");
+        } else {
+          // If relationship is inactive, switch it back to pending
+          await base44.entities.ParentChildRelationship.update(currentRel.id, {
+            status: "pending"
+          });
+        }
+      } else {
+        // FIX: Create new relationship row set to "pending" instead of bypassing approval
+        await base44.entities.ParentChildRelationship.create({
+          parent_id: currentUser.id,
+          child_id: targetedStudent.id,
+          status: "pending", 
+        });
       }
 
-      // Create new relationship entry
-      await base44.entities.ParentChildRelationship.create({
-        parent_id: currentUser.id,
-        child_id: targetedStudent.id,
-        status: "active",
-      });
-
       toast({
-        title: "Account Linked Successfully! 🎉",
-        description: `Bound ${getDisplayName(targetedStudent)} to your dashboard overview.`,
+        title: "Link Request Sent! ✉️",
+        description: `Connection requested with ${getDisplayName(targetedStudent)}. Awaiting child validation.`,
       });
 
       setStudentIdInput("");
@@ -302,10 +311,10 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Establishing Profile Link Map...
+                      Dispatching Connection Request...
                     </>
                   ) : (
-                    "Establish Dashboard Profile Link"
+                    "Request Profile Link"
                   )}
                 </Button>
               </form>
