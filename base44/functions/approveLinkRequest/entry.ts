@@ -3,100 +3,166 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    
-    // Verify student is authenticated
-    const student = await base44.auth.me();
-    if (!student || student.app_role !== 'student') {
-      return Response.json({ error: 'Unauthorized - Student access required' }, { status: 401 });
+    const parent = await base44.auth.me();
+
+    if (!parent) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { link_request_id, action } = await req.json();
-
-    if (!link_request_id || !action) {
-      return Response.json({ error: 'Link request ID and action are required' }, { status: 400 });
+    if (parent.app_role !== 'parent') {
+      return Response.json({ error: 'Only parents can link to children' }, { status: 403 });
     }
 
-    if (!['approve', 'reject'].includes(action)) {
-      return Response.json({ error: 'Action must be "approve" or "reject"' }, { status: 400 });
+    const body = await req.json();
+    const { method, student_id, link_code, childId, requestedChanges } = body;
+
+    let child;
+
+    // ===================================
+    // METHOD 1: STUDENT ID (Creates Pending Relationship)
+    // ===================================
+    if (method === 'student_id') {
+      const users = await base44.entities.User.filter({
+        student_code: student_id
+      });
+
+      if (!users.length) {
+        return Response.json({ error: "Student not found" }, { status: 404 });
+      }
+
+      child = users[0];
+
+      if (child.app_role !== 'student') {
+        return Response.json({ error: 'Not a student account' }, { status: 400 });
+      }
+
+      // Check for any existing relationship entry
+      const existing = await base44.entities.ParentChildRelationship.filter({
+        student_id: child.id,
+        parent_id: parent.id
+      });
+
+      if (existing.length > 0) {
+        return Response.json({ error: 'A relationship entry or request already exists' }, { status: 400 });
+      }
+
+      // Create relationship with status: 'pending' directly in the table
+      await base44.entities.ParentChildRelationship.create({
+        parent_id: parent.id,
+        child_id: child.id,
+        relationship: 'parent',
+        status: 'pending',
+        linked_at: new Date().toISOString()
+      });
+
+      await base44.entities.Notification.create({
+        user_id: child.id,
+        title: 'Parent Link Request',
+        message: `${parent.full_name || parent.email} wants to link to your account.`,
+        type: 'quiz_complete',
+        reference_id: parent.id
+      });
+
+      return Response.json({
+        success: true,
+        message: 'Link request sent to child for approval',
+        child: { id: child.id, name: child.full_name || child.email }
+      });
     }
 
-    // Find the link request
-    const requests = await base44.entities.LinkRequest.filter({
-      id: link_request_id,
-      student_id: student.id,
-      status: 'pending'
-    });
+    // ===================================
+    // METHOD 2: LINK CODE (Creates Active Relationship Immediately)
+    // ===================================
+    else if (method === 'link_code') {
+      const codes = await base44.entities.ParentLinkCode.filter({
+        code: link_code,
+        is_active: true
+      });
 
-    if (requests.length === 0) {
-      return Response.json({ error: 'Link request not found or already processed' }, { status: 404 });
-    }
+      if (!codes.length) {
+        return Response.json({ error: 'Invalid or expired Link Code' }, { status: 404 });
+      }
 
-    const linkRequest = requests[0];
+      const linkCode = codes[0];
+      const now = new Date();
+      const expiresAt = new Date(linkCode.expires_at);
 
-    if (action === 'approve') {
-      // Create parent-child relationship
-      await base44.asServiceRole.entities.ParentChildRelationship.create({
-        parent_id: linkRequest.parent_id,
-        child_id: student.id,
+      if (now > expiresAt) {
+        await base44.entities.ParentLinkCode.update(linkCode.id, { is_active: false });
+        return Response.json({ error: 'Link Code has expired' }, { status: 400 });
+      }
+
+      const users = await base44.entities.User.filter({ id: linkCode.child_id });
+      if (!users.length) {
+        return Response.json({ error: 'Child not found' }, { status: 404 });
+      }
+
+      child = users[0];
+
+      const existing = await base44.entities.ParentChildRelationship.filter({
+        parent_id: parent.id,
+        child_id: child.id,
+        status: 'active'
+      });
+
+      if (existing.length > 0) {
+        return Response.json({ error: 'Already linked to this child' }, { status: 400 });
+      }
+
+      await base44.entities.ParentChildRelationship.create({
+        parent_id: parent.id,
+        child_id: child.id,
         relationship: 'parent',
         status: 'active',
         linked_at: new Date().toISOString()
       });
 
-      // Update parent's linked_student_ids
-      const parent = await base44.asServiceRole.entities.User.filter({ id: linkRequest.parent_id });
-      if (parent.length > 0) {
-        const currentLinked = parent[0].linked_student_ids || [];
-        if (!currentLinked.includes(student.id)) {
-          // Note: Can't update other users directly, parent needs to refresh
-        }
+      await base44.entities.ParentLinkCode.update(linkCode.id, {
+        used_at: new Date().toISOString(),
+        used_by_parent_id: parent.id,
+        is_active: false
+      });
+
+      return Response.json({ success: true, message: 'Successfully linked' });
+    }
+
+    // ===================================
+    // METHOD 3: CRITICAL PROFILE CHANGE APPROVAL
+    // ===================================
+    else if (method === 'request_approval') {
+      if (!childId) {
+        return Response.json({ error: 'Missing childId' }, { status: 400 });
       }
 
-      // Update link request status
-      await base44.entities.LinkRequest.update(linkRequest.id, {
-        status: 'approved',
-        responded_at: new Date().toISOString()
+      // Check if they are already active before allowing change processing
+      const relations = await base44.entities.ParentChildRelationship.filter({
+        parent_id: parent.id,
+        child_id: childId,
+        status: 'active'
       });
 
-      // Create notification for parent
+      if (!relations.length) {
+        return Response.json({ error: 'No active parental relationship found' }, { status: 403 });
+      }
+
+      // Notify child about update state log
       await base44.entities.Notification.create({
-        user_id: linkRequest.parent_id,
-        title: 'Link Request Approved',
-        message: `${student.full_name || student.nickname} has approved your parent link request.`,
+        user_id: childId,
+        title: 'Critical Change Requested',
+        message: 'Your parent requested a profile change configuration modification.',
         type: 'quiz_complete',
-        reference_id: student.id
+        reference_id: parent.id
       });
 
-      return Response.json({ 
-        success: true, 
-        message: 'Parent link approved successfully',
-        parent_id: linkRequest.parent_id
-      });
+      return Response.json({ success: true, message: 'Approval verification created.' });
+    }
 
-    } else { // reject
-      // Update link request status
-      await base44.entities.LinkRequest.update(linkRequest.id, {
-        status: 'rejected',
-        responded_at: new Date().toISOString()
-      });
-
-      // Create notification for parent
-      await base44.entities.Notification.create({
-        user_id: linkRequest.parent_id,
-        title: 'Link Request Rejected',
-        message: `${student.full_name || student.nickname} has rejected your parent link request.`,
-        type: 'quiz_complete',
-        reference_id: student.id
-      });
-
-      return Response.json({ 
-        success: true, 
-        message: 'Parent link rejected'
-      });
+    else {
+      return Response.json({ error: 'Invalid method' }, { status: 400 });
     }
 
   } catch (error) {
-    console.error('ApproveLinkRequest error:', error);
-    return Response.json({ error: error.message || 'Failed to process link request' }, { status: 500 });
+    console.error('Link Error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });
