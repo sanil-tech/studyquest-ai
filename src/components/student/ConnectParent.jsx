@@ -14,54 +14,96 @@ export default function ConnectParent({ user }) {
 
   const load = async () => {
     try {
-      const reqs = await base44.entities.LinkRequest.filter({ student_email: user.email });
-      setPendingRequests(reqs.filter(r => r.status === "pending"));
-      const approved = reqs.find(r => r.status === "approved");
-      setApprovedLink(approved || null);
-    } catch {
-      // ignore
+      setLoading(true);
+
+      // Fetch links targeting this specific child's ID matching the updated schema
+      const links = await base44.entities.ParentChildRelationship.filter({ 
+        child_id: user.id 
+      });
+
+      // Hydrate parent profile data (names/emails) dynamically since it's not in the relationship entity
+      const hydrateRelationships = async (items) => {
+        return Promise.all(
+          items.map(async (item) => {
+            try {
+              const pUser = await base44.entities.User.get(item.parent_id);
+              return {
+                ...item,
+                parent_name: pUser?.full_name || pUser?.nickname || "Parent User",
+                parent_email: pUser?.email || "No email provided"
+              };
+            } catch {
+              return {
+                ...item,
+                parent_name: "Parent User",
+                parent_email: "Parent profile details loading error"
+              };
+            }
+          })
+        );
+      };
+
+      const pending = links.filter(r => r.status === "pending");
+      const approved = links.find(r => r.status === "active");
+
+      setPendingRequests(await hydrateRelationships(pending));
+      
+      if (approved) {
+        const [hydratedApproved] = await hydrateRelationships([approved]);
+        setApprovedLink(hydratedApproved);
+      } else {
+        setApprovedLink(null);
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch linkages:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [user.email]);
+  useEffect(() => { 
+    if (user?.id) load(); 
+  }, [user?.id]);
 
-  const handleAccept = async (req) => {
-    setProcessing(req.id);
+  const handleAction = async (relationshipId, action) => {
+    setProcessing(relationshipId);
     try {
-      await base44.entities.LinkRequest.update(req.id, {
-        student_id: user.id,
-        student_name: user.full_name || user.email,
-        student_email: user.email,
-        status: "approved",
+      // Direct Edge Function routing matching your exact Deno endpoint setup
+      const response = await base44.functions.respondToLinkRequest({
+        relationship_id: relationshipId,
+        action: action, // 'approve' or 'reject'
       });
-      toast({ title: "Parent linked! 🎉", description: `You're now connected to ${req.parent_name || req.parent_email}.` });
-      load();
+
+      if (response?.error) throw new Error(response.error);
+
+      toast({ 
+        title: action === "approve" ? "Parent linked! 🎉" : "Request declined", 
+        description: action === "approve" ? "You're now connected safely." : undefined
+      });
+      
+      await load();
     } catch (err) {
-      toast({ title: "Failed to accept", description: err.message, variant: "destructive" });
+      toast({ 
+        title: `Failed to ${action}`, 
+        description: err.message || "An expected server validation error occurred.", 
+        variant: "destructive" 
+      });
     } finally {
       setProcessing(null);
     }
   };
 
-  const handleReject = async (req) => {
-    setProcessing(req.id);
-    try {
-      await base44.entities.LinkRequest.update(req.id, { status: "rejected" });
-      toast({ title: "Request declined" });
-      load();
-    } catch (err) {
-      toast({ title: "Failed to decline", description: err.message, variant: "destructive" });
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-6 text-sm text-muted-foreground">
+        <Loader2 className="w-4 h-4 animate-spin mr-2" /> Syncing parent configurations...
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white rounded-2xl border border-border/50 p-5 space-y-3">
+    <div className="bg-white rounded-2xl border border-border/50 p-5 space-y-3 shadow-sm">
       <div className="flex items-center gap-2">
         <UserCheck className="w-5 h-5 text-primary" />
         <h2 className="font-heading font-semibold text-foreground">Parent Connection</h2>
@@ -70,7 +112,7 @@ export default function ConnectParent({ user }) {
       {approvedLink ? (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-700">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          Linked to {approvedLink.parent_name || approvedLink.parent_email}
+          Linked to {approvedLink.parent_name} ({approvedLink.parent_email})
         </div>
       ) : pendingRequests.length > 0 ? (
         <div className="space-y-2">
@@ -86,14 +128,14 @@ export default function ConnectParent({ user }) {
                 {req.parent_name?.[0]?.toUpperCase() || "P"}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{req.parent_name || "Parent"}</p>
+                <p className="font-medium text-sm truncate">{req.parent_name}</p>
                 <p className="text-xs text-muted-foreground truncate">{req.parent_email}</p>
               </div>
               <Button
                 size="sm"
                 className="rounded-xl"
-                onClick={() => handleAccept(req)}
-                disabled={processing === req.id}
+                onClick={() => handleAction(req.id, "approve")}
+                disabled={processing !== null}
               >
                 {processing === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Accept"}
               </Button>
@@ -101,8 +143,8 @@ export default function ConnectParent({ user }) {
                 size="sm"
                 variant="outline"
                 className="rounded-xl"
-                onClick={() => handleReject(req)}
-                disabled={processing === req.id}
+                onClick={() => handleAction(req.id, "reject")}
+                disabled={processing !== null}
               >
                 <X className="w-4 h-4" />
               </Button>
