@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
   Users, Plus, Eye, Key, User, RefreshCw, Trash2, 
-  GraduationCap, Award, Flame, ArrowRight, X, Search, AlertCircle, ShieldCheck
+  GraduationCap, Award, Flame, ArrowRight, X, Search, AlertCircle, ShieldCheck, TrendingUp
 } from "lucide-react";
 import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
