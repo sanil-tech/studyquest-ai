@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen } from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,7 +66,7 @@ export default function ProfilePage() {
           ]);
           setProgress(progs[0]);
           setWallet(wallets[0]);
-          setTotalQuizzes(attempts.length);
+          totalQuizzes && setTotalQuizzes(attempts.length);
         }
         
         setFormData({
@@ -100,8 +100,6 @@ export default function ProfilePage() {
       }
     };
     load();
-
-    return () => {};
   }, [user?.id]);
 
   const handleLogout = () => {
@@ -166,7 +164,6 @@ export default function ProfilePage() {
       });
       setEditing(false);
 
-      // Sync name to any approved LinkRequest so parent dashboard shows updated name
       if (updatedUser.app_role === "student") {
         const linkReqs = await base44.entities.LinkRequest.filter({ 
           student_email: updatedUser.email, 
@@ -199,8 +196,8 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <div className="flex items-center justify-center py-32">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
@@ -209,198 +206,257 @@ export default function ProfilePage() {
   const isParent = user?.app_role === "parent";
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      
       {/* Profile Header Card */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-primary to-indigo-600 rounded-3xl p-8 text-white text-center relative overflow-hidden"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-indigo-600 to-violet-700 p-6 md:p-10 text-white shadow-xl shadow-indigo-900/10"
       >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4 blur-lg pointer-events-none" />
         
-        <div className="relative inline-block">
-          <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4 overflow-hidden border-4 border-white/30 shadow-lg">
-            {user?.profile_picture_url ? (
-              <img 
-                src={user.profile_picture_url} 
-                alt="Profile" 
-                className="w-full h-full object-cover" 
-              />
-            ) : (
-              <span className="text-5xl">{user?.avatar_emoji || "🎓"}</span>
-            )}
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+            <div className="relative group">
+              <div className="w-28 h-28 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
+                {user?.profile_picture_url ? (
+                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-5xl select-none">{user?.avatar_emoji || "🎓"}</span>
+                )}
+              </div>
+              {isStudent && showAvatar && (
+                <button
+                  onClick={handleRemovePhoto}
+                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
+                  title="Remove photo"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "User"}</h1>
+                <span className="px-3 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-white/20 backdrop-blur-xs text-white/90">
+                  {user?.app_role || "student"}
+                </span>
+              </div>
+              <p className="text-white/75 text-sm md:text-base font-medium">{user?.email}</p>
+            </div>
           </div>
-          {isStudent && showAvatar && (
-            <button
-              onClick={handleRemovePhoto}
-              className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center text-sm hover:bg-red-600 shadow-lg"
-              title="Remove photo"
-            >
-              ×
-            </button>
+
+          {/* Header Actions Panel */}
+          {(isStudent || isParent) && (
+            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/10 w-full md:w-auto">
+              {isStudent && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAvatar(!showAvatar)}
+                  className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
+                >
+                  {showAvatar ? "Hide Options" : "Change Avatar/Photo"}
+                </Button>
+              )}
+              
+              <Button
+                size="sm"
+                variant={editing ? "secondary" : "default"}
+                disabled={saving}
+                onClick={() => editing ? handleSaveProfile() : setEditing(true)}
+                className={`text-xs h-9 px-4 font-semibold rounded-xl transition-all shadow-xs ${
+                  editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-indigo-700 hover:bg-white/90"
+                }`}
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-indigo-700/30 border-t-indigo-700 rounded-full animate-spin mr-1.5" />
+                ) : editing ? (
+                  <Check className="w-3.5 h-3.5 mr-1.5" />
+                ) : (
+                  <Pen className="w-3.5 h-3.5 mr-1.5" />
+                )}
+                {saving ? "Saving..." : editing ? "Save Profile Data" : "Edit Details"}
+              </Button>
+            </div>
           )}
         </div>
-        
-        <h1 className="text-2xl font-heading font-bold mb-1">{user?.full_name || "User"}</h1>
-        <p className="text-white/80 text-sm mb-3">{user?.email}</p>
-        <span className="inline-block px-4 py-1.5 rounded-full bg-white/20 text-sm font-medium capitalize backdrop-blur-sm">
-          {user?.app_role || "student"}
-        </span>
-        
-        {(isStudent || isParent) && (
-          <div className="flex items-center justify-center gap-4 mt-4">
-            {isStudent && (
-              <button
-                onClick={() => setShowAvatar(!showAvatar)}
-                className="text-sm text-white/90 hover:text-white underline flex items-center gap-1"
-              >
-                {showAvatar ? "Close" : "Change Photo"}
-              </button>
-            )}
-            <button
-              onClick={() => editing ? handleSaveProfile() : setEditing(true)}
-              disabled={saving}
-              className="text-sm text-white/90 hover:text-white underline font-medium flex items-center gap-1 disabled:opacity-50 bg-white/10 px-3 py-1.5 rounded-full"
-            >
-              <Pen className={`w-4 h-4 ${saving ? "animate-spin" : ""}`} />
-              {saving ? "Saving..." : (editing ? "Save Changes" : "Edit Profile")}
-            </button>
-          </div>
-        )}
       </motion.div>
 
-      {/* Student ID & Parent Link Code Section */}
-      {isStudent && (
-        <StudentIdSection user={user} />
-      )}
+      {/* Main Core Layout Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        
+        {/* Left Hand Sidebar Column */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Quick Metrics (Only for student views) */}
+          {isStudent && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="grid grid-cols-3 gap-3"
+            >
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">{totalQuizzes}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Quizzes</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">Lv {progress?.level || 1}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Level</p>
+                </CardContent>
+              </Card>
 
-      {/* Profile Photo Section */}
-      {showAvatar && isStudent && (
-        <ProfilePhotoSection
-          user={user}
-          avatarMode={avatarMode}
-          setAvatarMode={setAvatarMode}
-          uploading={uploading}
-          setUploading={setUploading}
-          fileInputRef={fileInputRef}
-          handlePhotoUpload={handlePhotoUpload}
-          handleRemovePhoto={handleRemovePhoto}
-          handleSaveAvatar={handleSaveAvatar}
-          showAvatar={showAvatar}
-          setShowAvatar={setShowAvatar}
-        />
-      )}
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">{wallet?.balance || 0}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Coins</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-      {/* Student Stats */}
-      {isStudent && (
-        <>
-          <ParentConnections user={user} />
-          
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="grid grid-cols-3 gap-3"
+          {/* Student Identifiers / Security Keys */}
+          {isStudent && (
+            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
+              <StudentIdSection user={user} />
+            </div>
+          )}
+
+          {/* Associated Parent Node Bindings */}
+          {isStudent && (
+            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
+              <ParentConnections user={user} />
+            </div>
+          )}
+
+          {/* Admin Platform Tool Links */}
+          {user?.role === "admin" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-all duration-200">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                  <BookMarked className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground">Textbook Library</p>
+                  <p className="text-xs text-muted-foreground truncate">Upload Malaysian curriculum modules</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </motion.div>
+          )}
+
+          {/* System Sign out Operations Anchor */}
+          <Button
+            variant="outline"
+            onClick={handleLogout}
+            className="w-full rounded-2xl h-12 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors font-medium text-sm"
           >
-            <Card className="border-border/50">
-              <CardContent className="p-4 text-center">
-                <BookOpen className="w-5 h-5 text-primary mx-auto mb-1" />
-                <p className="text-lg font-bold">{totalQuizzes}</p>
-                <p className="text-[10px] text-muted-foreground">Quizzes</p>
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out of Account
+          </Button>
+        </div>
+
+        {/* Right Hand / Main Content Columns Content Segment */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Avatar Settings Section Dropdown Panel */}
+          <AnimatePresence>
+            {showAvatar && isStudent && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden bg-card rounded-2xl border border-border/60 p-1 shadow-xs"
+              >
+                <ProfilePhotoSection
+                  user={user}
+                  avatarMode={avatarMode}
+                  setAvatarMode={setAvatarMode}
+                  uploading={uploading}
+                  setUploading={setUploading}
+                  fileInputRef={fileInputRef}
+                  handlePhotoUpload={handlePhotoUpload}
+                  handleRemovePhoto={handleRemovePhoto}
+                  handleSaveAvatar={handleSaveAvatar}
+                  showAvatar={showAvatar}
+                  setShowAvatar={setShowAvatar}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Core Profile Parameters Forms Layout UI Block */}
+          {(isStudent || isParent) && (
+            <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
+              <CardContent className="p-6 md:p-8">
+                <ProfileForm
+                  user={user}
+                  editing={editing}
+                  formData={formData}
+                  setFormData={setFormData}
+                  isStudent={isStudent}
+                />
               </CardContent>
             </Card>
-            <Card className="border-border/50">
-              <CardContent className="p-4 text-center">
-                <Trophy className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-                <p className="text-lg font-bold">Lv {progress?.level || 1}</p>
-                <p className="text-[10px] text-muted-foreground">Level</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50">
-              <CardContent className="p-4 text-center">
-                <Coins className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-                <p className="text-lg font-bold">{wallet?.balance || 0}</p>
-                <p className="text-[10px] text-muted-foreground">Coins</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </>
-      )}
+          )}
 
-      {/* Profile Form */}
-      {(isStudent || isParent) && (
-        <ProfileForm
-          user={user}
-          editing={editing}
-          formData={formData}
-          setFormData={setFormData}
-          isStudent={isStudent}
-        />
-      )}
+          {/* Notification System Node Hooks */}
+          {editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <NotificationPreferencesSection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+              />
+            </motion.div>
+          )}
 
-      {/* Notification Preferences */}
-      {editing && (
-        <NotificationPreferencesSection
-          editing={editing}
-          formData={formData}
-          setFormData={setFormData}
-        />
-      )}
+          {/* Curriculums Learning Track Preferences */}
+          {isStudent && editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <LearningPreferencesSection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+              />
+            </motion.div>
+          )}
 
-      {/* Learning Preferences */}
-      {isStudent && editing && (
-        <LearningPreferencesSection
-          editing={editing}
-          formData={formData}
-          setFormData={setFormData}
-        />
-      )}
-
-      {/* Security Settings */}
-      {editing && (
-        <SecuritySection
-          editing={editing}
-          formData={formData}
-          setFormData={setFormData}
-          onSavePassword={async (passwordData) => {
-            toast({
-              title: "Password change",
-              description: "Please use the forgot password flow to reset your password",
-              variant: "destructive",
-            });
-          }}
-        />
-      )}
-
-      {/* Admin tools */}
-      {user?.role === "admin" && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Link to="/admin/textbooks" className="flex items-center gap-3 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-colors">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <BookMarked className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-sm">Textbook Library</p>
-              <p className="text-xs text-muted-foreground">Upload Malaysian curriculum textbooks</p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </Link>
-        </motion.div>
-      )}
-
-      {/* Logout */}
-      <Button
-        variant="outline"
-        onClick={handleLogout}
-        className="w-full rounded-xl h-12 text-red-500 border-red-200 hover:bg-red-50"
-      >
-        <LogOut className="w-4 h-4 mr-2" />
-        Log Out
-      </Button>
+          {/* Cryptography / Account Access Keys Modification Interface */}
+          {editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <SecuritySection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+                onSavePassword={async () => {
+                  toast({
+                    title: "Security Request Notice",
+                    description: "Please utilize the native portal forgot password authorization pipeline to handle active updates.",
+                    variant: "destructive",
+                  });
+                }}
+              />
+            </motion.div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
