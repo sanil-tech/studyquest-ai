@@ -1,261 +1,70 @@
-import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { useNavigate } from "react-router-dom";
-import { GraduationCap, Key, Lock, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { motion } from "framer-motion";
-import { toast } from "@/components/ui/use-toast";
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-export default function ChildLogin() {
-  const navigate = useNavigate();
-  const [studentId, setStudentId] = useState("");
-  const [password, setPassword] = useState("");
-  const [pin, setPin] = useState("");
-  const [loginMethod, setLoginMethod] = useState("password"); // password | pin
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+const hashPassword = (password) => {
+  return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
+};
 
-  const handleLogin = async () => {
-    setLoading(true);
-    setError("");
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const { student_id, password } = await req.json();
 
-    try {
-      let resolvedStudentId = studentId.trim().toUpperCase();
-
-      if (!resolvedStudentId) {
-        setError("Please enter your Student ID");
-        setLoading(false);
-        return;
-      }
-
-      if (loginMethod === "password" && !password) {
-        setError("Please enter your password");
-        setLoading(false);
-        return;
-      }
-
-      if (loginMethod === "pin" && (!pin || pin.length < 4)) {
-        setError("Please enter your 4-6 digit PIN");
-        setLoading(false);
-        return;
-      }
-
-      // --- CLIENT-SIDE ID RESOLUTION BRIDGE ---
-      // If the student types the user-friendly "SQ-XXXXXX" code, look up their actual DB entry ID
-      if (resolvedStudentId.startsWith("SQ-")) {
-        try {
-          // Check standard schema possibilities for user-friendly ID matching
-          let matchedProfiles = await base44.entities.User.filter({
-            student_id: resolvedStudentId
-          });
-
-          // Fallback check if field is named display_student_id
-          if (!matchedProfiles || matchedProfiles.length === 0) {
-            matchedProfiles = await base44.entities.User.filter({
-              display_student_id: resolvedStudentId
-            });
-          }
-
-          if (matchedProfiles && matchedProfiles.length > 0) {
-            resolvedStudentId = matchedProfiles[0].id; // Swap to internal database hash string
-          }
-        } catch (lookupErr) {
-          console.warn("Display code conversion lookup bypassed:", lookupErr);
-        }
-      }
-
-      const response = await base44.functions.invoke("childLogin", {
-        student_id: resolvedStudentId,
-        password: loginMethod === "password" ? password : null,
-        pin: loginMethod === "pin" ? pin : null,
-      });
-
-      if (response.data.success) {
-        const userData = response.data.user;
-        localStorage.setItem('studyquest_session', JSON.stringify({
-          type: 'child',
-          userId: userData.id,
-          loginTime: new Date().toISOString()
-        }));
-        localStorage.setItem('studyquest_user', JSON.stringify(userData));
-        
-        toast({
-          title: "Welcome back! 🎉",
-          description: `Hi ${userData.nickname || userData.display_name || "Hero"}!`,
-          duration: 2000
-        });
-        
-        if (userData.profile_completed) {
-          window.location.href = "/dashboard";
-        } else {
-          window.location.href = "/complete-profile";
-        }
-      } else {
-        setError(response.data.error || "Login failed. Please try again.");
-      }
-    } catch (err) {
-      console.error("Child login error:", err);
-      setError(err.response?.data?.error || "Incorrect details, please try again.");
-    } finally {
-      setLoading(false);
+    if (!student_id) {
+      return Response.json({ error: 'Student ID is required' }, { status: 400 });
     }
-  };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleLogin();
+    const rawInput = student_id.trim();
+    const uppercaseInput = rawInput.toUpperCase();
+
+    // 1. Let's do a direct search for the student ID
+    let searchResults = await base44.asServiceRole.entities.User.filter({ student_id: uppercaseInput });
+
+    // X-RAY CHECK 1: If it didn't find the user, tell us EXACTLY what happened!
+    if (!searchResults || searchResults.length === 0) {
+      // Let's search all users to see if ANY exist to verify database connection
+      const allUsers = await base44.asServiceRole.entities.User.filter({});
+      const allUserIds = allUsers.map(u => u.student_id).filter(id => id).join(', ');
+
+      return Response.json({ 
+        error: `DIAGNOSTIC: Could not find ${uppercaseInput}. Found these IDs in DB: [${allUserIds || "None"}]` 
+      }, { status: 401 });
     }
-  };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Card className="w-full max-w-md border-2 border-primary/20 shadow-xl">
-          <CardHeader className="text-center pb-2">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <GraduationCap className="w-8 h-8 text-primary" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold text-primary">
-              Welcome to StudyQuest! 🚀
-            </CardTitle>
-            <CardDescription className="text-base mt-2">
-              Login with your Student ID
-            </CardDescription>
-          </CardHeader>
+    const user = searchResults[0];
 
-          <CardContent className="space-y-4 pt-4">
-            {/* Login Method Toggle */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg">
-              <Button
-                variant={loginMethod === "password" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setLoginMethod("password");
-                  setPin("");
-                  setError("");
-                }}
-                className={loginMethod === "password" ? "shadow" : ""}
-              >
-                <Key className="w-4 h-4 mr-1" />
-                Password
-              </Button>
-              <Button
-                variant={loginMethod === "pin" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setLoginMethod("pin");
-                  setPassword("");
-                  setError("");
-                }}
-                className={loginMethod === "pin" ? "shadow" : ""}
-              >
-                <Lock className="w-4 h-4 mr-1" />
-                PIN
-              </Button>
-            </div>
+    // X-RAY CHECK 2: Found the user, but maybe the account types are blocking them?
+    if (!user.is_child_account) {
+      return Response.json({ error: `DIAGNOSTIC: Found user, but is_child_account is ${user.is_child_account}` }, { status: 400 });
+    }
 
-            {/* Student ID Input */}
-            <div className="space-y-2">
-              <Label htmlFor="studentId" className="text-base font-semibold">
-                Student ID
-              </Label>
-              <Input
-                id="studentId"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value.toUpperCase())}
-                onKeyPress={handleKeyPress}
-                placeholder="SQ-ABC123"
-                className="text-lg h-12 font-mono tracking-wide"
-                autoFocus
-              />
-            </div>
+    // X-RAY CHECK 3: Test Password Hash Match
+    const generatedHash = hashPassword(password);
+    if (generatedHash !== user.password_hash) {
+      return Response.json({ 
+        error: `DIAGNOSTIC: Password mismatch! DB Hash: ${user.password_hash?.substring(0,5)}... Input Hash: ${generatedHash?.substring(0,5)}...` 
+      }, { status: 401 });
+    }
 
-            {/* Password or PIN Input */}
-            {loginMethod === "password" ? (
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-base font-semibold">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter your password"
-                  className="text-lg h-12"
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="pin" className="text-base font-semibold">
-                  PIN (4-6 digits)
-                </Label>
-                <Input
-                  id="pin"
-                  type="password"
-                  inputMode="numeric"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  onKeyPress={handleKeyPress}
-                  placeholder="••••"
-                  className="text-lg h-12 font-mono tracking-widest"
-                  maxLength={6}
-                />
-              </div>
-            )}
+    // Successful login!
+    const sessionData = {
+      user_id: user.id,
+      student_id: user.student_id,
+      timestamp: Date.now(),
+    };
+    const sessionToken = btoa(JSON.stringify(sessionData));
 
-            {/* Error Message */}
-            {error && (
-              <Alert variant="destructive" className="border-red-200 bg-red-50">
-                <AlertCircle className="w-4 h-4" />
-                <AlertDescription className="text-sm">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
+    return Response.json({
+      success: true,
+      session_token: sessionToken,
+      user: {
+        id: user.id,
+        nickname: user.nickname || user.full_name,
+        student_id: user.student_id,
+        profile_completed: user.profile_completed,
+      },
+    });
 
-            {/* Login Button */}
-            <Button
-              onClick={handleLogin}
-              disabled={loading}
-              className="w-full h-14 text-lg font-bold rounded-xl mt-4"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                "Login 🎯"
-              )}
-            </Button>
-
-            {/* Back to Main Login */}
-            <div className="pt-2">
-              <a href="/login" className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-                Back to Main Login
-              </a>
-            </div>
-
-            {/* Help Text */}
-            <p className="text-xs text-center text-muted-foreground mt-4">
-              Forgot your credentials? Ask your parent to help! 👨‍👩‍👧
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
-  );
-}
+  } catch (error) {
+    return Response.json({ error: `SERVER ERROR: ${error.message}` }, { status: 500 });
+  }
+});
