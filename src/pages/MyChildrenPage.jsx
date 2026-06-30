@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { 
   Users, Plus, Eye, Key, User, RefreshCw, Trash2, 
   GraduationCap, Award, Flame, ShieldAlert, Sparkles, 
-  TrendingUp, Calendar, ArrowRight, Settings, X, Search, AlertCircle, ShieldCheck
+  TrendingUp, Calendar, ArrowRight, Settings, X, Search, AlertCircle, ShieldCheck, UserPlus
 } from "lucide-react";
 import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,12 +14,18 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
+// 1. IMPORT YOUR ADD CHILD MODAL (Verify path matching)
+import AddChildModal from "@/components/parent/AddChildModal"; 
 
 export default function MyChildrenPage() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false); // Controls the ID Linking Modal
+  
+  // 2. ADD STATE FOR THE CREATION MODAL
+  const [showCreateModal, setShowCreateModal] = useState(false); 
+  
   const [showCredentialManager, setShowCredentialManager] = useState(false);
   const [selectedChild, setSelectedChild] = useState(null);
   
@@ -110,7 +116,6 @@ export default function MyChildrenPage() {
     setModalError("");
 
     try {
-      // 1. Verify that the child profile exists in the system database
       let targetedStudent;
       try {
         targetedStudent = await base44.entities.User.get(cleanId);
@@ -118,12 +123,10 @@ export default function MyChildrenPage() {
         throw new Error("No active student profiles discovered matching this custom unique ID.");
       }
 
-      // Safeguard against self-linking loops
       if (targetedStudent.id === user.id) {
         throw new Error("Invalid operation: You cannot link a parental dashboard back to yourself.");
       }
 
-      // 2. Scan database to avoid conflicting duplicate mappings
       const preExisting = await base44.entities.ParentChildRelationship.filter({
         parent_id: user.id,
         child_id: cleanId,
@@ -134,7 +137,6 @@ export default function MyChildrenPage() {
         throw new Error("This profile account link is already securely bound to your dashboard.");
       }
 
-      // 3. Create the parent-child relational node link
       await base44.entities.ParentChildRelationship.create({
         parent_id: user.id,
         child_id: cleanId,
@@ -197,14 +199,23 @@ export default function MyChildrenPage() {
             Track daily streaks, audit wallet distributions, and review continuous learning behavior metrics.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start md:self-center">
+        
+        {/* ACTION BUTTONS */}
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
           <Button variant="outline" size="sm" onClick={loadChildren} disabled={loading} className="h-10 bg-background shadow-xs hover:bg-muted/50">
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh Activity
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="ml-2 hidden sm:inline">Refresh</span>
           </Button>
-          <Button onClick={() => setShowAddModal(true)} className="h-10 shadow-sm bg-primary hover:bg-primary/90 font-semibold px-4">
+          
+          <Button variant="outline" onClick={() => setShowAddModal(true)} className="h-10 shadow-xs border-dashed font-semibold px-4">
+            <Search className="w-4 h-4 mr-2" />
+            Link Existing ID
+          </Button>
+
+          {/* 3. NEW ADD CHILD ACCOUNT TRIGGER BUTTON */}
+          <Button onClick={() => setShowCreateModal(true)} className="h-10 shadow-sm bg-primary hover:bg-primary/90 font-semibold px-4">
             <Plus className="w-4 h-4 mr-2 stroke-[2.5]" />
-            Link Child Profile
+            Create Child Profile
           </Button>
         </div>
       </div>
@@ -212,18 +223,28 @@ export default function MyChildrenPage() {
       {/* Empty Slate Screen */}
       {children.length === 0 ? (
         <Card className="border-dashed border-2 border-border/80 bg-muted/20 backdrop-blur-xs">
-          <CardContent className="py-20 text-center max-w-md mx-auto">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6 shadow-xs">
+          <CardContent className="py-20 text-center max-w-md mx-auto space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto shadow-xs">
               <Users className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-2">No profiles connected</h3>
-            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-              Link your student's workspace account using their unique generated student ID to monitor level progressions, tracking lines, and coins.
-            </p>
-            <Button onClick={() => setShowAddModal(true)} size="lg" className="shadow-md font-medium">
-              <Plus className="w-4 h-4 mr-2 stroke-[2.5]" />
-              Connect Student Now
-            </Button>
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-foreground">No profiles connected</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Get started by creating a managed child account or linking an existing workspace mapping.
+              </p>
+            </div>
+            
+            {/* Split Options inside empty slate */}
+            <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+              <Button variant="outline" onClick={() => setShowAddModal(true)} className="font-medium">
+                <Search className="w-4 h-4 mr-2" />
+                Link Existing ID
+              </Button>
+              <Button onClick={() => setShowCreateModal(true)} className="shadow-md font-medium">
+                <Plus className="w-4 h-4 mr-2 stroke-[2.5]" />
+                Create New Profile
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -242,13 +263,11 @@ export default function MyChildrenPage() {
                   transition={{ duration: 0.25, delay: index * 0.04 }}
                 >
                   <Card className="relative overflow-hidden border border-border/70 bg-card hover:shadow-lg hover:border-primary/40 dark:hover:border-primary/30 transition-all duration-300">
-                    
-                    {/* Status Strip Accent */}
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary/80 via-accent/80 to-transparent" />
                     
                     <div className="p-6 space-y-6">
                       
-                      {/* Identity & Bio Module */}
+                      {/* Identity Module */}
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className="relative">
@@ -286,7 +305,7 @@ export default function MyChildrenPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1">
+                        <div>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -302,12 +321,12 @@ export default function MyChildrenPage() {
                       {/* ID Hash Section */}
                       <div className="text-[11px] font-medium text-muted-foreground flex items-center justify-between bg-muted/30 p-2 rounded-xl border border-border/20">
                         <span>STUDENT UNIQUE HASH:</span>
-                        <span className="font-mono bg-background px-2 py-0.5 rounded border text-foreground font-semibold selection:bg-indigo-200">
+                        <span className="font-mono bg-background px-2 py-0.5 rounded border text-foreground font-semibold">
                           {child.id}
                         </span>
                       </div>
 
-                      {/* Level Milestones Metrics Progress Rail */}
+                      {/* Progress Rail */}
                       <div className="space-y-2 bg-muted/20 dark:bg-muted/5 border border-border/40 rounded-xl p-3.5">
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-1.5 font-semibold text-muted-foreground">
@@ -317,21 +336,15 @@ export default function MyChildrenPage() {
                           <span className="font-bold text-foreground">Level {child.progress?.level || 1}</span>
                         </div>
                         <Progress value={currentXpPercentage} className="h-2 bg-muted-foreground/10" />
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground/80 font-medium">
-                          <span>XP Progression</span>
-                          <span>Next Level Target</span>
-                        </div>
                       </div>
 
-                      {/* Main Telemetry Panel */}
+                      {/* Telemetry Grid */}
                       <div className="grid grid-cols-3 gap-3">
                         <div className="flex flex-col items-center justify-center p-3 rounded-xl border border-border/50 bg-background/50 text-center">
                           <div className="p-1.5 rounded-lg bg-primary/5 text-primary mb-1">
                             <Award className="w-4 h-4 stroke-[2.5]" />
                           </div>
-                          <p className="text-xl font-black tracking-tight text-foreground">
-                            {child.progress?.level || 1}
-                          </p>
+                          <p className="text-xl font-black tracking-tight text-foreground">{child.progress?.level || 1}</p>
                           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Level Rank</span>
                         </div>
 
@@ -339,24 +352,20 @@ export default function MyChildrenPage() {
                           <div className="p-1.5 rounded-lg bg-amber-500/5 text-amber-500 mb-1">
                             <span className="text-sm font-bold">🪙</span>
                           </div>
-                          <p className="text-xl font-black tracking-tight text-amber-600 dark:text-amber-400">
-                            {child.wallet?.balance || 0}
-                          </p>
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Coin Inventory</span>
+                          <p className="text-xl font-black tracking-tight text-amber-600 dark:text-amber-400">{child.wallet?.balance || 0}</p>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Coins</span>
                         </div>
 
                         <div className="flex flex-col items-center justify-center p-3 rounded-xl border border-border/50 bg-background/50 text-center">
                           <div className="p-1.5 rounded-lg bg-orange-500/5 text-orange-500 mb-1">
                             <Flame className="w-4 h-4 fill-orange-500 stroke-none" />
                           </div>
-                          <p className="text-xl font-black tracking-tight text-foreground">
-                            {child.progress?.streak_days || 0}
-                          </p>
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Active Streak</span>
+                          <p className="text-xl font-black tracking-tight text-foreground">{child.progress?.streak_days || 0}</p>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Streak</span>
                         </div>
                       </div>
 
-                      {/* Parent Supervision Navigation System */}
+                      {/* Navigation Systems */}
                       <div className="pt-2 border-t border-border/40 flex flex-col sm:flex-row items-center gap-2">
                         <Link to="/parent" className="w-full sm:flex-1">
                           <Button variant="default" size="sm" className="w-full h-10 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold shadow-xs gap-2 group">
@@ -367,10 +376,9 @@ export default function MyChildrenPage() {
                         </Link>
                         
                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                          <Link to={`/parent/children/${child.id}`} className="flex-1 sm:flex-initial" title="Configure Core Profiles">
+                          <Link to={`/parent/children/${child.id}`} className="flex-1 sm:flex-initial">
                             <Button variant="outline" size="sm" className="w-full h-10 font-semibold px-3 text-muted-foreground hover:text-foreground shadow-xs">
-                              <User className="w-4 h-4 sm:mr-0" />
-                              <span className="sm:hidden ml-2">Edit Account</span>
+                              <User className="w-4 h-4" />
                             </Button>
                           </Link>
 
@@ -382,10 +390,8 @@ export default function MyChildrenPage() {
                               setSelectedChild(child);
                               setShowCredentialManager(true);
                             }}
-                            title="Manage Passwords & Credentials"
                           >
                             <Key className="w-4 h-4" />
-                            <span className="sm:hidden">Credentials Access</span>
                           </Button>
                         </div>
                       </div>
@@ -400,7 +406,7 @@ export default function MyChildrenPage() {
       )}
 
       {/* ============================================================================
-          DYNAMIC INLINE INDIVIDUAL STUDENT ID VERIFICATION OVERLAY DIALOG 
+          LINK EXISTING STUDENT DIALOG OVERLAY (By ID Hash Key)
           ============================================================================ */}
       <AnimatePresence>
         {showAddModal && (
@@ -429,7 +435,7 @@ export default function MyChildrenPage() {
                 <button 
                   disabled={modalSubmitting}
                   onClick={() => setShowAddModal(false)}
-                  className="p-1 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+                  className="p-1 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -466,14 +472,14 @@ export default function MyChildrenPage() {
                     variant="ghost"
                     disabled={modalSubmitting}
                     onClick={() => setShowAddModal(false)}
-                    className="rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted h-10 px-4"
+                    className="rounded-xl text-xs font-semibold text-muted-foreground h-10 px-4"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={modalSubmitting}
-                    className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 px-5 shadow-xs min-w-[110px]"
+                    className="rounded-xl bg-primary text-primary-foreground font-semibold h-10 px-5 shadow-xs"
                   >
                     {modalSubmitting ? "Verifying..." : "Link Profile"}
                   </Button>
@@ -483,6 +489,17 @@ export default function MyChildrenPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* ============================================================================
+          4. NEW CODE: ADD CHILD PROFILES CREATION LAYER MODAL
+          ============================================================================ */}
+      <AddChildModal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onChildAdded={loadChildren}
+        onLinked={loadChildren}
+      />
 
       {selectedChild && (
         <ChildCredentialManager
