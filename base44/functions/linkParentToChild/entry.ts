@@ -10,19 +10,19 @@ Deno.serve(async (req) => {
     }
 
     if (parent.app_role !== 'parent') {
-      return Response.json({ error: 'Only parents can link to children' }, { status: 403 });
+      return Response.json({ error: 'Only parents can link or handle child profiles' }, { status: 403 });
     }
 
-    const { method, student_id, link_code } = await req.json();
+    const body = await req.json();
+    const { method, student_id, link_code, childId, requestedChanges } = body;
 
     let child;
 
-    // =========================
+    // ===================================
     // METHOD 1: STUDENT ID
-    // =========================
+    // ===================================
     if (method === 'student_id') {
-
-      // FIXED: correct lookup by student_code
+      // Lookup by student_code
       const users = await base44.entities.User.filter({
         student_code: student_id
       });
@@ -83,11 +83,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // =========================
+    // ===================================
     // METHOD 2: LINK CODE
-    // =========================
+    // ===================================
     else if (method === 'link_code') {
-
       const codes = await base44.entities.ParentLinkCode.filter({
         code: link_code,
         is_active: true
@@ -101,7 +100,6 @@ Deno.serve(async (req) => {
       }
 
       const linkCode = codes[0];
-
       const now = new Date();
       const expiresAt = new Date(linkCode.expires_at);
 
@@ -116,7 +114,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // FIXED: correct user lookup
       const users = await base44.entities.User.filter({
         id: linkCode.child_id
       });
@@ -172,12 +169,55 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ===================================
+    // METHOD 3: REQUEST APPROVAL (NEW)
+    // ===================================
+    else if (method === 'request_approval') {
+      if (!childId) {
+        return Response.json({ error: 'Missing childId parameter' }, { status: 400 });
+      }
+
+      // Verify profile ownership/link exists before letting parent handle request workflow
+      const checkRelationship = await base44.entities.ParentChildRelationship.filter({
+        parent_id: parent.id,
+        child_id: childId,
+        status: 'active'
+      });
+
+      if (!checkRelationship.length) {
+        return Response.json({ error: 'Unauthorized profile operation for this child' }, { status: 403 });
+      }
+
+      // Create internal request item or trigger dynamic profile updates
+      await base44.entities.LinkRequest.create({
+        student_id: childId,
+        parent_id: parent.id,
+        initiated_by: 'parent',
+        status: 'pending',
+        metadata: JSON.stringify({ ...requestedChanges, critical_update: true })
+      });
+
+      // Notify child about verified changes state context shift
+      await base44.entities.Notification.create({
+        user_id: childId,
+        title: 'Critical Change Handled',
+        message: 'Your profile changes have been registered and checked under parent approval logic.',
+        type: 'quiz_complete',
+        reference_id: parent.id
+      });
+
+      return Response.json({
+        success: true,
+        message: 'Parent approval request processed successfully.'
+      });
+    }
+
     else {
       return Response.json({ error: 'Invalid method' }, { status: 400 });
     }
 
   } catch (error) {
-    console.error('Link Parent to Child error:', error);
+    console.error('Link/Approval error:', error);
     return Response.json(
       { error: error.message },
       { status: 500 }
