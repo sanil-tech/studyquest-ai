@@ -18,32 +18,45 @@ Deno.serve(async (req) => {
     }
 
     const cleanInputId = student_id.trim();
+    let user = null;
 
-    // 1. Try finding user by the custom Student ID column (e.g., "SQ-QG2XQA")
-    let users = await base44.asServiceRole.entities.User.filter({ student_id: cleanInputId });
+    // --- STRATEGIC TRIPLE-FALLBACK LOOKUP MATRIX ---
     
-    // 2. Fallback: If not found, try searching case-insensitive or by internal database ID
-    if (users.length === 0) {
-      users = await base44.asServiceRole.entities.User.filter({ student_id: cleanInputId.toUpperCase() });
+    // Pathway 1: Try checking the custom `student_id` column explicitly
+    let searchResults = await base44.asServiceRole.entities.User.filter({ student_id: cleanInputId });
+    if (searchResults.length === 0) {
+      searchResults = await base44.asServiceRole.entities.User.filter({ student_id: cleanInputId.toUpperCase() });
     }
-    
-    if (users.length === 0) {
+
+    // Pathway 2: If not found, try filtering by username or email field in case it saved there
+    if (searchResults.length === 0) {
+      searchResults = await base44.asServiceRole.entities.User.filter({ username: cleanInputId.toLowerCase() });
+    }
+    if (searchResults.length === 0) {
+      searchResults = await base44.asServiceRole.entities.User.filter({ email: cleanInputId.toLowerCase() });
+    }
+
+    // Assign if any filter matches hit a record
+    if (searchResults && searchResults.length > 0) {
+      user = searchResults[0];
+    }
+
+    // Pathway 3: Fallback straight to direct internal record ID matching
+    if (!user) {
       try {
-        const structuralUser = await base44.asServiceRole.entities.User.get(cleanInputId);
-        if (structuralUser) {
-          users = [structuralUser];
+        const structuralRecord = await base44.asServiceRole.entities.User.get(cleanInputId);
+        if (structuralRecord) {
+          user = structuralRecord;
         }
       } catch (e) {
-        // Not a valid internal ID string, skip fallback
+        // Not a structural database ID layout string, ignore error safely
       }
     }
-    
-    // If still no user found after all pathways, return error
-    if (users.length === 0) {
+
+    // If absolutely nothing matched the user collection, break out safely
+    if (!user) {
       return Response.json({ error: 'Incorrect Student ID' }, { status: 401 });
     }
-
-    const user = users[0];
 
     // Check if account is locked
     if (user.account_locked) {
@@ -106,7 +119,7 @@ Deno.serve(async (req) => {
     // Create a session token by encoding user ID with timestamp
     const sessionData = {
       user_id: user.id,
-      student_id: user.student_id,
+      student_id: user.student_id || cleanInputId,
       app_role: user.app_role,
       timestamp: Date.now(),
       expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
@@ -121,7 +134,7 @@ Deno.serve(async (req) => {
         id: user.id,
         full_name: user.full_name,
         nickname: user.nickname || user.full_name,
-        student_id: user.student_id,
+        student_id: user.student_id || cleanInputId,
         app_role: user.app_role,
         profile_completed: user.profile_completed,
         avatar_photo_url: user.avatar_photo_url,
