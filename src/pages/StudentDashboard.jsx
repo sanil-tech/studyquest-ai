@@ -21,7 +21,7 @@ export default function StudentDashboard() {
   const { toast } = useToast();
 
   // ==========================================
-  // LOAD DATA & MANUALLY MATCH PENDING LINKS
+  // LOAD DATA & HYDRATE PARENT RELATIONSHIPS
   // ==========================================
   const loadDashboardData = async () => {
     try {
@@ -32,11 +32,12 @@ export default function StudentDashboard() {
       setUser(currentUser);
 
       // 2. Fetch baseline blocks
-      const [progressData, walletData, sessionData, quizData] = await Promise.all([
+      const [progressData, walletData, sessionData, quizData, pendingRels] = await Promise.all([
         base44.entities.Progress.filter({ student_id: currentUser.id }),
         base44.entities.Wallet.filter({ student_id: currentUser.id }),
         base44.entities.StudySession.filter({ student_id: currentUser.id }, "-created_date", 10),
         base44.entities.QuizAttempt.filter({ student_id: currentUser.id }, "-created_date", 10),
+        base44.entities.ParentChildRelationship.filter({ child_id: currentUser.id, status: "pending" }),
       ]);
 
       if (progressData?.[0]) setProgress(progressData[0]);
@@ -44,18 +45,30 @@ export default function StudentDashboard() {
       if (sessionData) setSessions(sessionData);
       if (quizData) setQuizzes(quizData);
 
-      // 3. FETCH & MANUALLY FILTER PENDING REQUESTS
-      const allPending = await base44.entities.LinkRequest.filter({ status: "pending" });
-      
-      // Broad matching fallback matrix (matches anything with ID, Email, or Username variations)
-      const myInvites = allPending.filter(req => 
-        String(req.student_id) === String(currentUser.id) ||
-        (req.student_email && String(req.student_email).toLowerCase() === String(currentUser.email).toLowerCase()) ||
-        (req.student_username && String(req.student_username).toLowerCase() === String(currentUser.username || currentUser.nickname).toLowerCase()) ||
-        (req.username && String(req.username).toLowerCase() === String(currentUser.username || currentUser.nickname).toLowerCase())
-      );
-
-      setPendingRequests(myInvites);
+      // 3. HYDRATE PARENT USER PROFILE DATA
+      if (pendingRels && pendingRels.length > 0) {
+        const hydratedRequests = await Promise.all(
+          pendingRels.map(async (rel) => {
+            try {
+              const parentUser = await base44.entities.User.get(rel.parent_id);
+              return {
+                id: rel.id,
+                parent_name: parentUser.full_name || parentUser.nickname || parentUser.username,
+                parent_email: parentUser.email || "No contact email linked",
+              };
+            } catch {
+              return {
+                id: rel.id,
+                parent_name: "Unknown Parent Account",
+                parent_email: "System verification required",
+              };
+            }
+          })
+        );
+        setPendingRequests(hydratedRequests);
+      } else {
+        setPendingRequests([]);
+      }
 
     } catch (err) {
       console.error("Error loading student dashboard:", err);
@@ -74,34 +87,40 @@ export default function StudentDashboard() {
   }, []);
 
   // ==========================================
-  // TRIGGER DENO EDGE FUNCTION APPROVAL
+  // DIRECT MUTATION OF THE LINK STATUS
   // ==========================================
-  const handleLinkAction = async (linkRequestId, actionType) => {
+  const handleLinkAction = async (relationshipId, actionType) => {
     setActionLoading(true);
     try {
-      const response = await fetch("/api/approve-link-request", { 
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          link_request_id: linkRequestId,
-          action: actionType // 'approve' | 'reject'
-        })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        toast({ 
-          title: actionType === "approve" ? "Family Link Approved! 🎉" : "Request Declined",
-          description: actionType === "approve" ? "Your dashboard is now successfully connected to your parent." : ""
+      if (actionType === "approve") {
+        // Update connection status row directly via entity SDK
+        await base44.entities.ParentChildRelationship.update(relationshipId, {
+          status: "active",
         });
-        loadDashboardData(); // Refresh UI and clear banner
+        
+        toast({ 
+          title: "Family Link Approved! 🎉",
+          description: "Your dashboard is now successfully connected to your parent." 
+        });
       } else {
-        toast({ title: data.error || "Action failed", variant: "destructive" });
+        // Drop the invitation request row completely from database
+        await base44.entities.ParentChildRelationship.delete(relationshipId);
+        
+        toast({ 
+          title: "Request Declined",
+          description: "Dismissed dashboard connection map successfully." 
+        });
       }
+
+      // Re-initialize local state tables
+      loadDashboardData();
     } catch (err) {
       console.error(err);
-      toast({ title: "Network error processing link", variant: "destructive" });
+      toast({ 
+        title: "Action Failed", 
+        description: err.message || "Network error processing link", 
+        variant: "destructive" 
+      });
     } finally {
       setActionLoading(false);
     }
@@ -164,7 +183,7 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* 🚨 RESTORED & OPTIMIZED: PENDING INTERACTION BANNER */}
+      {/* 🚨 RECONFIGURED: DYNAMIC PENDING RELATIONSHIPS BANNER */}
       <AnimatePresence>
         {pendingRequests.length > 0 && (
           <motion.div 
@@ -181,8 +200,12 @@ export default function StudentDashboard() {
             {pendingRequests.map(req => (
               <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-amber-100 shadow-2xs">
                 <div>
-                  <p className="text-sm font-black text-slate-800 tracking-tight">Parent Connection Invite</p>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">{req.parent_email}</p>
+                  <p className="text-sm font-black text-slate-800 tracking-tight">
+                    {req.parent_name}
+                  </p>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    {req.parent_email} • Wants to link to your dashboard
+                  </p>
                 </div>
                 
                 <div className="flex items-center gap-2">
