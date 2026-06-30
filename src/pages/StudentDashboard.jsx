@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   Coins, Trophy, Clock, BookOpen, Flame, 
-  Target, Sparkles, Award, ArrowRight, Play, CheckCircle2
+  Target, Sparkles, Award, ArrowRight, Play, CheckCircle2, UserCheck, UserX, ShieldAlert
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 
 export default function StudentDashboard() {
@@ -15,11 +15,13 @@ export default function StudentDashboard() {
   const [wallet, setWallet] = useState({ balance: 0 });
   const [sessions, setSessions] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
 
   // ==========================================
-  // LOAD DATA & AUTO-REPAIR PARENT LINKS
+  // LOAD DATA & MANUALLY MATCH PENDING LINKS
   // ==========================================
   const loadDashboardData = async () => {
     try {
@@ -29,7 +31,7 @@ export default function StudentDashboard() {
       const currentUser = await base44.auth.me();
       setUser(currentUser);
 
-      // 2. Fetch baseline data blocks
+      // 2. Fetch baseline blocks
       const [progressData, walletData, sessionData, quizData] = await Promise.all([
         base44.entities.Progress.filter({ student_id: currentUser.id }),
         base44.entities.Wallet.filter({ student_id: currentUser.id }),
@@ -42,36 +44,21 @@ export default function StudentDashboard() {
       if (sessionData) setSessions(sessionData);
       if (quizData) setQuizzes(quizData);
 
-      // 3. BACKGROUND LINK SYNC (Bypasses manual button click)
-      // Pull all pending link requests across the platform
+      // 3. FETCH & MANUALLY FILTER PENDING REQUESTS
       const allPending = await base44.entities.LinkRequest.filter({ status: "pending" });
       
-      // Match against this specific logged-in student using multiple fallbacks
-      const matchingRequest = allPending.find(req => 
+      // Broad matching fallback matrix (matches anything with ID, Email, or Username variations)
+      const myInvites = allPending.filter(req => 
         String(req.student_id) === String(currentUser.id) ||
         (req.student_email && String(req.student_email).toLowerCase() === String(currentUser.email).toLowerCase()) ||
         (req.student_username && String(req.student_username).toLowerCase() === String(currentUser.username || currentUser.nickname).toLowerCase()) ||
         (req.username && String(req.username).toLowerCase() === String(currentUser.username || currentUser.nickname).toLowerCase())
       );
 
-      // If a match is found, auto-trigger approval route to configure data relations
-      if (matchingRequest) {
-        const response = await fetch("/api/approve-link-request", { 
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            link_request_id: matchingRequest.id,
-            action: "approve"
-          })
-        });
-        
-        if (response.ok) {
-          console.log(`Successfully synced and auto-linked family account for request: ${matchingRequest.id}`);
-        }
-      }
+      setPendingRequests(myInvites);
 
     } catch (err) {
-      console.error("Error loading student dashboard data links:", err);
+      console.error("Error loading student dashboard:", err);
       toast({
         title: "Oops!",
         description: "Failed to load your learning data.",
@@ -86,6 +73,40 @@ export default function StudentDashboard() {
     loadDashboardData();
   }, []);
 
+  // ==========================================
+  // TRIGGER DENO EDGE FUNCTION APPROVAL
+  // ==========================================
+  const handleLinkAction = async (linkRequestId, actionType) => {
+    setActionLoading(true);
+    try {
+      const response = await fetch("/api/approve-link-request", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          link_request_id: linkRequestId,
+          action: actionType // 'approve' | 'reject'
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        toast({ 
+          title: actionType === "approve" ? "Family Link Approved! 🎉" : "Request Declined",
+          description: actionType === "approve" ? "Your dashboard is now successfully connected to your parent." : ""
+        });
+        loadDashboardData(); // Refresh UI and clear banner
+      } else {
+        toast({ title: data.error || "Action failed", variant: "destructive" });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Network error processing link", variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // =========================
   // CALCULATIONS
   // =========================
@@ -94,7 +115,6 @@ export default function StudentDashboard() {
   const nextLevelXp = level * 200;
   const xpPercentage = Math.min((xp / nextLevelXp) * 100, 100);
 
-  // Calculate minutes logged today
   const todayDateString = moment().format("YYYY-MM-DD");
   const todayMinutes = sessions
     .filter(s => moment(s.created_date).isSame(todayDateString, "day"))
@@ -119,7 +139,6 @@ export default function StudentDashboard() {
 
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-            {/* Avatar Shield Frame */}
             <div className="w-20 h-20 rounded-2xl bg-white shadow-md flex items-center justify-center text-4xl transform rotate-3 hover:rotate-0 transition-transform duration-300 shrink-0">
               {user?.avatar_emoji || "🚀"}
             </div>
@@ -138,7 +157,6 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          {/* Quick Action Button */}
           <Button className="bg-white text-emerald-600 hover:bg-emerald-50 font-extrabold rounded-2xl shadow-sm px-6 py-6 border-0 text-base group">
             <Play className="w-4 h-4 mr-2 fill-emerald-600 group-hover:scale-110 transition-transform" />
             Resume Next Lesson
@@ -146,9 +164,54 @@ export default function StudentDashboard() {
         </div>
       </div>
 
+      {/* 🚨 RESTORED & OPTIMIZED: PENDING INTERACTION BANNER */}
+      <AnimatePresence>
+        {pendingRequests.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-amber-50/70 border border-amber-200 rounded-3xl p-5 space-y-3 shadow-3xs"
+          >
+            <div className="flex items-center gap-2 text-amber-800 font-extrabold text-sm tracking-tight">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+              Family Connection Request Pending
+            </div>
+            
+            {pendingRequests.map(req => (
+              <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-amber-100 shadow-2xs">
+                <div>
+                  <p className="text-sm font-black text-slate-800 tracking-tight">Parent Connection Invite</p>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">{req.parent_email}</p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button 
+                    size="sm" 
+                    disabled={actionLoading}
+                    onClick={() => handleLinkAction(req.id, "approve")}
+                    className="bg-emerald-600 hover:bg-emerald-700 font-extrabold text-xs rounded-xl px-4 h-9 shadow-2xs border-0 text-white"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 mr-1.5 stroke-[2.5]" /> Accept Link
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    disabled={actionLoading}
+                    onClick={() => handleLinkAction(req.id, "reject")}
+                    className="border-slate-200 text-slate-500 hover:bg-slate-50 font-extrabold text-xs rounded-xl px-4 h-9 shadow-3xs"
+                  >
+                    <UserX className="w-3.5 h-3.5 mr-1.5" /> Decline
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* 2. STATS & MILESTONES GRID */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Streak Stat */}
         <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 shadow-sm shrink-0">
             <Flame className="w-6 h-6 fill-orange-500/10" />
@@ -159,7 +222,6 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Today's Minutes */}
         <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center text-sky-500 shadow-sm shrink-0">
             <Target className="w-6 h-6" />
@@ -170,7 +232,6 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Wallet Balance */}
         <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 shadow-sm shrink-0">
             <Coins className="w-6 h-6 fill-amber-500/10" />
@@ -181,7 +242,6 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Total XP accumulated */}
         <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm shrink-0">
             <BookOpen className="w-6 h-6" />
@@ -211,7 +271,6 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Animated Tracker Bar */}
         <div>
           <div className="h-4 bg-slate-100 rounded-full overflow-hidden p-1 shadow-inner">
             <motion.div
@@ -229,10 +288,8 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* 4. ACTIVITY SECTIONS (LESSONS vs QUIZZES) */}
+      {/* 4. ACTIVITY SECTIONS */}
       <div className="grid gap-6 md:grid-cols-2">
-        
-        {/* Recent Lessons */}
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
@@ -269,7 +326,6 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Recent Quizzes */}
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
@@ -311,7 +367,6 @@ export default function StudentDashboard() {
             )}
           </div>
         </div>
-
       </div>
     </div>
   );
