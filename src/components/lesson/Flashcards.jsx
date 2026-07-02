@@ -110,26 +110,35 @@ export default function Flashcards({ flashcards = [] }) {
             </div>
 
             {/* ========================================== */}
-            {/* MUKA BELAKANG KAD (JAWAPAN & ULASAN CERIA) */}
-            {/* ========================================== */}
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-between bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl border-4 border-emerald-400 p-6 text-center shadow-[0_10px_25px_rgba(16,185,129,0.25)] text-white"
-              style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-            >
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40 shadow-inner">
-                <span className="text-2xl">🎉</span>
-              </div>
+{/* MUKA BELAKANG KAD (JAWAPAN & ULASAN CERIA) */}
+{/* ========================================== */}
+<div
+  className="absolute inset-0 flex flex-col items-center justify-between bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl border-4 border-emerald-400 p-6 text-center shadow-[0_10px_25px_rgba(16,185,129,0.25)] text-white"
+  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+>
+  {/* Icon bahagian atas */}
+  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40 shadow-inner shrink-0">
+    <span className="text-2xl animate-pulse">🎉</span>
+  </div>
 
-              <div className="w-full space-y-2 max-h-36 overflow-y-auto no-scrollbar px-1">
-                <span className="text-[10px] font-black tracking-widest text-emerald-100 bg-white/20 px-3 py-1 rounded-full uppercase border border-white/10">
-                  JAWAPAN TEPAT
-                </span>
-                
-                {/* Format whitespace-pre-line memproses \n\n agar teks terasing cantik */}
-                <p className="text-xs sm:text-sm font-medium leading-relaxed whitespace-pre-line bg-white/15 p-3 rounded-2xl border border-white/10 shadow-inner text-left">
-                  {card.back}
-                </p>
-              </div>
+  {/* KONTENA UTAMA JAWAPAN (DIBESARKAN & DITENGAHKAN) */}
+  <div className="w-full flex-1 flex flex-col justify-center items-center my-auto px-1 max-h-36 overflow-y-auto no-scrollbar">
+    <span className="text-[10px] font-black tracking-widest text-emerald-100 bg-white/20 px-3 py-1 rounded-full uppercase border border-white/10 mb-2">
+      JAWAPAN TEPAT
+    </span>
+    
+    {/* Teks kini bersaiz lebih besar (text-lg sm:text-xl), tebal (font-extrabold), dan berada tepat di tengah (text-center) */}
+    <div className="w-full bg-black/20 p-4 rounded-2xl border border-white/20 shadow-inner">
+      <p className="text-lg sm:text-xl font-heading font-black text-white text-center leading-relaxed whitespace-pre-line tracking-wide drop-shadow-md">
+        {card.back}
+      </p>
+    </div>
+  </div>
+
+  {/* Arahan navigasi bawah */}
+  <div className="text-[10px] font-semibold text-emerald-100/90 flex items-center gap-1 bg-black/15 px-3 py-1.5 rounded-full shrink-0">
+    Klik kad untuk lihat soalan semula 🔄
+  </div>
 
               <div className="text-[10px] font-semibold text-emerald-100/90 flex items-center gap-1 bg-black/10 px-3 py-1 rounded-full">
                 Klik kad untuk lihat soalan semula 🔄
