@@ -13,7 +13,7 @@ import MindMap from "@/components/lesson/MindMap";
 import InteractiveActivity from "@/components/lesson/InteractiveActivity";
 
 // ============================================================================
-// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY
+// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY (Dioptimumkan untuk Nada Sangat Mesra)
 // ============================================================================
 const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
 
@@ -22,11 +22,18 @@ const FORMAT_CONSTRAINTS = {
   en: "Write the ENTIRE content in English only."
 };
 
-const LESSON_PROMPT = (topic, subject, level, lang, studentNickname) => `
+// 🌟 PROMPT DIKEMASKINI: Arahan AI untuk gaya bahasa yang jauh lebih dekat, penyayang, dan mesra anak
+const LESSON_PROMPT = (topic, subject, level, lang, Nickname) => `
 ${BASE_SYSTEM_PROMPT}
 ${FORMAT_CONSTRAINTS[lang]}
 Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
-The student's personalized friendly nickname is "${studentNickname}". Address the student personally by this nickname occasionally to motivate them.
+
+CRITICAL TONE INSTRUCTION:
+The student's personalized friendly nickname is "${Nickname}". 
+Your tone must be exceptionally warm, encouraging, cheerful, and affectionate—like a loving older sibling or a favorite supportive teacher. 
+Do NOT sound robotic or dry. Use words of encouragement frequently (e.g., "Wah, hebatnya!", "Bijak!", "Jom kita teroka sama-sama!").
+Address the student directly and personally by their nickname "${Nickname}" naturally throughout the lesson, especially at the start of new concepts and during encouraging remarks, to make them feel special and highly motivated.
+
 Generate a concise, highly engaging lesson (700-1000 words max). Use short paragraphs (2-3 sentences max for easy mobile reading), clear subheadings (###), and bold key terms.
 Incorporate 1-2 specialized info card markers directly in text: [REMEMBER]...[/REMEMBER] or [EXAMPLE]...[/EXAMPLE].
 Return JSON schema matching: { "lesson_markdown": "string", "summary": "string", "keywords": ["string"] }
@@ -62,7 +69,7 @@ Return JSON schema matching: { "questions": [{ "question": "string", "options": 
 `;
 
 // ============================================================================
-// 2. MOBILE-OPTIMIZED MAIN COMPONENT LAYER
+// 2. DYNAMIC RESPONSIVE MAIN COMPONENT LAYER
 // ============================================================================
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
@@ -71,7 +78,7 @@ export default function LessonPage() {
   const [subject, setSubject] = useState(null);
   const [topic, setTopic] = useState(null);
   const [sessionId, setSessionId] = useState(null);
-  const [studentNickname, setStudentNickname] = useState(""); 
+  const [Nickname, setNickname] = useState(""); 
   const [loading, setLoading] = useState(true);
   
   const [explanation, setExplanation] = useState("");
@@ -118,7 +125,7 @@ export default function LessonPage() {
         setTopic(top);
 
         const panggilanDinamik = tentukanPanggilanMesra(user, top?.form_level);
-        setStudentNickname(panggilanDinamik);
+        setNickname(panggilanDinamik);
 
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: user.id, topic_id: topicId },
@@ -180,7 +187,7 @@ export default function LessonPage() {
         model: "gemini_3_flash", 
         add_context_from_internet: config.useInternet,
         file_urls: config.urls,
-        prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, studentNickname),
+        prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, Nickname),
         response_json_schema: {
           type: "object",
           properties: {
@@ -265,100 +272,101 @@ export default function LessonPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-9 h-9 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="px-1 py-4 max-w-md mx-auto space-y-5 pb-24">
-      {/* Header Padat - Jimat Ruang Telefon */}
-      <div className="flex items-center gap-2.5 bg-muted/40 p-3 rounded-xl">
-        <Link to={`/study/${subjectId}`} className="p-2 bg-white rounded-lg shadow-sm active:scale-95 transition-transform">
+    <div className="px-2 sm:px-4 py-4 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-6 pb-24">
+      {/* Top Header Row */}
+      <div className="flex items-center gap-3 bg-muted/40 p-3 sm:p-4 rounded-2xl border border-border/50 shadow-sm">
+        <Link to={`/study/${subjectId}`} className="p-2 bg-white rounded-xl shadow-sm hover:bg-slate-50 active:scale-95 transition-all">
           <ArrowLeft className="w-5 h-5 text-foreground" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="text-base font-heading font-bold truncate">{topic?.name}</h1>
-          <p className="text-muted-foreground text-xs truncate">{subject?.icon} {subject?.name} • {topic?.form_level}</p>
+          <h1 className="text-base sm:text-lg lg:text-xl font-heading font-bold truncate text-slate-900">{topic?.name}</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm truncate">{subject?.icon} {subject?.name} • {topic?.form_level}</p>
         </div>
       </div>
 
       {!explanation ? (
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="text-center py-10 px-4 bg-white border border-border rounded-2xl shadow-sm">
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="text-center py-12 px-5 bg-white border border-border rounded-3xl shadow-sm max-w-md mx-auto">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-lg font-heading font-bold mb-1.5">Hai {studentNickname}! Sedia untuk belajar? 🚀</h2>
-          <p className="text-muted-foreground text-xs mb-5 max-w-xs mx-auto">Nota ringkas & padat yang dioptimumkan khas untuk skrin telefon anda.</p>
-          <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-11 rounded-xl text-sm font-semibold active:scale-95 transition-transform">
-            {status.lesson ? <><Loader2 className="w-4 h-4 animate-spin mr-2"/> Menyusun Nota... </> : <><Sparkles className="w-4 h-4 mr-2"/> Mula Belajar Sekarang</>}
+          <h2 className="text-lg sm:text-xl font-heading font-bold mb-2">Hai {Nickname}! Sedia untuk belajar? 🚀</h2>
+          <p className="text-muted-foreground text-xs sm:text-sm mb-6 max-w-xs mx-auto">Nota pengajian padat KPM kini sedia dijana mengikut kesesuaian skrin anda.</p>
+          <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-12 rounded-xl text-sm font-semibold active:scale-95 transition-transform shadow-md shadow-primary/10">
+            {status.lesson ? <><Loader2 className="w-4 h-4 animate-spin mr-2"/> Menyusun Nota... </> : <><Sparkles className="w-4 h-4 mr-2"/> Mula Belajar</>}
           </Button>
         </motion.div>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           
-          {/* 📱 OPTIMASI MOBILE: Sticky Navigation Tab Bar */}
-          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md py-2 -mx-1 px-1 border-b border-border flex gap-1.5 overflow-x-auto no-scrollbar snap-x scroll-smooth">
-            <Button size="sm" variant={activeTab === "lesson" ? "default" : "outline"} onClick={() => setActiveTab("lesson")} className="rounded-xl shrink-0 text-xs gap-1 snap-center"><BookOpen className="w-3.5 h-3.5"/> Nota</Button>
-            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "outline"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className="rounded-xl shrink-0 text-xs gap-1 snap-center"><Layers className="w-3.5 h-3.5"/> Kad Memori</Button>
-            <Button size="sm" variant={activeTab === "mindmap" ? "default" : "outline"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className="rounded-xl shrink-0 text-xs gap-1 snap-center"><GitFork className="w-3.5 h-3.5"/> Peta Minda</Button>
-            <Button size="sm" variant={activeTab === "activity" ? "default" : "outline"} onClick={() => { setActiveTab("activity"); loadActivityOnDemand(); }} className="rounded-xl shrink-0 text-xs gap-1 snap-center"><Gamepad2 className="w-3.5 h-3.5"/> Game</Button>
+          {/* Responsive Sticky Tabs */}
+          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md py-2.5 -mx-2 px-2 border-b border-border flex gap-2 overflow-x-auto md:overflow-x-visible no-scrollbar snap-x scroll-smooth md:grid md:grid-cols-4">
+            <Button size="sm" variant={activeTab === "lesson" ? "default" : "outline"} onClick={() => setActiveTab("lesson")} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><BookOpen className="w-4 h-4"/> Nota</Button>
+            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "outline"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><Layers className="w-4 h-4"/> Kad Memori</Button>
+            <Button size="sm" variant={activeTab === "mindmap" ? "default" : "outline"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><GitFork className="w-4 h-4"/> Peta Minda</Button>
+            <Button size="sm" variant={activeTab === "activity" ? "default" : "outline"} onClick={() => { setActiveTab("activity"); loadActivityOnDemand(); }} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><Gamepad2 className="w-4 h-4"/> Game</Button>
           </div>
 
-          {/* Window Bekas Kandungan - Tulisan Lebih Selesa Dibaca Pada Mobile */}
+          {/* Dynamic Content Container */}
           {activeTab === "lesson" && (
-            <div className="bg-white rounded-2xl p-4 border border-border/60 shadow-sm space-y-3">
-              <div className="flex items-center justify-between border-b pb-2">
-                <h2 className="font-heading font-bold text-sm text-primary flex items-center gap-1.5">📖 Nota Kompak</h2>
+            <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 border border-border/60 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h2 className="font-heading font-bold text-base sm:text-lg text-primary flex items-center gap-2">📖 Nota Pintar</h2>
                 <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
               </div>
-              <div className="prose prose-sm max-w-none text-sm leading-relaxed text-slate-700">
+              <div className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-relaxed sm:leading-loose">
                 <LessonContent content={explanation} />
               </div>
             </div>
           )}
 
           {activeTab === "flashcards" && (
-            <div className="min-h-[200px]">
+            <div className="min-h-[220px]">
               {status.flashcards ? (
-                <div className="flex flex-col items-center justify-center py-10 text-xs text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-1.5 text-primary" /> Menyusun kad memori pantas...</div>
+                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> Menyusun kad memori pantas...</div>
               ) : <Flashcards flashcards={flashcards || []} />}
             </div>
           )}
 
           {activeTab === "mindmap" && (
-            <div className="min-h-[200px] overflow-x-auto rounded-2xl bg-white border p-3">
+            <div className="min-h-[220px] overflow-x-auto rounded-2xl bg-white border p-4 shadow-sm">
               {status.mindmap ? (
-                <div className="flex flex-col items-center justify-center py-10 text-xs text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-1.5 text-primary" /> Melakar peta ringkas...</div>
+                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> Melakar peta visual...</div>
               ) : mindMap ? <MindMap mindMap={mindMap} /> : null}
             </div>
           )}
 
           {activeTab === "activity" && (
-            <div className="min-h-[200px]">
+            <div className="min-h-[220px]">
               {status.activity ? (
-                <div className="flex flex-col items-center justify-center py-10 text-xs text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-1.5 text-primary" /> Menyediakan permainan...</div>
+                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> Membina kuiz interaktif...</div>
               ) : activity ? <InteractiveActivity activity={activity} /> : null}
             </div>
           )}
 
-          {/* 📱 OPTIMASI MOBILE: Susunan Kuiz Vertikal (Selesa Tekan Dengan Ibu Jari) */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 border border-emerald-100 shadow-sm">
-            <h3 className="font-heading font-bold text-sm text-emerald-900 mb-1">Dah sedia untuk uji kefahaman, {studentNickname}? 🎯</h3>
-            <p className="text-xs text-emerald-700 mb-4.5">Jawab soalan ekspres tanpa bebanan token yang berat.</p>
-            <div className="flex flex-col gap-2">
-              <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-emerald-600 hover:bg-emerald-700 h-11 text-xs rounded-xl w-full active:scale-98 transition-transform">
-                {status.quiz ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Play className="w-3.5 h-3.5 mr-1.5" />} Jawab Kuiz Pantas (10 Soalan)
+          {/* Responsive Quiz Panel */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 sm:p-6 border border-emerald-100 shadow-sm">
+            <h3 className="font-heading font-bold text-base sm:text-lg text-emerald-900 mb-1">Dah sedia untuk uji kefahaman, {Nickname}? 🎯</h3>
+            <p className="text-xs sm:text-sm text-emerald-700 mb-5">Selesaikan cabaran pentas latihan tanpa gangguan iklan atau token berat.</p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-emerald-600 hover:bg-emerald-700 h-12 text-xs sm:text-sm font-medium rounded-xl w-full shadow-sm active:scale-98 transition-transform">
+                {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />} Jawab Kuiz Pantas (10 S)
               </Button>
-              <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-amber-600 hover:bg-amber-700 h-11 text-xs rounded-xl w-full active:scale-98 transition-transform">
-                {status.quiz ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Trophy className="w-3.5 h-3.5 mr-1.5" />} Cabaran Mod Exam (20 Soalan)
+              <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-amber-600 hover:bg-amber-700 h-12 text-xs sm:text-sm font-medium rounded-xl w-full shadow-sm active:scale-98 transition-transform">
+                {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trophy className="w-4 h-4 mr-2" />} Mod Peperiksaan (20 S)
               </Button>
             </div>
           </div>
 
-          <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-xs text-muted-foreground hover:bg-muted py-2 rounded-lg">
-            {status.lesson ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />} Nota Kurang Jelas? Bina Semula Nota
+          <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-xs text-muted-foreground hover:bg-muted py-2.5 rounded-xl transition-colors">
+            {status.lesson ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />} Penyusunan Kurang Sesuai? Bina Semula Nota
           </Button>
         </motion.div>
       )}
