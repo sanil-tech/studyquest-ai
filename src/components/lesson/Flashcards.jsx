@@ -195,7 +195,7 @@ export default function Flashcards({ flashcards = [] }) {
 
       {/* EXTRA INFO FOOTER BANNER */}
       <p className="text-center text-[10px] font-bold text-amber-800/60 flex items-center justify-center gap-1 bg-amber-400/5 py-1.5 rounded-xl border border-dashed border-amber-400/20">
-        <HelpCircle className="w-3 h-3"/> Kad dicabut secara rawak dinamik daripada kolam 50 bank soalan tersedia!
+        <HelpCircle className="w-3 h-3"/>
       </p>
       
     </div>
