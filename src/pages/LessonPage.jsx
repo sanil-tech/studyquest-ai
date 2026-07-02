@@ -422,7 +422,7 @@ export default function LessonPage() {
           {activeTab === "flashcards" && (
             <div className="min-h-[220px]">
               {status.flashcards ? (
-                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> Menyusun kad permainan daripada bank data...</div>
+                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> 🎮 Bersedia! Permainan flashcard hampir bermula...</div>
               ) : <Flashcards flashcards={flashcards || []} />}
               {rawBankQuestions.length > 0 && !status.flashcards && (
                 <p className="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
