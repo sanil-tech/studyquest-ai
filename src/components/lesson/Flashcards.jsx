@@ -136,9 +136,6 @@ export default function Flashcards({ flashcards = [] }) {
   </div>
 
   {/* Arahan navigasi bawah */}
-  <div className="text-[10px] font-semibold text-emerald-100/90 flex items-center gap-1 bg-black/15 px-3 py-1.5 rounded-full shrink-0">
-  </div>
-
               <div className="text-[10px] font-semibold text-emerald-100/90 flex items-center gap-1 bg-black/10 px-3 py-1 rounded-full">
                 Klik kad untuk lihat soalan semula 🔄
               </div>
