@@ -117,7 +117,7 @@ export default function LessonPage() {
         // EXTRACTION: Cari fail data bank soalan sedia ada yang padan dengan nama topik ini
         // Menggunakan pangkalan data entiti atau jadular yang di-upload dari CSV tadi
         const matchingBanks = await base44.entities.Quiz.filter({
-          topic_name: top.name
+  topic_id: topicId // Cari terus guna ID topik dari useParams
         });
 
         if (matchingBanks && matchingBanks.length > 0) {
