@@ -114,25 +114,25 @@ export default function LessonPage() {
         
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        // 1. Tarik SEMUA data kuiz yang ada untuk subjek atau sistem ini dahulu
+        // Tarik semua data kuiz/bank soalan dari database
         const allQuizBanks = await base44.entities.Quiz.filter({});
 
         if (allQuizBanks && allQuizBanks.length > 0) {
-          // 2. Lakukan "Fuzzy Matching" (Pemadanan fleksibel teks huruf kecil)
           const namaTopikSemasa = top.name.toLowerCase().trim(); // Contoh: "banyak dan sedikit"
           
+          // Cari fail bank soalan menggunakan teknik pembersihan string
           const foundBank = allQuizBanks.find(bank => {
             const namaBankCsv = (bank.topic_name || "").toLowerCase().trim();
-            // Semak sama ada nama di database mengandungi nama topik semasa ATAU sebaliknya
+            // Guna `.includes()` dua hala supaya teks separa pun boleh dikesan
             return namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv);
           });
 
           if (foundBank) {
             const parsedQs = JSON.parse(foundBank.questions_json || "[]");
             setRawBankQuestions(parsedQs);
-            console.log(`🎯 Bank soalan berjaya ditemui! Memuatkan ${parsedQs.length} soalan.`);
+            console.log(`🎯 Bank soalan dijumpai untuk topik ini! Sedia dengan ${parsedQs.length} soalan.`);
           } else {
-            console.warn("⚠️ Amaran: Tiada nama topik dalam CSV yang sepadan dengan nama topik aplikasi.");
+            console.error("❌ Ralat: Nama topik dalam sistem tak sama dengan fail CSV.");
           }
         }
 
