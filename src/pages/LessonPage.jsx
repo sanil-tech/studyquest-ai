@@ -444,7 +444,6 @@ export default function LessonPage() {
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 sm:p-6 border border-emerald-100 shadow-sm">
             <h3 className="font-heading font-bold text-base sm:text-lg text-emerald-900 mb-1">Dah sedia untuk uji kefahaman, {studentNickname}? 🎯</h3>
             <p className="text-xs sm:text-sm text-emerald-700 mb-5">
-              Soalan kuiz diambil secara rawak dinamik daripada pangkalan <b>{rawBankQuestions.length || "50"} bank soalan sedia ada</b>.
             </p>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
