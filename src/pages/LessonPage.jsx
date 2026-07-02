@@ -114,16 +114,26 @@ export default function LessonPage() {
         
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        // EXTRACTION: Cari fail data bank soalan sedia ada yang padan dengan nama topik ini
-        // Menggunakan pangkalan data entiti atau jadular yang di-upload dari CSV tadi
-        const matchingBanks = await base44.entities.Quiz.filter({
-  topic_id: topicId // Cari terus guna ID topik dari useParams
-        });
+        // 1. Tarik SEMUA data kuiz yang ada untuk subjek atau sistem ini dahulu
+        const allQuizBanks = await base44.entities.Quiz.filter({});
 
-        if (matchingBanks && matchingBanks.length > 0) {
-          // Parse dan muatkan kolam soalan yang sedia ada
-          const parsedQs = JSON.parse(matchingBanks[0].questions_json || "[]");
-          setRawBankQuestions(parsedQs);
+        if (allQuizBanks && allQuizBanks.length > 0) {
+          // 2. Lakukan "Fuzzy Matching" (Pemadanan fleksibel teks huruf kecil)
+          const namaTopikSemasa = top.name.toLowerCase().trim(); // Contoh: "banyak dan sedikit"
+          
+          const foundBank = allQuizBanks.find(bank => {
+            const namaBankCsv = (bank.topic_name || "").toLowerCase().trim();
+            // Semak sama ada nama di database mengandungi nama topik semasa ATAU sebaliknya
+            return namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv);
+          });
+
+          if (foundBank) {
+            const parsedQs = JSON.parse(foundBank.questions_json || "[]");
+            setRawBankQuestions(parsedQs);
+            console.log(`🎯 Bank soalan berjaya ditemui! Memuatkan ${parsedQs.length} soalan.`);
+          } else {
+            console.warn("⚠️ Amaran: Tiada nama topik dalam CSV yang sepadan dengan nama topik aplikasi.");
+          }
         }
 
         const cachedSessions = await base44.entities.StudySession.filter(
