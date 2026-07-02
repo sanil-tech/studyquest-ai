@@ -320,36 +320,89 @@ export default function LessonPage() {
 
   // MODIFIKASI KUIZ & EXAM: Tiada AI Invoke, jimat token & ambil terus kuantiti rawak daripada 50 soalan sedia ada!
   const runQuizGeneration = async (numQ) => {
-    if (!rawBankQuestions || rawBankQuestions.length === 0) {
-      alert("Opps, kolam bank soalan tersedia untuk topik ini belum dimuat naik atau tidak ditemui. Sila semak pangkalan data anda! 🛠️");
-      return;
-    }
-
-    setStatus(p => ({ ...p, quiz: true }));
     await recordStudyTime();
-    
-    try {
-      // 1. Rawakkan keseluruhan 50 soalan sedia ada
-      const shuffledQuestions = shuffleArray(rawBankQuestions);
-      
-      // 2. Potong mengikut saiz kuantiti yang diminta (10 untuk Kuiz, 20 untuk Peperiksaan)
-      const selectedPool = shuffledQuestions.slice(0, Math.min(numQ, shuffledQuestions.length));
+    setStatus(p => ({ ...p, quiz: true }));
 
-      // 3. Daftarkan set kuiz rawak ini ke dalam entiti Quiz
-      const quiz = await base44.entities.Quiz.create({
-        session_id: sessionId,
-        topic_name: topic.name,
-        subject_name: subject?.name || "Matematik",
-        questions_json: JSON.stringify(selectedPool),
-        difficulty: numQ >= 20 ? "hard" : "medium",
-        num_questions: selectedPool.length,
-      });
+    // Tentukan tahap kesukaran secara dinamik berdasarkan bilangan soalan
+    // Jika 20 soalan (Exam), set terus ke "hard". Jika tidak, "medium" atau "easy"
+    const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
+
+    try {
+      // =========================================================
+      // STRATEGI A: JIKA ADA DATA DALAM BANK SOALAN (CSV)
+      // =========================================================
+      if (rawBankQuestions && rawBankQuestions.length > 0) {
+        console.log(`Mengambil ${numQ} soalan daripada bank soalan CSV...`);
+        
+        let filteredPool = [...rawBankQuestions];
+
+        // Penapis Tahap Kesusahan: Jika mod Exam (20 soalan), cuba tapis soalan bertaraf 'hard' atau 'medium' dahulu
+        if (determinedDifficulty === "hard") {
+          const hardQuestions = rawBankQuestions.filter(q => 
+            q.difficulty?.toLowerCase() === "hard" || q.difficulty?.toLowerCase() === "medium"
+          );
+          // Jika soalan mencukupi, guna kolam soalan sukar ini
+          if (hardQuestions.length >= numQ) {
+            filteredPool = hardQuestions;
+          }
+        }
+
+        // Rawakkan soalan yang telah ditapis
+        const shuffledQuestions = shuffleArray(filteredPool);
+        
+        // PENTING: Potong array mengikut nilai `numQ` yang dihantar (cth: 20 soalan)
+        const selectedPool = shuffledQuestions.slice(0, Math.min(numQ, shuffledQuestions.length));
+
+        console.log(`Berjaya memilih ${selectedPool.length} soalan untuk kuiz.`);
+
+        const quiz = await base44.entities.Quiz.create({
+          session_id: sessionId,
+          topic_name: topic.name,
+          subject_name: subject?.name || "Matematik",
+          questions_json: JSON.stringify(selectedPool),
+          difficulty: determinedDifficulty,
+          num_questions: selectedPool.length, // Menyimpan jumlah sebenar (20) ke database
+        });
+        
+        navigate(`/quiz/${quiz.id}`);
+        return;
+      } 
       
-      // 4. Bawa anak ke halaman menjawab kuiz rasmi
-      navigate(`/quiz/${quiz.id}`);
+      // =========================================================
+      // STRATEGI B (BACKUP AI): JIKA BANK SOALAN CSV TIADA
+      // =========================================================
+      else {
+        console.log(`Bank soalan tiada, menjana ${numQ} soalan Exam bertaraf tinggi menggunakan AI...`);
+        const lang = getLanguageMode();
+        
+        const res = await base44.integrations.Core.InvokeLLM({
+          model: "gemini_3_flash",
+          prompt: `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary}", generate exactly ${numQ} multiple-choice questions for primary school students. 
+          Since this is an EXAM mode, the difficulty level must be "${determinedDifficulty}". Include higher-order thinking (KBAT) questions suitable for this level. 
+          The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
+          Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
+        });
+        
+        if (res && Array.isArray(res) && res.length > 0) {
+          // Memastikan AI memberikan jumlah soalan yang tepat
+          const finalQuestions = res.slice(0, numQ);
+
+          const quiz = await base44.entities.Quiz.create({
+            session_id: sessionId,
+            topic_name: topic.name,
+            subject_name: subject?.name || "Matematik",
+            questions_json: JSON.stringify(finalQuestions),
+            difficulty: determinedDifficulty,
+            num_questions: finalQuestions.length,
+          });
+          navigate(`/quiz/${quiz.id}`);
+        }
+      }
     } catch (err) {
-      console.error("Gagal menjana set kuiz rawak", err);
-    } finally { setStatus(p => ({ ...p, quiz: false })); }
+      console.error("Gagal menjana kuiz exam:", err);
+    } finally {
+      setStatus(p => ({ ...p, quiz: false }));
+    }
   };
 
   const handlePremiumRedirect = () => {
