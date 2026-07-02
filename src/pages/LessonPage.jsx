@@ -13,7 +13,7 @@ import MindMap from "@/components/lesson/MindMap";
 import InteractiveActivity from "@/components/lesson/InteractiveActivity";
 
 // ============================================================================
-// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY (Reduces Input Tokens by >60%)
+// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY (Dengan Sokongan Personalisasi Nama)
 // ============================================================================
 const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
 
@@ -22,10 +22,12 @@ const FORMAT_CONSTRAINTS = {
   en: "Write the ENTIRE content in English only."
 };
 
-const LESSON_PROMPT = (topic, subject, level, lang) => `
+// Ditambah parameter 'studentName' untuk personalisasi pengajaran
+const LESSON_PROMPT = (topic, subject, level, lang, studentName) => `
 ${BASE_SYSTEM_PROMPT}
 ${FORMAT_CONSTRAINTS[lang]}
 Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
+The student's name is "${studentName || "pelajar"}". Address the student personally by their name occasionally to motivate them and make the lesson engaging.
 Generate a concise, highly engaging lesson (700-1000 words max). Use short paragraphs (2-4 sentences max), clear subheadings (###), and bold key terms.
 Incorporate 1-2 specialized info card markers directly in text: [REMEMBER]...[/REMEMBER] or [EXAMPLE]...[/EXAMPLE].
 Return JSON schema matching: { "lesson_markdown": "string", "summary": "string", "keywords": ["string"] }
@@ -71,6 +73,7 @@ export default function LessonPage() {
   const [subject, setSubject] = useState(null);
   const [topic, setTopic] = useState(null);
   const [sessionId, setSessionId] = useState(null);
+  const [studentName, setStudentName] = useState(""); // Menyimpan nama anak untuk kegunaan prompt
   const [loading, setLoading] = useState(true);
   
   // High-Speed App Memory Storage
@@ -81,7 +84,7 @@ export default function LessonPage() {
   const [activity, setActivity] = useState(null);
 
   // Lazy Navigation States
-  const [activeTab, setActiveTab] = useState("lesson"); // lesson | flashcards | mindmap | activity
+  const [activeTab, setActiveTab] = useState("lesson"); 
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, activity: false, quiz: false });
 
   const studyStartRef = useRef(null);
@@ -89,7 +92,7 @@ export default function LessonPage() {
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
 
-  // Load context from base44 & utilize database cache checks first
+  // Load context from base44 & dapatkan profil pelajar sekali
   useEffect(() => {
     const initializeLesson = async () => {
       try {
@@ -100,6 +103,7 @@ export default function LessonPage() {
         ]);
         setSubject(sub);
         setTopic(top);
+        setStudentName(user?.name || ""); // Ambil nama anak dari auth profil
 
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: user.id, topic_id: topicId },
@@ -119,7 +123,6 @@ export default function LessonPage() {
               keywords: parsed.keywords || [] 
             });
             
-            // Hydrate lazy child resource states if they already exist in database cache
             if (session.flashcards_json) setFlashcards(JSON.parse(session.flashcards_json));
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
             if (session.activity_json) setActivity(JSON.parse(session.activity_json));
@@ -149,7 +152,6 @@ export default function LessonPage() {
     return subject?.name?.toLowerCase().includes("english") ? "en" : "ms";
   };
 
-  // Smart Context Payload Compression (Reduces textbook processing overhead)
   const getContextConfiguration = async () => {
     const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
     const matchingBook = textbooks.find(t => t.form_level === topic.form_level);
@@ -157,10 +159,10 @@ export default function LessonPage() {
     if (matchingBook && (!matchingBook.file_size || matchingBook.file_size <= 10 * 1024 * 1024)) {
       return { urls: [matchingBook.file_url], useInternet: false };
     }
-    return { urls: undefined, useInternet: true }; // Fallback to live search web routing if data file missing
+    return { urls: undefined, useInternet: true };
   };
 
-  // Phase 1 Core Call: High-speed concise lesson generation
+  // Pengisian nama anak dihantar terus ke fungsi LESSON_PROMPT
   const generateCoreLesson = async () => {
     setStatus(p => ({ ...p, lesson: true }));
     try {
@@ -172,7 +174,7 @@ export default function LessonPage() {
         model: "gemini_3_flash", 
         add_context_from_internet: config.useInternet,
         file_urls: config.urls,
-        prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang),
+        prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, user?.name),
         response_json_schema: {
           type: "object",
           properties: {
@@ -198,7 +200,6 @@ export default function LessonPage() {
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
-      // Asynchronous background thread execution triggers seamlessly
       triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
 
     } catch (e) {
@@ -208,7 +209,6 @@ export default function LessonPage() {
     }
   };
 
-  // Asynchronous Background Thread Execution (Never blocks layout runtime threads)
   const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
     try {
       base44.integrations.Core.InvokeLLM({
@@ -235,7 +235,6 @@ export default function LessonPage() {
     }
   };
 
-  // On-Demand Handlers (Fires instantly on tab interaction if cache miss occurs)
   const loadFlashcardsOnDemand = async () => {
     if (flashcards || status.flashcards) return;
     setStatus(p => ({ ...p, flashcards: true }));
@@ -323,30 +322,30 @@ export default function LessonPage() {
           <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-10 h-10 text-primary" />
           </div>
-          <h2 className="text-xl font-heading font-bold mb-2">Ready to Learn?</h2>
+          <h2 className="text-xl font-heading font-bold mb-2">
+            Hai {studentName || "Pelajar"}! Sedia untuk belajar? 🚀
+          </h2>
           <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-            Generate an optimized curriculum lesson targeted for your specific level.
+            Jana nota pembelajaran eksklusif KPM mengikut prestasi semasa anda.
           </p>
           <Button onClick={generateCoreLesson} disabled={status.lesson} className="h-12 px-8 rounded-xl text-base font-semibold">
-            {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Compiling Core Lesson... </> : <><Sparkles className="w-5 h-5 mr-2"/> Start Optimized Lesson</>}
+            {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Menyusun Nota Anda... </> : <><Sparkles className="w-5 h-5 mr-2"/> Mula Sesi Pembelajaran</>}
           </Button>
         </motion.div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           
-          {/* Resource Navigation Controls (On-Demand Activation) */}
           <div className="flex flex-wrap gap-2 border-b border-border pb-3">
-            <Button variant={activeTab === "lesson" ? "default" : "outline"} onClick={() => setActiveTab("lesson")} className="rounded-xl">📖 Read Lesson</Button>
+            <Button variant={activeTab === "lesson" ? "default" : "outline"} onClick={() => setActiveTab("lesson")} className="rounded-xl">📖 Baca Nota</Button>
             <Button variant={activeTab === "flashcards" ? "default" : "outline"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className="rounded-xl">🎴 Flashcards</Button>
-            <Button variant={activeTab === "mindmap" ? "default" : "outline"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className="rounded-xl">🌿 Mind Map</Button>
-            <Button variant={activeTab === "activity" ? "default" : "outline"} onClick={() => { setActiveTab("activity"); loadActivityOnDemand(); }} className="rounded-xl">⚡ Practice Game</Button>
+            <Button variant={activeTab === "mindmap" ? "default" : "outline"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className="rounded-xl">🌿 Peta Minda</Button>
+            <Button variant={activeTab === "activity" ? "default" : "outline"} onClick={() => { setActiveTab("activity"); loadActivityOnDemand(); }} className="rounded-xl">⚡ Aktiviti Kuiz</Button>
           </div>
 
-          {/* Dynamic Component Windows */}
           {activeTab === "lesson" && (
             <div className="bg-white rounded-2xl p-6 border border-border/50 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-heading font-bold text-lg">📖 Curated Lesson</h2>
+                <h2 className="font-heading font-bold text-lg">📖 Nota Pembelajaran</h2>
                 <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
               </div>
               <LessonContent content={explanation} />
@@ -356,7 +355,7 @@ export default function LessonPage() {
           {activeTab === "flashcards" && (
             <div className="min-h-[250px]">
               {status.flashcards ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin mb-2 text-primary" /> Processing compact card states...</div>
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin mb-2 text-primary" /> Menyusun kad memori...</div>
               ) : <Flashcards flashcards={flashcards || []} />}
             </div>
           )}
@@ -364,7 +363,7 @@ export default function LessonPage() {
           {activeTab === "mindmap" && (
             <div className="min-h-[250px]">
               {status.mindmap ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin mb-2 text-primary" /> Mapping structural summary...</div>
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin mb-2 text-primary" /> Melakar peta visual...</div>
               ) : mindMap ? <MindMap mindMap={mindMap} /> : null}
             </div>
           )}
@@ -372,31 +371,30 @@ export default function LessonPage() {
           {activeTab === "activity" && (
             <div className="min-h-[250px]">
               {status.activity ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin mb-2 text-primary" /> Synthesizing custom layout matrix...</div>
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin mb-2 text-primary" /> Membina permainan interaktif...</div>
               ) : activity ? <InteractiveActivity activity={activity} /> : null}
             </div>
           )}
 
-          {/* Low Token Direct Reference Quiz Hook */}
           <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl p-5 border border-emerald-100">
-            <h3 className="font-heading font-bold text-emerald-800 mb-2">Ready to test yourself? 🎯</h3>
-            <p className="text-sm text-emerald-600 mb-4">Take an isolated low-latency assessment mapped perfectly to your current lesson data.</p>
+            <h3 className="font-heading font-bold text-emerald-800 mb-2">Dah sedia untuk uji kefahaman, {studentName}? 🎯</h3>
+            <p className="text-sm text-emerald-600 mb-4">Uji minda anda dengan soalan pantas mengikut silibus nota di atas.</p>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1">
                 <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-emerald-600 hover:bg-emerald-700 rounded-xl w-full">
-                  {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />} Quiz (10 Q)
+                  {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />} Jawab Kuiz (10 S)
                 </Button>
               </div>
               <div className="flex-1">
                 <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-amber-600 hover:bg-amber-700 rounded-xl w-full">
-                  {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trophy className="w-4 h-4 mr-2" />} Exam Mode (20 Q)
+                  {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trophy className="w-4 h-4 mr-2" />} Mod Peperiksaan (20 S)
                 </Button>
               </div>
             </div>
           </div>
 
           <Button variant="outline" onClick={generateCoreLesson} disabled={status.lesson} className="w-full rounded-xl">
-            {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Regenerate Lesson
+            {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Bina Semula Nota
           </Button>
         </motion.div>
       )}
