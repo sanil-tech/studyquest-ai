@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
@@ -13,7 +13,7 @@ import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 
 // ============================================================================
-// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY (Disatukan di sini)
+// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY
 // ============================================================================
 const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
 
@@ -38,13 +38,6 @@ Incorporate 1-2 specialized info card markers directly in text: [REMEMBER]...[/R
 Return JSON schema matching: { "lesson_markdown": "string", "summary": "string", "keywords": ["string"] }
 `;
 
-const FLASHCARD_PROMPT = (summary, keywords, lang) => `
-${BASE_SYSTEM_PROMPT}
-${FORMAT_CONSTRAINTS[lang]}
-Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, generate exactly 5 flashcards.
-Return JSON schema matching: [{ "front": "string", "back": "string" }]
-`;
-
 const MINDMAP_PROMPT = (summary, keywords, lang) => `
 ${BASE_SYSTEM_PROMPT}
 ${FORMAT_CONSTRAINTS[lang]}
@@ -52,12 +45,15 @@ Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, create
 Return JSON schema matching: [{ "label": "string", "children": ["string"] }]
 `;
 
-const QUIZ_PROMPT = (summary, numQuestions, lang) => `
-${BASE_SYSTEM_PROMPT}
-${FORMAT_CONSTRAINTS[lang]}
-Based on Summary: "${summary}", generate exactly ${numQuestions} multiple-choice questions. CRITICAL: Every explanation MUST be ultra-concise (maximum 40 words).
-Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]
-`;
+// Helper untuk merawakkan array (Fisher-Yates Shuffle Algorithm)
+const shuffleArray = (array) => {
+  const newArr = [...array];
+  for (let i = newArr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+  }
+  return newArr;
+};
 
 // ============================================================================
 // 2. DYNAMIC RESPONSIVE MAIN COMPONENT LAYER
@@ -80,6 +76,7 @@ export default function LessonPage() {
   const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
+  const [rawBankQuestions, setRawBankQuestions] = useState([]); // Menyimpan kolam soalan mentah dari bank data sedia ada
 
   const [activeTab, setActiveTab] = useState("lesson"); 
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
@@ -115,8 +112,19 @@ export default function LessonPage() {
         setTopic(top);
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         
-        // Semakan status Premium daripada database user
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
+
+        // EXTRACTION: Cari fail data bank soalan sedia ada yang padan dengan nama topik ini
+        // Menggunakan pangkalan data entiti atau jadular yang di-upload dari CSV tadi
+        const matchingBanks = await base44.entities.Quiz.filter({
+          topic_name: top.name
+        });
+
+        if (matchingBanks && matchingBanks.length > 0) {
+          // Parse dan muatkan kolam soalan yang sedia ada
+          const parsedQs = JSON.parse(matchingBanks[0].questions_json || "[]");
+          setRawBankQuestions(parsedQs);
+        }
 
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: user.id, topic_id: topicId },
@@ -133,7 +141,6 @@ export default function LessonPage() {
             setExplanation(parsed.lesson_markdown);
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
             
-            if (session.flashcards_json) setFlashcards(JSON.parse(session.flashcards_json));
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
           }
         }
@@ -203,6 +210,7 @@ export default function LessonPage() {
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
+      // Prefetch latar belakang untuk Peta minda sahaja
       triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
     } catch (e) {
       console.error(e);
@@ -211,16 +219,6 @@ export default function LessonPage() {
 
   const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
     try {
-      base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        prompt: FLASHCARD_PROMPT(summary, keywords, lang),
-      }).then(res => {
-        if (res && Array.isArray(res)) {
-          base44.entities.StudySession.update(targetSessionId, { flashcards_json: JSON.stringify(res) });
-          setFlashcards(res);
-        }
-      });
-
       base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
         prompt: MINDMAP_PROMPT(summary, keywords, lang),
@@ -233,19 +231,31 @@ export default function LessonPage() {
     } catch (e) {}
   };
 
+  // MODIFIKASI PERMAINAN KAD IMBAS (FLASHCARD): Tiada AI, guna data rawakan bank soalan sedia ada terus!
   const loadFlashcardsOnDemand = async () => {
     if (flashcards || status.flashcards) return;
     setStatus(p => ({ ...p, flashcards: true }));
+    
     try {
-      const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        prompt: FLASHCARD_PROMPT(metaData.summary, metaData.keywords, getLanguageMode()),
-      });
-      if (res && Array.isArray(res)) {
-        await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(res) });
-        setFlashcards(res);
+      if (rawBankQuestions && rawBankQuestions.length > 0) {
+        // Ambil soalan secara rawak dari kolam 50 soalan
+        const shuffled = shuffleArray(rawBankQuestions);
+        const selectedQuestions = shuffled.slice(0, 8); // Paparkan 8 kad imbas rawak untuk sesi game ini
+
+        // Petakan (map) data soalan kepada standard struktur { front, back } komponen Flashcard
+        const mappedCards = selectedQuestions.map(q => ({
+          front: q.question,
+          back: `${q.correct_answer}\n\n${q.explanation || ""}`
+        }));
+
+        await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(mappedCards) });
+        setFlashcards(mappedCards);
+      } else {
+        setFlashcards([]);
       }
-    } catch {} finally { setStatus(p => ({ ...p, flashcards: false })); }
+    } catch (err) {
+      console.error("Gagal memproses kad imbas", err);
+    } finally { setStatus(p => ({ ...p, flashcards: false })); }
   };
 
   const loadMindMapOnDemand = async () => {
@@ -263,26 +273,38 @@ export default function LessonPage() {
     } catch {} finally { setStatus(p => ({ ...p, mindmap: false })); }
   };
 
+  // MODIFIKASI KUIZ & EXAM: Tiada AI Invoke, jimat token & ambil terus kuantiti rawak daripada 50 soalan sedia ada!
   const runQuizGeneration = async (numQ) => {
+    if (!rawBankQuestions || rawBankQuestions.length === 0) {
+      alert("Opps, kolam bank soalan tersedia untuk topik ini belum dimuat naik atau tidak ditemui. Sila semak pangkalan data anda! 🛠️");
+      return;
+    }
+
     setStatus(p => ({ ...p, quiz: true }));
     await recordStudyTime();
+    
     try {
-      const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        prompt: QUIZ_PROMPT(metaData.summary, numQ, getLanguageMode()),
+      // 1. Rawakkan keseluruhan 50 soalan sedia ada
+      const shuffledQuestions = shuffleArray(rawBankQuestions);
+      
+      // 2. Potong mengikut saiz kuantiti yang diminta (10 untuk Kuiz, 20 untuk Peperiksaan)
+      const selectedPool = shuffledQuestions.slice(0, Math.min(numQ, shuffledQuestions.length));
+
+      // 3. Daftarkan set kuiz rawak ini ke dalam entiti Quiz
+      const quiz = await base44.entities.Quiz.create({
+        session_id: sessionId,
+        topic_name: topic.name,
+        subject_name: subject?.name || "Matematik",
+        questions_json: JSON.stringify(selectedPool),
+        difficulty: numQ >= 20 ? "hard" : "medium",
+        num_questions: selectedPool.length,
       });
-      if (res && Array.isArray(res)) {
-        const quiz = await base44.entities.Quiz.create({
-          session_id: sessionId,
-          topic_name: topic.name,
-          subject_name: subject?.name || "",
-          questions_json: JSON.stringify(res),
-          difficulty: numQ >= 20 ? "hard" : "medium",
-          num_questions: res.length,
-        });
-        navigate(`/quiz/${quiz.id}`);
-      }
-    } catch {} finally { setStatus(p => ({ ...p, quiz: false })); }
+      
+      // 4. Bawa anak ke halaman menjawab kuiz rasmi
+      navigate(`/quiz/${quiz.id}`);
+    } catch (err) {
+      console.error("Gagal menjana set kuiz rawak", err);
+    } finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
   const handlePremiumRedirect = () => {
@@ -328,7 +350,7 @@ export default function LessonPage() {
           {/* Responsive Sticky Tabs */}
           <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md py-2.5 -mx-2 px-2 border-b border-border flex gap-2 overflow-x-auto md:overflow-x-visible no-scrollbar snap-x scroll-smooth md:grid md:grid-cols-3">
             <Button size="sm" variant={activeTab === "lesson" ? "default" : "outline"} onClick={() => setActiveTab("lesson")} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><BookOpen className="w-4 h-4"/> Nota</Button>
-            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "outline"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><Layers className="w-4 h-4"/> Kad Memori</Button>
+            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "outline"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><Layers className="w-4 h-4"/> Kad Memori (Game)</Button>
             <Button size="sm" variant={activeTab === "mindmap" ? "default" : "outline"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><GitFork className="w-4 h-4"/> Peta Minda</Button>
           </div>
 
@@ -338,7 +360,6 @@ export default function LessonPage() {
               <div className="flex items-center justify-between border-b pb-3">
                 <h2 className="font-heading font-bold text-base sm:text-lg text-primary flex items-center gap-2">📖 Nota Ringkas</h2>
                 
-                {/* 🔒 KUNCI AUDIO VOICE PLAYER */}
                 {isPremium ? (
                   <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
                 ) : (
@@ -356,8 +377,13 @@ export default function LessonPage() {
           {activeTab === "flashcards" && (
             <div className="min-h-[220px]">
               {status.flashcards ? (
-                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> Menyusun kad memori...</div>
+                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> Menyusun kad permainan daripada bank data...</div>
               ) : <Flashcards flashcards={flashcards || []} />}
+              {rawBankQuestions.length > 0 && !status.flashcards && (
+                <p className="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
+                  <HelpCircle className="w-3 h-3"/> Kad diambil secara rawak daripada kolam bank data {rawBankQuestions.length} soalan tersedia!
+                </p>
+              )}
             </div>
           )}
 
@@ -372,19 +398,21 @@ export default function LessonPage() {
           {/* Responsive Quiz Panel */}
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 sm:p-6 border border-emerald-100 shadow-sm">
             <h3 className="font-heading font-bold text-base sm:text-lg text-emerald-900 mb-1">Dah sedia untuk uji kefahaman, {studentNickname}? 🎯</h3>
-            <p className="text-xs sm:text-sm text-emerald-700 mb-5">Jawab soalan penilaian ekspres yang dijana khas mengikut rumusan nota.</p>
+            <p className="text-xs sm:text-sm text-emerald-700 mb-5">
+              Soalan kuiz diambil secara rawak dinamik daripada pangkalan <b>{rawBankQuestions.length || "50"} bank soalan sedia ada</b>.
+            </p>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-emerald-600 hover:bg-emerald-700 h-12 text-xs sm:text-sm font-medium rounded-xl w-full shadow-sm active:scale-98 transition-transform">
-                {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />} Kuiz (10 Soalan)
+                {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />} Mula Kuiz (10 Soalan Rawak)
               </Button>
               <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-amber-600 hover:bg-amber-700 h-12 text-xs sm:text-sm font-medium rounded-xl w-full shadow-sm active:scale-98 transition-transform">
-                {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trophy className="w-4 h-4 mr-2" />} Mod Peperiksaan (20 Soalan)
+                {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trophy className="w-4 h-4 mr-2" />} Mod Peperiksaan (20 Soalan Rawak)
               </Button>
             </div>
           </div>
 
-          {/* 🔒 KUNCI BUTANG BINA SEMULA NOTA */}
+          {/* Ciri Premium: Bina Semula Nota */}
           {isPremium ? (
             <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-xs text-muted-foreground hover:bg-muted py-2.5 rounded-xl transition-colors">
               {status.lesson ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />} Penyusunan Kurang Sesuai? Bina Semula Nota
