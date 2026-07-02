@@ -12,13 +12,56 @@ import VoicePlayer from "@/components/lesson/VoicePlayer";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 
-import { 
-  LESSON_PROMPT, 
-  FLASHCARD_PROMPT, 
-  MINDMAP_PROMPT, 
-  QUIZ_PROMPT 
-} from "@/utils/prompts";
+// ============================================================================
+// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY (Disatukan di sini)
+// ============================================================================
+const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
 
+const FORMAT_CONSTRAINTS = {
+  ms: "Tulis SELURUH kandungan dalam Bahasa Melayu sahaja. JANGAN gunakan perkataan Bahasa Inggeris.",
+  en: "Write the ENTIRE content in English only."
+};
+
+const LESSON_PROMPT = (topic, subject, level, lang, studentNickname) => `
+${BASE_SYSTEM_PROMPT}
+${FORMAT_CONSTRAINTS[lang]}
+Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
+
+CRITICAL TONE INSTRUCTION:
+The student's personalized friendly nickname is "${studentNickname}". 
+Your tone must be exceptionally warm, encouraging, cheerful, and affectionate—like a loving older sibling or a favorite supportive teacher. 
+Do NOT sound robotic or dry. Use words of encouragement frequently (e.g., "Wah, hebatnya!", "Bijak!", "Jom kita teroka sama-sama!").
+Address the student directly and personally by their nickname "${studentNickname}" naturally throughout the lesson, especially at the start of new concepts and during encouraging remarks.
+
+Generate a concise, highly engaging lesson (700-1000 words max). Use short paragraphs (2-3 sentences max for easy mobile reading), clear subheadings (###), and bold key terms.
+Incorporate 1-2 specialized info card markers directly in text: [REMEMBER]...[/REMEMBER] or [EXAMPLE]...[/EXAMPLE].
+Return JSON schema matching: { "lesson_markdown": "string", "summary": "string", "keywords": ["string"] }
+`;
+
+const FLASHCARD_PROMPT = (summary, keywords, lang) => `
+${BASE_SYSTEM_PROMPT}
+${FORMAT_CONSTRAINTS[lang]}
+Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, generate exactly 5 flashcards.
+Return JSON schema matching: [{ "front": "string", "back": "string" }]
+`;
+
+const MINDMAP_PROMPT = (summary, keywords, lang) => `
+${BASE_SYSTEM_PROMPT}
+${FORMAT_CONSTRAINTS[lang]}
+Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, create a mind map structure.
+Return JSON schema matching: [{ "label": "string", "children": ["string"] }]
+`;
+
+const QUIZ_PROMPT = (summary, numQuestions, lang) => `
+${BASE_SYSTEM_PROMPT}
+${FORMAT_CONSTRAINTS[lang]}
+Based on Summary: "${summary}", generate exactly ${numQuestions} multiple-choice questions. CRITICAL: Every explanation MUST be ultra-concise (maximum 40 words).
+Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]
+`;
+
+// ============================================================================
+// 2. DYNAMIC RESPONSIVE MAIN COMPONENT LAYER
+// ============================================================================
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
   const navigate = useNavigate();
@@ -29,7 +72,7 @@ export default function LessonPage() {
   const [studentNickname, setStudentNickname] = useState(""); 
   const [loading, setLoading] = useState(true);
   
-  // 🌟 LOGIK PREMIUM: Simpan status langganan pengguna
+  // Logik Premium Status
   const [isPremium, setIsPremium] = useState(false);
 
   // Cache States
@@ -72,7 +115,7 @@ export default function LessonPage() {
         setTopic(top);
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         
-        // 🌟 SEMAKAN PREMIUM: Memeriksa field is_premium daripada objek user (sesuaikan mengikut schema db anda)
+        // Semakan status Premium daripada database user
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
         const cachedSessions = await base44.entities.StudySession.filter(
@@ -242,10 +285,8 @@ export default function LessonPage() {
     } catch {} finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
-  // Fungsi navigasi ke halaman langganan apabila ciri terkunci ditekan
   const handlePremiumRedirect = () => {
-    alert("Ciri ini eksklusif untuk ahli Premium sahaja. Jom langgan premium untuk akses tanpa had! 🚀");
-    // navigate("/pricing"); // Sila aktifkan ini jika halaman pricing anda sudah sedia
+    alert("Opps! Ciri eksklusif ini hanya untuk ahli Premium sahaja. Jom langgan premium sekarang untuk belajar tanpa had! 🚀");
   };
 
   if (loading) {
@@ -297,11 +338,11 @@ export default function LessonPage() {
               <div className="flex items-center justify-between border-b pb-3">
                 <h2 className="font-heading font-bold text-base sm:text-lg text-primary flex items-center gap-2">📖 Nota Ringkas</h2>
                 
-                {/* 🔒 SEKATAN 1: VoicePlayer dikunci jika bukan pengguna premium */}
+                {/* 🔒 KUNCI AUDIO VOICE PLAYER */}
                 {isPremium ? (
                   <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
                 ) : (
-                  <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-200 bg-amber-50/50 rounded-xl text-xs gap-1">
+                  <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-200 bg-amber-50/50 rounded-xl text-xs gap-1 py-4">
                     <Lock className="w-3.5 h-3.5 text-amber-500" /> Dengar Audio
                   </Button>
                 )}
@@ -343,7 +384,7 @@ export default function LessonPage() {
             </div>
           </div>
 
-          {/* 🔒 SEKATAN 2: Butang "Bina Semula Nota" dinyahaktifkan & diletakkan ikon kunci jika bukan premium */}
+          {/* 🔒 KUNCI BUTANG BINA SEMULA NOTA */}
           {isPremium ? (
             <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-xs text-muted-foreground hover:bg-muted py-2.5 rounded-xl transition-colors">
               {status.lesson ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />} Penyusunan Kurang Sesuai? Bina Semula Nota
