@@ -24,6 +24,35 @@ const FORMAT_CONSTRAINTS = {
 
 // Ditambah parameter 'studentName' untuk personalisasi pengajaran
 const LESSON_PROMPT = (topic, subject, level, lang, studentName) => `
+// 1. Fungsi pencarian panggilan (Diletakkan di luar atau di dalam useEffect)
+const dapatkanPanggilanAlternatif = (userObj, formLevel) => {
+  // Keutamaan 1: Guna field 'nickname' jika wujud di dalam user atau profile
+  const spesifikNickname = userObj?.nickname || userObj?.profile?.nickname;
+  if (spesifikNickname?.trim()) return spesifikNickname.trim();
+
+  // Keutamaan 2: Guna nama pertama (First Name) daripada nama penuh supaya tidak terlalu formal
+  const namaPenuh = userObj?.name || userObj?.display_name || userObj?.profile?.name;
+  if (namaPenuh?.trim()) {
+    const namaPertama = namaPenuh.trim().split(" ")[0];
+    // Pastikan bukan emel palsu atau string pelik
+    if (namaPertama && !namaPertama.includes("@")) {
+      return namaPertama;
+    }
+  }
+
+  // Keutamaan 3: Fallback kepada gelaran motivasi berdasarkan tingkatan/level anak
+  if (!formLevel) return "Kawan";
+  const level = formLevel.toLowerCase();
+  
+  if (level.includes("tahun") || level.includes("standard") || level.includes("primary")) {
+    return "Champion"; // Sekolah Rendah
+  }
+  return "Leader"; // Sekolah Menengah
+};
+
+// 2. Penggunaan di dalam useEffect selepas data 'user' dan 'top' (Topic) berjaya dimuatkan:
+const panggilanAnak = dapatkanPanggilanAlternatif(user, top?.form_level);
+setStudentNickname(panggilanAnak);
 ${BASE_SYSTEM_PROMPT}
 ${FORMAT_CONSTRAINTS[lang]}
 Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
