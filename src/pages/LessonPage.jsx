@@ -426,7 +426,7 @@ export default function LessonPage() {
               ) : <Flashcards flashcards={flashcards || []} />}
               {rawBankQuestions.length > 0 && !status.flashcards && (
                 <p className="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
-                  <HelpCircle className="w-3 h-3"/> Kad diambil secara rawak daripada kolam bank data {rawBankQuestions.length} soalan tersedia!
+                  <HelpCircle className="w-3 h-3"/>
                 </p>
               )}
             </div>
