@@ -1,5 +1,5 @@
 {
-  "name": "Textbook",
+  "name": "Lesson Data",
   "type": "object",
   "properties": {
     "title": {
