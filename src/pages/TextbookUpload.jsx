@@ -186,4 +186,107 @@ export default function TextbookUpload() {
 
         {/* CREATE LESSON */}
         <motion.div
-         
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl border border-border/50 p-5 space-y-4 shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-primary" />
+            <h2 className="font-bold text-base">Create Lesson Content</h2>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="title">Lesson Title *</Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Fractions - Addition"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Subject *</Label>
+              <Select value={subjectId} onValueChange={setSubjectId}>
+                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+                <SelectContent>
+                  {subjects.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Form Level</Label>
+              <Select value={formLevel} onValueChange={setFormLevel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FORM_LEVELS.map((lvl) => (
+                    <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="lessonJson">Lesson JSON *</Label>
+            <textarea
+              id="lessonJson"
+              value={lessonJson}
+              onChange={(e) => setLessonJson(e.target.value)}
+              rows={10}
+              className="w-full text-xs font-mono px-3 py-2.5 bg-slate-50 border border-input rounded-xl focus:outline-none focus:border-primary resize-y"
+              placeholder='{ "lesson_markdown": "...", "summary": "...", "keywords": [] }'
+            />
+          </div>
+
+          <Button onClick={handleUpload} disabled={uploading} className="w-full h-11 rounded-xl font-semibold">
+            {uploading ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+            ) : (
+              <><Upload className="w-4 h-4 mr-2" /> Save Lesson</>
+            )}
+          </Button>
+        </motion.div>
+
+        {/* EXISTING LESSONS */}
+        <div className="bg-white rounded-2xl border border-border/50 p-5 space-y-3 shadow-sm">
+          <h2 className="font-bold text-base flex items-center gap-2">
+            <FileText className="w-5 h-5 text-primary" />
+            Existing Lessons ({textbooks.length})
+          </h2>
+
+          {textbooks.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No lessons uploaded yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {textbooks.map((book) => (
+                <div
+                  key={book.id}
+                  className="flex items-center justify-between gap-3 p-3 bg-slate-50/60 rounded-xl border border-border/40"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{book.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {book.subject_name || "—"} • {book.form_level || "All Levels"}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={() => handleDelete(book.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}

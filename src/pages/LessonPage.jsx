@@ -405,6 +405,38 @@ export default function LessonPage() {
     }
   };
 
+  const loadMindMapOnDemand = async () => {
+    if (mindMap && mindMap.length > 0) return;
+    if (status.mindmap) return;
+
+    setStatus(p => ({ ...p, mindmap: true }));
+    try {
+      const lang = getLanguageMode();
+      const summary = metaData?.summary || topic?.name || "";
+      const keywords = metaData?.keywords || [];
+
+      const res = await base44.integrations.Core.InvokeLLM({
+        model: "gemini_3_flash",
+        prompt: MINDMAP_PROMPT(summary, keywords, lang),
+      });
+
+      if (res && Array.isArray(res)) {
+        if (sessionId) {
+          try {
+            await base44.entities.StudySession.update(sessionId, { mindmap_json: JSON.stringify(res) });
+          } catch (dbErr) {
+            console.error("Gagal mengemas kini StudySession untuk mindmap:", dbErr);
+          }
+        }
+        setMindMap(res);
+      }
+    } catch (err) {
+      console.error("Ralat dalam loadMindMapOnDemand:", err);
+    } finally {
+      setStatus(p => ({ ...p, mindmap: false }));
+    }
+  };
+
   const handlePremiumRedirect = () => {
     alert("Opps! Ciri eksklusif ini hanya untuk ahli Premium sahaja. Jom langgan premium sekarang untuk belajar tanpa had! 🚀");
   };
