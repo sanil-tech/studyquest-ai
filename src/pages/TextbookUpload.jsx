@@ -1,25 +1,43 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Upload, BookOpen, Trash2, Loader2, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  Upload,
+  BookOpen,
+  Trash2,
+  Loader2,
+  FileText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
 const FORM_LEVELS = [
   "All Levels",
-  "Standard 1", "Standard 2", "Standard 3", "Standard 4", "Standard 5", "Standard 6",
-  "Form 1", "Form 2", "Form 3", "Form 4", "Form 5",
+  "Standard 1",
+  "Standard 2",
+  "Standard 3",
+  "Standard 4",
+  "Standard 5",
+  "Standard 6",
+  "Form 1",
+  "Form 2",
+  "Form 3",
+  "Form 4",
+  "Form 5",
 ];
 
 export default function TextbookUpload() {
-
-  // =========================
-  // STATE
-  // =========================
   const [subjects, setSubjects] = useState([]);
   const [textbooks, setTextbooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +47,8 @@ export default function TextbookUpload() {
   const [subjectId, setSubjectId] = useState("");
   const [formLevel, setFormLevel] = useState("All Levels");
 
+  const [file, setFile] = useState(null);
+
   const [lessonJson, setLessonJson] = useState(`{
   "lesson_markdown": "",
   "summary": "",
@@ -37,16 +57,13 @@ export default function TextbookUpload() {
 
   const { toast } = useToast();
 
-  // =========================
-  // LOAD DATA
-  // =========================
+  // ================= LOAD DATA =================
   const loadData = async () => {
     try {
       const [subs, books] = await Promise.all([
         base44.entities.Subject.list(),
         base44.entities.Textbook.list("-created_date", 50),
       ]);
-
       setSubjects(subs);
       setTextbooks(books);
     } catch (err) {
@@ -64,11 +81,8 @@ export default function TextbookUpload() {
     loadData();
   }, []);
 
-  // =========================
-  // SAVE LESSON (FIXED)
-  // =========================
+  // ================= SAVE LESSON =================
   const handleUpload = async () => {
-
     if (!title || !subjectId || !lessonJson) {
       toast({
         title: "Missing fields",
@@ -82,16 +96,15 @@ export default function TextbookUpload() {
 
     try {
       const user = await base44.auth.me();
-      const subject = subjects.find(s => s.id === subjectId);
+      const subject = subjects.find((s) => s.id === subjectId);
 
-      // SAFE JSON PARSE
       let parsed;
       try {
         parsed = JSON.parse(lessonJson.trim());
       } catch (err) {
         toast({
           title: "Invalid JSON",
-          description: "Please fix lesson JSON format.",
+          description: "Fix lesson JSON format first.",
           variant: "destructive",
         });
         return;
@@ -102,22 +115,21 @@ export default function TextbookUpload() {
         subject_id: subjectId,
         subject_name: subject?.name || "",
         form_level: formLevel,
-
-        // CORE STORAGE
         lesson_json: JSON.stringify(parsed),
-
         uploaded_by: user.id,
       });
 
       toast({
         title: "Lesson saved 📚",
-        description: "Content stored successfully.",
+        description: "Stored successfully.",
       });
 
-      // RESET
+      // reset
       setTitle("");
       setSubjectId("");
       setFormLevel("All Levels");
+      setFile(null);
+
       setLessonJson(`{
   "lesson_markdown": "",
   "summary": "",
@@ -125,7 +137,6 @@ export default function TextbookUpload() {
 }`);
 
       loadData();
-
     } catch (err) {
       toast({
         title: "Save failed",
@@ -137,13 +148,11 @@ export default function TextbookUpload() {
     }
   };
 
-  // =========================
-  // DELETE
-  // =========================
+  // ================= DELETE =================
   const handleDelete = async (id) => {
     try {
       await base44.entities.Textbook.delete(id);
-      toast({ title: "Deleted successfully" });
+      toast({ title: "Deleted" });
       loadData();
     } catch (err) {
       toast({
@@ -154,23 +163,16 @@ export default function TextbookUpload() {
     }
   };
 
-  // =========================
-  // LOADING STATE
-  // =========================
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <Loader2 className="w-6 h-6 animate-spin" />
       </div>
     );
   }
 
-  // =========================
-  // UI
-  // =========================
   return (
     <div className="min-h-screen bg-background">
-
       {/* HEADER */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b px-4 py-3">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
@@ -183,108 +185,99 @@ export default function TextbookUpload() {
 
       {/* MAIN */}
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-
-        {/* CREATE LESSON */}
+        {/* FORM */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl border border-border/50 p-5 space-y-4 shadow-sm"
+          className="bg-white rounded-2xl border p-6 space-y-4"
         >
           <div className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-primary" />
-            <h2 className="font-bold text-base">Create Lesson Content</h2>
+            <Upload className="w-5 h-5 text-primary" />
+            <h2 className="font-semibold">Create Lesson</h2>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="title">Lesson Title *</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Fractions - Addition"
-            />
+          <div>
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Subject *</Label>
-              <Select value={subjectId} onValueChange={setSubjectId}>
-                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
-                <SelectContent>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Form Level</Label>
-              <Select value={formLevel} onValueChange={setFormLevel}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FORM_LEVELS.map((lvl) => (
-                    <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Subject</Label>
+            <Select value={subjectId} onValueChange={setSubjectId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="lessonJson">Lesson JSON *</Label>
+          <div>
+            <Label>Form Level</Label>
+            <Select value={formLevel} onValueChange={setFormLevel}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FORM_LEVELS.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* JSON EDITOR */}
+          <div>
+            <Label>Lesson JSON</Label>
             <textarea
-              id="lessonJson"
+              className="w-full h-40 p-3 border rounded-lg font-mono text-xs"
               value={lessonJson}
               onChange={(e) => setLessonJson(e.target.value)}
-              rows={10}
-              className="w-full text-xs font-mono px-3 py-2.5 bg-slate-50 border border-input rounded-xl focus:outline-none focus:border-primary resize-y"
-              placeholder='{ "lesson_markdown": "...", "summary": "...", "keywords": [] }'
             />
           </div>
 
-          <Button onClick={handleUpload} disabled={uploading} className="w-full h-11 rounded-xl font-semibold">
+          <Button onClick={handleUpload} disabled={uploading} className="w-full">
             {uploading ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Saving...
+              </>
             ) : (
-              <><Upload className="w-4 h-4 mr-2" /> Save Lesson</>
+              "Save Lesson"
             )}
           </Button>
         </motion.div>
 
-        {/* EXISTING LESSONS */}
-        <div className="bg-white rounded-2xl border border-border/50 p-5 space-y-3 shadow-sm">
-          <h2 className="font-bold text-base flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary" />
-            Existing Lessons ({textbooks.length})
-          </h2>
+        {/* LIST */}
+        <div className="space-y-3">
+          {textbooks.map((b) => (
+            <div
+              key={b.id}
+              className="flex items-center justify-between border p-3 rounded-xl"
+            >
+              <div>
+                <p className="font-medium">{b.title}</p>
+                <p className="text-xs text-gray-500">
+                  {b.subject_name} • {b.form_level}
+                </p>
+              </div>
 
-          {textbooks.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">No lessons uploaded yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {textbooks.map((book) => (
-                <div
-                  key={book.id}
-                  className="flex items-center justify-between gap-3 p-3 bg-slate-50/60 rounded-xl border border-border/40"
-                >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm truncate">{book.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {book.subject_name || "—"} • {book.form_level || "All Levels"}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive shrink-0"
-                    onClick={() => handleDelete(book.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => handleDelete(b.id)}
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </Button>
             </div>
-          )}
+          ))}
         </div>
       </main>
     </div>
