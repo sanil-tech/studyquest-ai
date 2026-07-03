@@ -3,24 +3,13 @@
   "type": "object",
   "properties": {
     "title": {
-      "type": "string",
-      "description": "Textbook title"
-    },
-    "file_url": {
-      "type": "string",
-      "description": "URL to uploaded textbook PDF"
-    },
-    "file_size": {
-      "type": "number",
-      "description": "File size in bytes"
+      "type": "string"
     },
     "subject_id": {
-      "type": "string",
-      "description": "ID of the linked subject"
+      "type": "string"
     },
     "subject_name": {
-      "type": "string",
-      "description": "Subject name for display"
+      "type": "string"
     },
     "form_level": {
       "type": "string",
@@ -38,17 +27,18 @@
         "Form 4",
         "Form 5"
       ],
-      "default": "All Levels",
-      "description": "Malaysian school level this textbook covers"
+      "default": "All Levels"
+    },
+    "lesson_json": {
+      "type": "string",
+      "description": "Full lesson package (markdown, quiz, flashcards, mindmap)"
     },
     "uploaded_by": {
-      "type": "string",
-      "description": "Admin user ID who uploaded"
+      "type": "string"
     }
   },
   "required": [
     "title",
-    "file_url",
     "subject_id"
   ],
   "rls": {
