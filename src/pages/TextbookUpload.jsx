@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Upload, BookOpen, Trash2, Loader2, FileText } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { motion } from "framer-motion";
 
 const FORM_LEVELS = [
   "All Levels", "Standard 1", "Standard 2", "Standard 3",
@@ -34,26 +39,31 @@ export default function TextbookUpload() {
   const { toast } = useToast();
 
   const loadData = async () => {
+    setLoading(true);
     try {
-      const [subs, les] = await Promise.all([
-        base44.entities.Subject.list(),
-        base44.entities.Lesson?.list?.() || []
-      ]);
+      const subs = await base44.entities.Subject.list();
+      const les = await base44.entities.Lesson.list("-created_date", 50);
 
-      setSubjects(subs);
-      setLessons(les);
+      setSubjects(subs || []);
+      setLessons(les || []);
     } catch (err) {
-      toast({ title: "Failed load", description: err.message });
+      toast({
+        title: "Load failed",
+        description: err.message,
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleUpload = async () => {
     if (!title || !subjectId) {
-      toast({ title: "Missing fields" });
+      toast({ title: "Missing fields", variant: "destructive" });
       return;
     }
 
@@ -66,9 +76,11 @@ export default function TextbookUpload() {
       let parsed;
       try {
         parsed = JSON.parse(lessonJson);
-      } catch (e) {
-        toast({ title: "Invalid JSON" });
-        setUploading(false);
+      } catch {
+        toast({
+          title: "Invalid JSON format",
+          variant: "destructive"
+        });
         return;
       }
 
@@ -77,7 +89,10 @@ export default function TextbookUpload() {
         subject_id: subjectId,
         subject_name: subject?.name || "",
         form_level: formLevel,
+
+        // SAFE + EXTENSIBLE STRUCTURE
         lesson_json: JSON.stringify(parsed),
+
         created_by: user.id
       });
 
@@ -92,22 +107,42 @@ export default function TextbookUpload() {
   "keywords": []
 }`);
 
-      loadData();
+      await loadData();
 
     } catch (err) {
-      toast({ title: "Save failed", description: err.message });
+      toast({
+        title: "Save failed",
+        description: err.message,
+        variant: "destructive"
+      });
     } finally {
       setUploading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    await base44.entities.Lesson.delete(id);
-    loadData();
+    try {
+      await base44.entities.Lesson.delete(id);
+
+      // optimistic UI update (FAST UX)
+      setLessons(prev => prev.filter(l => l.id !== id));
+
+      toast({ title: "Deleted" });
+    } catch (err) {
+      toast({
+        title: "Delete failed",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
   };
 
   if (loading) {
-    return <div className="p-10 text-center">Loading...</div>;
+    return (
+      <div className="p-10 text-center">
+        Loading...
+      </div>
+    );
   }
 
   return (
@@ -168,20 +203,39 @@ export default function TextbookUpload() {
           />
         </div>
 
-        <Button onClick={handleUpload} disabled={uploading} className="w-full">
+        <Button
+          onClick={handleUpload}
+          disabled={uploading}
+          className="w-full"
+        >
           {uploading ? "Saving..." : "Save Lesson"}
         </Button>
       </div>
 
       {/* LIST */}
       <div className="space-y-3">
+        {lessons.length === 0 && (
+          <p className="text-sm text-gray-400 text-center">
+            No lessons yet
+          </p>
+        )}
+
         {lessons.map(l => (
-          <div key={l.id} className="border p-3 rounded-lg flex justify-between">
+          <div
+            key={l.id}
+            className="border p-3 rounded-lg flex justify-between items-center"
+          >
             <div>
               <p className="font-medium">{l.title}</p>
-              <p className="text-xs text-gray-500">{l.subject_name}</p>
+              <p className="text-xs text-gray-500">
+                {l.subject_name}
+              </p>
             </div>
-            <Button onClick={() => handleDelete(l.id)} variant="destructive">
+
+            <Button
+              onClick={() => handleDelete(l.id)}
+              variant="destructive"
+            >
               Delete
             </Button>
           </div>
