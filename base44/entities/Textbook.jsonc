@@ -31,7 +31,19 @@
     },
     "lesson_json": {
       "type": "string",
-      "description": "Full lesson package (markdown, quiz, flashcards, mindmap)"
+      "description": "JSON string containing lesson_markdown, summary, keywords, flashcards, quiz"
+    },
+    "lesson_type": {
+      "type": "string",
+      "enum": [
+        "ai_generated",
+        "static",
+        "hybrid"
+      ],
+      "default": "ai_generated"
+    },
+    "ai_generated_at": {
+      "type": "string"
     },
     "uploaded_by": {
       "type": "string"
