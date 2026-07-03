@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import confetti from "canvas-confetti";
 
 import LessonProgress from "@/components/lesson/LessonProgress";
 import LessonContent from "@/components/lesson/LessonContent";
@@ -76,7 +77,7 @@ export default function LessonPage() {
   const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
-  const [rawBankQuestions, setRawBankQuestions] = useState([]); // Menyimpan kolam soalan mentah dari bank data sedia ada
+  const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
   const [activeTab, setActiveTab] = useState("lesson"); 
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
@@ -118,12 +119,10 @@ export default function LessonPage() {
         const allQuizBanks = await base44.entities.Quiz.filter({});
 
         if (allQuizBanks && allQuizBanks.length > 0) {
-          const namaTopikSemasa = top.name.toLowerCase().trim(); // Contoh: "banyak dan sedikit"
+          const namaTopikSemasa = top.name.toLowerCase().trim();
           
-          // Cari fail bank soalan menggunakan teknik pembersihan string
           const foundBank = allQuizBanks.find(bank => {
             const namaBankCsv = (bank.topic_name || "").toLowerCase().trim();
-            // Guna `.includes()` dua hala supaya teks separa pun boleh dikesan
             return namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv);
           });
 
@@ -131,8 +130,6 @@ export default function LessonPage() {
             const parsedQs = JSON.parse(foundBank.questions_json || "[]");
             setRawBankQuestions(parsedQs);
             console.log(`🎯 Bank soalan dijumpai untuk topik ini! Sedia dengan ${parsedQs.length} soalan.`);
-          } else {
-            console.error("❌ Ralat: Nama topik dalam sistem tak sama dengan fail CSV.");
           }
         }
 
@@ -167,7 +164,7 @@ export default function LessonPage() {
   const recordStudyTime = async () => {
     if (!sessionRef.current || !studyStartRef.current) return;
     const minutes = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
-    try { await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); } catch {}
+    try { await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); } catch (err) { console.warn("Failed to record study time", err); }
   };
 
   useEffect(() => { return () => { recordStudyTime(); }; }, []);
@@ -181,6 +178,15 @@ export default function LessonPage() {
       return { urls: [matchingBook.file_url], useInternet: false };
     }
     return { urls: undefined, useInternet: true };
+  };
+
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 150,
+      spread: 80,
+      origin: { y: 0.6 },
+      colors: ['#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981']
+    });
   };
 
   const generateCoreLesson = async () => {
@@ -220,8 +226,10 @@ export default function LessonPage() {
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
-      // Prefetch latar belakang untuk Peta minda sahaja
       triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
+      
+      // 🎉 Cetuskan animasi confetti apabila berjaya!
+      triggerConfetti();
     } catch (e) {
       console.error(e);
     } finally { setStatus(p => ({ ...p, lesson: false })); }
@@ -238,47 +246,40 @@ export default function LessonPage() {
           setMindMap(res);
         }
       });
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Background prefetch failed", e);
+    }
   };
 
-  // MODIFIKASI PERMAINAN KAD IMBAS (FLASHCARD): Tiada AI, guna data rawakan bank soalan sedia ada terus!
   const loadFlashcardsOnDemand = async () => {
-    // 1. Jika data flashcards sudah ada dan tidak kosong, kekalkan data sedia ada
     if (flashcards && flashcards.length > 0) return;
     if (status.flashcards) return;
     
     setStatus(p => ({ ...p, flashcards: true }));
     
     try {
-      // STRATEGI A: Menggunakan Bank Soalan fail CSV jika data ditemui
       if (rawBankQuestions && rawBankQuestions.length > 0) {
-        console.log("Memproses flashcards daripada rawBankQuestions (CSV)...");
         const shuffled = shuffleArray(rawBankQuestions);
-        const selectedQuestions = shuffled.slice(0, 8); // Ambil 8 soalan rawak
+        const selectedQuestions = shuffled.slice(0, 8);
 
         const mappedCards = selectedQuestions.map(q => ({
           front: q.question,
           back: `${q.correct_answer}\n\n${q.explanation || ""}`
         }));
 
-        // Simpan ke pangkalan data sesi pembelajaran jika sessionId sudah sedia
         if (sessionId) {
           try {
             await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(mappedCards) });
           } catch (dbErr) {
-            console.error("Gagal mengemas kini StudySession, tetapi teruskan paparan UI:", dbErr);
+            console.error("Gagal mengemas kini StudySession:", dbErr);
           }
         }
         
         setFlashcards(mappedCards);
         setStatus(p => ({ ...p, flashcards: false }));
-        return; // Keluar dari fungsi kerana Strategi A berjaya
+        return; 
       } 
       
-      // STRATEGI B (ULTIMATE BACKUP): Jika CSV kosong/tidak ditemui/nama tidak sepadan
-      console.log("rawBankQuestions kosong. Menjana kad memori baru secara automatik menggunakan AI...");
-      
-      // Sediakan bahan rujukan teks asas untuk AI bertindak
       const konteksRujukan = metaData?.summary || topic?.name || "Matematik Tahun 1";
       const lang = getLanguageMode();
 
@@ -292,13 +293,11 @@ export default function LessonPage() {
           try {
             await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(res) });
           } catch (dbErr) {
-            console.error("Gagal mengemas kini StudySession semasa backup AI:", dbErr);
+            console.error("Gagal mengemas kini StudySession:", dbErr);
           }
         }
         setFlashcards(res);
       } else {
-        // Jika API mengembalikan data tidak normal, bina 3 kad statik kecemasan (Hardcoded Fallback)
-        console.log("Membina kad kecemasan statik...");
         const fallbackCards = [
           { front: `Mari teroka topik ${topic?.name || "ini"} bersama-sama!`, back: "Hebat! Klik butang 'Seterusnya' untuk kad lain. ✨" },
           { front: "Berapakah hasil 1 + 1?", back: "2\n\nBijak! 1 digabung dengan 1 menjadi dua. 🌟" },
@@ -308,7 +307,6 @@ export default function LessonPage() {
       }
     } catch (err) {
       console.error("Ralat kritikal dalam loadFlashcardsOnDemand:", err);
-      // Fail-safe terakhir sekiranya internet terputus atau API gagal sepenuhnya
       const errorFallback = [
         { front: `Jom uji kefahaman tentang ${topic?.name || "topik ini"}!`, back: "Sedia! Tekan butang Kuiz di bawah untuk mula menjawab soalan. 🎯" }
       ];
@@ -318,42 +316,27 @@ export default function LessonPage() {
     }
   };
 
-  // MODIFIKASI KUIZ & EXAM: Tiada AI Invoke, jimat token & ambil terus kuantiti rawak daripada 50 soalan sedia ada!
   const runQuizGeneration = async (numQ) => {
     await recordStudyTime();
     setStatus(p => ({ ...p, quiz: true }));
 
-    // Tentukan tahap kesukaran secara dinamik berdasarkan bilangan soalan
-    // Jika 20 soalan (Exam), set terus ke "hard". Jika tidak, "medium" atau "easy"
     const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
 
     try {
-      // =========================================================
-      // STRATEGI A: JIKA ADA DATA DALAM BANK SOALAN (CSV)
-      // =========================================================
       if (rawBankQuestions && rawBankQuestions.length > 0) {
-        console.log(`Mengambil ${numQ} soalan daripada bank soalan CSV...`);
-        
         let filteredPool = [...rawBankQuestions];
 
-        // Penapis Tahap Kesusahan: Jika mod Exam (20 soalan), cuba tapis soalan bertaraf 'hard' atau 'medium' dahulu
         if (determinedDifficulty === "hard") {
           const hardQuestions = rawBankQuestions.filter(q => 
             q.difficulty?.toLowerCase() === "hard" || q.difficulty?.toLowerCase() === "medium"
           );
-          // Jika soalan mencukupi, guna kolam soalan sukar ini
           if (hardQuestions.length >= numQ) {
             filteredPool = hardQuestions;
           }
         }
 
-        // Rawakkan soalan yang telah ditapis
         const shuffledQuestions = shuffleArray(filteredPool);
-        
-        // PENTING: Potong array mengikut nilai `numQ` yang dihantar (cth: 20 soalan)
         const selectedPool = shuffledQuestions.slice(0, Math.min(numQ, shuffledQuestions.length));
-
-        console.log(`Berjaya memilih ${selectedPool.length} soalan untuk kuiz.`);
 
         const quiz = await base44.entities.Quiz.create({
           session_id: sessionId,
@@ -361,18 +344,13 @@ export default function LessonPage() {
           subject_name: subject?.name || "Matematik",
           questions_json: JSON.stringify(selectedPool),
           difficulty: determinedDifficulty,
-          num_questions: selectedPool.length, // Menyimpan jumlah sebenar (20) ke database
+          num_questions: selectedPool.length,
         });
         
         navigate(`/quiz/${quiz.id}`);
         return;
       } 
-      
-      // =========================================================
-      // STRATEGI B (BACKUP AI): JIKA BANK SOALAN CSV TIADA
-      // =========================================================
       else {
-        console.log(`Bank soalan tiada, menjana ${numQ} soalan Exam bertaraf tinggi menggunakan AI...`);
         const lang = getLanguageMode();
         
         const res = await base44.integrations.Core.InvokeLLM({
@@ -384,7 +362,6 @@ export default function LessonPage() {
         });
         
         if (res && Array.isArray(res) && res.length > 0) {
-          // Memastikan AI memberikan jumlah soalan yang tepat
           const finalQuestions = res.slice(0, numQ);
 
           const quiz = await base44.entities.Quiz.create({
@@ -444,114 +421,152 @@ export default function LessonPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-9 h-9 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-cyan-200 border-t-cyan-500 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="px-2 sm:px-4 py-4 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-6 pb-24">
+    <div className="px-3 sm:px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-8 pb-24 font-sans bg-slate-50/50 min-h-screen">
       
-      {/* Top Header Row */}
-      <div className="flex items-center gap-3 bg-muted/40 p-3 sm:p-4 rounded-2xl border border-border/50 shadow-sm">
-        <Link to={`/study/${subjectId}`} className="p-2 bg-white rounded-xl shadow-sm hover:bg-slate-50 active:scale-95 transition-all">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+      {/* Top Header Row - Warna Cyan yang Ceria */}
+      <motion.div 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="flex items-center gap-4 bg-gradient-to-r from-cyan-100 to-blue-100 p-4 sm:p-5 rounded-3xl border-2 border-cyan-200 shadow-sm"
+      >
+        <Link to={`/study/${subjectId}`} className="p-3 bg-white rounded-2xl shadow-sm hover:shadow-md hover:bg-cyan-50 active:scale-90 transition-all">
+          <ArrowLeft className="w-6 h-6 text-cyan-600" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="text-base sm:text-lg lg:text-xl font-heading font-bold truncate text-slate-900">{topic?.name}</h1>
-          <p className="text-muted-foreground text-xs sm:text-sm truncate">{subject?.icon} {subject?.name} • {topic?.form_level}</p>
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold truncate text-slate-800 tracking-tight">
+            {topic?.name} 🌟
+          </h1>
+          <p className="text-cyan-700 font-medium text-xs sm:text-sm truncate">
+            {subject?.icon} {subject?.name} • {topic?.form_level}
+          </p>
         </div>
-      </div>
+      </motion.div>
 
       {!explanation ? (
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="text-center py-12 px-5 bg-white border border-border rounded-3xl shadow-sm max-w-md mx-auto">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <Sparkles className="w-8 h-8 text-primary" />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          transition={{ type: "spring", bounce: 0.5 }}
+          className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto"
+        >
+          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <Sparkles className="w-10 h-10 text-primary animate-pulse" />
           </div>
-          <h2 className="text-lg sm:text-xl font-heading font-bold mb-2">Hai {studentNickname}! Sedia untuk belajar? 🚀</h2>
-          <p className="text-muted-foreground text-xs sm:text-sm mb-6 max-w-xs mx-auto">Siri nota padat KPM kini sedia dijana.</p>
-          <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-12 rounded-xl text-sm font-semibold active:scale-95 transition-transform shadow-md shadow-primary/10">
-            {status.lesson ? <><Loader2 className="w-4 h-4 animate-spin mr-2"/> Menjana Nota... </> : <><Sparkles className="w-4 h-4 mr-2"/> Mula Belajar</>}
-          </Button>
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800">
+            Hai {studentNickname}! 👋<br/>Sedia untuk belajar? 🚀
+          </h2>
+          <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">
+            Jom kita teroka ilmu baru hari ini dengan nota yang super seronok!
+          </p>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 rounded-full text-base font-bold shadow-lg shadow-primary/30 bg-primary hover:bg-primary/90">
+              {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Tunggu sekejap ya... 🪄</> : <><Sparkles className="w-5 h-5 mr-2"/> Mula Pengembaraan!</>}
+            </Button>
+          </motion.div>
         </motion.div>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
           
-          {/* Responsive Sticky Tabs */}
-          <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md py-2.5 -mx-2 px-2 border-b border-border flex gap-2 overflow-x-auto md:overflow-x-visible no-scrollbar snap-x scroll-smooth md:grid md:grid-cols-3">
-            <Button size="sm" variant={activeTab === "lesson" ? "default" : "outline"} onClick={() => setActiveTab("lesson")} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><BookOpen className="w-4 h-4"/> Nota</Button>
-            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "outline"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><Layers className="w-4 h-4"/> Kad Memori (Game)</Button>
-            <Button size="sm" variant={activeTab === "mindmap" ? "default" : "outline"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className="rounded-xl shrink-0 md:w-full text-xs sm:text-sm gap-1.5 snap-center py-5"><GitFork className="w-4 h-4"/> Peta Minda</Button>
+          {/* Responsive Sticky Tabs - Gaya "Pill" Bubbly */}
+          <div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
+            <Button size="sm" variant={activeTab === "lesson" ? "default" : "ghost"} onClick={() => setActiveTab("lesson")} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "lesson" ? "shadow-md bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+              <BookOpen className="w-5 h-5"/> Nota Pintar 📖
+            </Button>
+            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "ghost"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "flashcards" ? "shadow-md bg-purple-500 hover:bg-purple-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+              <Layers className="w-5 h-5"/> Kad Memori 🃏
+            </Button>
+            <Button size="sm" variant={activeTab === "mindmap" ? "default" : "ghost"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "mindmap" ? "shadow-md bg-blue-500 hover:bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+              <GitFork className="w-5 h-5"/> Peta Minda 🧠
+            </Button>
           </div>
 
           {/* Dynamic Content Container */}
           {activeTab === "lesson" && (
-            <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 border border-border/60 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <h2 className="font-heading font-bold text-base sm:text-lg text-primary flex items-center gap-2">📖 Nota Ringkas</h2>
-                
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
+                <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2">✨ Nota Ringkas</h2>
                 {isPremium ? (
-                  <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
+                  <div className="bg-primary/10 rounded-full pr-2">
+                     <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
+                  </div>
                 ) : (
-                  <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-200 bg-amber-50/50 rounded-xl text-xs gap-1 py-4">
-                    <Lock className="w-3.5 h-3.5 text-amber-500" /> Dengar Audio
+                  <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm hover:bg-amber-100">
+                    <Lock className="w-4 h-4 text-amber-500" /> Dengar Audio Cerita 🎧
                   </Button>
                 )}
               </div>
-              <div className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-relaxed sm:leading-loose">
+              <div className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-loose">
                 <LessonContent content={explanation} />
               </div>
-            </div>
+            </motion.div>
           )}
 
           {activeTab === "flashcards" && (
-            <div className="min-h-[220px]">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100">
               {status.flashcards ? (
-                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> 🎮 Bersedia! Permainan flashcard hampir bermula...</div>
+                <div className="flex flex-col items-center justify-center py-16 text-sm text-purple-600 font-medium">
+                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-500" /> 🎮 Menyusun kad ajaib...
+                </div>
               ) : <Flashcards flashcards={flashcards || []} />}
-              {rawBankQuestions.length > 0 && !status.flashcards && (
-                <p className="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
-                  <HelpCircle className="w-3 h-3"/>
-                </p>
-              )}
-            </div>
+            </motion.div>
           )}
 
           {activeTab === "mindmap" && (
-            <div className="min-h-[220px] overflow-x-auto rounded-2xl bg-white border p-4 shadow-sm">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] overflow-x-auto rounded-[2rem] bg-blue-50/30 border-2 border-blue-100 p-6 shadow-inner">
               {status.mindmap ? (
-                <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" /> Melakar peta visual...</div>
+                <div className="flex flex-col items-center justify-center py-16 text-sm text-blue-600 font-medium">
+                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" /> Melukis peta harta karun... 🗺️
+                </div>
               ) : mindMap ? <MindMap mindMap={{ central_topic: topic.name, branches: mindMap }} /> : null}
-            </div>
+            </motion.div>
           )}
 
-          {/* Responsive Quiz Panel */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-4 sm:p-6 border border-emerald-100 shadow-sm">
-            <h3 className="font-heading font-bold text-base sm:text-lg text-emerald-900 mb-1">Dah sedia untuk uji kefahaman, {studentNickname}? 🎯</h3>
-            <p className="text-xs sm:text-sm text-emerald-700 mb-5">
-            🎮 Masa untuk cabaran! Uji pengetahuan anda, kumpul Coin, dan naikkan kedudukan anda!!</p>
+          {/* Responsive Quiz Panel - Super Gamified */}
+          <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
+            {/* Dekorasi Latar Belakang */}
+            <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/50 rotate-12" />
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-emerald-600 hover:bg-emerald-700 h-12 text-xs sm:text-sm font-medium rounded-xl w-full shadow-sm active:scale-98 transition-transform">
-                {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />} Mula Kuiz (10 Soalan Rawak)
-              </Button>
-              <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-amber-600 hover:bg-amber-700 h-12 text-xs sm:text-sm font-medium rounded-xl w-full shadow-sm active:scale-98 transition-transform">
-                {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trophy className="w-4 h-4 mr-2" />} Mod Peperiksaan (20 Soalan Rawak)
-              </Button>
+            <div className="relative z-10">
+              <h3 className="font-bold text-xl sm:text-2xl text-orange-900 mb-2">
+                Uji Minda, {studentNickname}! 🎯
+              </h3>
+              <p className="text-sm sm:text-base text-orange-700 mb-6 font-medium">
+                Kumpul Syiling 🪙, naik level, dan jadi juara kelas! Jom sahut cabaran!
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
+                  <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-orange-500 hover:bg-orange-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all">
+                    {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2 fill-current" />} Cabaran Pantas (10 Soalan)
+                  </Button>
+                </motion.div>
+
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
+                  <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-red-500 hover:bg-red-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all">
+                    {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />} Ujian Boss (20 Soalan)
+                  </Button>
+                </motion.div>
+              </div>
             </div>
           </div>
 
-          {/* Ciri Premium: Bina Semula Nota */}
+          {/* Ciri Premium */}
           {isPremium ? (
-            <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-xs text-muted-foreground hover:bg-muted py-2.5 rounded-xl transition-colors">
-              {status.lesson ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />} Penyusunan Kurang Sesuai? Bina Semula Nota
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={handlePremiumRedirect} className="w-full text-xs text-amber-600 bg-amber-50/30 hover:bg-amber-50 py-2.5 rounded-xl border border-dashed border-amber-200 transition-colors">
-              <Lock className="w-3 h-3 mr-1 text-amber-500" /> Ciri Premium: Bina Semula Nota Baru
-            </Button>
-          )}
-          
+             <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
+               {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
+             </Button>
+           ) : (
+             <Button variant="ghost" size="sm" onClick={handlePremiumRedirect} className="w-full text-sm font-medium text-amber-600 bg-amber-50/50 hover:bg-amber-100 py-3 rounded-full border-2 border-dashed border-amber-200 transition-colors">
+               <Lock className="w-4 h-4 mr-2 text-amber-500" /> Ciri Premium: Jana Semula Nota 🌟
+             </Button>
+           )}
+           
         </motion.div>
       )}
     </div>
