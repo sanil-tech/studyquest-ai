@@ -42,10 +42,9 @@ const parseWmoCode = (code) => {
 };
 
 // ---------------- DYNAMIC 3D-STYLE AVATAR COMPONENT ----------------
-function InteractiveAvatar({ level, gender = "neutral" }) {
+function InteractiveAvatar({ level }) {
   const lvl = level || 1;
 
-  // Define progression themes based on Level (Tahap)
   const getAvatarTheme = (l) => {
     if (l >= 15) {
       return {
@@ -77,27 +76,22 @@ function InteractiveAvatar({ level, gender = "neutral" }) {
   const theme = getAvatarTheme(lvl);
 
   return (
-    <div className="relative flex flex-col items-center justify-center p-2">
-      {/* Visual Level Aura Effect */}
+    <div className="relative flex flex-col items-center justify-center p-2 flex-shrink-0">
       <div className={`absolute w-24 h-24 rounded-full border-4 ${theme.aura}`} />
       
-      {/* Main Stylized Avatar Container */}
       <motion.div 
         whileHover={{ scale: 1.1, rotate: 3 }}
         className={`w-20 h-20 rounded-full ${theme.bg} shadow-lg border-2 border-white flex items-center justify-center relative overflow-hidden`}
       >
-        {/* Dynamic Level Asset/Accessory */}
         <span className="text-4xl select-none filter drop-shadow-md">
           {lvl >= 15 ? "🧙‍♂️" : lvl >= 6 ? "🧑‍🚀" : "👶"}
         </span>
 
-        {/* Floating accessory badge overlay */}
         <div className="absolute top-1 right-1 text-xs">
           {theme.accessory}
         </div>
       </motion.div>
 
-      {/* Title Subtext */}
       <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mt-2">
         {theme.title}
       </span>
@@ -113,20 +107,19 @@ function ChildCard({ child, onUnlink }) {
     <Card className="p-6 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden border-l-4 border-l-purple-500">
       <div className="flex items-start justify-between">
         
-        {/* LEFTSIDE: Avatar + Core Bio */}
         <div className="flex items-center space-x-4">
           <InteractiveAvatar level={currentLevel} />
           <div>
-            <h3 className="text-xl font-bold flex items-center gap-2">
+            {/* Reverted back to your original fallback rendering pattern here */}
+            <h3 className="text-xl font-bold">
               {child.full_name || child.username || "Unnamed Student"}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Age {calculateAge(child.date_of_birth)} • {child.education_level || "Form 2"}
+              Age {calculateAge(child.date_of_birth)} • {child.education_level}
             </p>
           </div>
         </div>
 
-        {/* RIGHTSIDE: Action Menu Options */}
         <Button
           variant="ghost"
           size="sm"
@@ -137,14 +130,13 @@ function ChildCard({ child, onUnlink }) {
         </Button>
       </div>
 
-      {/* GAMIFIED PROGRESS STATS BAR */}
       <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl text-center text-sm border">
         <div className="flex flex-col items-center justify-center border-r">
           <div className="flex items-center gap-1 font-extrabold text-purple-600 text-lg">
             <Award className="w-4 h-4" />
             <span>{currentLevel}</span>
           </div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-tight">Tahap</p>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-tight">Level</p>
         </div>
         
         <div className="flex flex-col items-center justify-center border-r">
@@ -319,7 +311,6 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* THREE-COLUMN LAYOUT STRUCTURE */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* MAIN PANEL: CHILDREN LISTING */}
