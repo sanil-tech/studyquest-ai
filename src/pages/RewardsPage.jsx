@@ -14,63 +14,38 @@ export default function RewardsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-  const loadData = async () => {
-  try {
-    const u = await base44.auth.me();
-    setUser(u);
-    
-    const rws = await base44.entities.Reward.filter({ parent_id: u.id });
-    setRewards(rws);
-    
-    // 1. Fetch absolutely everything without any query parameters first
-    const allReqs = await base44.entities.LinkRequest.filter();
-    
-    // 2. Filter manually in JavaScript so we can log the exact failures
-    console.log("--- START REWARD DROPDOWN DIAGNOSTIC ---");
-    console.log("Logged-in Parent Email:", u.email);
-    console.log("Logged-in Parent ID:", u.id);
-    console.log("Total LinkRequest rows in DB:", allReqs.length);
-    
-    const mappedChildren = [];
-    
-    allReqs.forEach((req, index) => {
-      const emailMatch = String(req.parent_email || "").toLowerCase() === String(u.email || "").toLowerCase();
-      const idMatch = req.parent_id === u.id;
-      const isApproved = String(req.status || "").toLowerCase() === "approved";
-      
-      console.log(`Row #${index} Analysis:`, {
-        student_name: req.student_name || req.child_name || req.student_username,
-        status: req.status,
-        parent_email_in_db: req.parent_email,
-        parent_id_in_db: req.parent_id,
-        matches_email: emailMatch,
-        matches_id: idMatch,
-        is_approved: isApproved
-      });
+    const loadStudentData = async () => {
+      try {
+        const studentUser = await base44.auth.me();
 
-      // If it matches ANY criteria, let's force it into the dropdown for now to see if it works!
-      if (emailMatch || idMatch) {
-        mappedChildren.push({
-          id: req.student_id || req.user_id || req.id,
-          full_name: req.student_name || req.child_name || req.student_username || `Child Profile ${index}`,
-          email: req.student_email || "",
-          username: req.student_username || ""
+        // 1. Fetch the student's unique relationship record to discover their parent_id
+        const relationships = await base44.entities.ParentChildRelationship.filter({
+          child_id: studentUser.id,
+          status: "active",
         });
-      }
-    });
 
-    console.log("Forced Dropdown Children:", mappedChildren);
-    console.log("--- END REWARD DROPDOWN DIAGNOSTIC ---");
-    
-    setChildren(mappedChildren);
-  } catch (err) {
-    console.error("Diagnostic error:", err);
-  } finally {
-    setLoading(false);
-  }
-};
-  load();
-}, []);
+        const activeParentId = relationships[0]?.parent_id || null;
+
+        // 2. Fetch data pools in parallel
+        const [fetchedRewards, wallets, reqs] = await Promise.all([
+          activeParentId 
+            ? base44.entities.Reward.filter({ parent_id: activeParentId }) 
+            : Promise.resolve([]),
+          base44.entities.Wallet.filter({ student_id: studentUser.id }),
+          base44.entities.RewardRequest.filter({ student_id: studentUser.id }, "-created_date", 20),
+        ]);
+
+        setRewards(fetchedRewards);
+        setWallet(wallets[0] || { balance: 0 });
+        setRequests(reqs);
+      } catch (err) {
+        console.error("Error running student rewards dashboard load sequence:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStudentData();
+  }, []);
 
   const requestReward = async (reward) => {
     if ((wallet?.balance || 0) < reward.coin_cost) {
@@ -87,10 +62,11 @@ export default function RewardsPage() {
       const user = await base44.auth.me();
       const req = await base44.entities.RewardRequest.create({
         student_id: user.id,
-        student_email: user.email, // Attached for safety so parent dashboard can track it easily
+        student_email: user.email, 
         reward_id: reward.id,
         reward_title: reward.title,
         coin_cost: reward.coin_cost,
+        status: "pending"
       });
 
       // Notify parent
@@ -144,7 +120,7 @@ export default function RewardsPage() {
   return (
     <div className="space-y-8 pb-12 max-w-5xl mx-auto px-1">
       
-      {/* 1. HERO COIN VAULT BANNER */}
+      {/* HERO COIN VAULT BANNER */}
       <div className="relative overflow-hidden bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 rounded-3xl p-6 sm:p-8 text-white shadow-md">
         <div className="absolute -right-6 -top-6 w-36 h-36 bg-white/10 rounded-full blur-xl" />
         <div className="absolute right-20 -bottom-10 w-28 h-28 bg-yellow-400/30 rounded-full blur-lg" />
@@ -155,13 +131,12 @@ export default function RewardsPage() {
               <Sparkles className="w-3.5 h-3.5 fill-yellow-200" />
               Rewards Shop
             </div>
-            <h1 className="text-3xl font-black font-heading tracking-tight">Turn Gold into Prizes!</h1>
+            <h1 className="text-3xl font-black tracking-tight">Turn Gold into Prizes!</h1>
             <p className="text-orange-50 text-sm mt-1 max-w-sm">
               Trade the coins earned from finishing lessons and acing quizzes for real-world rewards.
             </p>
           </div>
 
-          {/* Balance Display Box */}
           <div className="bg-white/15 backdrop-blur-md rounded-2xl p-4 flex items-center gap-4 border border-white/20 shadow-inner shrink-0">
             <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-md animate-bounce">
               <Coins className="w-7 h-7 text-amber-500 fill-amber-400/30" />
@@ -174,9 +149,9 @@ export default function RewardsPage() {
         </div>
       </div>
 
-      {/* 2. AVAILABLE REWARDS GRID */}
+      {/* AVAILABLE REWARDS GRID */}
       <div className="space-y-4">
-        <h2 className="text-xl font-extrabold text-slate-800 font-heading">Available Rewards</h2>
+        <h2 className="text-xl font-extrabold text-slate-800">Available Rewards</h2>
         
         {rewards.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-slate-100 shadow-sm">
@@ -204,7 +179,6 @@ export default function RewardsPage() {
                   }`}
                 >
                   <div>
-                    {/* Icon Header Row */}
                     <div className="flex justify-between items-start mb-4">
                       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-sm border shrink-0 transition-transform group-hover:scale-105 ${
                         canAfford ? "bg-amber-50 border-amber-100" : "bg-slate-50 border-slate-100"
@@ -212,7 +186,6 @@ export default function RewardsPage() {
                         {reward.icon || "🎁"}
                       </div>
                       
-                      {/* Price Badge */}
                       <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl font-black text-sm border shadow-2xs ${
                         canAfford ? "bg-amber-50/50 text-amber-600 border-amber-100" : "bg-slate-50 text-slate-400 border-slate-100"
                       }`}>
@@ -221,13 +194,11 @@ export default function RewardsPage() {
                       </div>
                     </div>
 
-                    {/* Title */}
                     <h3 className="font-extrabold text-slate-800 text-base leading-snug tracking-tight mb-4">
                       {reward.title}
                     </h3>
                   </div>
 
-                  {/* Action Button */}
                   <Button
                     onClick={() => requestReward(reward)}
                     disabled={!canAfford || hasPending || requesting === reward.id}
@@ -260,10 +231,10 @@ export default function RewardsPage() {
         )}
       </div>
 
-      {/* 3. REQUEST HISTORY SECTION */}
+      {/* REQUEST HISTORY SECTION */}
       {requests.length > 0 && (
         <div className="space-y-4 pt-4">
-          <h2 className="font-extrabold text-slate-800 font-heading text-lg">Your Order History</h2>
+          <h2 className="font-extrabold text-slate-800 text-lg">Your Order History</h2>
           
           <div className="grid gap-2 sm:grid-cols-2">
             {requests.map(req => (
@@ -279,9 +250,8 @@ export default function RewardsPage() {
                   </div>
                 </div>
                 
-                {/* Clean Status Pill */}
-                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold border capitalize shrink-0 shadow-2xs ${statusStyle[req.status]}`}>
-                  {statusIcon[req.status]}
+                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold border capitalize shrink-0 shadow-2xs ${statusStyle[req.status] || "bg-slate-50 text-slate-700"}`}>
+                  {statusIcon[req.status] || <Clock className="w-3.5 h-3.5" />}
                   {req.status}
                 </span>
               </div>
