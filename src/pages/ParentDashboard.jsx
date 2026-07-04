@@ -1,708 +1,462 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import {
-  Coins, Trophy, Clock, CheckSquare, BookOpen, 
-  Trash2, Calendar, Award, Flame, Target, CloudSun, Heart, MapPinOff
-} from "lucide-react";
-import { getDisplayName } from "@/lib/utils";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, ShieldAlert } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import moment from "moment";
+import ParentConnections from "@/components/student/ParentConnections";
+import { useToast } from "@/components/ui/use-toast";
+import { Card, CardContent } from "@/components/ui/card";
+import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
+import ProfileForm from "@/components/profile/ProfileForm";
+import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
+import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
+import SecuritySection from "@/components/profile/SecuritySection";
+import StudentIdSection from "@/components/profile/StudentIdSection";
 
-// ============================================================================
-// WMO WEATHER CODE TRANSLATION DICTIONARY
-// ============================================================================
-const parseWmoCode = (code) => {
-  const map = {
-    0: { status: "Sunny", emoji: "☀️", tip: "Perfect conditions for outdoor school blocks today." },
-    1: { status: "Mainly Clear", emoji: "🌤️", tip: "Great commuting window for school drop-offs." },
-    2: { status: "Partly Cloudy", emoji: "⛅", tip: "Nice, mild weather for a standard school day balance." },
-    3: { status: "Overcast", emoji: "☁️", tip: "Overcast conditions. No instant weather alerts expected." },
-    45: { status: "Foggy", emoji: "🌫️", tip: "Reduced visibility. Drive with caution during school rush hours." },
-    48: { status: "Misty Fog", emoji: "🌫️", tip: "Misty conditions. Keep car headlights on for safety." },
-    51: { status: "Light Drizzle", emoji: "🌧️", tip: "Slight dampness out. Remind kids to pack rain gear." },
-    53: { status: "Mod. Drizzle", emoji: "🌧️", tip: "Persistent light rain. Umbrellas might be useful today." },
-    55: { status: "Thick Drizzle", emoji: "🌧️", tip: "Thick drizzle active. Grab a raincoat for dismissal paths." },
-    61: { status: "Slight Rain", emoji: "🌧️", tip: "Mild showers. Pack an umbrella inside their bags this morning." },
-    63: { status: "Moderate Rain", emoji: "🌧️", tip: "Wet roads tracking. Plan for extra minutes on the drive home." },
-    65: { status: "Heavy Rain", emoji: "🌧️", tip: "Heavy downpour. Indoor school dismissals likely." },
-    71: { status: "Light Snow", emoji: "❄️", tip: "Light winter flurries. Ensure coats are zipped up well." },
-    73: { status: "Moderate Snow", emoji: "❄️", tip: "Snow accumulative track. Bundle up kids in full winter layers." },
-    75: { status: "Heavy Snow", emoji: "❄️", tip: "Thick snowfall active. Watch out for delayed transit buses." },
-    80: { status: "Slight Showers", emoji: "🌦️", tip: "Passing raindrops. Safe commute windows should open soon." },
-    81: { status: "Mod. Showers", emoji: "🌦️", tip: "Intermittent sudden rain. Keep rain protection on hand." },
-    82: { status: "Violent Showers", emoji: "⛈️", tip: "Heavy cloud bursts. Recommend delayed pick-ups if possible." },
-    95: { status: "Thunderstorm", emoji: "⛈️", tip: "Storm alerts tracked. Keep devices close for school announcements." },
-  };
-  return map[code] || { status: "Clear Skies", emoji: "☀️", tip: "Enjoy your day monitoring your family milestones!" };
-};
-
-export default function ParentDashboard() {
+export default function ProfilePage() {
   const [user, setUser] = useState(null);
-  const [children, setChildren] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
+  const [progress, setProgress] = useState(null);
+  const [wallet, setWallet] = useState(null);
+  const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showAvatar, setShowAvatar] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: "",
+    nickname: "",
+    school_year: "",
+    school_name: "",
+    class_name: "",
+    gender: "",
+    date_of_birth: "",
+    country: "Malaysia",
+    state: "",
+    notification_preferences: {
+      email_notifications: true,
+      push_notifications: true,
+      quiz_reminders: true,
+      daily_learning_reminder: true,
+      parent_progress_reports: true,
+      weekly_achievement_summary: true,
+    },
+    learning_preferences: {
+      daily_goal_minutes: 20,
+      difficulty_preference: "medium",
+      favorite_subjects: [],
+    },
+  });
+  const [avatarMode, setAvatarMode] = useState("emoji");
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef(null);
   const { toast } = useToast();
 
-  // --- WIDGET LOGIC MANAGEMENT STATES ---
-  const [reminders, setReminders] = useState([
-    { id: 1, text: "Sign permission slip for upcoming field trip", completed: false },
-    { id: 2, text: "Review next week's textbook chapters", completed: true },
-    { id: 3, text: "Settle upcoming school bus fees balance", completed: false }
-  ]);
-  const [newReminder, setNewReminder] = useState("");
-  
-  // --- UPGRADED HOURLY FORECAST STATES ---
-  const [weather, setWeather] = useState({ temp: "--°C", status: "Locating... 🔍", emoji: "☀️", tip: "Resolving live school zone tracking variables.", fallback: false });
-  const [hourlyForecast, setHourlyForecast] = useState([]); 
-  const [weatherLoading, setWeatherLoading] = useState(true);
-
-  // ============================================================================
-  // WEATHER ENGINE CONTROLLER (GEOLOCATION 24H API)
-  // ============================================================================
-  const fetchLiveWeather = useCallback(() => {
-    if (!navigator.geolocation) {
-      setWeather(prev => ({ ...prev, status: "Unsupported browser", fallback: true }));
-      setWeatherLoading(false);
-      return;
-    }
-
-    setWeatherLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        try {
-          const res = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,weathercode`
-          );
-          if (!res.ok) throw new Error("API Outage");
-          const data = await res.json();
-          
-          // 1. Core Current Conditions
-          const rawTemp = Math.round(data.current_weather.temperature);
-          const currentMeta = parseWmoCode(data.current_weather.weathercode);
-          
-          setWeather({
-            temp: `${rawTemp}°C`,
-            status: currentMeta.status,
-            emoji: currentMeta.emoji,
-            tip: currentMeta.tip,
-            fallback: false
-          });
-
-          // 2. Parse 24-Hour Forecast Array into next 5 upcoming hours
-          const currentHourIndex = moment().hour(); 
-          const shortTimeline = [];
-
-          for (let i = 0; i < 5; i++) {
-            const targetIndex = currentHourIndex + i;
-            if (data.hourly && data.hourly.time[targetIndex]) {
-              const timeString = data.hourly.time[targetIndex];
-              const parsedMeta = parseWmoCode(data.hourly.weathercode[targetIndex]);
-              
-              shortTimeline.push({
-                time: moment(timeString).format("h A"), 
-                temp: `${Math.round(data.hourly.temperature_2m[targetIndex])}°C`,
-                emoji: parsedMeta.emoji,
-                status: parsedMeta.status
-              });
-            }
-          }
-          setHourlyForecast(shortTimeline);
-
-        } catch (err) {
-          setWeather({ 
-            temp: "24°C", 
-            status: "Offline Mode 🌤️", 
-            emoji: "🌤️",
-            tip: "Displaying generalized weather profiles. App is running optimally.",
-            fallback: true 
-          });
-          setHourlyForecast([
-            { time: "Now", temp: "24°C", emoji: "🌤️" },
-            { time: "+1h", temp: "25°C", emoji: "☀️" },
-            { time: "+2h", temp: "23°C", emoji: "☁️" },
-            { time: "+3h", temp: "22°C", emoji: "🌧️" },
-            { time: "+4h", temp: "23°C", emoji: "🌤️" },
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+        
+        if (u.app_role === "student") {
+          const [progs, wallets, attempts] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: u.id }),
+            base44.entities.Wallet.filter({ student_id: u.id }),
+            base44.entities.QuizAttempt.filter({ student_id: u.id }),
           ]);
-        } finally {
-          setWeatherLoading(false);
+          setProgress(progs[0]);
+          setWallet(wallets[0]);
+          totalQuizzes && setTotalQuizzes(attempts.length);
         }
-      },
-      (error) => {
-        setWeather({
-          temp: "Locked",
-          status: "Location Off",
-          emoji: "🔒",
-          tip: "Authorize location access for real-time local school commute alerts.",
-          fallback: true
+        
+        setFormData({
+          full_name: u.full_name || "",
+          nickname: u.nickname || "",
+          school_year: u.school_year || "",
+          school_name: u.school_name || "",
+          class_name: u.class_name || "",
+          gender: u.gender || "",
+          date_of_birth: u.date_of_birth || "",
+          country: u.country || "Malaysia",
+          state: u.state || "",
+          notification_preferences: u.notification_preferences || {
+            email_notifications: true,
+            push_notifications: true,
+            quiz_reminders: true,
+            daily_learning_reminder: true,
+            parent_progress_reports: true,
+            weekly_achievement_summary: true,
+          },
+          learning_preferences: u.learning_preferences || {
+            daily_goal_minutes: 20,
+            difficulty_preference: "medium",
+            favorite_subjects: [],
+          },
         });
-        setWeatherLoading(false);
-      },
-      { timeout: 8000 }
-    );
-  }, []);
-
-  useEffect(() => {
-    fetchLiveWeather();
-  }, [fetchLiveWeather]);
-
-  // ============================================================================
-  // DATABASE RETRIEVAL UTILS
-  // ============================================================================
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const u = await base44.auth.me();
-      setUser(u);
-
-      const relationships = await base44.entities.ParentChildRelationship.filter({
-        parent_id: u.id,
-        status: ["active", "inactive"],
-      });
-
-      const studentIds = relationships.map(r => r.child_id);
-      if (!studentIds.length) {
-        setChildren([]);
-        setPendingRequests([]);
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+      } finally {
         setLoading(false);
-        return;
       }
+    };
+    load();
+  }, [user?.id]);
 
-      const childrenData = await Promise.all(
-        studentIds.map(async (sid) => {
-          const [progress, wallet, sessions, quizzes] = await Promise.all([
-            base44.entities.Progress.filter({ student_id: sid }),
-            base44.entities.Wallet.filter({ student_id: sid }),
-            base44.entities.StudySession.filter({ student_id: sid }, "-created_date", 20),
-            base44.entities.QuizAttempt.filter({ student_id: sid }, "-created_date", 10),
-          ]);
-          const weekAgo = moment().subtract(7, "days");
-          const weeklyMinutes = (sessions || [])
-            .filter(s => moment(s.created_date).isAfter(weekAgo))
-            .reduce((a, b) => a + (b.duration_minutes || 0), 0);
-
-          return {
-            id: sid,
-            progress: progress?.[0] || { level: 1, total_xp: 0, streak_days: 0 },
-            wallet: wallet?.[0] || { balance: 0 },
-            sessions: sessions || [],
-            quizzes: quizzes || [],
-            weeklyMinutes,
-          };
-        })
-      );
-
-      const enriched = await Promise.all(
-        childrenData.map(async (c) => {
-          try {
-            const studentUser = await base44.entities.User.get(c.id);
-            return {
-              ...c,
-              name: getDisplayName(studentUser),
-              avatar_emoji: studentUser.avatar_emoji || "👦🏽",
-              education_level: studentUser.education_level || studentUser.school_year || "Student",
-            };
-          } catch {
-            return { ...c, name: "Student", avatar_emoji: "👦🏽", education_level: "Student" };
-          }
-        })
-      );
-
-      const rewardNested = await Promise.all(
-        studentIds.map(sid =>
-          base44.entities.RewardRequest.filter({ student_id: sid, status: "pending" })
-        )
-      );
-
-      setChildren(enriched);
-      setPendingRequests(rewardNested.flat());
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+  const handleLogout = () => {
+    base44.auth.logout("/login");
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const handleSaveAvatar = async (emoji) => {
+    await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
+    setUser((prev) => ({ ...prev, avatar_emoji: emoji, profile_picture_url: null }));
+  };
 
-  const handleUnlinkChild = async (childId, childName) => {
-    if (!confirm(`Are you sure you want to disconnect ${childName}'s monitoring link?`)) return;
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
     try {
-      const rel = await base44.entities.ParentChildRelationship.filter({
-        parent_id: user.id,
-        child_id: childId,
-        status: ["active", "inactive"],
+      const result = await base44.integrations.Core.UploadFile({ file });
+      await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
+      setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
+      setAvatarMode("photo");
+      toast({
+        title: "Photo uploaded!",
+        description: "Your profile photo has been updated.",
       });
-      if (rel?.[0]) {
-        await base44.entities.ParentChildRelationship.update(rel[0].id, { status: "inactive" });
-      }
-      toast({ title: "Child Disconnected", description: `${childName} unlinked successfully.` });
-      loadData();
     } catch (err) {
-      toast({ title: "Failed", description: err.message, variant: "destructive" });
+      console.error("Photo upload failed:", err);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload photo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
     }
   };
 
-  // --- REMINDER MANAGEMENT INTERACTION LOOPS ---
-  const handleToggleReminder = (id) => {
-    setReminders(reminders.map(r => r.id === id ? { ...r, completed: !r.completed } : r));
+  const handleRemovePhoto = async () => {
+    await base44.auth.updateMe({ profile_picture_url: null });
+    setUser((prev) => ({ ...prev, profile_picture_url: null }));
+    setAvatarMode("emoji");
   };
 
-  const handleAddReminder = (e) => {
-    e.preventDefault();
-    if (!newReminder.trim()) return;
-    setReminders([...reminders, { id: Date.now(), text: newReminder, completed: false }]);
-    setNewReminder("");
-  };
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      await base44.auth.updateMe(formData);
+      const updatedUser = await base44.auth.me();
+      setUser(updatedUser);
+      setFormData({
+        full_name: updatedUser.full_name || "",
+        nickname: updatedUser.nickname || "",
+        school_year: updatedUser.school_year || "",
+        school_name: updatedUser.school_name || "",
+        class_name: updatedUser.class_name || "",
+        gender: updatedUser.gender || "",
+        date_of_birth: updatedUser.date_of_birth || "",
+        country: updatedUser.country || "Malaysia",
+        state: updatedUser.state || "",
+        notification_preferences: updatedUser.notification_preferences || formData.notification_preferences,
+        learning_preferences: updatedUser.learning_preferences || formData.learning_preferences,
+      });
+      setEditing(false);
 
-  const triggerKudosReward = (childName) => {
-    toast({
-      title: "Motivator Sent! ✨",
-      description: `Sent a live celebratory sparkle notification directly to ${childName}'s learning interface!`,
-    });
+      if (updatedUser.app_role === "student") {
+        const linkReqs = await base44.entities.LinkRequest.filter({ 
+          student_email: updatedUser.email, 
+          status: "approved" 
+        });
+        await Promise.all(
+          linkReqs.map(req =>
+            base44.entities.LinkRequest.update(req.id, { 
+              student_name: updatedUser.full_name || updatedUser.email 
+            })
+          )
+        );
+      }
+
+      toast({
+        title: "Profile saved! ✓",
+        description: "Your profile has been updated successfully.",
+      });
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+      toast({
+        title: "Failed to save",
+        description: err.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-40 gap-3">
-        <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-xs text-slate-400 font-semibold tracking-wide animate-pulse">Syncing Guardian Dashboard...</p>
+      <div className="flex items-center justify-center py-32">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
+  const isStudent = user?.app_role === "student";
+  const isParent = user?.app_role === "parent";
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6 bg-slate-50/50 min-h-screen pb-24 selection:bg-indigo-100 text-slate-600 antialiased">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       
-      {/* HEADER HERO ACTIONS CONTROLLER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
-            Welcome Back, {user?.full_name || "Parent"} 👋
-          </h1>
-          <p className="text-xs text-slate-400 font-medium mt-0.5">Real-time household study insights and system logs.</p>
-        </div>
-      </div>
-
-      {/* CORE INTEGRATION MESH SYSTEM */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Profile Header Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-indigo-600 to-violet-700 p-6 md:p-10 text-white shadow-xl shadow-indigo-900/10"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4 blur-lg pointer-events-none" />
         
-        {/* LEFT COLUMN MAIN INTERFACES */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* ACTION NEEDED STORE CONSOLE */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
-                <CheckSquare className="w-4 h-4 text-amber-500" />
-              </div>
-              <h2 className="font-black text-slate-800 text-sm tracking-tight">
-                Pending Store Requests ({pendingRequests.length})
-              </h2>
-            </div>
-
-            {pendingRequests.length === 0 ? (
-              <p className="text-xs text-slate-400 font-medium bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                ✨ No pending store item purchase request signatures found right now.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {pendingRequests.map(r => (
-                  <div key={r.id} className="flex justify-between items-center text-xs p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/40 hover:border-slate-200 transition-colors">
-                    <span className="font-bold text-slate-700 truncate max-w-[150px]">{r.reward_title}</span>
-                    <span className="text-amber-700 font-black bg-amber-100/60 px-2.5 py-1 rounded-xl border border-amber-200/40 text-[11px] shrink-0">
-                      {r.coin_cost} 🪙
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ACTIVE ATTACHED STUDENT MAPPER */}
-          <div className="space-y-6">
-            {children.length === 0 ? (
-              <div className="bg-white p-8 rounded-3xl border border-dashed border-slate-200 text-center space-y-3">
-                <div className="text-4xl">👥</div>
-                <h3 className="font-bold text-slate-700 text-sm">No Student Profiles Connected</h3>
-                <p className="text-xs text-slate-400 max-w-xs mx-auto">Link student profiles via your workspace directory tab to look over activity logs.</p>
-              </div>
-            ) : (
-              children.map(child => (
-                <ChildCard 
-                  key={child.id} 
-                  child={child} 
-                  onUnlink={handleUnlinkChild} 
-                  onSendKudos={triggerKudosReward}
-                  
-                />
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT SIDEBAR MODULE CONTEXT PLATFORM */}
-        <div className="space-y-6">
-          
-          {/* UPGRADED SUB-WIDGET 1: LIVE CONTEXT COMMUTE INTELLIGENCE WITH HOURLY TRACKER */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
-                  <CloudSun className="w-4 h-4" />
-                </div>
-                <h3 className="font-bold text-xs text-slate-800 tracking-wide uppercase">Commute Outlook</h3>
-              </div>
-              <button 
-                onClick={fetchLiveWeather} 
-                disabled={weatherLoading}
-                className="text-[10px] text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors px-2 py-0.5 rounded-lg font-bold disabled:opacity-50"
-              >
-                {weatherLoading ? "Syncing..." : "Sync Local"}
-              </button>
-            </div>
-            
-            {/* MAIN CURRENT WEATHER DISPATCH */}
-            <div className="flex items-center justify-between bg-gradient-to-br from-slate-50 to-slate-100/60 p-4 rounded-2xl border border-slate-100 shadow-inner">
-              <div>
-                {weatherLoading ? (
-                  <div className="space-y-2 py-1">
-                    <div className="h-6 w-14 bg-slate-200/80 animate-pulse rounded-lg" />
-                    <div className="h-3 w-20 bg-slate-200/60 animate-pulse rounded-md" />
-                  </div>
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+            <div className="relative group">
+              <div className="w-28 h-28 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
+                {user?.profile_picture_url ? (
+                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <>
-                    <p className="text-2xl font-black tracking-tight text-slate-900">{weather.temp}</p>
-                    <p className="text-xs font-bold text-slate-500 mt-0.5">{weather.status}</p>
-                  </>
+                  <span className="text-5xl select-none">{user?.avatar_emoji || "🎓"}</span>
                 )}
               </div>
-              {weather.fallback && !weatherLoading ? (
-                <div className="w-10 h-10 rounded-xl bg-slate-200/60 flex items-center justify-center text-slate-400">
-                  <MapPinOff className="w-5 h-5" />
-                </div>
-              ) : (
-                <span className="text-3xl shrink-0 filter drop-shadow">{weather.emoji}</span>
+              {isStudent && showAvatar && (
+                <button
+                  onClick={handleRemovePhoto}
+                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
+                  title="Remove photo"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
 
-            {/* HOURLY TIMELINE SCROLL */}
-            {!weather.fallback && (
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Next 5 Hours</p>
-                <div className="flex gap-2 overflow-x-auto pb-1.5 subtle-scrollbar scrollbar-none justify-between">
-                  {weatherLoading ? (
-                    Array(5).fill(0).map((_, idx) => (
-                      <div key={idx} className="w-[58px] h-[68px] bg-slate-50 rounded-xl border border-slate-100 animate-pulse shrink-0" />
-                    ))
-                  ) : (
-                    hourlyForecast.map((hour, idx) => (
-                      <div 
-                        key={idx} 
-                        className={`flex flex-col items-center justify-center py-2 px-2.5 rounded-xl border shrink-0 text-center w-[58px] ${
-                          idx === 0 
-                            ? 'bg-indigo-50/60 border-indigo-100 text-indigo-900' 
-                            : 'bg-slate-50/50 border-slate-100 text-slate-600'
-                        }`}
-                      >
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">{idx === 0 ? "Now" : hour.time}</span>
-                        <span className="text-base my-1 filter drop-shadow-sm">{hour.emoji}</span>
-                        <span className="text-[11px] font-black tracking-tight">{hour.temp}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* SYSTEM LOG METRIC TIPS FOR PARENTS */}
-            <div className={`text-[11px] leading-relaxed p-3.5 rounded-2xl border ${weather.fallback ? 'bg-slate-50 border-slate-200/50 text-slate-500' : 'bg-amber-50/50 border-amber-200/40 text-amber-950 font-medium'}`}>
-              <span className="font-bold">{weather.fallback ? "📋 Setup Notice:" : "💡 Commute Tip:"}</span> {weather.tip}
-            </div>
-          </div>
-
-          {/* SUB-WIDGET 2: TIMELINE DISPATCH TRACKER */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center">
-                <Calendar className="w-4 h-4" />
-              </div>
-              <h3 className="font-bold text-xs text-slate-800 tracking-wide uppercase">Today's Class Timelines</h3>
-            </div>
-
-            {children.length === 0 ? (
-              <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">Attached student profiles map schedules here.</p>
-            ) : (
-              <div className="space-y-4">
-                {children.map((child) => {
-                  const latestSession = child.sessions?.[0];
-                  return (
-                    <div key={child.id} className="space-y-2 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs">{child.avatar_emoji}</span>
-                        <p className="text-[11px] font-black text-slate-700 uppercase tracking-wider">{child.name}</p>
-                      </div>
-
-                      <div className="relative pl-3 border-l-2 border-indigo-500 ml-1.5 space-y-1">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-bold text-slate-800 truncate max-w-[150px]">
-                            {latestSession?.topic_name || "Self Directed Study Blocks"}
-                          </span>
-                          <span className="font-extrabold text-[9px] tracking-wider text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded uppercase shrink-0">
-                            ACTIVE
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-400">Duration: {latestSession?.duration_minutes || "30"} mins active sequence</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* SUB-WIDGET 3: NOTEBOOK LOG CHECKBOX TASKBOARD */}
-          <div className="bg-white p-5 rounded-3xl border border-slate-200/60 shadow-sm space-y-3.5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center">
-                <CheckSquare className="w-4 h-4" />
-              </div>
-              <h3 className="font-bold text-xs text-slate-800 tracking-wide uppercase">Domestic Admin Reminders</h3>
-            </div>
-
-            <form onSubmit={handleAddReminder} className="flex gap-2">
-              <input 
-                type="text" 
-                value={newReminder}
-                onChange={(e) => setNewReminder(e.target.value)}
-                placeholder="Drop a private quick sticknote..." 
-                className="flex-1 text-xs px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 text-slate-800 font-medium transition-colors"
-              />
-              <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 rounded-xl transition-colors shrink-0">
-                Add
-              </button>
-            </form>
-
-            <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1 text-slate-600">
-              <AnimatePresence initial={false}>
-                {reminders.map((rem) => (
-                  <motion.div 
-                    key={rem.id}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, x: -10 }}
-                    transition={{ type: "spring", duration: 0.4 }}
-                    className="flex items-start gap-2.5 p-2 rounded-xl hover:bg-slate-50 transition-colors overflow-hidden"
-                  >
-                    <input 
-                      type="checkbox" 
-                      checked={rem.completed} 
-                      onChange={() => handleToggleReminder(rem.id)}
-                      className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 w-3.5 h-3.5 shrink-0 cursor-pointer"
-                    />
-                    <span className={`text-xs leading-tight font-medium select-none cursor-pointer ${rem.completed ? "line-through text-slate-300 font-normal" : "text-slate-600"}`} onClick={() => handleToggleReminder(rem.id)}>
-                      {rem.text}
-                    </span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  );
-}
-
-// ============================================================================
-// INDIVIDUAL EXPANDED COMPONENT SCORECARD SUBSYSTEM
-// ============================================================================
-function ChildCard({ child, onUnlink, onSendKudos }) {
-  const name = child?.name || "Student";
-  const level = child?.progress?.level || 1;
-  const xp = child?.progress?.total_xp || 0;
-  const nextLevelXp = level * 200;
-  const xpPercentage = Math.min((xp / nextLevelXp) * 100, 100);
-  const avatarEmoji = child?.avatar_emoji || "👦🏽";
-  const schoolTrack = child?.education_level || "Student";
-  
-  const streakDays = child?.progress?.streak_days || 0;
-  const weeklyStudy = `${child?.weeklyMinutes || 0}m`;
-  const walletCoins = child?.wallet?.balance || 0;
-
-  const todayDateString = moment().format("YYYY-MM-DD");
-  const todaysSessions = (child?.sessions || []).filter(s => moment(s.created_date).isSame(todayDateString, 'day'));
-  const todayMinutes = todaysSessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
-  const todaySessionCount = todaysSessions.length;
-
-  const latestSession = child?.sessions?.[0];
-  const recentLesson = latestSession?.topic_name || "No active modules launched yet";
-  const recentLessonTime = latestSession ? moment(latestSession.created_date).fromNow() : "--";
-
-  const latestQuiz = child?.quizzes?.[0];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden"
-    >
-      {/* CARD TOP HEADER BANNER */}
-      <div className="bg-gradient-to-b from-slate-50 to-white px-6 pt-5 pb-4 relative flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100">
-        <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-          <div className="w-14 h-14 rounded-2xl bg-white p-0.5 shadow-sm border border-slate-200 flex items-center justify-center text-2xl shrink-0">
-            {avatarEmoji}
-          </div>
-          <div>
-            <div className="flex items-center justify-center sm:justify-start gap-2">
-              <h2 className="text-base font-black text-slate-900 tracking-tight uppercase">
-                {name}
-              </h2>
-              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg border border-slate-200/40">
-                {schoolTrack}
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400 font-medium mt-0.5 tracking-wide">ID ACC: ...{child.id?.slice(-6).toUpperCase()}</p>
-          </div>
-        </div>
-
-        {/* INTERACTION ACTION CONTROLS */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
-          <button
-            onClick={() => onSendKudos(name)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 text-xs font-black rounded-xl shadow-sm transition-transform active:scale-95 shadow-amber-500/10"
-          >
-            <Heart className="w-3.5 h-3.5 fill-current text-rose-800/80" />
-            <span>Send Spark Kudos</span>
-          </button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl w-9 h-9 border border-slate-100 shrink-0 transition-colors"
-            onClick={() => onUnlink(child.id, name)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="p-6 space-y-5">
-        {/* PROGRESS EXPERIENCE CONTAINER BAR */}
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-slate-600">
-              <span>Grade Rank Level {level}</span>
-              <span className="text-slate-200">•</span>
-              <span className="text-slate-400 font-semibold">{xp} / {nextLevelXp} XP accumulated</span>
-            </div>
-            {xpPercentage >= 75 && (
-              <div className="flex items-center gap-1 text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                <Award className="w-3 h-3 fill-current" /> Near Upgrade!
-              </div>
-            )}
-          </div>
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-200/10">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${xpPercentage}%` }}
-              transition={{ duration: 1, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full"
-            />
-          </div>
-        </div>
-
-        {/* METRICS CORE TRACKING CONTAINER GRID */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3 bg-sky-50/30 rounded-2xl border border-sky-100/50">
-            <div className="flex items-center gap-1.5 text-sky-600 font-bold text-[10px] uppercase tracking-wider mb-1">
-              <Target className="w-3.5 h-3.5" />
-              <span>Today</span>
-            </div>
-            <p className="text-base font-black text-slate-900 tracking-tight">
-              {todayMinutes}m <span className="text-[10px] font-semibold text-slate-400">({todaySessionCount}x)</span>
-            </p>
-          </div>
-
-          <div className="p-3 bg-orange-50/30 rounded-2xl border border-orange-100/50">
-            <div className="flex items-center gap-1.5 text-orange-600 font-bold text-[10px] uppercase tracking-wider mb-1">
-              <Flame className="w-3.5 h-3.5" />
-              <span>Streak</span>
-            </div>
-            <p className="text-base font-black text-slate-900 tracking-tight">{streakDays} Days</p>
-          </div>
-
-          <div className="p-3 bg-indigo-50/30 rounded-2xl border border-indigo-100/50">
-            <div className="flex items-center gap-1.5 text-indigo-600 font-bold text-[10px] uppercase tracking-wider mb-1">
-              <Clock className="w-3.5 h-3.5" />
-              <span>7-Day Cycle</span>
-            </div>
-            <p className="text-base font-black text-slate-900 tracking-tight">{weeklyStudy}</p>
-          </div>
-
-          <div className="p-3 bg-amber-50/30 rounded-2xl border border-amber-100/50">
-            <div className="flex items-center gap-1.5 text-amber-600 font-bold text-[10px] uppercase tracking-wider mb-1">
-              <Coins className="w-3.5 h-3.5" />
-              <span>Wallet Bank</span>
-            </div>
-            <p className="text-base font-black text-slate-900 tracking-tight">{walletCoins} 🪙</p>
-          </div>
-        </div>
-
-        {/* LOWER SPLIT DETAILS PANEL ITEMS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div className="p-3 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-slate-50 to-slate-100/40 border border-slate-200/50 rounded-2xl flex items-center justify-between min-w-0">
-            <div className="flex items-center gap-3 truncate">
-              <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-slate-200/60 flex items-center justify-center shrink-0">
-                <BookOpen className="w-3.5 h-3.5 text-slate-500" />
-              </div>
-              <div className="truncate">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Last Module Visited</p>
-                <p className="text-xs font-bold text-slate-700 truncate" title={recentLesson}>{recentLesson}</p>
-              </div>
-            </div>
-            <span className="text-[10px] font-semibold text-slate-400 shrink-0 ml-2 whitespace-nowrap">{recentLessonTime}</span>
-          </div>
-
-          {latestQuiz ? (
-            <div className="p-3 bg-gradient-to-br from-emerald-50/30 to-teal-50/10 border border-emerald-100/60 rounded-2xl flex items-center justify-between min-w-0">
-              <div className="flex items-center gap-3 truncate">
-                <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-emerald-200 flex items-center justify-center shrink-0">
-                  <Trophy className="w-3.5 h-3.5 text-emerald-600" />
-                </div>
-                <div className="truncate">
-                  <p className="text-[9px] font-bold text-emerald-600/80 uppercase tracking-wide">Latest Quiz Attempt</p>
-                  <p className="text-xs font-bold text-slate-700 truncate" title={latestQuiz.topic_name}>{latestQuiz.topic_name || "Quiz Evaluation"}</p>
-                </div>
-              </div>
-              <div className="shrink-0 ml-2 text-right whitespace-nowrap">
-                <span className={`text-xs font-black ${latestQuiz.score >= 80 ? "text-emerald-600" : latestQuiz.score >= 50 ? "text-amber-600" : "text-red-500"}`}>
-                  {latestQuiz.score}%
+            <div className="space-y-1.5">
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "User"}</h1>
+                <span className="px-3 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-white/20 backdrop-blur-xs text-white/90">
+                  {user?.app_role || "student"}
                 </span>
-                <p className="text-[9px] text-slate-400 mt-0.5">{moment(latestQuiz.created_date).fromNow(true)} ago</p>
               </div>
+              <p className="text-white/75 text-sm md:text-base font-medium">{user?.email}</p>
             </div>
-          ) : (
-            <div className="p-3 bg-slate-50/40 border border-slate-200/40 rounded-2xl flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-white shadow-sm border border-slate-200/40 flex items-center justify-center shrink-0 text-slate-300">
-                🏆
-              </div>
-              <div>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Latest Quiz Attempt</p>
-                <p className="text-xs font-medium text-slate-400">No scores submitted yet</p>
-              </div>
+          </div>
+
+          {/* Header Actions Panel */}
+          {(isStudent || isParent) && (
+            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/10 w-full md:w-auto">
+              {isStudent && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAvatar(!showAvatar)}
+                  className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
+                >
+                  {showAvatar ? "Hide Options" : "Change Avatar/Photo"}
+                </Button>
+              )}
+              
+              <Button
+                size="sm"
+                variant={editing ? "secondary" : "default"}
+                disabled={saving}
+                onClick={() => editing ? handleSaveProfile() : setEditing(true)}
+                className={`text-xs h-9 px-4 font-semibold rounded-xl transition-all shadow-xs ${
+                  editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-indigo-700 hover:bg-white/90"
+                }`}
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-indigo-700/30 border-t-indigo-700 rounded-full animate-spin mr-1.5" />
+                ) : editing ? (
+                  <Check className="w-3.5 h-3.5 mr-1.5" />
+                ) : (
+                  <Pen className="w-3.5 h-3.5 mr-1.5" />
+                )}
+                {saving ? "Saving..." : editing ? "Save Profile Data" : "Edit Details"}
+              </Button>
             </div>
           )}
         </div>
+      </motion.div>
 
+      {/* Main Core Layout Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        
+        {/* Left Hand Sidebar Column */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Quick Metrics (Only for student views) */}
+          {isStudent && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="grid grid-cols-3 gap-3"
+            >
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">{totalQuizzes}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Quizzes</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">Lv {progress?.level || 1}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Level</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">{wallet?.balance || 0}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Coins</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Student Identifiers / Security Keys */}
+          {isStudent && (
+            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
+              <StudentIdSection user={user} />
+            </div>
+          )}
+
+          {/* Associated Parent Node Bindings */}
+          {isStudent && (
+            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
+              <ParentConnections user={user} />
+            </div>
+          )}
+
+          {/* Admin Platform Tool Links */}
+          {user?.role === "admin" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-all duration-200">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                  <BookMarked className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground">Textbook Library</p>
+                  <p className="text-xs text-muted-foreground truncate">Upload Malaysian curriculum modules</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </motion.div>
+          )}
+
+          {/* System Sign out Operations Anchor */}
+          <Button
+            variant="outline"
+            onClick={handleLogout}
+            className="w-full rounded-2xl h-12 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors font-medium text-sm"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out of Account
+          </Button>
+        </div>
+
+        {/* Right Hand / Main Content Columns Content Segment */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Avatar Settings Section Dropdown Panel */}
+          <AnimatePresence>
+            {showAvatar && isStudent && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden bg-card rounded-2xl border border-border/60 p-1 shadow-xs"
+              >
+                <ProfilePhotoSection
+                  user={user}
+                  avatarMode={avatarMode}
+                  setAvatarMode={setAvatarMode}
+                  uploading={uploading}
+                  setUploading={setUploading}
+                  fileInputRef={fileInputRef}
+                  handlePhotoUpload={handlePhotoUpload}
+                  handleRemovePhoto={handleRemovePhoto}
+                  handleSaveAvatar={handleSaveAvatar}
+                  showAvatar={showAvatar}
+                  setShowAvatar={setShowAvatar}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Core Profile Parameters Forms Layout UI Block */}
+          {(isStudent || isParent) && (
+            <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
+              <CardContent className="p-6 md:p-8">
+                <ProfileForm
+                  user={user}
+                  editing={editing}
+                  formData={formData}
+                  setFormData={setFormData}
+                  isStudent={isStudent}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Notification System Node Hooks */}
+          {editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <NotificationPreferencesSection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+              />
+            </motion.div>
+          )}
+
+          {/* Curriculums Learning Track Preferences */}
+          {isStudent && editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <LearningPreferencesSection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+              />
+            </motion.div>
+          )}
+
+          {/* Cryptography / Account Access Keys Modification Interface */}
+          {editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <SecuritySection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+                onSavePassword={async () => {
+                  toast({
+                    title: "Security Request Notice",
+                    description: "Please utilize the native portal forgot password authorization pipeline to handle active updates.",
+                    variant: "destructive",
+                  });
+                }}
+              />
+            </motion.div>
+          )}
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
