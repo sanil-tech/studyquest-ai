@@ -1,139 +1,104 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { User, Check, X, Clock, ShieldCheck, Sparkles, Heart, Key, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { IdCard, Copy, RefreshCw, QrCode, Check, Sparkles, KeyRound } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { QRCodeSVG } from "qrcode.react";
 
-export default function StudentParentConnections({ studentId }) {
+export default function StudentIdSection({ user }) {
   const { toast } = useToast();
-  const [activeConnections, setActiveConnections] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
+  const [studentId, setStudentId] = useState(null);
+  const [linkCode, setLinkCode] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null);
-  
-  // State baru untuk Kod Pautan (Link Code)
-  const [linkCode, setLinkCode] = useState("");
-  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   useEffect(() => {
-    if (studentId) {
-      loadConnections();
+    if (user?.id) {
+      loadData();
     }
-  }, [studentId]);
+  }, [user?.id]);
 
-  const loadConnections = async () => {
+  const loadData = async () => {
     try {
-      setLoading(true);
-      
-      const [activeData, pendingData] = await Promise.all([
-        base44.entities.ParentChildRelationship.filter({
-          child_id: studentId,
-          status: "active"
-        }),
-        base44.entities.LinkRequest.filter({
-          student_id: studentId,
-          status: "pending"
-        })
-      ]);
+      // Dapatkan atau Jana ID Pelajar
+      if (user.student_id) {
+        setStudentId(user.student_id);
+      } else {
+        const result = await base44.functions.invoke('generateStudentId', {});
+        setStudentId(result.student_id);
+      }
 
-      const enhancedActiveData = await Promise.all(
-        (activeData || []).map(async (conn) => {
-          try {
-            const parentProfile = await base44.entities.User.get(conn.parent_id);
-            return { ...conn, parent_name: parentProfile.full_name || parentProfile.nickname || parentProfile.email };
-          } catch (e) {
-            return { ...conn, parent_name: "Ibu/Bapa Pengembara" };
-          }
-        })
-      );
+      // Dapatkan Kod Pautan aktif
+      const codes = await base44.asServiceRole.entities.ParentLinkCode.filter({
+        child_id: user.id,
+        is_active: true
+      });
 
-      setActiveConnections(enhancedActiveData);
-      setPendingRequests(pendingData || []);
+      if (codes.length > 0) {
+        const now = new Date();
+        const expiresAt = new Date(codes[0].expires_at);
+        if (now < expiresAt) {
+          setLinkCode({
+            code: codes[0].code,
+            expires_at: codes[0].expires_at
+          });
+        }
+      }
     } catch (err) {
-      console.error("Gagal memuatkan data sambungan:", err);
+      console.error("Gagal memuatkan ID Pelajar / Kod Pautan:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAction = async (request, action) => {
-    setProcessingId(request.id);
+  const handleGenerateLinkCode = async () => {
+    setGenerating(true);
     try {
-      if (action === "accept") {
-        await base44.entities.LinkRequest.update(request.id, { status: "approved" });
-
-        await base44.entities.ParentChildRelationship.create({
-          parent_id: request.parent_id,
-          child_id: studentId,
-          relationship: "parent",
-          status: "active",
-          linked_at: new Date().toISOString()
-        });
-
-        toast({
-          title: "Berjaya Disambung! 🎉",
-          description: "YAY! Akaun anda kini telah dihubungkan dengan ibu bapa.",
-        });
-      } else {
-        await base44.entities.LinkRequest.update(request.id, { status: "declined" });
-        toast({
-          title: "Permintaan Ditolak",
-          description: "Anda telah menolak permintaan pautan ini.",
-        });
-      }
-      await loadConnections();
+      const result = await base44.functions.invoke('generateParentLinkCode', {});
+      setLinkCode({
+        code: result.code,
+        expires_at: result.expires_at
+      });
+      toast({
+        title: "Kod Rahsia Dijana! ✨",
+        description: "Berikan kod ini kepada ibu bapa anda. Ia sah selama 24 jam.",
+      });
     } catch (err) {
       toast({
-        title: "Ralat Berlaku 😢",
-        description: err.message || "Gagal memproses permintaan.",
-        variant: "destructive"
+        title: "Gagal Menjana Kod",
+        description: err.message || "Sila cuba lagi sebentar lagi.",
+        variant: "destructive",
       });
     } finally {
-      setProcessingId(null);
+      setGenerating(false);
     }
   };
 
-  // Fungsi baru untuk menghantar Kod Pautan ke Backend (Method 2)
-  const handleLinkCodeSubmit = async (e) => {
-    e.preventDefault();
-    if (!linkCode.trim()) return;
-
-    setIsSubmittingCode(true);
+  const copyToClipboard = async (text, type) => {
     try {
-      // NOTA: Gantikan "/api/parent-link" dengan URL laluan Edge Function Deno anda
-      const res = await fetch('/api/parent-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method: 'link_code',
-          link_code: linkCode.trim()
-        })
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Ralat tidak diketahui.");
+      await navigator.clipboard.writeText(text);
+      if (type === 'id') {
+        setCopiedId(true);
+        setTimeout(() => setCopiedId(false), 2000);
+      } else {
+        setCopiedCode(true);
+        setTimeout(() => setCopiedCode(false), 2000);
       }
-
       toast({
-        title: "Berjaya! 🎉",
-        description: "Kod sah! Akaun anda telah berjaya disambungkan.",
+        title: "Disalin! 📋",
+        description: `${type === 'id' ? 'ID Pelajar' : 'Kod Pautan'} berjaya disalin.`,
       });
-      
-      setLinkCode(""); // Kosongkan input selepas berjaya
-      await loadConnections(); // Muat semula senarai aktif
-
     } catch (err) {
       toast({
-        title: "Oh tidak! 😢",
-        description: err.message || "Kod tidak sah atau telah tamat tempoh.",
-        variant: "destructive"
+        title: "Gagal Menyalin",
+        description: "Sila salin secara manual.",
+        variant: "destructive",
       });
-    } finally {
-      setIsSubmittingCode(false);
     }
   };
 
@@ -141,145 +106,164 @@ export default function StudentParentConnections({ studentId }) {
     return (
       <div className="flex flex-col items-center justify-center py-10 bg-white/50 rounded-3xl border-2 border-dashed border-slate-200">
         <Sparkles className="w-8 h-8 text-cyan-500 animate-spin mb-3" style={{ animationDuration: '3s' }} />
-        <p className="text-sm font-medium text-slate-500 animate-pulse">Menyemak buku log pengembaraan...</p>
+        <p className="text-sm font-medium text-slate-500 animate-pulse">Menyediakan Kad Pengenalan...</p>
       </div>
     );
   }
 
+  const isExpired = linkCode && new Date() > new Date(linkCode.expires_at);
+
   return (
     <div className="bg-white rounded-[2rem] p-6 sm:p-8 border-4 border-slate-100 shadow-xl relative overflow-hidden">
-      <Heart className="absolute -top-6 -right-6 w-32 h-32 text-pink-50/50 rotate-12" />
+      {/* Hiasan Latar Belakang */}
+      <IdCard className="absolute -top-6 -right-6 w-32 h-32 text-cyan-50/50 rotate-12 pointer-events-none" />
 
       <div className="relative z-10">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-3 bg-cyan-100 rounded-2xl">
-            <ShieldCheck className="w-6 h-6 text-cyan-600" />
+            <IdCard className="w-6 h-6 text-cyan-600" />
           </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Rakan Pengembaraan 🛡️</h2>
-            <p className="text-sm text-slate-500">Urus senarai ibu bapa yang memantau & memberi ganjaran kepada anda.</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Maklumat Pengembara 🪪</h2>
+            <p className="text-sm text-slate-500">ID rasmi dan kod rahsia anda di StudyQuest.</p>
           </div>
         </div>
 
-        {/* UI BARU: Masukkan Kod Pautan (Link Code) */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-5 rounded-2xl border-2 border-amber-200 mb-8 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <Key className="w-5 h-5 text-amber-600" />
-            <h3 className="font-bold text-amber-900 text-sm">Ada Kod Pautan dari Ibu Bapa?</h3>
+        <div className="space-y-6">
+          
+          {/* BAHAGIAN 1: ID PELAJAR */}
+          <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border-2 border-slate-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">ID Pelajar (Tetap)</label>
+              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 text-[10px]">
+                Kekal
+              </Badge>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-white rounded-xl px-4 py-3 font-mono text-lg font-bold text-slate-800 text-center border-2 border-slate-200 shadow-sm flex items-center justify-center">
+                {studentId || "Belum Dijana"}
+              </div>
+              {studentId && (
+                <Button
+                  className={`h-auto w-14 rounded-xl border-b-4 active:border-b-0 active:translate-y-1 transition-all ${
+                    copiedId 
+                      ? "bg-emerald-500 hover:bg-emerald-600 border-emerald-700" 
+                      : "bg-cyan-500 hover:bg-cyan-600 border-cyan-700 text-white"
+                  }`}
+                  onClick={() => copyToClipboard(studentId, 'id')}
+                >
+                  {copiedId ? <Check className="w-5 h-5 text-white" /> : <Copy className="w-5 h-5" />}
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium">
+              💡 Kongsi ID ini kepada ibu bapa supaya mereka boleh menghantar *Request* kepada anda.
+            </p>
           </div>
-          <p className="text-xs text-amber-700 mb-4 font-medium">
-            Masukkan kod rahsia yang ibu bapa anda berikan untuk terus berhubung!
-          </p>
-          
-          <form onSubmit={handleLinkCodeSubmit} className="flex gap-2">
-            <Input 
-              placeholder="Contoh: ABCD-1234" 
-              value={linkCode}
-              onChange={(e) => setLinkCode(e.target.value)}
-              className="bg-white border-amber-300 focus-visible:ring-amber-500 rounded-xl h-11 text-amber-950 font-medium"
-              disabled={isSubmittingCode}
-            />
-            <Button 
-              type="submit" 
-              disabled={!linkCode.trim() || isSubmittingCode}
-              className="h-11 px-6 bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-md border-b-4 border-amber-700 active:border-b-0 active:translate-y-1 transition-all"
-            >
-              {isSubmittingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sambung!"}
-            </Button>
-          </form>
-        </div>
 
-        <div className="space-y-8">
-          
-          {/* Sesi Permintaan Menunggu (Pending) */}
+          {/* BAHAGIAN 2: KOD RAHSIA (LINK CODE) */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                <KeyRound className="w-3.5 h-3.5" /> Kod Pautan Segera
+              </label>
+              {linkCode && !isExpired && (
+                <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-100/50">
+                  Sah 24 Jam
+                </Badge>
+              )}
+            </div>
+            
+            {linkCode && !isExpired ? (
+              <div className="flex gap-2">
+                <div className="flex-1 bg-white rounded-xl px-4 py-3 font-mono text-xl tracking-widest font-bold text-amber-600 text-center border-2 border-amber-200 shadow-sm flex items-center justify-center">
+                  {linkCode.code}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    className={`h-auto w-14 sm:w-12 rounded-xl border-b-4 active:border-b-0 active:translate-y-1 transition-all ${
+                      copiedCode 
+                        ? "bg-emerald-500 hover:bg-emerald-600 border-emerald-700" 
+                        : "bg-amber-500 hover:bg-amber-600 border-amber-700 text-white"
+                    }`}
+                    onClick={() => copyToClipboard(linkCode.code, 'code')}
+                  >
+                    {copiedCode ? <Check className="w-5 h-5 text-white" /> : <Copy className="w-5 h-5" />}
+                  </Button>
+                  <Button
+                    className="h-auto w-14 sm:w-12 rounded-xl bg-slate-800 hover:bg-slate-900 text-white border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all"
+                    onClick={() => setShowQR(!showQR)}
+                  >
+                    <QrCode className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                onClick={handleGenerateLinkCode}
+                disabled={generating}
+                className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-md border-b-4 border-amber-700 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center gap-2"
+              >
+                {generating ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Menjana Kod...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-5 h-5" />
+                    Jana Kod Rahsia Baru
+                  </>
+                )}
+              </Button>
+            )}
+
+            {linkCode && !isExpired && (
+              <p className="text-[11px] font-medium text-amber-700/70">
+                Tamat pada: {new Date(linkCode.expires_at).toLocaleString('ms-MY', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
+              </p>
+            )}
+
+            {isExpired && (
+              <p className="text-[11px] font-medium text-rose-500 bg-rose-50 p-2 rounded-lg border border-rose-100">
+                ⚠️ Kod ini telah tamat tempoh. Sila jana kod yang baru.
+              </p>
+            )}
+          </div>
+
+          {/* BAHAGIAN 3: PAPARAN QR CODE */}
           <AnimatePresence>
-            {pendingRequests.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-pink-600 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4" /> Permintaan Baru ({pendingRequests.length})
-                </h4>
-                <div className="grid gap-3">
-                  {pendingRequests.map((request) => (
-                    <motion.div 
-                      key={request.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9, x: -20 }}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-purple-50 border-2 border-pink-200 rounded-2xl gap-4 shadow-sm"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-pink-200 flex items-center justify-center shrink-0">
-                          <User className="w-5 h-5 text-pink-600" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-800">
-                            {request.parent_name || "Ibu Bapa"}
-                          </p>
-                          <p className="text-xs text-slate-500 font-medium">{request.parent_email}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-10 px-4 text-rose-600 bg-white hover:bg-rose-50 border border-rose-200 rounded-xl"
-                          onClick={() => handleAction(request, "decline")}
-                          disabled={processingId !== null}
-                        >
-                          <X className="w-4 h-4 mr-1" /> Tolak
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="h-10 px-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-md border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
-                          onClick={() => handleAction(request, "accept")}
-                          disabled={processingId !== null}
-                        >
-                          <Check className="w-4 h-4 mr-1" /> Terima
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
+            {showQR && linkCode && !isExpired && studentId && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, scale: 0.9 }}
+                animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                exit={{ opacity: 0, height: 0, scale: 0.9 }}
+                className="overflow-hidden"
+              >
+                <div className="bg-slate-800 p-6 rounded-2xl flex flex-col items-center mt-2 shadow-inner">
+                  <div className="bg-white p-4 rounded-xl">
+                    <QRCodeSVG
+                      value={JSON.stringify({
+                        student_id: studentId,
+                        link_code: linkCode.code
+                      })}
+                      size={180}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-300 mt-4 text-center font-medium max-w-[200px]">
+                    Minta ibu bapa imbas kod ini menggunakan peranti mereka 📸
+                  </p>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Sesi Profil Aktif */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Profil Ibu Bapa Dihubungkan ({activeConnections.length})
-            </h4>
-
-            {activeConnections.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50">
-                <User className="w-10 h-10 text-slate-300 mb-3" />
-                <p className="text-sm font-medium text-slate-400">Belum ada ibu bapa yang dipautkan lagi.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {activeConnections.map((conn) => (
-                  <motion.div 
-                    whileHover={{ scale: 1.02 }}
-                    key={conn.id} 
-                    className="flex items-center gap-3 p-4 border-2 border-cyan-100 bg-cyan-50/30 rounded-2xl transition-all"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center shadow-inner">
-                      <ShieldCheck className="w-6 h-6 text-cyan-600" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-800">
-                        {conn.parent_name}
-                      </p>
-                      <p className="text-xs font-medium text-cyan-600 bg-cyan-100 px-2 py-0.5 rounded-full inline-block mt-1">
-                        Penyokong Aktif ✨
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </div>
 
         </div>
       </div>
