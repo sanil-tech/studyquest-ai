@@ -1,118 +1,124 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.31";
 
+// ==========================
+// Password Hash Function (MUST MATCH createChildAccount)
+// ==========================
 const hashPassword = (password) => {
-  return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
-};
-
-const hashPin = (pin) => {
-  return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
+  return btoa(
+    unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`))
+  );
 };
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    const { username, password, pin } = await req.json();
+    const body = await req.json();
 
-    if (!username) {
+    const identifier = body.username || body.student_id;
+    const password = body.password;
+
+    // ==========================
+    // VALIDATION
+    // ==========================
+    if (!identifier || !password) {
       return Response.json(
-        { error: "Username is required" },
+        { error: "Username and password are required." },
         { status: 400 }
       );
     }
 
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanIdentifier = identifier.trim().toLowerCase();
 
-    // 1. FIND USER
-    const users = await base44.asServiceRole.entities.User.filter({
-      username: cleanUsername,
+    // ==========================
+    // LOAD ALL USERS (SAFE MATCH)
+    // ==========================
+    const users = await base44.asServiceRole.entities.User.filter({});
+
+    // ==========================
+    // FIND USER (USERNAME OR STUDENT ID)
+    // ==========================
+    const user = users.find((u) => {
+      const usernameMatch =
+        (u.username || "").trim().toLowerCase() === cleanIdentifier;
+
+      const studentIdMatch =
+        (u.student_id || "").trim().toLowerCase() === cleanIdentifier;
+
+      return usernameMatch || studentIdMatch;
     });
 
-    if (!users.length) {
+    // ==========================
+    // NOT FOUND
+    // ==========================
+    if (!user) {
       return Response.json(
-        { error: "Username not found" },
-        { status: 400 }
+        { error: "Username not found. Please check again." },
+        { status: 404 }
       );
     }
 
-    const user = users[0];
-
-    // 2. CHECK ACCOUNT STATUS
-    if (user.account_locked) {
+    // ==========================
+    // CHECK CHILD ACCOUNT FLAG
+    // ==========================
+    if (!user.is_child_account) {
       return Response.json(
-        { error: "Account locked. Please contact parent." },
+        { error: "This account is not a student account." },
         { status: 403 }
       );
     }
 
-    // 3. PASSWORD LOGIN
-    if (password) {
-      const hashed = hashPassword(password);
-
-      if (user.password_hash !== hashed) {
-        const attempts = (user.failed_login_attempts || 0) + 1;
-
-        const updateData = {
-          failed_login_attempts: attempts,
-        };
-
-        if (attempts >= 5) {
-          updateData.account_locked = true;
-        }
-
-        await base44.asServiceRole.entities.User.update(user.id, updateData);
-
-        return Response.json(
-          { error: "Wrong password" },
-          { status: 400 }
-        );
-      }
+    // ==========================
+    // CHECK ACCOUNT STATUS
+    // ==========================
+    if (user.status !== "active") {
+      return Response.json(
+        { error: "Account is inactive. Please contact parent." },
+        { status: 403 }
+      );
     }
 
-    // 4. PIN LOGIN (optional)
-    if (pin) {
-      if (!user.pin_hash) {
-        return Response.json(
-          { error: "PIN not enabled for this account" },
-          { status: 400 }
-        );
-      }
+    // ==========================
+    // PASSWORD CHECK
+    // ==========================
+    const inputHash = hashPassword(password);
 
-      const hashedPin = hashPin(pin);
-
-      if (user.pin_hash !== hashedPin) {
-        return Response.json(
-          { error: "Wrong PIN" },
-          { status: 400 }
-        );
-      }
+    if (user.password_hash !== inputHash) {
+      return Response.json(
+        { error: "Incorrect password." },
+        { status: 401 }
+      );
     }
 
-    // 5. RESET FAILED ATTEMPTS ON SUCCESS
-    await base44.asServiceRole.entities.User.update(user.id, {
-      failed_login_attempts: 0,
-    });
+    // ==========================
+    // SUCCESS LOGIN
+    // ==========================
+    const sessionData = {
+      user_id: user.id,
+      username: user.username,
+      student_id: user.student_id,
+      role: "child",
+      timestamp: Date.now(),
+    };
 
-    // 6. SUCCESS RESPONSE
     return Response.json({
       success: true,
+      session_token: btoa(JSON.stringify(sessionData)),
       user: {
         id: user.id,
-        username: user.username,
         full_name: user.full_name,
         nickname: user.nickname,
+        username: user.username,
         student_id: user.student_id,
-        app_role: user.app_role,
         profile_completed: user.profile_completed,
-        is_child_account: user.is_child_account,
-        linked_parent_id: user.linked_parent_id,
       },
     });
+
   } catch (error) {
-    console.error("Child login error:", error);
+    console.error("ChildLogin Error:", error);
 
     return Response.json(
-      { error: error.message || "Login failed" },
+      { error: error.message || "Server error" },
       { status: 500 }
     );
   }
