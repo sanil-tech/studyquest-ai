@@ -80,17 +80,16 @@ function Realistic3DAvatar({ level }) {
 
   return (
     <div className="relative flex flex-col items-center justify-center p-4 flex-shrink-0 select-none">
-      {/* Real-time 3D depth wrapper */}
       <div style={{ perspective: "1000px" }} className="relative w-24 h-24 flex items-center justify-center">
         
-        {/* 3D Dynamic Ambient Floor Shadow */}
+        {/* Shadow */}
         <motion.div
           animate={{ scale: [0.85, 1.05, 0.85], opacity: [0.2, 0.4, 0.2] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           className="absolute -bottom-2 w-16 h-3 bg-black/40 blur-md rounded-full z-0"
         />
 
-        {/* Pulsing Cinematic Backdrop Aura */}
+        {/* Backdrop Aura */}
         <motion.div
           animate={{ scale: [0.95, 1.15, 0.95], rotate: 360 }}
           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
@@ -98,7 +97,7 @@ function Realistic3DAvatar({ level }) {
           className={`absolute inset-0 rounded-full border-2 border-dashed border-white/30 opacity-70`}
         />
 
-        {/* Main 3D Glossy Token Base */}
+        {/* Token Base */}
         <motion.div
           style={{ transformStyle: "preserve-3d" }}
           animate={{ 
@@ -110,10 +109,9 @@ function Realistic3DAvatar({ level }) {
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           className={`w-20 h-20 rounded-full bg-gradient-to-tr ${stage.gradient} border-[3px] border-white/80 shadow-[0_15px_30px_rgba(0,0,0,0.3),inset_0_4px_12px_rgba(255,255,255,0.6)] flex items-center justify-center relative z-10`}
         >
-          {/* Internal Volumetric Lighting Overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-black/20 rounded-full pointer-events-none" />
 
-          {/* Floating Realistic Dragon Model */}
+          {/* Dragon Model */}
           <motion.span 
             style={{ transform: "translateZ(30px)" }}
             animate={{ scale: [1, 1.06, 1] }}
@@ -123,7 +121,7 @@ function Realistic3DAvatar({ level }) {
             {stage.icon}
           </motion.span>
 
-          {/* 3D Orbiting Elemental Plasma Particle */}
+          {/* Orbiter */}
           <motion.div
             animate={{ rotate: [0, 360] }}
             transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
@@ -134,7 +132,6 @@ function Realistic3DAvatar({ level }) {
         </motion.div>
       </div>
 
-      {/* 3D Stage Badging Labels */}
       <span className="text-[11px] font-black tracking-wide text-gray-700 mt-3 drop-shadow-sm">
         {stage.stageTitle}
       </span>
@@ -147,16 +144,17 @@ function Realistic3DAvatar({ level }) {
 
 // ---------------- CHILD CARD ----------------
 function ChildCard({ child, onUnlink }) {
+  // Use nick_name first, then fallback to full_name, username, or default fallback
+  const displayName = child.nick_name || child.full_name || child.username || "Unnamed Student";
+
   return (
     <Card className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          {/* Injecting our live realistic 3D dragon passing current level progress */}
           <Realistic3DAvatar level={child.progress?.level} />
           <div>
-            {/* RESTORED: Exact naming logic from your original code */}
             <h3 className="text-xl font-bold">
-              {child.full_name || child.username || "Unnamed Student"}
+              {displayName}
             </h3>
             <p className="text-sm text-muted-foreground">
               Age {calculateAge(child.date_of_birth)} • {child.education_level}
@@ -167,7 +165,7 @@ function ChildCard({ child, onUnlink }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => onUnlink(child.id, child.full_name || child.username || "Student")}
+          onClick={() => onUnlink(child.id, displayName)}
           className="text-rose-500 hover:bg-rose-50"
         >
           <Trash2 className="w-4 h-4 mr-2" />
@@ -236,14 +234,16 @@ export default function ParentDashboard() {
             base44.entities.Progress.filter({ student_id: id }),
             base44.entities.Wallet.filter({ student_id: id }),
           ]);
-          const user = await base44.entities.User.get(id).catch(() => null);
+          const userRecord = await base44.entities.User.get(id).catch(() => null);
 
           return {
             id,
-            full_name: user?.full_name || "",
-            username: user?.username || "",
-            date_of_birth: user?.date_of_birth || "",
-            education_level: user?.education_level || "",
+            full_name: userRecord?.full_name || "",
+            username: userRecord?.username || "",
+            // Mapped your custom profile nick_name field here!
+            nick_name: userRecord?.nick_name || "", 
+            date_of_birth: userRecord?.date_of_birth || "",
+            education_level: userRecord?.education_level || "",
             progress: progress?.[0] || {},
             wallet: wallet?.[0] || { balance: 0 },
           };
@@ -326,7 +326,7 @@ export default function ParentDashboard() {
   return (
     <div className="p-6 space-y-6">
 
-      {/* RESTORED: Weather layout exactly matching your original file structure */}
+      {/* WEATHER */}
       <div className="bg-white p-4 rounded-2xl border flex justify-between">
         <div>
           <div className="text-2xl font-bold">{weather.temp}</div>
