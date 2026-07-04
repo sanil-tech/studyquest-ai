@@ -53,6 +53,9 @@
           "user_condition": {
             "role": "admin"
           }
+        },
+        {
+          "data.Student_id": "{{user.data.is_child_account}}"
         }
       ]
     },
@@ -68,6 +71,9 @@
           "user_condition": {
             "role": "admin"
           }
+        },
+        {
+          "data.Student_id": "{{user.data.is_child_account}}"
         }
       ]
     },
@@ -83,6 +89,9 @@
           "user_condition": {
             "role": "admin"
           }
+        },
+        {
+          "data.Student_id": "{{user.data.is_child_account}}"
         }
       ]
     },
@@ -98,6 +107,9 @@
           "user_condition": {
             "role": "admin"
           }
+        },
+        {
+          "data.Student_id": "{{user.data.is_child_account}}"
         }
       ]
     }
