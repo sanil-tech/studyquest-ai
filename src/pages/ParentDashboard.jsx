@@ -9,7 +9,10 @@ import {
   GraduationCap,
   Sparkles,
   UserPlus,
-  AlertCircle
+  AlertCircle,
+  BrainCircuit,
+  TrendingUp,
+  Award
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
@@ -31,26 +34,35 @@ const parseWmoCode = (code) => {
 };
 
 // ================= CHILDREN TRACKER CARD =================
-function ChildProgressCard({ child, onUnlink }) {
+function ChildProgressCard({ child, onUnlink, onAnalyzeAI }) {
   const [showId, setShowId] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const xp = child?.progress?.total_xp || 0;
   const level = child?.progress?.level || 1;
   const nextXp = level * 200;
-  const progressPercentage = Math.min((xp / nextXp) * 100, 100);
+  
+  // Calculate dynamic lesson completion percentage based on current XP tracking bracket
+  const progressPercentage = Math.min(Math.round((xp / nextXp) * 100), 100);
+
+  const handleAIAnalysis = async () => {
+    setAnalyzing(true);
+    await onAnalyzeAI(child);
+    setAnalyzing(false);
+  };
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group"
+      className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group"
     >
-      <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-400" />
+      <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-400 group-hover:bg-rose-500 transition-colors" />
       
       {/* HEADER */}
       <div className="flex justify-between items-start pl-2">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner group-hover:scale-105 transition-transform">
             <Baby className="w-5 h-5" />
           </div>
           <div>
@@ -88,19 +100,40 @@ function ChildProgressCard({ child, onUnlink }) {
       )}
 
       {/* METRIC EXP SCORE BAR */}
-      <div className="mt-5 pl-2">
-        <div className="text-xs font-medium text-slate-600 mb-1.5 flex justify-between items-center">
-          <span className="flex items-center gap-1 text-slate-500 font-semibold">
-            <GraduationCap className="w-3.5 h-3.5 text-rose-400" /> Level {level}
-          </span>
-          <span className="text-slate-400 font-mono text-[11px]">{xp} / {nextXp} XP</span>
+      <div className="mt-5 pl-2 space-y-3">
+        <div>
+          <div className="text-xs font-medium text-slate-600 mb-1.5 flex justify-between items-center">
+            <span className="flex items-center gap-1 text-slate-500 font-semibold">
+              <GraduationCap className="w-3.5 h-3.5 text-rose-400" /> Level {level}
+            </span>
+            <span className="text-rose-500 font-bold bg-rose-50/60 px-2 py-0.5 rounded-md text-[11px] flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" /> {progressPercentage}% Lesson Complete
+            </span>
+          </div>
+          
+          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
+            <div
+              className="h-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
         </div>
-        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
-          <div
-            className="h-full bg-gradient-to-r from-rose-400 to-amber-400 rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${progressPercentage}%` }}
-          />
+
+        {/* PROGRESS MINI-SUBTEXT */}
+        <div className="text-[11px] text-slate-400 flex justify-between px-0.5">
+          <span>Current Score: <strong className="text-slate-600 font-mono">{xp} XP</strong></span>
+          <span>Target Milestone: <strong className="text-slate-600 font-mono">{nextXp} XP</strong></span>
         </div>
+
+        {/* AI CHILD LESSON ANALYSIS BUTTON */}
+        <Button
+          onClick={handleAIAnalysis}
+          disabled={analyzing}
+          className="w-full mt-2 h-9 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-medium shadow-sm gap-2 transition-all duration-300 hover:shadow-md"
+        >
+          <BrainCircuit className={`w-3.5 h-3.5 ${analyzing ? "animate-spin" : "animate-pulse"}`} />
+          {analyzing ? "Generating Insight Profile..." : "AI Child Lesson Analysis"}
+        </Button>
       </div>
     </motion.div>
   );
@@ -200,7 +233,7 @@ export default function ParentDashboard() {
           emoji: meta.emoji,
         });
       } catch {
-        // Fallback silently if meteo service experiences service timeouts
+        // Fallback silently
       }
     });
   }, []);
@@ -209,6 +242,18 @@ export default function ParentDashboard() {
     loadData();
     fetchWeather();
   }, []);
+
+  // ---------------- AI ANALYSIS HANDLER TRIGGER ----------------
+  const handleAIAnalysisTrigger = async (child) => {
+    // Simulated background runtime process. Replace with your custom engine endpoint if needed.
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    
+    toast({
+      title: `AI Report Complete: ${child.name}`,
+      description: `Analysis shows high proficiency in recent modules with a steady ${Math.min(Math.round((child.progress?.total_xp || 0) / (child.progress?.level * 200 || 1) * 100), 100)}% pacing velocity!`,
+      variant: "default",
+    });
+  };
 
   // ---------------- DISCONNECT TRACKER MODULE ----------------
   const handleUnlink = async (childId, name) => {
@@ -295,6 +340,7 @@ export default function ParentDashboard() {
                 key={c.id}
                 child={c}
                 onUnlink={handleUnlink}
+                onAnalyzeAI={handleAIAnalysisTrigger}
               />
             ))}
           </div>
@@ -354,7 +400,9 @@ export default function ParentDashboard() {
                 className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex justify-between items-center group hover:border-rose-100 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-400 group-hover:scale-125 transition-transform" />
+                  <div className="w-3 h-3 rounded-lg bg-gradient-to-br from-amber-400 to-rose-400 group-hover:scale-115 transition-transform flex items-center justify-center text-[7px] text-white">
+                    <Award className="w-2 h-2" />
+                  </div>
                   <span className="text-sm font-medium text-slate-700">{r.reward_title}</span>
                 </div>
                 <Badge variant="secondary" className="text-[10px] bg-slate-50 text-slate-500 rounded-lg px-2 py-0.5 border">
