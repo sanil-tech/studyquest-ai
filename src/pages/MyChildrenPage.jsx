@@ -459,4 +459,30 @@ export default function ParentDashboard() {
                   <ul className="space-y-2">
                     {analysisModal.report?.recommendations?.map((item, index) => (
                       <li key={index} className="flex gap-2.5 items-start text-xs text-slate-600">
-                        <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold flex items-
+                        <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center shrink-0 text-[10px] mt-0.5">
+                          {index + 1}
+                        </span>
+                        <span>{item}</span>
+                      </li>
+                    )) || <li className="text-xs text-slate-400 italic">Tiada langkah sokongan tersendiri dijana.</li>}
+                  </ul>
+                </div>
+              </div>
+
+              {/* MODAL FOOTER */}
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <Button 
+                  onClick={() => setAnalysisModal({ open: false, childName: "", report: null })}
+                  className="h-9 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs px-5"
+                >
+                  Tutup Laporan
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+    </div>
+  );
+}
