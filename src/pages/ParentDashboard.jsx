@@ -338,6 +338,8 @@ export default function ParentDashboard() {
                   child={child} 
                   onUnlink={handleUnlinkChild} 
                   onSendKudos={triggerKudosReward}
+                  
+                  
                 />
               ))
             )}
@@ -581,6 +583,12 @@ function ChildCard({ child, onUnlink, onSendKudos }) {
             <Heart className="w-3.5 h-3.5 fill-current text-rose-800/80" />
             <span>Send Spark Kudos</span>
           </button>
+          <button
+  onClick={() => onView(child)}
+  className="px-3.5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black rounded-xl transition"
+>
+  View Profile
+</button>
 
           <Button
             variant="ghost"
