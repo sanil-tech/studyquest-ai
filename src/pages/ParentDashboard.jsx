@@ -35,7 +35,9 @@ const parseWmoCode = (code) => {
   return map[code] || { status: "Clear Skies", emoji: "☀️" };
 };
 
-// ================= CHILDREN TRACKER CARD =================
+// ============================================================================
+// 1. COMPONENT: CHILD PROGRESS CARD (KAD PRESTASI ANAK)
+// ============================================================================
 function ChildProgressCard({ child, onUnlink, onAnalyzeAI }) {
   const [showId, setShowId] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -43,11 +45,13 @@ function ChildProgressCard({ child, onUnlink, onAnalyzeAI }) {
   const xp = child?.progress?.total_xp || 0;
   const level = child?.progress?.level || 1;
   const nextXp = level * 200;
+  
+  // Kira peratusan kemajuan pembelajaran anak
   const progressPercentage = Math.min(Math.round((xp / nextXp) * 100), 100);
 
   const handleAIAnalysis = async () => {
     setAnalyzing(true);
-    await onAnalyzeAI(child);
+    await onAnalyzeAI(child, progressPercentage);
     setAnalyzing(false);
   };
 
@@ -59,18 +63,21 @@ function ChildProgressCard({ child, onUnlink, onAnalyzeAI }) {
     >
       <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-400 group-hover:bg-rose-500 transition-colors" />
       
+      {/* HEADER */}
       <div className="flex justify-between items-start pl-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner group-hover:scale-105 transition-transform">
             <Baby className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-base text-slate-800 tracking-tight">{child.name}</h3>
+            <h3 className="font-bold text-base text-slate-800 tracking-tight">
+              {child.name} {/* Nama nickname dipaparkan di sini */}
+            </h3>
             <button
               onClick={() => setShowId(!showId)}
               className="text-[11px] text-slate-400 hover:text-rose-500 block transition-colors mt-0.5"
             >
-              {showId ? "Hide Link Meta" : "View Managed Profile ID"}
+              {showId ? "Sembunyikan Meta Link" : "Lihat ID Profil Terurus"}
             </button>
           </div>
         </div>
@@ -85,24 +92,26 @@ function ChildProgressCard({ child, onUnlink, onAnalyzeAI }) {
         </Button>
       </div>
 
+      {/* METADATA ID */}
       {showId && (
         <motion.div 
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           className="mx-2 mt-3 p-2 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-mono text-slate-500 break-all"
         >
-          System Child Identity Key: {child.id}
+          Key Identiti Anak: {child.id}
         </motion.div>
       )}
 
+      {/* BILIK SKOR & PROGRESS BAR */}
       <div className="mt-5 pl-2 space-y-3">
         <div>
           <div className="text-xs font-medium text-slate-600 mb-1.5 flex justify-between items-center">
             <span className="flex items-center gap-1 text-slate-500 font-semibold">
-              <GraduationCap className="w-3.5 h-3.5 text-rose-400" /> Level {level}
+              <GraduationCap className="w-3.5 h-3.5 text-rose-400" /> Tahap {level}
             </span>
             <span className="text-rose-500 font-bold bg-rose-50/60 px-2 py-0.5 rounded-md text-[11px] flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> {progressPercentage}% Lesson Complete
+              <TrendingUp className="w-3 h-3" /> {progressPercentage}% Pembelajaran Selesai
             </span>
           </div>
           
@@ -115,24 +124,27 @@ function ChildProgressCard({ child, onUnlink, onAnalyzeAI }) {
         </div>
 
         <div className="text-[11px] text-slate-400 flex justify-between px-0.5">
-          <span>Current Score: <strong className="text-slate-600 font-mono">{xp} XP</strong></span>
-          <span>Target Milestone: <strong className="text-slate-600 font-mono">{nextXp} XP</strong></span>
+          <span>Skor Semasa: <strong className="text-slate-600 font-mono">{xp} XP</strong></span>
+          <span>Sasaran Tahap: <strong className="text-slate-600 font-mono">{nextXp} XP</strong></span>
         </div>
 
+        {/* BUTANG AI CHILD LESSON ANALYSIS */}
         <Button
           onClick={handleAIAnalysis}
           disabled={analyzing}
           className="w-full mt-2 h-9 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-medium shadow-sm gap-2 transition-all duration-300 hover:shadow-md"
         >
           <BrainCircuit className={`w-3.5 h-3.5 ${analyzing ? "animate-spin" : ""}`} />
-          {analyzing ? "Analyzing Learning Track..." : "AI Child Lesson Analysis"}
+          {analyzing ? "Menjana Profil Analisis..." : "AI Child Lesson Analysis"}
         </Button>
       </div>
     </motion.div>
   );
 }
 
-// ================= PARENT DASHBOARD CORE LAYOUT =================
+// ============================================================================
+// 2. MAIN COMPONENT: PARENT DASHBOARD (DASHBOARD IBU BAPA)
+// ============================================================================
 export default function ParentDashboard() {
   const { toast } = useToast();
 
@@ -142,15 +154,16 @@ export default function ParentDashboard() {
   const [rewardRequests, setRewardRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // AI Modal States
+  // Status Modal Analisis AI
   const [analysisModal, setAnalysisModal] = useState({ open: false, childName: "", report: null });
 
   const [weather, setWeather] = useState({
     temp: "--",
-    status: "Syncing sky...",
+    status: "Menyemak langit...",
     emoji: "☀️",
   });
 
+  // ---------------- AMBIL DATA UTAMA ----------------
   const loadData = async () => {
     try {
       setLoading(true);
@@ -178,10 +191,13 @@ export default function ParentDashboard() {
             const studentUser = await base44.entities.User.get(r.child_id).catch(() => null);
             const progress = await base44.entities.Progress.filter({ student_id: r.child_id });
 
+            // CRITICAL FIX: Mengambil nickname dari myprofile anak terlebih dahulu
+            const nickname = studentUser?.profile?.nickname || studentUser?.nickname || studentUser?.full_name || studentUser?.email || "Profil Murid";
+
             return {
               id: r.child_id,
               relationshipId: r.id,
-              name: studentUser?.full_name || studentUser?.email || "Student Profile",
+              name: nickname, // Diisi dengan nama panggilan/nickname yang disahkan
               email: studentUser?.email || "",
               progress: progress?.[0] || {},
             };
@@ -206,6 +222,7 @@ export default function ParentDashboard() {
     }
   };
 
+  // ---------------- WEATHER TRACKING API ----------------
   const fetchWeather = useCallback(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -224,12 +241,16 @@ export default function ParentDashboard() {
     fetchWeather();
   }, []);
 
-  // ---------------- REAL AI RUNTIME INVOCATION ----------------
-  const handleAIAnalysisTrigger = async (child) => {
+  // ---------------- MENCETUSKAN ANALISIS AI SEBENAR ----------------
+  const handleAIAnalysisTrigger = async (child, progressPercentage) => {
     try {
-      // Direct Live execution calling your Base44 custom backend cloud edge function
+      // Memanggil fungsi cloud edge serverless sebenar daripada Base44 backend anda
       const response = await base44.functions.analyzeChildLessons({
-        student_id: child.id
+        student_id: child.id,
+        student_name: child.name,
+        level: child.progress?.level || 1,
+        total_xp: child.progress?.total_xp || 0,
+        progress_percent: progressPercentage
       });
 
       if (response?.error) throw new Error(response.error);
@@ -237,17 +258,18 @@ export default function ParentDashboard() {
       setAnalysisModal({
         open: true,
         childName: child.name,
-        report: response // Object containing analysis text and tailored action steps
+        report: response // Memasukkan data objek JSON 'summary' dan 'recommendations'
       });
     } catch (err) {
       toast({
-        title: "Analysis Timeout",
-        description: err.message || "Could not generate live analysis report. Please try again.",
+        title: "Ralat Analisis",
+        description: err.message || "Gagal menghubungi pelayan AI. Sila cuba sebentar lagi.",
         variant: "destructive",
       });
     }
   };
 
+  // ---------------- KELUARKAN / UNLINK SAMBUNGAN AKUN ----------------
   const handleUnlink = async (childId, name) => {
     try {
       const rel = await base44.entities.ParentChildRelationship.filter({
@@ -258,10 +280,10 @@ export default function ParentDashboard() {
       if (rel?.[0]) {
         await base44.entities.ParentChildRelationship.update(rel[0].id, { status: "inactive" });
       }
-      toast({ title: "Family Hub Updated", description: `Successfully detached relationship logging for ${name}.` });
+      toast({ title: "Hub Keluarga Dikemaskini", description: `Berjaya memutuskan pemantauan hubungan untuk ${name}.` });
       loadData();
     } catch (err) {
-      toast({ title: "Failed to update structural link", description: err.message, variant: "destructive" });
+      toast({ title: "Gagal Mengemaskini Hubungan", description: err.message, variant: "destructive" });
     }
   };
 
@@ -269,7 +291,7 @@ export default function ParentDashboard() {
     return (
       <div className="p-12 text-center text-sm font-medium text-slate-400 space-y-2 animate-pulse">
         <Sparkles className="w-5 h-5 mx-auto text-rose-300 animate-spin" />
-        <div>Gathering family metrics...</div>
+        <div>Mengumpulkan metrik portal keluarga...</div>
       </div>
     );
   }
@@ -277,13 +299,13 @@ export default function ParentDashboard() {
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto bg-slate-50/50 min-h-screen rounded-3xl relative">
 
-      {/* FAMILY WELCOME HEADER */}
+      {/* WELCOME BANNER */}
       <div className="bg-gradient-to-br from-rose-50 via-white to-amber-50/40 p-6 rounded-3xl border border-rose-100/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
         <div>
           <h1 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            Hello, {user?.full_name || user?.nickname || "Parent Partner"} <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
+            Hello, {user?.full_name || user?.nickname || "Penjaga"} <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Welcome to your Family Portal. Here is your tracking report for today.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Selamat datang ke Portal Ibu Bapa. Berikut adalah ringkasan aktiviti hari ini.</p>
         </div>
         <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-3 shadow-inner self-stretch sm:self-auto justify-between">
           <div>
@@ -294,13 +316,13 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* ACTIVE TRACKERS */}
+      {/* LIST OF ACTIVE CHILDREN */}
       <div className="space-y-3">
-        <h2 className="font-bold text-base text-slate-800 tracking-tight pl-1">Children Accounts ({activeChildren.length})</h2>
+        <h2 className="font-bold text-base text-slate-800 tracking-tight pl-1">Akaun Anak-anak ({activeChildren.length})</h2>
         {activeChildren.length === 0 ? (
           <div className="p-8 border border-dashed border-slate-200 rounded-2xl text-center text-slate-400 bg-white shadow-sm flex flex-col items-center justify-center gap-2">
             <UserPlus className="w-8 h-8 text-slate-300" />
-            <p className="text-sm font-medium text-slate-600">No active child monitors running.</p>
+            <p className="text-sm font-medium text-slate-600">Tiada pemantauan profil anak yang aktif.</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -311,10 +333,12 @@ export default function ParentDashboard() {
         )}
       </div>
 
-      {/* OUTGOING REQUESTS */}
+      {/* PENDING OUTGOING INVITATIONS */}
       {sentRequests.length > 0 && (
         <div className="space-y-3 pt-2">
-          <h2 className="font-bold text-xs uppercase tracking-wider text-amber-600 flex items-center gap-1.5 pl-1"><Clock className="w-3.5 h-3.5" /> Outgoing Student Invitations ({sentRequests.length})</h2>
+          <h2 className="font-bold text-xs uppercase tracking-wider text-amber-600 flex items-center gap-1.5 pl-1">
+            <Clock className="w-3.5 h-3.5" /> Jemputan Profil Menunggu Pengesahan ({sentRequests.length})
+          </h2>
           <div className="grid gap-2">
             {sentRequests.map((req) => (
               <div key={req.id} className="bg-amber-50/40 border border-amber-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
@@ -322,21 +346,21 @@ export default function ParentDashboard() {
                   <div className="w-8 h-8 rounded-lg bg-amber-100/50 flex items-center justify-center text-amber-600"><AlertCircle className="w-4 h-4" /></div>
                   <div>
                     <p className="font-semibold text-sm text-amber-900">{req.name}</p>
-                    <p className="text-[11px] text-amber-700/70">Awaiting authorization confirmation inside student app</p>
+                    <p className="text-[11px] text-amber-700/70">Menunggu kelulusan pautan di dalam aplikasi murid/anak</p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="h-8 rounded-xl border-amber-200 hover:bg-amber-100 text-amber-900 text-xs" onClick={() => handleUnlink(req.id, req.name)}>Revoke</Button>
+                <Button variant="outline" size="sm" className="h-8 rounded-xl border-amber-200 hover:bg-amber-100 text-amber-900 text-xs" onClick={() => handleUnlink(req.id, req.name)}>Batal</Button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* REWARDS BLOCK */}
+      {/* REWARD CLAIMS LIST */}
       <div className="space-y-3 pt-2">
-        <h2 className="font-bold text-base text-slate-800 tracking-tight pl-1">Pending Reward Requests</h2>
+        <h2 className="font-bold text-base text-slate-800 tracking-tight pl-1">Permintaan Ganjaran Menunggu Semakan</h2>
         {rewardRequests.length === 0 ? (
-          <div className="text-slate-400 text-xs pl-1 italic">No pending reward claims waiting for confirmation.</div>
+          <div className="text-slate-400 text-xs pl-1 italic">Tiada tuntutan ganjaran baharu yang perlu disahkan.</div>
         ) : (
           <div className="space-y-2">
             {rewardRequests.map(r => (
@@ -345,16 +369,16 @@ export default function ParentDashboard() {
                   <div className="w-3 h-3 rounded-lg bg-gradient-to-br from-amber-400 to-rose-400 flex items-center justify-center text-[7px] text-white"><Award className="w-2 h-2" /></div>
                   <span className="text-sm font-medium text-slate-700">{r.reward_title}</span>
                 </div>
-                <Badge variant="secondary" className="text-[10px] bg-slate-50 text-slate-500 rounded-lg px-2 py-0.5 border">Awaiting Review</Badge>
+                <Badge variant="secondary" className="text-[10px] bg-slate-50 text-slate-500 rounded-lg px-2 py-0.5 border">Menunggu Semakan</Badge>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* ========================================= */}
-      {/* REAL-TIME AI ANALYSIS OVERLAY MODAL       */}
-      {/* ========================================= */}
+      {/* ============================================================================
+          3. REAL-TIME AI LESSON ANALYSIS POP-UP MODAL OVERLAY
+         ============================================================================ */}
       <AnimatePresence>
         {analysisModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
@@ -364,14 +388,15 @@ export default function ParentDashboard() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-3xl w-full max-w-lg overflow-hidden border border-slate-100 shadow-2xl flex flex-col max-h-[85vh]"
             >
+              {/* MODAL HEADER */}
               <div className="p-6 bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white flex justify-between items-center">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
                     <BrainCircuit className="w-5 h-5 text-amber-300" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-base leading-tight">AI Learning Portrait</h3>
-                    <p className="text-xs text-indigo-100 mt-0.5">Custom analysis brief for {analysisModal.childName}</p>
+                    <h3 className="font-bold text-base leading-tight">Profil Pintar AI</h3>
+                    <p className="text-xs text-indigo-100 mt-0.5">Analisis kemajuan pembelajaran untuk {analysisModal.childName}</p>
                   </div>
                 </div>
                 <button 
@@ -382,19 +407,20 @@ export default function ParentDashboard() {
                 </button>
               </div>
 
+              {/* MODAL BODY */}
               <div className="p-6 overflow-y-auto space-y-5 text-slate-700 text-sm leading-relaxed">
                 <div className="bg-violet-50/60 rounded-2xl p-4 border border-violet-100/50 space-y-2">
                   <h4 className="font-bold text-xs uppercase tracking-wider text-violet-700 flex items-center gap-1">
-                    <Sparkle className="w-3.5 h-3.5 fill-violet-200" /> Performance Breakdown
+                    <Sparkle className="w-3.5 h-3.5 fill-violet-200" /> Ringkasan Prestasi
                   </h4>
                   <p className="text-slate-600 text-xs">
-                    {analysisModal.report?.summary || "No active progress log analysis was gathered for this period."}
+                    {analysisModal.report?.summary || "Tiada rekod data analitik dikumpul buat masa ini."}
                   </p>
                 </div>
 
                 <div className="space-y-2.5">
                   <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-500" /> Recommended Actions for Parents
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-500" /> Langkah Sokongan Ibu Bapa
                   </h4>
                   <ul className="space-y-2">
                     {analysisModal.report?.recommendations?.map((item, index) => (
@@ -404,17 +430,18 @@ export default function ParentDashboard() {
                         </span>
                         <span>{item}</span>
                       </li>
-                    )) || <li className="text-xs text-slate-400 italic">No recommendations available at this level.</li>}
+                    )) || <li className="text-xs text-slate-400 italic">Tiada langkah sokongan tersendiri dijana.</li>}
                   </ul>
                 </div>
               </div>
 
+              {/* MODAL FOOTER */}
               <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
                 <Button 
                   onClick={() => setAnalysisModal({ open: false, childName: "", report: null })}
                   className="h-9 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs px-5"
                 >
-                  Close Portrait
+                  Tutup Laporan
                 </Button>
               </div>
             </motion.div>
