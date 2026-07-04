@@ -68,11 +68,12 @@ Deno.serve(async (req) => {
         status: 'pending'
       });
 
+      // ✅ DIBETULKAN DI SINI: Tukar type kepada 'parent_link_request'
       await base44.entities.Notification.create({
         user_id: child.id,
-        title: 'Parent Link Request',
-        message: `${parent.full_name || parent.email} wants to link to your account.`,
-        type: 'quiz_complete',
+        title: 'Permintaan Pautan Ibu Bapa 👨‍👩‍👧',
+        message: `${parent.full_name || parent.email} ingin menyambung akaun dengan anda.`,
+        type: 'parent_link_request', 
         reference_id: parent.id
       });
 
@@ -154,11 +155,12 @@ Deno.serve(async (req) => {
         is_active: false
       });
 
+      // ✅ DIBETULKAN DI SINI: Tukar type kepada 'parent_linked_success'
       await base44.entities.Notification.create({
         user_id: child.id,
-        title: 'Parent Linked',
-        message: `${parent.full_name || parent.email} is now linked to your account.`,
-        type: 'quiz_complete',
+        title: 'Akaun Berjaya Disambung! 🎉',
+        message: `${parent.full_name || parent.email} kini telah disambungkan ke akaun anda.`,
+        type: 'parent_linked_success',
         reference_id: parent.id
       });
 
@@ -197,12 +199,12 @@ Deno.serve(async (req) => {
         metadata: JSON.stringify({ ...requestedChanges, critical_update: true })
       });
 
-      // Notify child about verified changes state context shift
+      // ✅ DIBETULKAN DI SINI: Tukar type kepada 'profile_update_alert'
       await base44.entities.Notification.create({
         user_id: childId,
-        title: 'Critical Change Handled',
-        message: 'Your profile changes have been registered and checked under parent approval logic.',
-        type: 'quiz_complete',
+        title: 'Kemas Kini Profil Diproses 🛠️',
+        message: 'Perubahan profil anda telah didaftarkan dan menunggu kelulusan ibu bapa.',
+        type: 'profile_update_alert',
         reference_id: parent.id
       });
 
