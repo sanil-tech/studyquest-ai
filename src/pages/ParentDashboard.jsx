@@ -1,13 +1,22 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import {
+  CloudSun,
+  CheckSquare,
+  Calendar,
+  Heart,
   Trash2,
+  MapPinOff,
+  Flame,
+  Award,
+  Sparkles,
+  Zap
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { motion } from "framer-motion";
+import moment from "moment";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Link } from "react-router-dom";
 
 const calculateAge = (birthDate) => {
   if (!birthDate) return "N/A";
@@ -19,114 +28,118 @@ const calculateAge = (birthDate) => {
   return age;
 };
 
-// ---------------- LIVE ANIMATED DRAGON AVATAR COMPONENT ----------------
-function LiveAvatar({ level }) {
+// ---------------- WEATHER ----------------
+const parseWmoCode = (code) => {
+  const map = {
+    0: { status: "Sunny", emoji: "☀️" },
+    1: { status: "Clear", emoji: "🌤️" },
+    2: { status: "Cloudy", emoji: "⛅" },
+    3: { status: "Overcast", emoji: "☁️" },
+    61: { status: "Rain", emoji: "🌧️" },
+    95: { status: "Thunderstorm", emoji: "⛈️" },
+  };
+  return map[code] || { status: "Clear", emoji: "☀️" };
+};
+
+// ---------------- 3D REALISTIC LIVE DRAGON AVATAR ----------------
+function Realistic3DAvatar({ level }) {
   const lvl = level || 1;
 
-  const getAvatarTheme = (l) => {
+  const getDragonStage = (l) => {
     if (l >= 15) {
       return {
-        // High level: Ancient Dragon
-        bg: "bg-gradient-to-br from-red-600 via-orange-500 to-yellow-500",
-        auraColor: "border-orange-400",
-        title: "Ancient Titan",
-        accessory: "🔥", // Fire aura accessory
-        model: "🐉"      // Chinese-style or full body elder dragon
+        stageTitle: "Ancient Inferno",
+        gradient: "from-rose-600 via-red-500 to-amber-400",
+        glow: "rgba(239, 68, 68, 0.6)",
+        orbColor: "bg-red-400 shadow-red-500/80",
+        icon: "🐉",
+        subtext: "Tier 3 Titan"
       };
     } else if (l >= 6) {
       return {
-        // Mid level: Growing Winged Dragon
-        bg: "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600",
-        auraColor: "border-emerald-300",
-        title: "Winged Drake",
-        accessory: "⚡", // Lightning speed indicator
-        model: "🐲"      // Dragon face/drake model
+        stageTitle: "Emerald Drake",
+        gradient: "from-emerald-500 via-teal-500 to-cyan-500",
+        glow: "rgba(16, 185, 129, 0.5)",
+        orbColor: "bg-emerald-400 shadow-emerald-500/80",
+        icon: "🐲",
+        subtext: "Tier 2 Winged"
       };
     } else {
       return {
-        // Base level: Dragon Hatchling/Egg
-        bg: "bg-gradient-to-br from-slate-200 via-purple-300 to-pink-300",
-        auraColor: "border-purple-200",
-        title: "Hatchling",
-        accessory: "🥚", // Egg shell item
-        model: "🦖"      // Cute small dinosaur/baby monster look
+        stageTitle: "Ruby Hatchling",
+        gradient: "from-purple-500 via-pink-500 to-rose-400",
+        glow: "rgba(219, 39, 119, 0.4)",
+        orbColor: "bg-pink-400 shadow-pink-500/80",
+        icon: "🦖",
+        subtext: "Tier 1 Egg"
       };
     }
   };
 
-  const theme = getAvatarTheme(lvl);
-
-  const floatTransition = {
-    duration: 3,
-    repeat: Infinity,
-    ease: "easeInOut"
-  };
-
-  const auraPulseTransition = {
-    duration: 2.5,
-    repeat: Infinity,
-    ease: "easeInOut",
-    repeatType: "reverse"
-  };
-
-  const orbitTransition = {
-    duration: 6,
-    repeat: Infinity,
-    ease: "linear"
-  };
+  const stage = getDragonStage(lvl);
 
   return (
-    <div className="relative flex flex-col items-center justify-center p-3 flex-shrink-0">
-      
-      {/* LIVE AURA: Continuous pulse and rotation */}
-      <motion.div 
-        animate={{ 
-          scale: [1, 1.1, 1], 
-          opacity: [0.3, 0.6, 0.3],
-          rotate: [0, 360] 
-        }}
-        transition={{...auraPulseTransition, duration: 8}}
-        className={`absolute w-28 h-28 rounded-full border-2 border-dashed ${theme.auraColor}`} 
-      />
-      
-      {/* INNER GLOW LAYER */}
-      <motion.div 
-        animate={{ scale: [1.1, 1, 1.1] }}
-        transition={auraPulseTransition}
-        className={`absolute w-24 h-24 rounded-full border-4 ${theme.auraColor} opacity-40`} 
-      />
-      
-      {/* MAIN LIVE CHARACTER CONTAINER */}
-      <motion.div 
-        whileHover={{ scale: 1.15, rotate: -5 }}
-        className={`w-20 h-20 rounded-full ${theme.bg} shadow-lg border-2 border-white flex items-center justify-center relative overflow-hidden z-10`}
-      >
-        {/* CHARACTER MODEL: Gentle dragon breathing/floating motion */}
-        <motion.span 
-          animate={{ y: [-4, 4, -4], scale: [1, 1.05, 1] }}
-          transition={floatTransition}
-          className="text-5xl select-none filter drop-shadow-md relative z-20"
-        >
-          {theme.model}
-        </motion.span>
+    <div className="relative flex flex-col items-center justify-center p-4 flex-shrink-0 select-none">
+      {/* Real-time 3D depth wrapper */}
+      <div style={{ perspective: "1000px" }} className="relative w-24 h-24 flex items-center justify-center">
+        
+        {/* 3D Dynamic Ambient Floor Shadow */}
+        <motion.div
+          animate={{ scale: [0.85, 1.05, 0.85], opacity: [0.2, 0.4, 0.2] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -bottom-2 w-16 h-3 bg-black/40 blur-md rounded-full z-0"
+        />
 
-        {/* ORBITING ELEMENT (Fire, Lightning, or Egg Shell) */}
-        <motion.div 
-          animate={{ rotate: [0, 360] }}
-          transition={orbitTransition}
-          className="absolute inset-0 z-10"
+        {/* Pulsing Cinematic Backdrop Aura */}
+        <motion.div
+          animate={{ scale: [0.95, 1.15, 0.95], rotate: 360 }}
+          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+          style={{ boxShadow: `0 0 30px ${stage.glow}` }}
+          className={`absolute inset-0 rounded-full border-2 border-dashed border-white/30 opacity-70`}
+        />
+
+        {/* Main 3D Glossy Token Base */}
+        <motion.div
+          style={{ transformStyle: "preserve-3d" }}
+          animate={{ 
+            y: [-6, 6, -6],
+            rotateY: [-10, 10, -10],
+            rotateX: [5, -5, 5]
+          }}
+          whileHover={{ scale: 1.1, rotateZ: 5, y: -10 }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          className={`w-20 h-20 rounded-full bg-gradient-to-tr ${stage.gradient} border-[3px] border-white/80 shadow-[0_15px_30px_rgba(0,0,0,0.3),inset_0_4px_12px_rgba(255,255,255,0.6)] flex items-center justify-center relative z-10`}
         >
-          <motion.div 
-            className="absolute top-1 right-1 text-sm bg-white/80 p-1 rounded-full shadow-sm"
+          {/* Internal Volumetric Lighting Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-black/20 rounded-full pointer-events-none" />
+
+          {/* Floating Realistic Dragon Model */}
+          <motion.span 
+            style={{ transform: "translateZ(30px)" }}
+            animate={{ scale: [1, 1.06, 1] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            className="text-5xl drop-shadow-[0_8px_10px_rgba(0,0,0,0.4)] filter state-character"
           >
-            {theme.accessory}
+            {stage.icon}
+          </motion.span>
+
+          {/* 3D Orbiting Elemental Plasma Particle */}
+          <motion.div
+            animate={{ rotate: [0, 360] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0"
+          >
+            <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full ${stage.orbColor} border border-white shadow-lg animate-pulse`} />
           </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
 
-      {/* Rarity/Rank Subtext */}
-      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mt-2 relative z-20">
-        {theme.title}
+      {/* 3D Stage Badging Labels */}
+      <span className="text-[11px] font-black tracking-wide text-gray-700 mt-3 drop-shadow-sm">
+        {stage.stageTitle}
+      </span>
+      <span className="text-[9px] font-bold text-muted-foreground/80 tracking-wider uppercase -mt-0.5">
+        {stage.subtext}
       </span>
     </div>
   );
@@ -135,46 +148,46 @@ function LiveAvatar({ level }) {
 // ---------------- CHILD CARD ----------------
 function ChildCard({ child, onUnlink }) {
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="flex items-center">
-        <LiveAvatar level={child.progress?.level || 1} />
-        <div className="flex-1 min-w-0 pr-4 py-4">
-          <Link to={`/parent/children/${child.id}`} className="block">
-            <h3 className="text-xl font-bold truncate hover:text-primary transition-colors">
+    <Card className="p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          {/* Injecting our live realistic 3D dragon passing current level progress */}
+          <Realistic3DAvatar level={child.progress?.level} />
+          <div>
+            {/* RESTORED: Exact naming logic from your original code */}
+            <h3 className="text-xl font-bold">
               {child.full_name || child.username || "Unnamed Student"}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Age {calculateAge(child.date_of_birth)} • {child.education_level || "—"}
+              Age {calculateAge(child.date_of_birth)} • {child.education_level}
             </p>
-          </Link>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-3 text-center text-sm border-t">
-        <div className="py-3">
-          <p className="font-bold text-primary">{child.progress?.level || 1}</p>
-          <p className="text-muted-foreground">Level</p>
-        </div>
-        <div className="py-3 border-x">
-          <p className="font-bold text-amber-500">{child.wallet?.balance || 0}</p>
-          <p className="text-muted-foreground">Coins</p>
-        </div>
-        <div className="py-3">
-          <p className="font-bold text-orange-500">{child.progress?.streak_days || 0}</p>
-          <p className="text-muted-foreground">Streak</p>
-        </div>
-      </div>
-
-      <div className="p-2 border-t bg-muted/30">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onUnlink(child.id, child.full_name || child.username || "Student")}
-          className="text-rose-500 hover:bg-rose-50 w-full"
+          className="text-rose-500 hover:bg-rose-50"
         >
           <Trash2 className="w-4 h-4 mr-2" />
           Unlink
         </Button>
+      </div>
+
+      <div className="grid grid-cols-3 text-center text-sm">
+        <div>
+          <p className="font-bold">{child.progress?.level || 1}</p>
+          <p>Level</p>
+        </div>
+        <div>
+          <p className="font-bold">{child.wallet?.balance || 0}</p>
+          <p>Coins</p>
+        </div>
+        <div>
+          <p className="font-bold">{child.progress?.streak_days || 0}</p>
+          <p>Streak</p>
+        </div>
       </div>
     </Card>
   );
@@ -188,6 +201,12 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [weather, setWeather] = useState({
+    temp: "--",
+    status: "Loading...",
+    emoji: "☀️",
+  });
 
   // ---------------- LOAD DATA ----------------
   const loadData = async () => {
@@ -217,14 +236,14 @@ export default function ParentDashboard() {
             base44.entities.Progress.filter({ student_id: id }),
             base44.entities.Wallet.filter({ student_id: id }),
           ]);
-          const childUser = await base44.entities.User.get(id).catch(() => null);
+          const user = await base44.entities.User.get(id).catch(() => null);
 
           return {
             id,
-            full_name: childUser?.full_name || "",
-            username: childUser?.username || "",
-            date_of_birth: childUser?.date_of_birth || "",
-            education_level: childUser?.education_level || "",
+            full_name: user?.full_name || "",
+            username: user?.username || "",
+            date_of_birth: user?.date_of_birth || "",
+            education_level: user?.education_level || "",
             progress: progress?.[0] || {},
             wallet: wallet?.[0] || { balance: 0 },
           };
@@ -244,9 +263,32 @@ export default function ParentDashboard() {
     }
   };
 
+  // ---------------- WEATHER ----------------
+  const fetchWeather = useCallback(() => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude, longitude } = pos.coords;
+
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
+      );
+
+      const data = await res.json();
+      const meta = parseWmoCode(data.current_weather.weathercode);
+
+      setWeather({
+        temp: `${Math.round(data.current_weather.temperature)}°C`,
+        status: meta.status,
+        emoji: meta.emoji,
+      });
+    });
+  }, []);
+
   // ---------------- EFFECT ----------------
   useEffect(() => {
     loadData();
+    fetchWeather();
   }, []);
 
   // ---------------- UNLINK ----------------
@@ -282,25 +324,27 @@ export default function ParentDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      {/* HEADER */}
-      <div>
-        <h1 className="text-2xl font-bold">Parent Dashboard</h1>
-        <p className="text-muted-foreground text-sm">
-          Monitor your children's learning progress and rewards.
-        </p>
+    <div className="p-6 space-y-6">
+
+      {/* RESTORED: Weather layout exactly matching your original file structure */}
+      <div className="bg-white p-4 rounded-2xl border flex justify-between">
+        <div>
+          <div className="text-2xl font-bold">{weather.temp}</div>
+          <div className="text-sm text-gray-500">{weather.status}</div>
+        </div>
+        <div className="text-3xl">{weather.emoji}</div>
       </div>
 
-      {/* CHILDREN */}
+      {/* CHILDREN SECTION */}
       <div>
         <h2 className="font-bold mb-3">My Children</h2>
 
         {children.length === 0 ? (
-          <div className="p-4 border rounded-xl text-gray-500 text-center">
-            No student profile connected yet.
+          <div className="p-4 border rounded-xl text-gray-500">
+            No student profile connected
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3">
             {children.map(c => (
               <ChildCard
                 key={c.id}
@@ -312,9 +356,9 @@ export default function ParentDashboard() {
         )}
       </div>
 
-      {/* PENDING */}
+      {/* PENDING ACTIONS */}
       <div>
-        <h2 className="font-bold mb-3">Pending Reward Requests</h2>
+        <h2 className="font-bold mb-3">Pending Requests</h2>
 
         {pendingRequests.length === 0 ? (
           <div className="text-gray-400 text-sm">
@@ -322,12 +366,19 @@ export default function ParentDashboard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {pendingRequests.map(r => (
-              <div key={r.id} className="p-3 border rounded-xl flex justify-between items-center">
-                <span>{r.reward_title}</span>
-                <span className="text-sm text-muted-foreground">{r.coin_cost} 🪙</span>
-              </div>
-            ))}
+            <AnimatePresence>
+              {pendingRequests.map(r => (
+                <motion.div 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  key={r.id} 
+                  className="p-3 border rounded-xl"
+                >
+                  {r.reward_title}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>
