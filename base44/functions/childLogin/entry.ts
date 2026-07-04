@@ -4,115 +4,115 @@ const hashPassword = (password) => {
   return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
 };
 
+const hashPin = (pin) => {
+  return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
+};
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const body = await req.json();
 
-    const identifier = body.username || body.student_id;
-    const password = body.password;
+    const { username, password, pin } = await req.json();
 
-    if (!identifier || !password) {
+    if (!username) {
       return Response.json(
-        { error: "Username and password are required." },
+        { error: "Username is required" },
         { status: 400 }
       );
     }
 
-    const cleanUsername = identifier.trim().toLowerCase();
+    const cleanUsername = username.trim().toLowerCase();
 
-    let user = null;
-
-    // =========================
-    // 1. SEARCH BY USERNAME
-    // =========================
-    const byUsername = await base44.asServiceRole.entities.User.filter({
+    // 1. FIND USER
+    const users = await base44.asServiceRole.entities.User.filter({
       username: cleanUsername,
     });
 
-    if (byUsername?.length > 0) {
-      user = byUsername[0];
+    if (!users.length) {
+      return Response.json(
+        { error: "Username not found" },
+        { status: 400 }
+      );
     }
 
-    // =========================
-    // 2. FALLBACK: SEARCH BY STUDENT ID
-    // =========================
-    if (!user) {
-      const byStudentId = await base44.asServiceRole.entities.User.filter({
-        student_id: identifier.trim().toUpperCase(),
-      });
+    const user = users[0];
 
-      if (byStudentId?.length > 0) {
-        user = byStudentId[0];
+    // 2. CHECK ACCOUNT STATUS
+    if (user.account_locked) {
+      return Response.json(
+        { error: "Account locked. Please contact parent." },
+        { status: 403 }
+      );
+    }
+
+    // 3. PASSWORD LOGIN
+    if (password) {
+      const hashed = hashPassword(password);
+
+      if (user.password_hash !== hashed) {
+        const attempts = (user.failed_login_attempts || 0) + 1;
+
+        const updateData = {
+          failed_login_attempts: attempts,
+        };
+
+        if (attempts >= 5) {
+          updateData.account_locked = true;
+        }
+
+        await base44.asServiceRole.entities.User.update(user.id, updateData);
+
+        return Response.json(
+          { error: "Wrong password" },
+          { status: 400 }
+        );
       }
     }
 
-    // =========================
-    // 3. USER NOT FOUND
-    // =========================
-    if (!user) {
-      return Response.json(
-        { error: "Account not found. Please check username." },
-        { status: 404 }
-      );
+    // 4. PIN LOGIN (optional)
+    if (pin) {
+      if (!user.pin_hash) {
+        return Response.json(
+          { error: "PIN not enabled for this account" },
+          { status: 400 }
+        );
+      }
+
+      const hashedPin = hashPin(pin);
+
+      if (user.pin_hash !== hashedPin) {
+        return Response.json(
+          { error: "Wrong PIN" },
+          { status: 400 }
+        );
+      }
     }
 
-    // =========================
-    // 4. CHILD ACCOUNT CHECK
-    // =========================
-    if (!user.is_child_account) {
-      return Response.json(
-        { error: "This account is not a student account." },
-        { status: 403 }
-      );
-    }
-
-    if (user.status !== "active") {
-      return Response.json(
-        { error: "Account is not active. Please contact parent." },
-        { status: 403 }
-      );
-    }
-
-    // =========================
-    // 5. PASSWORD CHECK
-    // =========================
-    const inputHash = hashPassword(password);
-
-    if (user.password_hash !== inputHash) {
-      return Response.json(
-        { error: "Incorrect password." },
-        { status: 401 }
-      );
-    }
-
-    // =========================
-    // 6. SUCCESS LOGIN
-    // =========================
-    const sessionData = {
-      user_id: user.id,
-      username: user.username,
-      student_id: user.student_id,
-      role: "child",
-      timestamp: Date.now(),
-    };
-
-    return Response.json({
-      success: true,
-      session_token: btoa(JSON.stringify(sessionData)),
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        nickname: user.nickname,
-        username: user.username,
-        student_id: user.student_id,
-        profile_completed: user.profile_completed,
-      },
+    // 5. RESET FAILED ATTEMPTS ON SUCCESS
+    await base44.asServiceRole.entities.User.update(user.id, {
+      failed_login_attempts: 0,
     });
 
+    // 6. SUCCESS RESPONSE
+    return Response.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        nickname: user.nickname,
+        student_id: user.student_id,
+        app_role: user.app_role,
+        profile_completed: user.profile_completed,
+        is_child_account: user.is_child_account,
+        linked_parent_id: user.linked_parent_id,
+      },
+    });
   } catch (error) {
+    console.error("Child login error:", error);
+
     return Response.json(
-      { error: error.message || "Server error" },
+      { error: error.message || "Login failed" },
       { status: 500 }
     );
   }
