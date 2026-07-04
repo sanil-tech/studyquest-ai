@@ -214,7 +214,7 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
       const currentUser = await base44.auth.me();
 
       // 3. Panggil cloud function untuk mendaftar profil pelajar baru beserta kelayakan log masuk
-      const response = await base44.functions.invoke("createChildAccount", {
+      const response = await base44.functions.invoke("createChildAccount_TEST", {
         childData: {
           ...childData,
           full_name: childData.full_name.trim(),
