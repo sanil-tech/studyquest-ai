@@ -2,171 +2,191 @@ import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   CloudSun,
-  Trash2,
-  Clock,
+  CheckSquare,
+  Calendar,
   Heart,
-  Baby,
-  GraduationCap,
-  Sparkles,
-  UserPlus,
-  AlertCircle,
-  BrainCircuit,
-  TrendingUp,
+  Trash2,
+  MapPinOff,
+  Flame,
   Award,
-  X,
-  Lightbulb,
-  Sparkle
+  Sparkles,
+  Zap
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { motion, AnimatePresence } from "framer-motion";
+import moment from "moment";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 
-// ---------------- WEATHER UTILS ----------------
-const parseWmoCode = (code) => {
-  const map = {
-    0: { status: "Bright & Sunny", emoji: "☀️" },
-    1: { status: "Clear Skies", emoji: "🌤️" },
-    2: { status: "Partly Cloudy", emoji: "⛅" },
-    3: { status: "Overcast", emoji: "☁️" },
-    61: { status: "Passing Showers", emoji: "🌧️" },
-    95: { status: "Thunderstorms", emoji: "⛈️" },
-  };
-  return map[code] || { status: "Clear Skies", emoji: "☀️" };
+const calculateAge = (birthDate) => {
+  if (!birthDate) return "N/A";
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
 };
 
-// ============================================================================
-// 1. COMPONENT: CHILD PROGRESS CARD (KAD PRESTASI ANAK)
-// ============================================================================
-function ChildProgressCard({ child, onUnlink, onAnalyzeAI }) {
-  const [showId, setShowId] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
+// ---------------- WEATHER ----------------
+const parseWmoCode = (code) => {
+  const map = {
+    0: { status: "Sunny", emoji: "☀️" },
+    1: { status: "Clear", emoji: "🌤️" },
+    2: { status: "Cloudy", emoji: "⛅" },
+    3: { status: "Overcast", emoji: "☁️" },
+    61: { status: "Rain", emoji: "🌧️" },
+    95: { status: "Thunderstorm", emoji: "⛈️" },
+  };
+  return map[code] || { status: "Clear", emoji: "☀️" };
+};
 
-  const xp = child?.progress?.total_xp || 0;
-  const level = child?.progress?.level || 1;
-  const nextXp = level * 200;
-  
-  // Kira peratusan kemajuan pembelajaran anak
-  const progressPercentage = Math.min(Math.round((xp / nextXp) * 100), 100);
+// ---------------- DYNAMIC 3D-STYLE AVATAR COMPONENT ----------------
+function InteractiveAvatar({ level, gender = "neutral" }) {
+  const lvl = level || 1;
 
-  const handleAIAnalysis = async () => {
-    setAnalyzing(true);
-    await onAnalyzeAI(child, progressPercentage);
-    setAnalyzing(false);
+  // Define progression themes based on Level (Tahap)
+  const getAvatarTheme = (l) => {
+    if (l >= 15) {
+      return {
+        bg: "bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500",
+        aura: "animate-ping border-pink-400 opacity-40",
+        badgeColor: "bg-pink-500 text-white border-pink-300",
+        title: "Mythic Hero",
+        accessory: "👑"
+      };
+    } else if (l >= 6) {
+      return {
+        bg: "bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600",
+        aura: "animate-pulse border-cyan-400 opacity-60",
+        badgeColor: "bg-cyan-500 text-white border-cyan-300",
+        title: "Adventurer",
+        accessory: "🛡️"
+      };
+    } else {
+      return {
+        bg: "bg-gradient-to-br from-amber-200 via-orange-300 to-rose-400",
+        aura: "border-amber-300 opacity-30",
+        badgeColor: "bg-amber-500 text-white border-amber-200",
+        title: "Novice",
+        accessory: "🌱"
+      };
+    }
   };
 
+  const theme = getAvatarTheme(lvl);
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group"
-    >
-      <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-400 group-hover:bg-rose-500 transition-colors" />
+    <div className="relative flex flex-col items-center justify-center p-2">
+      {/* Visual Level Aura Effect */}
+      <div className={`absolute w-24 h-24 rounded-full border-4 ${theme.aura}`} />
       
-      {/* HEADER */}
-      <div className="flex justify-between items-start pl-2">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner group-hover:scale-105 transition-transform">
-            <Baby className="w-5 h-5" />
-          </div>
+      {/* Main Stylized Avatar Container */}
+      <motion.div 
+        whileHover={{ scale: 1.1, rotate: 3 }}
+        className={`w-20 h-20 rounded-full ${theme.bg} shadow-lg border-2 border-white flex items-center justify-center relative overflow-hidden`}
+      >
+        {/* Dynamic Level Asset/Accessory */}
+        <span className="text-4xl select-none filter drop-shadow-md">
+          {lvl >= 15 ? "🧙‍♂️" : lvl >= 6 ? "🧑‍🚀" : "👶"}
+        </span>
+
+        {/* Floating accessory badge overlay */}
+        <div className="absolute top-1 right-1 text-xs">
+          {theme.accessory}
+        </div>
+      </motion.div>
+
+      {/* Title Subtext */}
+      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mt-2">
+        {theme.title}
+      </span>
+    </div>
+  );
+}
+
+// ---------------- INDIVIDUAL CHILD CARD ----------------
+function ChildCard({ child, onUnlink }) {
+  const currentLevel = child.progress?.level || 1;
+
+  return (
+    <Card className="p-6 space-y-4 hover:shadow-md transition-shadow relative overflow-hidden border-l-4 border-l-purple-500">
+      <div className="flex items-start justify-between">
+        
+        {/* LEFTSIDE: Avatar + Core Bio */}
+        <div className="flex items-center space-x-4">
+          <InteractiveAvatar level={currentLevel} />
           <div>
-            <h3 className="font-bold text-base text-slate-800 tracking-tight">
-              {child.name} {/* Nama nickname dipaparkan di sini */}
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              {child.full_name || child.username || "Unnamed Student"}
             </h3>
-            <button
-              onClick={() => setShowId(!showId)}
-              className="text-[11px] text-slate-400 hover:text-rose-500 block transition-colors mt-0.5"
-            >
-              {showId ? "Sembunyikan Meta Link" : "Lihat ID Profil Terurus"}
-            </button>
+            <p className="text-sm text-muted-foreground">
+              Age {calculateAge(child.date_of_birth)} • {child.education_level || "Form 2"}
+            </p>
           </div>
         </div>
 
+        {/* RIGHTSIDE: Action Menu Options */}
         <Button
           variant="ghost"
-          size="icon"
-          className="text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-          onClick={() => onUnlink(child.id, child.name)}
+          size="sm"
+          onClick={() => onUnlink(child.id, child.full_name || child.username || "Student")}
+          className="text-rose-500 hover:bg-rose-50 h-8 w-8 p-0 rounded-full"
         >
           <Trash2 className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* METADATA ID */}
-      {showId && (
-        <motion.div 
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="mx-2 mt-3 p-2 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-mono text-slate-500 break-all"
-        >
-          Key Identiti Anak: {child.id}
-        </motion.div>
-      )}
-
-      {/* BILIK SKOR & PROGRESS BAR */}
-      <div className="mt-5 pl-2 space-y-3">
-        <div>
-          <div className="text-xs font-medium text-slate-600 mb-1.5 flex justify-between items-center">
-            <span className="flex items-center gap-1 text-slate-500 font-semibold">
-              <GraduationCap className="w-3.5 h-3.5 text-rose-400" /> Tahap {level}
-            </span>
-            <span className="text-rose-500 font-bold bg-rose-50/60 px-2 py-0.5 rounded-md text-[11px] flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> {progressPercentage}% Pembelajaran Selesai
-            </span>
+      {/* GAMIFIED PROGRESS STATS BAR */}
+      <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl text-center text-sm border">
+        <div className="flex flex-col items-center justify-center border-r">
+          <div className="flex items-center gap-1 font-extrabold text-purple-600 text-lg">
+            <Award className="w-4 h-4" />
+            <span>{currentLevel}</span>
           </div>
-          
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
-            <div
-              className="h-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${progressPercentage}%` }}
-            />
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-tight">Tahap</p>
+        </div>
+        
+        <div className="flex flex-col items-center justify-center border-r">
+          <div className="flex items-center gap-1 font-extrabold text-amber-500 text-lg">
+            <Zap className="w-4 h-4 fill-amber-400" />
+            <span>{child.wallet?.balance || 0}</span>
           </div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-tight">Coins</p>
         </div>
 
-        <div className="text-[11px] text-slate-400 flex justify-between px-0.5">
-          <span>Skor Semasa: <strong className="text-slate-600 font-mono">{xp} XP</strong></span>
-          <span>Sasaran Tahap: <strong className="text-slate-600 font-mono">{nextXp} XP</strong></span>
+        <div className="flex flex-col items-center justify-center">
+          <div className="flex items-center gap-1 font-extrabold text-orange-500 text-lg">
+            <Flame className="w-4 h-4 fill-orange-400" />
+            <span>{child.progress?.streak_days || 0}</span>
+          </div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-tight">Streak</p>
         </div>
-
-        {/* BUTANG AI CHILD LESSON ANALYSIS */}
-        <Button
-          onClick={handleAIAnalysis}
-          disabled={analyzing}
-          className="w-full mt-2 h-9 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-medium shadow-sm gap-2 transition-all duration-300 hover:shadow-md"
-        >
-          <BrainCircuit className={`w-3.5 h-3.5 ${analyzing ? "animate-spin" : ""}`} />
-          {analyzing ? "Menjana Profil Analisis..." : "AI Child Lesson Analysis"}
-        </Button>
       </div>
-    </motion.div>
+    </Card>
   );
 }
 
-// ============================================================================
-// 2. MAIN COMPONENT: PARENT DASHBOARD (DASHBOARD IBU BAPA)
-// ============================================================================
+// ================= MAIN DASHBOARD =================
 export default function ParentDashboard() {
   const { toast } = useToast();
 
   const [user, setUser] = useState(null);
-  const [activeChildren, setActiveChildren] = useState([]);
-  const [sentRequests, setSentRequests] = useState([]);
-  const [rewardRequests, setRewardRequests] = useState([]);
+  const [children, setChildren] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Status Modal Analisis AI
-  const [analysisModal, setAnalysisModal] = useState({ open: false, childName: "", report: null });
 
   const [weather, setWeather] = useState({
     temp: "--",
-    status: "Menyemak langit...",
+    status: "Loading...",
     emoji: "☀️",
   });
 
-  // ---------------- AMBIL DATA UTAMA ----------------
+  // ---------------- LOAD DATA ----------------
   const loadData = async () => {
     try {
       setLoading(true);
+
       const u = await base44.auth.me();
       setUser(u);
 
@@ -176,100 +196,76 @@ export default function ParentDashboard() {
       });
 
       if (!rel.length) {
-        setActiveChildren([]);
-        setSentRequests([]);
-        setRewardRequests([]);
+        setChildren([]);
+        setPendingRequests([]);
+        setLoading(false);
         return;
       }
 
-      const activeRows = rel.filter(r => r.status === "active");
-      const pendingRows = rel.filter(r => r.status === "pending");
+      const childIds = rel.map(r => r.child_id);
 
-      const hydrateProfiles = async (rows) => {
-        return Promise.all(
-          rows.map(async (r) => {
-            const studentUser = await base44.entities.User.get(r.child_id).catch(() => null);
-            const progress = await base44.entities.Progress.filter({ student_id: r.child_id });
+      const kids = await Promise.all(
+        childIds.map(async (id) => {
+          const [progress, wallet] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: id }),
+            base44.entities.Wallet.filter({ student_id: id }),
+          ]);
+          const user = await base44.entities.User.get(id).catch(() => null);
 
-            // CRITICAL FIX: Mengambil nickname dari myprofile anak terlebih dahulu
-            const nickname = studentUser?.profile?.nickname || studentUser?.nickname || studentUser?.full_name || studentUser?.email || "Profil Murid";
+          return {
+            id,
+            full_name: user?.full_name || "",
+            username: user?.username || "",
+            date_of_birth: user?.date_of_birth || "",
+            education_level: user?.education_level || "",
+            progress: progress?.[0] || {},
+            wallet: wallet?.[0] || { balance: 0 },
+          };
+        })
+      );
 
-            return {
-              id: r.child_id,
-              relationshipId: r.id,
-              name: nickname, // Diisi dengan nama panggilan/nickname yang disahkan
-              email: studentUser?.email || "",
-              progress: progress?.[0] || {},
-            };
-          })
-        );
-      };
+      const pending = await base44.entities.RewardRequest.filter({
+        status: "pending",
+      });
 
-      const [hydratedActive, hydratedPending] = await Promise.all([
-        hydrateProfiles(activeRows),
-        hydrateProfiles(pendingRows)
-      ]);
-
-      const rewards = await base44.entities.RewardRequest.filter({ status: "pending" });
-
-      setActiveChildren(hydratedActive);
-      setSentRequests(hydratedPending);
-      setRewardRequests(rewards);
+      setChildren(kids);
+      setPendingRequests(pending);
     } catch (err) {
-      console.error("Dashboard metric retrieval failure:", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------- WEATHER TRACKING API ----------------
+  // ---------------- WEATHER ----------------
   const fetchWeather = useCallback(() => {
     if (!navigator.geolocation) return;
+
     navigator.geolocation.getCurrentPosition(async (pos) => {
-      try {
-        const { latitude, longitude } = pos.coords;
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
-        const data = await res.json();
-        const meta = parseWmoCode(data.current_weather.weathercode);
-        setWeather({ temp: `${Math.round(data.current_weather.temperature)}°C`, status: meta.status, emoji: meta.emoji });
-      } catch {}
+      const { latitude, longitude } = pos.coords;
+
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
+      );
+
+      const data = await res.json();
+      const meta = parseWmoCode(data.current_weather.weathercode);
+
+      setWeather({
+        temp: `${Math.round(data.current_weather.temperature)}°C`,
+        status: meta.status,
+        emoji: meta.emoji,
+      });
     });
   }, []);
 
+  // ---------------- EFFECT ----------------
   useEffect(() => {
     loadData();
     fetchWeather();
   }, []);
 
-  // ---------------- MENCETUSKAN ANALISIS AI SEBENAR ----------------
-  const handleAIAnalysisTrigger = async (child, progressPercentage) => {
-    try {
-      // Memanggil fungsi cloud edge serverless sebenar daripada Base44 backend anda
-      const response = await base44.functions.analyzeChildLessons({
-        student_id: child.id,
-        student_name: child.name,
-        level: child.progress?.level || 1,
-        total_xp: child.progress?.total_xp || 0,
-        progress_percent: progressPercentage
-      });
-
-      if (response?.error) throw new Error(response.error);
-
-      setAnalysisModal({
-        open: true,
-        childName: child.name,
-        report: response // Memasukkan data objek JSON 'summary' dan 'recommendations'
-      });
-    } catch (err) {
-      toast({
-        title: "Ralat Analisis",
-        description: err.message || "Gagal menghubungi pelayan AI. Sila cuba sebentar lagi.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // ---------------- KELUARKAN / UNLINK SAMBUNGAN AKUN ----------------
+  // ---------------- UNLINK ----------------
   const handleUnlink = async (childId, name) => {
     try {
       const rel = await base44.entities.ParentChildRelationship.filter({
@@ -278,177 +274,109 @@ export default function ParentDashboard() {
         status: ["active", "pending"],
       });
       if (rel?.[0]) {
-        await base44.entities.ParentChildRelationship.update(rel[0].id, { status: "inactive" });
+        await base44.entities.ParentChildRelationship.update(rel[0].id, {
+          status: "inactive",
+        });
       }
-      toast({ title: "Hub Keluarga Dikemaskini", description: `Berjaya memutuskan pemantauan hubungan untuk ${name}.` });
+      toast({
+        title: "Unlinked",
+        description: `${name} removed`,
+      });
       loadData();
     } catch (err) {
-      toast({ title: "Gagal Mengemaskini Hubungan", description: err.message, variant: "destructive" });
+      toast({
+        title: "Failed to unlink",
+        description: err.message,
+        variant: "destructive",
+      });
     }
   };
 
+  // ================= UI =================
   if (loading) {
-    return (
-      <div className="p-12 text-center text-sm font-medium text-slate-400 space-y-2 animate-pulse">
-        <Sparkles className="w-5 h-5 mx-auto text-rose-300 animate-spin" />
-        <div>Mengumpulkan metrik portal keluarga...</div>
-      </div>
-    );
+    return <div className="p-10 text-center">Loading...</div>;
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto bg-slate-50/50 min-h-screen rounded-3xl relative">
+    <div className="p-6 space-y-6 max-w-4xl mx-auto">
 
-      {/* WELCOME BANNER */}
-      <div className="bg-gradient-to-br from-rose-50 via-white to-amber-50/40 p-6 rounded-3xl border border-rose-100/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+      {/* HEADER SECTION WITH WEATHER */}
+      <div className="bg-gradient-to-r from-slate-50 to-white p-6 rounded-2xl border flex items-center justify-between shadow-sm">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            Hello, {user?.full_name || user?.nickname || "Penjaga"} <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
+          <h1 className="text-2xl font-black text-gray-800">
+            Selamat Datang, {user?.full_name || "Ibu Bapa"} 👋
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Selamat datang ke Portal Ibu Bapa. Berikut adalah ringkasan aktiviti hari ini.</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Berikut adalah ringkasan aktiviti dan pencapaian anak-anak hari ini.
+          </p>
         </div>
-        <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-3 shadow-inner self-stretch sm:self-auto justify-between">
-          <div>
-            <div className="text-lg font-bold text-slate-800 font-mono leading-none">{weather.temp}</div>
-            <div className="text-[10px] font-medium text-slate-400 mt-0.5">{weather.status}</div>
+        <div className="bg-white px-4 py-2 rounded-xl border flex items-center gap-3 shadow-sm">
+          <div className="text-right">
+            <div className="text-lg font-bold text-gray-700">{weather.temp}</div>
+            <div className="text-xs text-gray-400 font-medium">{weather.status}</div>
           </div>
-          <div className="text-2xl select-none">{weather.emoji}</div>
+          <div className="text-2xl">{weather.emoji}</div>
         </div>
       </div>
 
-      {/* LIST OF ACTIVE CHILDREN */}
-      <div className="space-y-3">
-        <h2 className="font-bold text-base text-slate-800 tracking-tight pl-1">Akaun Anak-anak ({activeChildren.length})</h2>
-        {activeChildren.length === 0 ? (
-          <div className="p-8 border border-dashed border-slate-200 rounded-2xl text-center text-slate-400 bg-white shadow-sm flex flex-col items-center justify-center gap-2">
-            <UserPlus className="w-8 h-8 text-slate-300" />
-            <p className="text-sm font-medium text-slate-600">Tiada pemantauan profil anak yang aktif.</p>
+      {/* THREE-COLUMN LAYOUT STRUCTURE */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* MAIN PANEL: CHILDREN LISTING */}
+        <div className="md:col-span-2 space-y-4">
+          <div className="flex items-center gap-2 font-bold text-gray-700 border-b pb-2">
+            <Sparkles className="w-5 h-5 text-purple-500" />
+            <h2>Akaun Anak-anak ({children.length})</h2>
           </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {activeChildren.map(c => (
-              <ChildProgressCard key={c.id} child={c} onUnlink={handleUnlink} onAnalyzeAI={handleAIAnalysisTrigger} />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* PENDING OUTGOING INVITATIONS */}
-      {sentRequests.length > 0 && (
-        <div className="space-y-3 pt-2">
-          <h2 className="font-bold text-xs uppercase tracking-wider text-amber-600 flex items-center gap-1.5 pl-1">
-            <Clock className="w-3.5 h-3.5" /> Jemputan Profil Menunggu Pengesahan ({sentRequests.length})
-          </h2>
-          <div className="grid gap-2">
-            {sentRequests.map((req) => (
-              <div key={req.id} className="bg-amber-50/40 border border-amber-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100/50 flex items-center justify-center text-amber-600"><AlertCircle className="w-4 h-4" /></div>
-                  <div>
-                    <p className="font-semibold text-sm text-amber-900">{req.name}</p>
-                    <p className="text-[11px] text-amber-700/70">Menunggu kelulusan pautan di dalam aplikasi murid/anak</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="h-8 rounded-xl border-amber-200 hover:bg-amber-100 text-amber-900 text-xs" onClick={() => handleUnlink(req.id, req.name)}>Batal</Button>
-              </div>
-            ))}
-          </div>
+          {children.length === 0 ? (
+            <div className="p-8 border border-dashed rounded-xl text-center text-gray-400 bg-gray-50">
+              No student profiles connected to this parent account.
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {children.map(c => (
+                <ChildCard
+                  key={c.id}
+                  child={c}
+                  onUnlink={handleUnlink}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* REWARD CLAIMS LIST */}
-      <div className="space-y-3 pt-2">
-        <h2 className="font-bold text-base text-slate-800 tracking-tight pl-1">Permintaan Ganjaran Menunggu Semakan</h2>
-        {rewardRequests.length === 0 ? (
-          <div className="text-slate-400 text-xs pl-1 italic">Tiada tuntutan ganjaran baharu yang perlu disahkan.</div>
-        ) : (
-          <div className="space-y-2">
-            {rewardRequests.map(r => (
-              <div key={r.id} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex justify-between items-center group">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-lg bg-gradient-to-br from-amber-400 to-rose-400 flex items-center justify-center text-[7px] text-white"><Award className="w-2 h-2" /></div>
-                  <span className="text-sm font-medium text-slate-700">{r.reward_title}</span>
-                </div>
-                <Badge variant="secondary" className="text-[10px] bg-slate-50 text-slate-500 rounded-lg px-2 py-0.5 border">Menunggu Semakan</Badge>
-              </div>
-            ))}
+        {/* SIDE PANEL: PENDING REQUESTS */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 font-bold text-gray-700 border-b pb-2">
+            <CheckSquare className="w-5 h-5 text-amber-500" />
+            <h2>Pending Action Requests</h2>
           </div>
-        )}
-      </div>
 
-      {/* ============================================================================
-          3. REAL-TIME AI LESSON ANALYSIS POP-UP MODAL OVERLAY
-         ============================================================================ */}
-      <AnimatePresence>
-        {analysisModal.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl w-full max-w-lg overflow-hidden border border-slate-100 shadow-2xl flex flex-col max-h-[85vh]"
-            >
-              {/* MODAL HEADER */}
-              <div className="p-6 bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white flex justify-between items-center">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
-                    <BrainCircuit className="w-5 h-5 text-amber-300" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base leading-tight">Profil Pintar AI</h3>
-                    <p className="text-xs text-indigo-100 mt-0.5">Analisis kemajuan pembelajaran untuk {analysisModal.childName}</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setAnalysisModal({ open: false, childName: "", report: null })}
-                  className="p-1.5 rounded-xl hover:bg-white/10 text-white/80 hover:text-white transition-colors"
+          {pendingRequests.length === 0 ? (
+            <div className="text-gray-400 text-sm border border-dashed p-6 rounded-xl bg-gray-50/50 text-center">
+              All caught up! No pending item approvals.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pendingRequests.map(r => (
+                <motion.div 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  key={r.id} 
+                  className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-sm font-medium text-amber-900 flex justify-between items-center"
                 >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+                  <span>{r.reward_title}</span>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-amber-200 rounded-full text-amber-700">
+                    Verify
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
 
-              {/* MODAL BODY */}
-              <div className="p-6 overflow-y-auto space-y-5 text-slate-700 text-sm leading-relaxed">
-                <div className="bg-violet-50/60 rounded-2xl p-4 border border-violet-100/50 space-y-2">
-                  <h4 className="font-bold text-xs uppercase tracking-wider text-violet-700 flex items-center gap-1">
-                    <Sparkle className="w-3.5 h-3.5 fill-violet-200" /> Ringkasan Prestasi
-                  </h4>
-                  <p className="text-slate-600 text-xs">
-                    {analysisModal.report?.summary || "Tiada rekod data analitik dikumpul buat masa ini."}
-                  </p>
-                </div>
-
-                <div className="space-y-2.5">
-                  <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-500" /> Langkah Sokongan Ibu Bapa
-                  </h4>
-                  <ul className="space-y-2">
-                    {analysisModal.report?.recommendations?.map((item, index) => (
-                      <li key={index} className="flex gap-2.5 items-start text-xs text-slate-600">
-                        <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center shrink-0 text-[10px] mt-0.5">
-                          {index + 1}
-                        </span>
-                        <span>{item}</span>
-                      </li>
-                    )) || <li className="text-xs text-slate-400 italic">Tiada langkah sokongan tersendiri dijana.</li>}
-                  </ul>
-                </div>
-              </div>
-
-              {/* MODAL FOOTER */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                <Button 
-                  onClick={() => setAnalysisModal({ open: false, childName: "", report: null })}
-                  className="h-9 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs px-5"
-                >
-                  Tutup Laporan
-                </Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
+      </div>
     </div>
   );
 }
