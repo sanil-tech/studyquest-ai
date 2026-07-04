@@ -23,28 +23,53 @@ export default function ParentRewards() {
   const { toast } = useToast();
 
   const loadData = async () => {
-    try {
-      const u = await base44.auth.me();
-      setUser(u);
-      
-      const rws = await base44.entities.Reward.filter({ parent_id: u.id });
-      setRewards(rws);
-      
-      const allReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
-      const approvedLinks = allReqs.filter(r => r.status === "approved" && r.student_id);
-      
-      setChildren(approvedLinks.map(r => ({ 
-        id: r.student_id, 
-        full_name: r.student_name || r.student_username || `Profile (${r.student_email?.split("@")[0]})`, 
-        email: r.student_email || "",
-        username: r.student_username || r.username || "" 
-      })));
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const u = await base44.auth.me();
+    setUser(u);
+    
+    // 1. Fetch rewards assigned to this parent
+    const rws = await base44.entities.Reward.filter({ parent_id: u.id });
+    setRewards(rws);
+    
+    // 2. Fetch the correct structural relationships table (Matches MyChildrenPage)
+    const relationships = await base44.entities.ParentChildRelationship.filter({
+      parent_id: u.id,
+      status: "active",
+    });
+
+    // 3. Resolve the actual user profiles for each active child match
+    const childDetails = await Promise.all(
+      relationships.map(async (rel) => {
+        try {
+          const child = await base44.entities.User.get(rel.child_id);
+          
+          return {
+            id: child.id,
+            // Fallback sequence for name rendering strings
+            full_name: child.display_name || child.full_name || child.username || `Profile (${child.email?.split("@")[0]})`,
+            email: child.email || "",
+            username: child.username || ""
+          };
+        } catch (childErr) {
+          console.error(`Failed to load user info for child id ${rel.child_id}:`, childErr);
+          return null;
+        }
+      })
+    );
+
+    // Filter out any broken lookups and sync state
+    const activeChildren = childDetails.filter(Boolean);
+    console.log("Synced Rewards Dropdown List:", activeChildren);
+    
+    setChildren(activeChildren);
+
+  } catch (err) {
+    console.error("Error loading parent reward data framework:", err);
+    toast({ title: "Sync Failure", description: "Could not link active profiles.", variant: "destructive" });
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => { loadData(); }, []);
 
