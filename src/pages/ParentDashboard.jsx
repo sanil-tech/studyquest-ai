@@ -2,160 +2,79 @@ import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   CloudSun,
-  Trash2,
-  Clock,
+  CheckSquare,
+  Calendar,
   Heart,
-  Baby,
-  GraduationCap,
-  Sparkles,
-  UserPlus,
-  AlertCircle,
-  BrainCircuit,
-  TrendingUp,
-  Award
+  Trash2,
+  MapPinOff
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import moment from "moment";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-// ---------------- WEATHER UTILS ----------------
+// ---------------- WEATHER ----------------
 const parseWmoCode = (code) => {
   const map = {
-    0: { status: "Bright & Sunny", emoji: "☀️" },
-    1: { status: "Clear Skies", emoji: "🌤️" },
-    2: { status: "Partly Cloudy", emoji: "⛅" },
+    0: { status: "Sunny", emoji: "☀️" },
+    1: { status: "Clear", emoji: "🌤️" },
+    2: { status: "Cloudy", emoji: "⛅" },
     3: { status: "Overcast", emoji: "☁️" },
-    61: { status: "Passing Showers", emoji: "🌧️" },
-    95: { status: "Thunderstorms", emoji: "⛈️" },
+    61: { status: "Rain", emoji: "🌧️" },
+    95: { status: "Thunderstorm", emoji: "⛈️" },
   };
-  return map[code] || { status: "Clear Skies", emoji: "☀️" };
+  return map[code] || { status: "Clear", emoji: "☀️" };
 };
 
-// ================= CHILDREN TRACKER CARD =================
-function ChildProgressCard({ child, onUnlink, onAnalyzeAI }) {
-  const [showId, setShowId] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
+<Card className="p-6 space-y-4">
 
-  const xp = child?.progress?.total_xp || 0;
-  const level = child?.progress?.level || 1;
-  const nextXp = level * 200;
-  
-  // Calculate dynamic lesson completion percentage based on current XP tracking bracket
-  const progressPercentage = Math.min(Math.round((xp / nextXp) * 100), 100);
+  {/* NAME FIXED */}
+  <div>
+    <h3 className="text-xl font-bold">
+      {child.full_name || child.username || "Unnamed Student"}
+    </h3>
 
-  const handleAIAnalysis = async () => {
-    setAnalyzing(true);
-    await onAnalyzeAI(child);
-    setAnalyzing(false);
-  };
+    <p className="text-sm text-muted-foreground">
+      Age {calculateAge(child.date_of_birth)} • {child.education_level}
+    </p>
+  </div>
 
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group"
-    >
-      <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-400 group-hover:bg-rose-500 transition-colors" />
-      
-      {/* HEADER */}
-      <div className="flex justify-between items-start pl-2">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner group-hover:scale-105 transition-transform">
-            <Baby className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-base text-slate-800 tracking-tight">
-              {child.name}
-            </h3>
-            <button
-              onClick={() => setShowId(!showId)}
-              className="text-[11px] text-slate-400 hover:text-rose-500 block transition-colors mt-0.5"
-            >
-              {showId ? "Hide Link Meta" : "View Managed Profile ID"}
-            </button>
-          </div>
-        </div>
+  {/* STATS */}
+  <div className="grid grid-cols-3 text-center text-sm">
+    <div>
+      <p className="font-bold">{child.progress?.level || 1}</p>
+      <p>Level</p>
+    </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-          onClick={() => onUnlink(child.id, child.name)}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
+    <div>
+      <p className="font-bold">{child.wallet?.balance || 0}</p>
+      <p>Coins</p>
+    </div>
 
-      {/* SECURE ID FOOTNOTE */}
-      {showId && (
-        <motion.div 
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="mx-2 mt-3 p-2 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-mono text-slate-500 break-all"
-        >
-          System Child Identity Key: {child.id}
-        </motion.div>
-      )}
+    <div>
+      <p className="font-bold">{child.progress?.streak_days || 0}</p>
+      <p>Streak</p>
+    </div>
+  </div>
 
-      {/* METRIC EXP SCORE BAR */}
-      <div className="mt-5 pl-2 space-y-3">
-        <div>
-          <div className="text-xs font-medium text-slate-600 mb-1.5 flex justify-between items-center">
-            <span className="flex items-center gap-1 text-slate-500 font-semibold">
-              <GraduationCap className="w-3.5 h-3.5 text-rose-400" /> Level {level}
-            </span>
-            <span className="text-rose-500 font-bold bg-rose-50/60 px-2 py-0.5 rounded-md text-[11px] flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> {progressPercentage}% Lesson Complete
-            </span>
-          </div>
-          
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
-            <div
-              className="h-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-        </div>
+</Card>
 
-        {/* PROGRESS MINI-SUBTEXT */}
-        <div className="text-[11px] text-slate-400 flex justify-between px-0.5">
-          <span>Current Score: <strong className="text-slate-600 font-mono">{xp} XP</strong></span>
-          <span>Target Milestone: <strong className="text-slate-600 font-mono">{nextXp} XP</strong></span>
-        </div>
-
-        {/* AI CHILD LESSON ANALYSIS BUTTON */}
-        <Button
-          onClick={handleAIAnalysis}
-          disabled={analyzing}
-          className="w-full mt-2 h-9 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-medium shadow-sm gap-2 transition-all duration-300 hover:shadow-md"
-        >
-          <BrainCircuit className={`w-3.5 h-3.5 ${analyzing ? "animate-spin" : "animate-pulse"}`} />
-          {analyzing ? "Generating Insight Profile..." : "AI Child Lesson Analysis"}
-        </Button>
-      </div>
-    </motion.div>
-  );
-}
-
-// ================= PARENT DASHBOARD CORELayout =================
+// ================= MAIN DASHBOARD =================
 export default function ParentDashboard() {
   const { toast } = useToast();
 
   const [user, setUser] = useState(null);
-  const [activeChildren, setActiveChildren] = useState([]);
-  const [sentRequests, setSentRequests] = useState([]);
-  const [rewardRequests, setRewardRequests] = useState([]);
+  const [children, setChildren] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [weather, setWeather] = useState({
     temp: "--",
-    status: "Syncing sky...",
+    status: "Loading...",
     emoji: "☀️",
   });
 
-  // ---------------- DATAFETCH LAYER ----------------
+  // ---------------- LOAD DATA ----------------
   const loadData = async () => {
     try {
       setLoading(true);
@@ -169,93 +88,69 @@ export default function ParentDashboard() {
       });
 
       if (!rel.length) {
-        setActiveChildren([]);
-        setSentRequests([]);
-        setRewardRequests([]);
+        setChildren([]);
+        setPendingRequests([]);
+        setLoading(false);
         return;
       }
 
-      const activeRows = rel.filter(r => r.status === "active");
-      const pendingRows = rel.filter(r => r.status === "pending");
+      const childIds = rel.map(r => r.child_id);
 
-      const hydrateProfiles = async (rows) => {
-        return Promise.all(
-          rows.map(async (r) => {
-            const studentUser = await base44.entities.User.get(r.child_id).catch(() => null);
-            const progress = await base44.entities.Progress.filter({ student_id: r.child_id });
+      const kids = await Promise.all(
+        childIds.map(async (id) => {
+          const progress = await base44.entities.Progress.filter({ student_id: id });
+          const user = await base44.entities.User.get(id).catch(() => null);
 
-            return {
-              id: r.child_id,
-              relationshipId: r.id,
-              name: studentUser?.full_name || studentUser?.email || "Student Profile",
-              email: studentUser?.email || "",
-              progress: progress?.[0] || {},
-            };
-          })
-        );
-      };
+          return {
+            id,
+            name: user?.full_name || "Student",
+            progress: progress?.[0] || {},
+          };
+        })
+      );
 
-      const [hydratedActive, hydratedPending] = await Promise.all([
-        hydrateProfiles(activeRows),
-        hydrateProfiles(pendingRows)
-      ]);
-
-      const rewards = await base44.entities.RewardRequest.filter({
+      const pending = await base44.entities.RewardRequest.filter({
         status: "pending",
       });
 
-      setActiveChildren(hydratedActive);
-      setSentRequests(hydratedPending);
-      setRewardRequests(rewards);
+      setChildren(kids);
+      setPendingRequests(pending);
     } catch (err) {
-      console.error("Dashboard metric retrieval failure:", err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------- LOCAL AMBIENT WEATHER API ----------------
+  // ---------------- WEATHER ----------------
   const fetchWeather = useCallback(() => {
     if (!navigator.geolocation) return;
 
     navigator.geolocation.getCurrentPosition(async (pos) => {
-      try {
-        const { latitude, longitude } = pos.coords;
-        const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
-        );
-        const data = await res.json();
-        const meta = parseWmoCode(data.current_weather.weathercode);
+      const { latitude, longitude } = pos.coords;
 
-        setWeather({
-          temp: `${Math.round(data.current_weather.temperature)}°C`,
-          status: meta.status,
-          emoji: meta.emoji,
-        });
-      } catch {
-        // Fallback silently
-      }
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
+      );
+
+      const data = await res.json();
+      const meta = parseWmoCode(data.current_weather.weathercode);
+
+      setWeather({
+        temp: `${Math.round(data.current_weather.temperature)}°C`,
+        status: meta.status,
+        emoji: meta.emoji,
+      });
     });
   }, []);
 
+  // ---------------- EFFECT ----------------
   useEffect(() => {
     loadData();
     fetchWeather();
   }, []);
 
-  // ---------------- AI ANALYSIS HANDLER TRIGGER ----------------
-  const handleAIAnalysisTrigger = async (child) => {
-    // Simulated background runtime process. Replace with your custom engine endpoint if needed.
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    
-    toast({
-      title: `AI Report Complete: ${child.name}`,
-      description: `Analysis shows high proficiency in recent modules with a steady ${Math.min(Math.round((child.progress?.total_xp || 0) / (child.progress?.level * 200 || 1) * 100), 100)}% pacing velocity!`,
-      variant: "default",
-    });
-  };
-
-  // ---------------- DISCONNECT TRACKER MODULE ----------------
+  // ---------------- UNLINK ----------------
   const handleUnlink = async (childId, name) => {
     try {
       const rel = await base44.entities.ParentChildRelationship.filter({
@@ -263,157 +158,81 @@ export default function ParentDashboard() {
         child_id: childId,
         status: ["active", "pending"],
       });
-      
       if (rel?.[0]) {
         await base44.entities.ParentChildRelationship.update(rel[0].id, {
           status: "inactive",
         });
       }
-      
       toast({
-        title: "Family Hub Updated",
-        description: `Successfully detached relationship logging for ${name}.`,
+        title: "Unlinked",
+        description: `${name} removed`,
       });
       loadData();
     } catch (err) {
       toast({
-        title: "Failed to update connection structural data",
+        title: "Failed to unlink",
         description: err.message,
         variant: "destructive",
       });
     }
   };
 
+  // ================= UI =================
   if (loading) {
-    return (
-      <div className="p-12 text-center text-sm font-medium text-slate-400 space-y-2 animate-pulse">
-        <Sparkles className="w-5 h-5 mx-auto text-rose-300 animate-spin" />
-        <div>Gathering family metrics...</div>
-      </div>
-    );
+    return <div className="p-10 text-center">Loading...</div>;
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto bg-slate-50/50 min-h-screen rounded-3xl">
+    <div className="p-6 space-y-6">
 
-      {/* FAMILY WELCOME HEADER CARD */}
-      <div className="bg-gradient-to-br from-rose-50 via-white to-amber-50/40 p-6 rounded-3xl border border-rose-100/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+      {/* WEATHER */}
+      <div className="bg-white p-4 rounded-2xl border flex justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            Hello, {user?.full_name || user?.nickname || "Parent Partner"} <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Welcome to your Family Portal. Here is your tracking report for today.
-          </p>
+          <div className="text-2xl font-bold">{weather.temp}</div>
+          <div className="text-sm text-gray-500">{weather.status}</div>
         </div>
-        
-        {/* ATMOSPHERIC WEATHER CHIP */}
-        <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-100 flex items-center gap-3 shadow-inner self-stretch sm:self-auto justify-between">
-          <div>
-            <div className="text-lg font-bold text-slate-800 font-mono leading-none">{weather.temp}</div>
-            <div className="text-[10px] font-medium text-slate-400 mt-0.5">{weather.status}</div>
-          </div>
-          <div className="text-2xl select-none">{weather.emoji}</div>
-        </div>
+        <div className="text-3xl">{weather.emoji}</div>
       </div>
 
-      {/* ACTIVE TRACKERS SECTION */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between pl-1">
-          <h2 className="font-bold text-base text-slate-800 tracking-tight flex items-center gap-2">
-            Children Accounts ({activeChildren.length})
-          </h2>
-        </div>
+      {/* CHILDREN */}
+      <div>
+        <h2 className="font-bold mb-3">My Children</h2>
 
-        {activeChildren.length === 0 ? (
-          <div className="p-8 border border-dashed border-slate-200 rounded-2xl text-center text-slate-400 bg-white shadow-sm flex flex-col items-center justify-center gap-2">
-            <UserPlus className="w-8 h-8 text-slate-300" />
-            <p className="text-sm font-medium text-slate-600">No active child monitors running.</p>
-            <p className="text-xs text-slate-400 max-w-xs">
-              Provide your kid with your Parent User ID or check your child's profile dashboard to authorize tracking keys.
-            </p>
+        {children.length === 0 ? (
+          <div className="p-4 border rounded-xl text-gray-500">
+            No student profile connected
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {activeChildren.map(c => (
-              <ChildProgressCard
+          <div className="grid gap-3">
+            {children.map(c => (
+              <ChildCard
                 key={c.id}
                 child={c}
                 onUnlink={handleUnlink}
-                onAnalyzeAI={handleAIAnalysisTrigger}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* SENT PENDING APPROVAL LINKS */}
-      {sentRequests.length > 0 && (
-        <div className="space-y-3 pt-2">
-          <h2 className="font-bold text-xs uppercase tracking-wider text-amber-600 flex items-center gap-1.5 pl-1">
-            <Clock className="w-3.5 h-3.5" /> Outgoing Student Invitations ({sentRequests.length})
-          </h2>
-          <div className="grid gap-2">
-            {sentRequests.map((req) => (
-              <div 
-                key={req.id} 
-                className="bg-amber-50/40 border border-amber-100 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-fade-in"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100/50 flex items-center justify-center text-amber-600">
-                    <AlertCircle className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm text-amber-900">{req.name}</p>
-                    <p className="text-[11px] text-amber-700/70">Awaiting authorization confirmation inside student app</p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-xl border-amber-200 hover:bg-amber-100 text-amber-900 shadow-sm text-xs"
-                  onClick={() => handleUnlink(req.id, req.name)}
-                >
-                  Revoke
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* PENDING */}
+      <div>
+        <h2 className="font-bold mb-3">Pending Requests</h2>
 
-      {/* FAMILY REWARDS MANAGEMENT LOG */}
-      <div className="space-y-3 pt-2">
-        <h2 className="font-bold text-base text-slate-800 tracking-tight pl-1">
-          Pending Reward Requests
-        </h2>
-
-        {rewardRequests.length === 0 ? (
-          <div className="text-slate-400 text-xs pl-1 italic">
-            No pending reward claims waiting for your confirmation.
+        {pendingRequests.length === 0 ? (
+          <div className="text-gray-400 text-sm">
+            No pending requests
           </div>
         ) : (
           <div className="space-y-2">
-            {rewardRequests.map(r => (
-              <div 
-                key={r.id} 
-                className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex justify-between items-center group hover:border-rose-100 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-lg bg-gradient-to-br from-amber-400 to-rose-400 group-hover:scale-115 transition-transform flex items-center justify-center text-[7px] text-white">
-                    <Award className="w-2 h-2" />
-                  </div>
-                  <span className="text-sm font-medium text-slate-700">{r.reward_title}</span>
-                </div>
-                <Badge variant="secondary" className="text-[10px] bg-slate-50 text-slate-500 rounded-lg px-2 py-0.5 border">
-                  Awaiting Review
-                </Badge>
+            {pendingRequests.map(r => (
+              <div key={r.id} className="p-3 border rounded-xl">
+                {r.reward_title}
               </div>
             ))}
           </div>
         )}
       </div>
-
     </div>
   );
 }
