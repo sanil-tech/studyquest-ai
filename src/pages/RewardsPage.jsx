@@ -14,27 +14,42 @@ export default function RewardsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-  const load = async () => {
-    try {
-      const user = await base44.auth.me();
-      
-      // Clean, single declaration of variables from Promise results
-      const [fetchedRewards, wallets, reqs] = await Promise.all([
-        // Using student_id instead of string email prevents case-sensitivity bugs
-        base44.entities.Reward.filter({ student_id: user.id, status: "active" }),
-        base44.entities.Wallet.filter({ student_id: user.id }),
-        base44.entities.RewardRequest.filter({ student_id: user.id }, "-created_date", 20),
-      ]);
-      
-      setRewards(fetchedRewards);
-      setWallet(wallets[0] || { balance: 0 });
-      setRequests(reqs);
-    } catch (err) {
-      console.error("Error loading child data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loadData = async () => {
+  try {
+    const u = await base44.auth.me();
+    setUser(u);
+    
+    // 1. Fetch rewards assigned to this parent
+    const rws = await base44.entities.Reward.filter({ parent_id: u.id });
+    setRewards(rws);
+    
+    // 2. Fetch link requests
+    const allReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
+    
+    // DEBUG LOG: Open your browser inspect console to see exactly what fields exist!
+    console.log("Raw Link Requests Found:", allReqs);
+    
+    // 3. Fallback filtering: check for approved status and catch alternative ID fields
+    const approvedLinks = allReqs.filter(r => {
+      const isApproved = r.status === "approved";
+      // Ensure we have SOME kind of identifier to tie the reward to
+      const hasIdentifier = r.student_id || r.user_id || r.id; 
+      return isApproved && hasIdentifier;
+    });
+    
+    setChildren(approvedLinks.map(r => ({ 
+      // Fallback matrix: uses student_id, user_id, or the row id if nothing else exists
+      id: r.student_id || r.user_id || r.id, 
+      full_name: r.student_name || r.student_username || `Profile (${r.student_email?.split("@")[0]})`, 
+      email: r.student_email || "",
+      username: r.student_username || r.username || "" 
+    })));
+  } catch (err) {
+    console.error("Error loading parent reward data:", err);
+  } finally {
+    setLoading(false);
+  }
+};
   load();
 }, []);
 
