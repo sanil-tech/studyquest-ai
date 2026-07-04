@@ -10,9 +10,12 @@ import {
   Flame,
   Award,
   Sparkles,
-  Zap
+  Zap,
+  Check,
+  X,
+  Gift
 } from "lucide-react";
-import { getDisplayName } from "@/lib/utils"; // Imported your native utility helper here
+import { getDisplayName } from "@/lib/utils"; 
 import { useToast } from "@/components/ui/use-toast";
 import moment from "moment";
 import { motion, AnimatePresence } from "framer-motion";
@@ -143,47 +146,49 @@ function Realistic3DAvatar({ level }) {
   );
 }
 
-// ---------------- CHILD CARD ----------------
+// ---------------- INDIVIDUAL CHILD CARD ----------------
 function ChildCard({ child, onUnlink }) {
   return (
-    <Card className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <Card className="p-6 space-y-4 hover:shadow-md transition-shadow duration-200 border border-slate-100 relative overflow-hidden">
+      <div className="flex items-start justify-between">
         <div className="flex items-center space-x-4">
           <Realistic3DAvatar level={child.progress?.level} />
           <div>
-            {/* UPDATED: Pulls the processed display_name configured exactly like MyChildrenPage */}
-            <h3 className="text-xl font-bold">
+            <h3 className="text-xl font-bold text-slate-800">
               {child.display_name}
             </h3>
-            <p className="text-sm text-muted-foreground">
-              Age {calculateAge(child.date_of_birth)} • {child.education_level}
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Age {calculateAge(child.date_of_birth)} • {child.education_level || "Grade Unassigned"}
             </p>
           </div>
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onUnlink(child.id, child.display_name)}
-          className="text-rose-500 hover:bg-rose-50"
-        >
-          <Trash2 className="w-4 h-4 mr-2" />
-          Unlink
-        </Button>
+        {/* BUTTON UNLINK PROTECTED */}
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <Button
+            variant="ghost"
+            onClick={() => onUnlink(child.id, child.display_name)}
+            className="h-9 w-9 p-0 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-600 transition-colors border border-rose-100/40"
+            title="Unlink profile connection"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </motion.div>
       </div>
 
-      <div className="grid grid-cols-3 text-center text-sm">
+      {/* Metrics Rail Grid */}
+      <div className="grid grid-cols-3 gap-2 bg-slate-50/70 p-3 rounded-xl text-center text-sm border border-slate-100">
         <div>
-          <p className="font-bold">{child.progress?.level || 1}</p>
-          <p>Level</p>
+          <p className="font-extrabold text-slate-700 text-base">{child.progress?.level || 1}</p>
+          <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-tight">Level</p>
+        </div>
+        <div className="border-x border-slate-200/60">
+          <p className="font-extrabold text-amber-500 text-base">🪙 {child.wallet?.balance || 0}</p>
+          <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-tight">Coins</p>
         </div>
         <div>
-          <p className="font-bold">{child.wallet?.balance || 0}</p>
-          <p>Coins</p>
-        </div>
-        <div>
-          <p className="font-bold">{child.progress?.streak_days || 0}</p>
-          <p>Streak</p>
+          <p className="font-extrabold text-orange-500 text-base">🔥 {child.progress?.streak_days || 0}</p>
+          <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-tight">Streak</p>
         </div>
       </div>
     </Card>
@@ -242,7 +247,6 @@ export default function ParentDashboard() {
             username: userRecord?.username || "",
             date_of_birth: userRecord?.date_of_birth || "",
             education_level: userRecord?.education_level || "",
-            // UPDATED: Generates the exact display_name via your app configuration utility
             display_name: userRecord ? getDisplayName(userRecord) : "Unnamed Student",
             progress: progress?.[0] || {},
             wallet: wallet?.[0] || { balance: 0 },
@@ -260,6 +264,26 @@ export default function ParentDashboard() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ---------------- REWARD ACTIONS (LULUSKAN / TOLAK) ----------------
+  const handleReviewRequest = async (requestId, approved) => {
+    try {
+      await base44.entities.RewardRequest.update(requestId, {
+        status: approved ? "approved" : "rejected",
+      });
+      toast({
+        title: approved ? "Ganjaran Diluluskan! 🎉" : "Permintaan Ditolak",
+        description: approved ? "Koin anak berjaya ditukarkan kepada ganjaran!" : "Permintaan penukaran telah dibatalkan.",
+      });
+      loadData();
+    } catch (err) {
+      toast({
+        title: "Gagal memproses",
+        description: err.message,
+        variant: "destructive"
+      });
     }
   };
 
@@ -291,8 +315,12 @@ export default function ParentDashboard() {
     fetchWeather();
   }, []);
 
-  // ---------------- UNLINK ----------------
+  // ---------------- UNLINK WITH POPUP CONFIRMATION ----------------
   const handleUnlink = async (childId, name) => {
+    if (!confirm(`Adakah anda pasti untuk memutuskan pautan (unlink) ${name}? Mereka akan kehilangan akses kepada fungsi bimbingan ibu bapa.`)) {
+      return;
+    }
+
     try {
       const rel = await base44.entities.ParentChildRelationship.filter({
         parent_id: user.id,
@@ -305,13 +333,13 @@ export default function ParentDashboard() {
         });
       }
       toast({
-        title: "Unlinked",
-        description: `${name} removed`,
+        title: "Pautan Diputuskan",
+        description: `${name} telah dikeluarkan dari senarai portal.`,
       });
       loadData();
     } catch (err) {
       toast({
-        title: "Failed to unlink",
+        title: "Gagal memutuskan pautan",
         description: err.message,
         variant: "destructive",
       });
@@ -320,67 +348,118 @@ export default function ParentDashboard() {
 
   // ================= UI =================
   if (loading) {
-    return <div className="p-10 text-center">Loading...</div>;
+    return <div className="p-10 text-center text-sm font-medium text-muted-foreground">Loading parent dashboard telemetry...</div>;
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-5xl mx-auto">
 
       {/* WEATHER */}
-      <div className="bg-white p-4 rounded-2xl border flex justify-between">
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 flex justify-between items-center shadow-xs">
         <div>
-          <div className="text-2xl font-bold">{weather.temp}</div>
-          <div className="text-sm text-gray-500">{weather.status}</div>
+          <div className="text-2xl font-black text-slate-700">{weather.temp}</div>
+          <div className="text-xs text-muted-foreground font-medium mt-0.5">{weather.status}</div>
         </div>
-        <div className="text-3xl">{weather.emoji}</div>
+        <div className="text-3xl select-none">{weather.emoji}</div>
       </div>
 
-      {/* CHILDREN SECTION */}
-      <div>
-        <h2 className="font-bold mb-3">My Children</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* CHILDREN SECTION */}
+        <div className="lg:col-span-2 space-y-3">
+          <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-purple-500" />
+            Anak-Anak Saya
+          </h2>
 
-        {children.length === 0 ? (
-          <div className="p-4 border rounded-xl text-gray-500">
-            No student profile connected
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {children.map(c => (
-              <ChildCard
-                key={c.id}
-                child={c}
-                onUnlink={handleUnlink}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* PENDING ACTIONS */}
-      <div>
-        <h2 className="font-bold mb-3">Pending Requests</h2>
-
-        {pendingRequests.length === 0 ? (
-          <div className="text-gray-400 text-sm">
-            No pending requests
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <AnimatePresence>
-              {pendingRequests.map(r => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  key={r.id} 
-                  className="p-3 border rounded-xl"
-                >
-                  {r.reward_title}
-                </motion.div>
+          {children.length === 0 ? (
+            <div className="p-8 border border-dashed rounded-xl text-center text-sm text-gray-400 bg-slate-50/50">
+              Tiada profil pelajar yang disambungkan ke portal ini.
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {children.map(c => (
+                <ChildCard
+                  key={c.id}
+                  child={c}
+                  onUnlink={handleUnlink}
+                />
               ))}
-            </AnimatePresence>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+
+        {/* PENDING ACTIONS (SANTAI & GANJARAN COIN BASED) */}
+        <div className="space-y-3">
+          <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+            <Gift className="w-4 h-4 text-rose-500 animate-bounce" />
+            Tuntutan Ganjaran 🪙
+          </h2>
+
+          {pendingRequests.length === 0 ? (
+            <div className="text-gray-400 text-xs border border-dashed p-6 rounded-xl bg-slate-50/40 text-center leading-relaxed">
+              Semua tuntutan ganjaran koin anak-anak telah diselesaikan. Bagus! 👍
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <AnimatePresence>
+                {pendingRequests.map(r => {
+                  // Cari maklumat nama anak jika dipautkan dalam request data (fallback jika tiada field khusus)
+                  const targetChild = children.find(c => c.id === r.student_id);
+                  const requesterName = targetChild ? targetChild.display_name : "Anak anda";
+
+                  return (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      key={r.id} 
+                      className="p-4 border border-purple-100 rounded-2xl bg-gradient-to-br from-white to-purple-50/20 shadow-sm space-y-3 relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-1 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-bl-xl px-2">
+                        Tukar Koin
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold text-purple-600 mb-0.5">🚀 {requesterName} memohon:</p>
+                        <h4 className="font-extrabold text-slate-800 text-base flex items-center gap-1.5">
+                          🎁 {r.reward_title}
+                        </h4>
+                        {r.coin_cost && (
+                          <p className="text-xs font-semibold text-amber-600 mt-1">
+                            Kos: 🪙 {r.coin_cost} Koin
+                          </p>
+                        )}
+                      </div>
+
+                      {/* BUTTON KELULUSAN SANTAI */}
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          onClick={() => handleReviewRequest(r.id, true)}
+                          className="flex-1 h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs gap-1 shadow-xs rounded-xl"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          Bagi Ganjaran
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleReviewRequest(r.id, false)}
+                          className="h-8 bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-500 font-bold text-xs gap-1 rounded-xl"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Nanti Dulu
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
