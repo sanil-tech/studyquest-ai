@@ -62,7 +62,7 @@ export default function ParentDashboard() {
             return {
               ...child,
 
-              // ✅ SINGLE SOURCE OF TRUTH NAME FIX
+              // ❌ ORIGINAL LOGIC (BEFORE FIX)
               display_name: child.full_name || child.username || "Unnamed Student",
 
               progress,
@@ -108,7 +108,7 @@ export default function ParentDashboard() {
         <div>
           <h1 className="text-2xl font-bold">Parent Dashboard</h1>
           <p className="text-muted-foreground">
-            Monitor your children's learning progress
+            Monitor your children’s learning progress
           </p>
         </div>
 
@@ -120,14 +120,9 @@ export default function ParentDashboard() {
 
       {/* EMPTY STATE */}
       {children.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center">
-            <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-            <p className="font-medium">No children linked yet</p>
-            <p className="text-sm text-muted-foreground">
-              Add a child from My Children page
-            </p>
-          </CardContent>
+        <Card className="p-10 text-center">
+          <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+          <p className="font-medium">No children linked yet</p>
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
@@ -147,7 +142,7 @@ export default function ParentDashboard() {
                 >
                   <Card className="p-5 space-y-4">
 
-                    {/* NAME FIXED HERE */}
+                    {/* NAME */}
                     <div>
                       <h2 className="text-xl font-bold">
                         {child.display_name}
@@ -171,23 +166,17 @@ export default function ParentDashboard() {
                     {/* STATS */}
                     <div className="grid grid-cols-3 text-center text-sm">
                       <div>
-                        <p className="font-bold text-primary">
-                          {child.progress?.level || 1}
-                        </p>
+                        <p className="font-bold">{child.progress?.level || 1}</p>
                         <p>Level</p>
                       </div>
 
                       <div>
-                        <p className="font-bold text-amber-500">
-                          {child.wallet?.balance || 0}
-                        </p>
+                        <p className="font-bold">{child.wallet?.balance || 0}</p>
                         <p>Coins</p>
                       </div>
 
                       <div>
-                        <p className="font-bold text-orange-500">
-                          {child.progress?.streak_days || 0}
-                        </p>
+                        <p className="font-bold">{child.progress?.streak_days || 0}</p>
                         <p>Streak</p>
                       </div>
                     </div>
@@ -195,10 +184,7 @@ export default function ParentDashboard() {
                     {/* ACTIONS */}
                     <div className="flex gap-2 pt-2">
 
-                      <Link
-                        to={`/parent/children/${child.id}`}
-                        className="flex-1"
-                      >
+                      <Link to={`/parent/children/${child.id}`} className="flex-1">
                         <Button className="w-full" variant="outline">
                           <Settings className="w-4 h-4 mr-2" />
                           Manage
