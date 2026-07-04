@@ -16,6 +16,14 @@ export default function RewardsPage() {
   useEffect(() => {
     const load = async () => {
       try {
+        // INSIDE THE CHILD'S RewardsPage.js (useEffect load function)
+
+const [rws, wallets, reqs] = await Promise.all([
+  // CHANGE student_email to student_id:
+  base44.entities.Reward.filter({ student_id: user.id, status: "active" }),
+  base44.entities.Wallet.filter({ student_id: user.id }),
+  base44.entities.RewardRequest.filter({ student_id: user.id }, "-created_date", 20),
+]);
         const user = await base44.auth.me();
         const [rws, wallets, reqs] = await Promise.all([
           // FIX: Look up active rewards by the child's email address instead of id
