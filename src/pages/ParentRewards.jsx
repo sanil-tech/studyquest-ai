@@ -27,14 +27,10 @@ export default function ParentRewards() {
       const u = await base44.auth.me();
       setUser(u);
       
-      // Fetch rewards assigned to this parent
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
       
-      // Fetch link requests
       const allReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
-      
-      // FIX (Option 1): Only display fully approved profiles that have an established student_id
       const approvedLinks = allReqs.filter(r => r.status === "approved" && r.student_id);
       
       setChildren(approvedLinks.map(r => ({ 
@@ -54,23 +50,32 @@ export default function ParentRewards() {
 
   const openCreate = () => {
     setEditingReward(null);
+    // Default to the first child's ID if available to prevent unselected empty string states
     setForm({ 
       title: "", 
       coin_cost: "", 
       icon: "🎁", 
-      student_id: children.length > 1 ? "all" : (children[0]?.id || "") 
+      student_id: children[0]?.id || "" 
     });
     setDialogOpen(true);
   };
 
   const openEdit = (reward) => {
     setEditingReward(reward);
-    setForm({ title: reward.title, coin_cost: String(reward.coin_cost), icon: reward.icon || "🎁", student_id: reward.student_id });
+    setForm({ 
+      title: reward.title, 
+      coin_cost: String(reward.coin_cost), 
+      icon: reward.icon || "🎁", 
+      student_id: reward.student_id 
+    });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.title || !form.coin_cost || !form.student_id) return;
+    if (!form.title || !form.coin_cost || !form.student_id) {
+      toast({ title: "Please fill out all fields", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     
     try {
@@ -92,7 +97,7 @@ export default function ParentRewards() {
         toast({ title: "Reward updated! ✨" });
       } else {
         if (form.student_id === "all") {
-          // Loop through children and reliably use their verified IDs
+          // Creates a standalone, tailored reward document for every individual child profile
           await Promise.all(
             children.map(child => {
               return base44.entities.Reward.create({
@@ -109,7 +114,7 @@ export default function ParentRewards() {
               });
             })
           );
-          toast({ title: "Reward published to all children! 🎁🎉" });
+          toast({ title: "Reward published to all children! 🎁" });
         } else {
           const selectedChild = children.find(c => c.id === form.student_id);
           
@@ -189,7 +194,7 @@ export default function ParentRewards() {
         </Button>
       </div>
 
-      {/* EMPTY & NO CHILDREN STATES */}
+      {/* EMPTY STATES */}
       {children.length === 0 && (
         <div className="text-center py-12 bg-white rounded-3xl border border-slate-200 border-dashed max-w-md mx-auto">
           <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -246,11 +251,9 @@ export default function ParentRewards() {
                           {reward.coin_cost} coins
                         </span>
                         
-                        {assignedChild && (
-                          <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg max-w-[140px] truncate">
-                            👤 {assignedChild.full_name?.split(" ")[0]}
-                          </span>
-                        )}
+                        <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg max-w-[140px] truncate">
+                          👤 {assignedChild ? assignedChild.full_name?.split(" ")[0] : "Unknown Child"}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -263,7 +266,6 @@ export default function ParentRewards() {
                     <div className="flex items-center gap-1 bg-slate-50 p-0.5 rounded-xl border border-slate-100">
                       <button 
                         onClick={() => toggleStatus(reward)} 
-                        title={isActive ? "Deactivate Reward" : "Activate Reward"}
                         className="p-2 rounded-lg hover:bg-white hover:shadow-3xs transition-all text-slate-400 hover:text-indigo-600"
                       >
                         {isActive ? (
@@ -275,7 +277,6 @@ export default function ParentRewards() {
 
                       <button 
                         onClick={() => openEdit(reward)} 
-                        title="Edit Details"
                         className="p-2 rounded-lg hover:bg-white hover:shadow-3xs transition-all text-slate-400 hover:text-indigo-600"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -283,7 +284,6 @@ export default function ParentRewards() {
 
                       <button 
                         onClick={() => deleteReward(reward.id)} 
-                        title="Delete Permanently"
                         className="p-2 rounded-lg hover:bg-rose-50 hover:shadow-3xs transition-all text-slate-400 hover:text-rose-500"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -356,34 +356,33 @@ export default function ParentRewards() {
               />
             </div>
 
-            {/* Target Assignment */}
-            {children.length > 1 && (
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Target Recipient</Label>
-                <Select value={form.student_id} onValueChange={v => setForm(f => ({ ...f, student_id: v }))}>
-                  <SelectTrigger className="rounded-xl border-slate-200 py-5 font-semibold text-slate-700">
-                    <SelectValue placeholder="Choose a child profile" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {!editingReward && (
-                      <SelectItem value="all" className="rounded-lg font-bold text-indigo-600 hover:text-indigo-700">
-                        ✨ All Children
-                      </SelectItem>
-                    )}
-                    {children.map(c => (
-                      <SelectItem key={c.id} value={c.id} className="rounded-lg font-medium text-slate-700">
-                        {c.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            {/* Target Assignment Dropdown */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Target Recipient</Label>
+              <Select value={form.student_id} onValueChange={v => setForm(f => ({ ...f, student_id: v }))}>
+                <SelectTrigger className="rounded-xl border-slate-200 py-5 font-semibold text-slate-700">
+                  <SelectValue placeholder="Choose a child profile" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {/* "All Children" option is only visible during creation, handling clean item generation splits */}
+                  {!editingReward && children.length > 1 && (
+                    <SelectItem value="all" className="rounded-lg font-bold text-indigo-600 hover:text-indigo-700">
+                      ✨ All Children (Create Individual Copies)
+                    </SelectItem>
+                  )}
+                  {children.map(c => (
+                    <SelectItem key={c.id} value={c.id} className="rounded-lg font-medium text-slate-700">
+                      {c.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Action Safe Button */}
             <Button 
               onClick={handleSave} 
-              disabled={saving || !form.title || !form.coin_cost} 
+              disabled={saving || !form.title || !form.coin_cost || !form.student_id} 
               className="w-full rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 shadow-sm py-5 border-0 mt-2 text-sm"
             >
               {saving ? (
