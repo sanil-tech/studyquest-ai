@@ -177,16 +177,29 @@ export default function ParentDashboard() {
 
   // ---------------- UNLINK ----------------
   const handleUnlink = async (childId, name) => {
-    await base44.entities.ParentChildRelationship.update(childId, {
-      status: "inactive",
-    });
-
-    toast({
-      title: "Unlinked",
-      description: `${name} removed`,
-    });
-
-    loadData();
+    try {
+      const rel = await base44.entities.ParentChildRelationship.filter({
+        parent_id: user.id,
+        child_id: childId,
+        status: ["active", "pending"],
+      });
+      if (rel?.[0]) {
+        await base44.entities.ParentChildRelationship.update(rel[0].id, {
+          status: "inactive",
+        });
+      }
+      toast({
+        title: "Unlinked",
+        description: `${name} removed`,
+      });
+      loadData();
+    } catch (err) {
+      toast({
+        title: "Failed to unlink",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
   };
 
   // ================= UI =================
