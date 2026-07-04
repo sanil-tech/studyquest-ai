@@ -18,7 +18,8 @@ export default function RewardsPage() {
       try {
         const user = await base44.auth.me();
         const [rws, wallets, reqs] = await Promise.all([
-          base44.entities.Reward.filter({ student_id: user.id, status: "active" }),
+          // FIX: Look up active rewards by the child's email address instead of id
+          base44.entities.Reward.filter({ student_email: user.email, status: "active" }),
           base44.entities.Wallet.filter({ student_id: user.id }),
           base44.entities.RewardRequest.filter({ student_id: user.id }, "-created_date", 20),
         ]);
@@ -49,6 +50,7 @@ export default function RewardsPage() {
       const user = await base44.auth.me();
       const req = await base44.entities.RewardRequest.create({
         student_id: user.id,
+        student_email: user.email, // Attached for safety so parent dashboard can track it easily
         reward_id: reward.id,
         reward_title: reward.title,
         coin_cost: reward.coin_cost,
