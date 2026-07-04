@@ -5,8 +5,6 @@ import {
   CheckSquare,
   Calendar,
   Heart,
-  Trash2,
-  MapPinOff,
   Flame,
   Award,
   Sparkles,
@@ -147,7 +145,7 @@ function Realistic3DAvatar({ level }) {
 }
 
 // ---------------- INDIVIDUAL CHILD CARD ----------------
-function ChildCard({ child, onUnlink }) {
+function ChildCard({ child }) {
   return (
     <Card className="p-6 space-y-4 hover:shadow-md transition-shadow duration-200 border border-slate-100 relative overflow-hidden">
       <div className="flex items-start justify-between">
@@ -162,18 +160,6 @@ function ChildCard({ child, onUnlink }) {
             </p>
           </div>
         </div>
-
-        {/* BUTTON UNLINK PROTECTED */}
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-          <Button
-            variant="ghost"
-            onClick={() => onUnlink(child.id, child.display_name)}
-            className="h-9 w-9 p-0 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-600 transition-colors border border-rose-100/40"
-            title="Unlink profile connection"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </motion.div>
       </div>
 
       {/* Metrics Rail Grid */}
@@ -315,37 +301,6 @@ export default function ParentDashboard() {
     fetchWeather();
   }, []);
 
-  // ---------------- UNLINK WITH POPUP CONFIRMATION ----------------
-  const handleUnlink = async (childId, name) => {
-    if (!confirm(`Adakah anda pasti untuk memutuskan pautan (unlink) ${name}? Mereka akan kehilangan akses kepada fungsi bimbingan ibu bapa.`)) {
-      return;
-    }
-
-    try {
-      const rel = await base44.entities.ParentChildRelationship.filter({
-        parent_id: user.id,
-        child_id: childId,
-        status: ["active", "pending"],
-      });
-      if (rel?.[0]) {
-        await base44.entities.ParentChildRelationship.update(rel[0].id, {
-          status: "inactive",
-        });
-      }
-      toast({
-        title: "Pautan Diputuskan",
-        description: `${name} telah dikeluarkan dari senarai portal.`,
-      });
-      loadData();
-    } catch (err) {
-      toast({
-        title: "Gagal memutuskan pautan",
-        description: err.message,
-        variant: "destructive",
-      });
-    }
-  };
-
   // ================= UI =================
   if (loading) {
     return <div className="p-10 text-center text-sm font-medium text-muted-foreground">Loading parent dashboard telemetry...</div>;
@@ -382,14 +337,13 @@ export default function ParentDashboard() {
                 <ChildCard
                   key={c.id}
                   child={c}
-                  onUnlink={handleUnlink}
                 />
               ))}
             </div>
           )}
         </div>
 
-        {/* PENDING ACTIONS (SANTAI & GANJARAN COIN BASED) */}
+        {/* PENDING ACTIONS */}
         <div className="space-y-3">
           <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
             <Gift className="w-4 h-4 text-rose-500 animate-bounce" />
@@ -404,7 +358,6 @@ export default function ParentDashboard() {
             <div className="space-y-3">
               <AnimatePresence>
                 {pendingRequests.map(r => {
-                  // Cari maklumat nama anak jika dipautkan dalam request data (fallback jika tiada field khusus)
                   const targetChild = children.find(c => c.id === r.student_id);
                   const requesterName = targetChild ? targetChild.display_name : "Anak anda";
 
@@ -432,7 +385,6 @@ export default function ParentDashboard() {
                         )}
                       </div>
 
-                      {/* BUTTON KELULUSAN SANTAI */}
                       <div className="flex gap-2 pt-1">
                         <Button
                           size="sm"
