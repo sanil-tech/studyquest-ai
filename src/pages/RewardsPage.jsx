@@ -19,41 +19,52 @@ export default function RewardsPage() {
     const u = await base44.auth.me();
     setUser(u);
     
-    // 1. Fetch parent's rewards
     const rws = await base44.entities.Reward.filter({ parent_id: u.id });
     setRewards(rws);
     
-    // 2. WIDEN THE NET: Fetch using BOTH id and email to bypass casing bugs
-    const [reqsByEmail, reqsById] = await Promise.all([
-      base44.entities.LinkRequest.filter({ parent_email: u.email }),
-      base44.entities.LinkRequest.filter({ parent_id: u.id }) // Try looking up by parent ID as well
-    ]);
+    // 1. Fetch absolutely everything without any query parameters first
+    const allReqs = await base44.entities.LinkRequest.filter();
+    
+    // 2. Filter manually in JavaScript so we can log the exact failures
+    console.log("--- START REWARD DROPDOWN DIAGNOSTIC ---");
+    console.log("Logged-in Parent Email:", u.email);
+    console.log("Logged-in Parent ID:", u.id);
+    console.log("Total LinkRequest rows in DB:", allReqs.length);
+    
+    const mappedChildren = [];
+    
+    allReqs.forEach((req, index) => {
+      const emailMatch = String(req.parent_email || "").toLowerCase() === String(u.email || "").toLowerCase();
+      const idMatch = req.parent_id === u.id;
+      const isApproved = String(req.status || "").toLowerCase() === "approved";
+      
+      console.log(`Row #${index} Analysis:`, {
+        student_name: req.student_name || req.child_name || req.student_username,
+        status: req.status,
+        parent_email_in_db: req.parent_email,
+        parent_id_in_db: req.parent_id,
+        matches_email: emailMatch,
+        matches_id: idMatch,
+        is_approved: isApproved
+      });
 
-    // Combine both results into a single array and remove duplicates by record ID
-    const combinedReqs = [...reqsByEmail, ...reqsById];
-    const uniqueReqs = Array.from(new Map(combinedReqs.map(item => [item.id, item])).values());
-    
-    console.log("Found unique link requests:", uniqueReqs);
-    
-    // 3. Keep it flexible: accept any record marked 'approved'
-    const approvedLinks = uniqueReqs.filter(r => {
-      const statusStr = String(r.status || "").toLowerCase();
-      return statusStr === "approved";
+      // If it matches ANY criteria, let's force it into the dropdown for now to see if it works!
+      if (emailMatch || idMatch) {
+        mappedChildren.push({
+          id: req.student_id || req.user_id || req.id,
+          full_name: req.student_name || req.child_name || req.student_username || `Child Profile ${index}`,
+          email: req.student_email || "",
+          username: req.student_username || ""
+        });
+      }
     });
+
+    console.log("Forced Dropdown Children:", mappedChildren);
+    console.log("--- END REWARD DROPDOWN DIAGNOSTIC ---");
     
-    // 4. Map the student objects securely
-    const mappedChildren = approvedLinks.map(r => ({ 
-      id: r.student_id || r.user_id || r.id, 
-      full_name: r.student_name || r.student_username || r.child_name || `Child Profile`, 
-      email: r.student_email || r.child_email || "",
-      username: r.student_username || r.username || "" 
-    }));
-
-    console.log("Successfully mapped children for dropdown:", mappedChildren);
     setChildren(mappedChildren);
-
   } catch (err) {
-    console.error("Error loading children profiles:", err);
+    console.error("Diagnostic error:", err);
   } finally {
     setLoading(false);
   }
