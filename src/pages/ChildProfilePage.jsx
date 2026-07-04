@@ -1,288 +1,1058 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { User, Check, X, Clock, ShieldCheck, Sparkles, Heart, Key, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
-import { motion, AnimatePresence } from "framer-motion";
 
-export default function StudentParentConnections({ studentId }) {
+import { useParams, useNavigate, Link } from "react-router-dom";
+
+import { base44 } from "@/api/base44Client";
+
+import { getDisplayName } from "@/lib/utils";
+
+import {
+
+  ArrowLeft, Edit2, Save, X, AlertTriangle, User,
+
+  Calendar, School, MapPin, GraduationCap, Image as ImageIcon,
+
+  TrendingUp, Award, Coins, BookOpen
+
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+
+import { Input } from "@/components/ui/input";
+
+import { Label } from "@/components/ui/label";
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+import { useToast } from "@/components/ui/use-toast";
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import moment from "moment";
+
+
+
+const MALAYSIAN_STATES = [
+
+  "Johor", "Kedah", "Kelantan", "Kuala Lumpur", "Labuan", "Melaka",
+
+  "Negeri Sembilan", "Pahang", "Penang", "Perak", "Perlis", "Putrajaya",
+
+  "Sabah", "Sarawak", "Selangor", "Terengganu"
+
+];
+
+
+
+const EDUCATION_LEVELS = [
+
+  "Standard 1", "Standard 2", "Standard 3", "Standard 4",
+
+  "Standard 5", "Standard 6", "Form 1", "Form 2", "Form 3",
+
+  "Form 4", "Form 5"
+
+];
+
+
+
+export default function ChildProfilePage() {
+
+  const { childId } = useParams();
+
+  const navigate = useNavigate();
+
   const { toast } = useToast();
-  const [activeConnections, setActiveConnections] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
+
+ 
+
+  const [child, setChild] = useState(null);
+
+  const [progress, setProgress] = useState(null);
+
+  const [wallet, setWallet] = useState(null);
+
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null);
-  
-  // State baru untuk Kod Pautan (Link Code)
-  const [linkCode, setLinkCode] = useState("");
-  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
+
+  const [editing, setEditing] = useState(false);
+
+  const [saving, setSaving] = useState(false);
+
+  const [showDobWarning, setShowDobWarning] = useState(false);
+
+ 
+
+  const [formData, setFormData] = useState({
+
+    full_name: "",
+
+    nickname: "",
+
+    date_of_birth: "",
+
+    school_name: "",
+
+    education_level: "",
+
+    grade_year: "",
+
+    class_name: "",
+
+    state: "",
+
+    country: "Malaysia",
+
+    profile_picture_url: ""
+
+  });
+
+
+
+  const calculateAge = (birthDate) => {
+
+    const today = new Date();
+
+    const birth = new Date(birthDate);
+
+    let age = today.getFullYear() - birth.getFullYear();
+
+    const m = today.getMonth() - birth.getMonth();
+
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+
+      age--;
+
+    }
+
+    return age;
+
+  };
+
+
 
   useEffect(() => {
-    if (studentId) {
-      loadConnections();
-    }
-  }, [studentId]);
 
-  const loadConnections = async () => {
+    loadChildData();
+
+  }, [childId]);
+
+
+
+  const loadChildData = async () => {
+
     try {
-      setLoading(true);
-      
-      const [activeData, pendingData] = await Promise.all([
-        base44.entities.ParentChildRelationship.filter({
-          child_id: studentId,
-          status: "active"
-        }),
-        base44.entities.LinkRequest.filter({
-          student_id: studentId,
-          status: "pending"
-        })
+
+      const childData = await base44.entities.User.get(childId);
+
+      const [progressData, walletData] = await Promise.all([
+
+        base44.entities.Progress.filter({ student_id: childId }).then(r => r[0]),
+
+        base44.entities.Wallet.filter({ student_id: childId }).then(r => r[0])
+
       ]);
 
-      const enhancedActiveData = await Promise.all(
-        (activeData || []).map(async (conn) => {
-          try {
-            const parentProfile = await base44.entities.User.get(conn.parent_id);
-            return { ...conn, parent_name: parentProfile.full_name || parentProfile.nickname || parentProfile.email };
-          } catch (e) {
-            return { ...conn, parent_name: "Ibu/Bapa Pengembara" };
-          }
-        })
-      );
 
-      setActiveConnections(enhancedActiveData);
-      setPendingRequests(pendingData || []);
+
+      // Compute display name immediately
+
+      childData.display_name = getDisplayName(childData);
+
+      console.log(`Child ${childId} loaded:`, {
+
+        full_name: childData.full_name,
+
+        nickname: childData.nickname,
+
+        username: childData.username,
+
+        student_id: childData.student_id,
+
+        display_name: childData.display_name
+
+      });
+
+     
+
+      setChild(childData);
+
+      setProgress(progressData || { level: 1, streak_days: 0, total_xp: 0 });
+
+      setWallet(walletData || { balance: 0 });
+
+     
+
+      // Initialize form data
+
+      setFormData({
+
+        full_name: childData.full_name || "",
+
+        nickname: childData.nickname || "",
+
+        date_of_birth: childData.date_of_birth || "",
+
+        school_name: childData.school_name || "",
+
+        education_level: childData.education_level || "",
+
+        grade_year: childData.grade_year || "",
+
+        class_name: childData.class_name || "",
+
+        state: childData.state || "",
+
+        country: childData.country || "Malaysia",
+
+        profile_picture_url: childData.profile_picture_url || ""
+
+      });
+
     } catch (err) {
-      console.error("Gagal memuatkan data sambungan:", err);
+
+      console.error("Failed to load child data:", err);
+
+      toast({
+
+        title: "Error",
+
+        description: "Failed to load child profile",
+
+        variant: "destructive",
+
+      });
+
+      navigate("/parent/children");
+
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
-  const handleAction = async (request, action) => {
-    setProcessingId(request.id);
-    try {
-      if (action === "accept") {
-        await base44.entities.LinkRequest.update(request.id, { status: "approved" });
 
-        await base44.entities.ParentChildRelationship.create({
-          parent_id: request.parent_id,
-          child_id: studentId,
-          relationship: "parent",
-          status: "active",
-          linked_at: new Date().toISOString()
-        });
+
+  const handleSave = async () => {
+
+    // Check if DOB changed
+
+    if (formData.date_of_birth !== child.date_of_birth) {
+
+      setShowDobWarning(true);
+
+      return;
+
+    }
+
+
+
+    await submitUpdate();
+
+  };
+
+
+
+  const submitUpdate = async () => {
+
+    setSaving(true);
+
+    try {
+
+      const response = await base44.functions.invoke('updateChildProfile', {
+
+        childId,
+
+        updates: formData
+
+      });
+
+
+
+      if (response.data.success) {
 
         toast({
-          title: "Berjaya Disambung! 🎉",
-          description: "YAY! Akaun anda kini telah dihubungkan dengan ibu bapa.",
+
+          title: "Profile Updated",
+
+          description: response.data.message,
+
         });
-      } else {
-        await base44.entities.LinkRequest.update(request.id, { status: "declined" });
-        toast({
-          title: "Permintaan Ditolak",
-          description: "Anda telah menolak permintaan pautan ini.",
-        });
-      }
-      await loadConnections();
-    } catch (err) {
-      toast({
-        title: "Ralat Berlaku 😢",
-        description: err.message || "Gagal memproses permintaan.",
-        variant: "destructive"
-      });
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
-  // Fungsi baru untuk menghantar Kod Pautan ke Backend (Method 2)
-  const handleLinkCodeSubmit = async (e) => {
-    e.preventDefault();
-    if (!linkCode.trim()) return;
+       
 
-    setIsSubmittingCode(true);
-    try {
-      // NOTA: Gantikan "/api/parent-link" dengan URL laluan Edge Function Deno anda
-      const res = await fetch('/api/parent-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method: 'link_code',
-          link_code: linkCode.trim()
-        })
-      });
+        // Reload data
 
-      const data = await res.json();
-      
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Ralat tidak diketahui.");
+        await loadChildData();
+
+        setEditing(false);
+
+        setShowDobWarning(false);
+
       }
 
-      toast({
-        title: "Berjaya! 🎉",
-        description: "Kod sah! Akaun anda telah berjaya disambungkan.",
-      });
-      
-      setLinkCode(""); // Kosongkan input selepas berjaya
-      await loadConnections(); // Muat semula senarai aktif
-
     } catch (err) {
+
       toast({
-        title: "Oh tidak! 😢",
-        description: err.message || "Kod tidak sah atau telah tamat tempoh.",
-        variant: "destructive"
+
+        title: "Update Failed",
+
+        description: err.message || "Failed to update profile",
+
+        variant: "destructive",
+
       });
+
     } finally {
-      setIsSubmittingCode(false);
+
+      setSaving(false);
+
     }
+
   };
+
+
+
+  const handleConfirmDobChange = () => {
+
+    setShowDobWarning(false);
+
+    submitUpdate();
+
+  };
+
+
+
+  const handleCancelEdit = () => {
+
+    setEditing(false);
+
+    // Reset form data
+
+    setFormData({
+
+      full_name: child.full_name || "",
+
+      nickname: child.nickname || "",
+
+      date_of_birth: child.date_of_birth || "",
+
+      school_name: child.school_name || "",
+
+      education_level: child.education_level || "",
+
+      grade_year: child.grade_year || "",
+
+      class_name: child.class_name || "",
+
+      state: child.state || "",
+
+      country: child.country || "Malaysia",
+
+      profile_picture_url: child.profile_picture_url || ""
+
+    });
+
+  };
+
+
 
   if (loading) {
+
     return (
-      <div className="flex flex-col items-center justify-center py-10 bg-white/50 rounded-3xl border-2 border-dashed border-slate-200">
-        <Sparkles className="w-8 h-8 text-cyan-500 animate-spin mb-3" style={{ animationDuration: '3s' }} />
-        <p className="text-sm font-medium text-slate-500 animate-pulse">Menyemak buku log pengembaraan...</p>
+
+      <div className="flex items-center justify-center py-20">
+
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+
       </div>
+
     );
+
   }
 
-  return (
-    <div className="bg-white rounded-[2rem] p-6 sm:p-8 border-4 border-slate-100 shadow-xl relative overflow-hidden">
-      <Heart className="absolute -top-6 -right-6 w-32 h-32 text-pink-50/50 rotate-12" />
 
-      <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-cyan-100 rounded-2xl">
-            <ShieldCheck className="w-6 h-6 text-cyan-600" />
-          </div>
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Rakan Pengembaraan 🛡️</h2>
-            <p className="text-sm text-slate-500">Urus senarai ibu bapa yang memantau & memberi ganjaran kepada anda.</p>
-          </div>
-        </div>
 
-        {/* UI BARU: Masukkan Kod Pautan (Link Code) */}
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-5 rounded-2xl border-2 border-amber-200 mb-8 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <Key className="w-5 h-5 text-amber-600" />
-            <h3 className="font-bold text-amber-900 text-sm">Ada Kod Pautan dari Ibu Bapa?</h3>
-          </div>
-          <p className="text-xs text-amber-700 mb-4 font-medium">
-            Masukkan kod rahsia yang ibu bapa anda berikan untuk terus berhubung!
-          </p>
-          
-          <form onSubmit={handleLinkCodeSubmit} className="flex gap-2">
-            <Input 
-              placeholder="Contoh: ABCD-1234" 
-              value={linkCode}
-              onChange={(e) => setLinkCode(e.target.value)}
-              className="bg-white border-amber-300 focus-visible:ring-amber-500 rounded-xl h-11 text-amber-950 font-medium"
-              disabled={isSubmittingCode}
-            />
-            <Button 
-              type="submit" 
-              disabled={!linkCode.trim() || isSubmittingCode}
-              className="h-11 px-6 bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-md border-b-4 border-amber-700 active:border-b-0 active:translate-y-1 transition-all"
-            >
-              {isSubmittingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sambung!"}
-            </Button>
-          </form>
-        </div>
+  if (!child) {
 
-        <div className="space-y-8">
-          
-          {/* Sesi Permintaan Menunggu (Pending) */}
-          <AnimatePresence>
-            {pendingRequests.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-pink-600 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4" /> Permintaan Baru ({pendingRequests.length})
-                </h4>
-                <div className="grid gap-3">
-                  {pendingRequests.map((request) => (
-                    <motion.div 
-                      key={request.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9, x: -20 }}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-purple-50 border-2 border-pink-200 rounded-2xl gap-4 shadow-sm"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-pink-200 flex items-center justify-center shrink-0">
-                          <User className="w-5 h-5 text-pink-600" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-800">
-                            {request.parent_name || "Ibu Bapa"}
-                          </p>
-                          <p className="text-xs text-slate-500 font-medium">{request.parent_email}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-10 px-4 text-rose-600 bg-white hover:bg-rose-50 border border-rose-200 rounded-xl"
-                          onClick={() => handleAction(request, "decline")}
-                          disabled={processingId !== null}
-                        >
-                          <X className="w-4 h-4 mr-1" /> Tolak
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="h-10 px-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-md border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all"
-                          onClick={() => handleAction(request, "accept")}
-                          disabled={processingId !== null}
-                        >
-                          <Check className="w-4 h-4 mr-1" /> Terima
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+    return (
 
-          {/* Sesi Profil Aktif */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Profil Ibu Bapa Dihubungkan ({activeConnections.length})
-            </h4>
+      <div className="text-center py-20">
 
-            {activeConnections.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50">
-                <User className="w-10 h-10 text-slate-300 mb-3" />
-                <p className="text-sm font-medium text-slate-400">Belum ada ibu bapa yang dipautkan lagi.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {activeConnections.map((conn) => (
-                  <motion.div 
-                    whileHover={{ scale: 1.02 }}
-                    key={conn.id} 
-                    className="flex items-center gap-3 p-4 border-2 border-cyan-100 bg-cyan-50/30 rounded-2xl transition-all"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center shadow-inner">
-                      <ShieldCheck className="w-6 h-6 text-cyan-600" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-800">
-                        {conn.parent_name}
-                      </p>
-                      <p className="text-xs font-medium text-cyan-600 bg-cyan-100 px-2 py-0.5 rounded-full inline-block mt-1">
-                        Penyokong Aktif ✨
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </div>
+        <h2 className="text-xl font-bold mb-2">Child not found</h2>
 
-        </div>
+        <Button onClick={() => navigate("/parent/children")}>
+
+          <ArrowLeft className="w-4 h-4 mr-2" />
+
+          Back to Children
+
+        </Button>
+
       </div>
+
+    );
+
+  }
+
+
+
+  const age = child.date_of_birth ? calculateAge(child.date_of_birth) : "N/A";
+
+
+
+  return (
+
+    <div className="space-y-6 pb-8">
+
+      {/* Header */}
+
+      <div className="flex items-center gap-4">
+
+        <Button variant="ghost" size="icon" onClick={() => navigate("/parent/children")}>
+
+          <ArrowLeft className="w-5 h-5" />
+
+        </Button>
+
+        <div className="flex-1">
+
+          <h1 className="text-2xl font-heading font-bold text-foreground">
+
+            {child.display_name || getDisplayName(child)}
+
+          </h1>
+
+          <p className="text-sm text-muted-foreground">Student Profile</p>
+
+        </div>
+
+        {!editing ? (
+
+          <Button onClick={() => setEditing(true)}>
+
+            <Edit2 className="w-4 h-4 mr-2" />
+
+            Edit Profile
+
+          </Button>
+
+        ) : (
+
+          <div className="flex gap-2">
+
+            <Button variant="outline" onClick={handleCancelEdit}>
+
+              <X className="w-4 h-4 mr-2" />
+
+              Cancel
+
+            </Button>
+
+            <Button onClick={handleSave} disabled={saving}>
+
+              <Save className="w-4 h-4 mr-2" />
+
+              {saving ? "Saving..." : "Save"}
+
+            </Button>
+
+          </div>
+
+        )}
+
+      </div>
+
+
+
+      {/* Profile Overview Card */}
+
+      <Card className="border-border/50">
+
+        <CardContent className="p-6">
+
+          <div className="flex items-start gap-6">
+
+            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+
+              {child.profile_picture_url ? (
+
+                <img
+
+                  src={child.profile_picture_url}
+
+                  alt={getDisplayName(child)}
+
+                  className="w-full h-full object-cover rounded-full"
+
+                />
+
+              ) : (
+
+                <User className="w-12 h-12 text-primary" />
+
+              )}
+
+            </div>
+
+            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+
+              <div>
+
+                <p className="text-xs text-muted-foreground">Student ID</p>
+
+                <p className="font-bold text-primary">{child.student_id}</p>
+
+              </div>
+
+              <div>
+
+                <p className="text-xs text-muted-foreground">Age</p>
+
+                <p className="font-bold">{age} years</p>
+
+              </div>
+
+              <div>
+
+                <p className="text-xs text-muted-foreground">Grade</p>
+
+                <p className="font-bold">{child.education_level || "Not set"}</p>
+
+              </div>
+
+              <div>
+
+                <p className="text-xs text-muted-foreground">School</p>
+
+                <p className="font-bold">{child.school_name || "Not set"}</p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </CardContent>
+
+      </Card>
+
+
+
+      <Tabs defaultValue="profile" className="space-y-4">
+
+        <TabsList className="grid w-full grid-cols-2">
+
+          <TabsTrigger value="profile">Profile Information</TabsTrigger>
+
+          <TabsTrigger value="progress">Learning Progress</TabsTrigger>
+
+        </TabsList>
+
+
+
+        {/* Profile Information Tab */}
+
+        <TabsContent value="profile" className="space-y-4">
+
+          <Card className="border-border/50">
+
+            <CardHeader>
+
+              <CardTitle className="flex items-center gap-2">
+
+                <User className="w-5 h-5" />
+
+                Personal Information
+
+              </CardTitle>
+
+              <CardDescription>Manage your child's profile details</CardDescription>
+
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="space-y-2">
+
+                  <Label>Full Name *</Label>
+
+                  <Input
+
+                    value={formData.full_name}
+
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+
+                    disabled={!editing}
+
+                    placeholder="Enter full name"
+
+                  />
+
+                </div>
+
+                <div className="space-y-2">
+
+                  <Label>Nickname</Label>
+
+                  <Input
+
+                    value={formData.nickname}
+
+                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+
+                    disabled={!editing}
+
+                    placeholder="Preferred name"
+
+                  />
+
+                </div>
+
+              </div>
+
+
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="space-y-2">
+
+                  <Label>Date of Birth *</Label>
+
+                  <Input
+
+                    type="date"
+
+                    value={formData.date_of_birth}
+
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+
+                    disabled={!editing}
+
+                  />
+
+                </div>
+
+                <div className="space-y-2">
+
+                  <Label>Country</Label>
+
+                  <Input
+
+                    value={formData.country}
+
+                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+
+                    disabled={!editing}
+
+                    placeholder="Country"
+
+                  />
+
+                </div>
+
+              </div>
+
+
+
+              <div className="space-y-2">
+
+                <Label>State</Label>
+
+                <Select
+
+                  value={formData.state}
+
+                  onValueChange={(value) => setFormData({ ...formData, state: value })}
+
+                  disabled={!editing}
+
+                >
+
+                  <SelectTrigger>
+
+                    <SelectValue placeholder="Select state" />
+
+                  </SelectTrigger>
+
+                  <SelectContent>
+
+                    {MALAYSIAN_STATES.map((state) => (
+
+                      <SelectItem key={state} value={state}>
+
+                        {state}
+
+                      </SelectItem>
+
+                    ))}
+
+                  </SelectContent>
+
+                </Select>
+
+              </div>
+
+            </CardContent>
+
+          </Card>
+
+
+
+          <Card className="border-border/50">
+
+            <CardHeader>
+
+              <CardTitle className="flex items-center gap-2">
+
+                <School className="w-5 h-5" />
+
+                Education Information
+
+              </CardTitle>
+
+              <CardDescription>School and grade details</CardDescription>
+
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+
+              <div className="space-y-2">
+
+                <Label>School Name</Label>
+
+                <Input
+
+                  value={formData.school_name}
+
+                  onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
+
+                  disabled={!editing}
+
+                  placeholder="School name"
+
+                />
+
+              </div>
+
+
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="space-y-2">
+
+                  <Label>Education Level</Label>
+
+                  <Select
+
+                    value={formData.education_level}
+
+                    onValueChange={(value) => setFormData({ ...formData, education_level: value })}
+
+                    disabled={!editing}
+
+                  >
+
+                    <SelectTrigger>
+
+                      <SelectValue placeholder="Select level" />
+
+                    </SelectTrigger>
+
+                    <SelectContent>
+
+                      {EDUCATION_LEVELS.map((level) => (
+
+                        <SelectItem key={level} value={level}>
+
+                          {level}
+
+                        </SelectItem>
+
+                      ))}
+
+                    </SelectContent>
+
+                  </Select>
+
+                </div>
+
+                <div className="space-y-2">
+
+                  <Label>Grade/Year</Label>
+
+                  <Input
+
+                    value={formData.grade_year}
+
+                    onChange={(e) => setFormData({ ...formData, grade_year: e.target.value })}
+
+                    disabled={!editing}
+
+                    placeholder="e.g., Year 3"
+
+                  />
+
+                </div>
+
+              </div>
+
+
+
+              <div className="space-y-2">
+
+                <Label>Class Name</Label>
+
+                <Input
+
+                  value={formData.class_name}
+
+                  onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
+
+                  disabled={!editing}
+
+                  placeholder="e.g., 3A"
+
+                />
+
+              </div>
+
+            </CardContent>
+
+          </Card>
+
+        </TabsContent>
+
+
+
+        {/* Learning Progress Tab - READ ONLY */}
+
+        <TabsContent value="progress" className="space-y-4">
+
+          <Card className="border-border/50">
+
+            <CardHeader>
+
+              <CardTitle className="flex items-center gap-2">
+
+                <TrendingUp className="w-5 h-5" />
+
+                Progress Overview
+
+              </CardTitle>
+
+              <CardDescription>Learning metrics and achievements</CardDescription>
+
+            </CardHeader>
+
+            <CardContent>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+                <div className="bg-primary/5 rounded-lg p-4 text-center">
+
+                  <div className="flex items-center justify-center gap-2 mb-2">
+
+                    <Award className="w-5 h-5 text-primary" />
+
+                    <p className="text-2xl font-bold text-primary">{progress?.level || 1}</p>
+
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">Learning Level</p>
+
+                </div>
+
+                <div className="bg-amber-50 rounded-lg p-4 text-center">
+
+                  <div className="flex items-center justify-center gap-2 mb-2">
+
+                    <Coins className="w-5 h-5 text-amber-600" />
+
+                    <p className="text-2xl font-bold text-amber-600">{wallet?.balance || 0}</p>
+
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">Coins Earned</p>
+
+                </div>
+
+                <div className="bg-accent/5 rounded-lg p-4 text-center">
+
+                  <div className="flex items-center justify-center gap-2 mb-2">
+
+                    <TrendingUp className="w-5 h-5 text-accent" />
+
+                    <p className="text-2xl font-bold text-accent">{progress?.streak_days || 0}</p>
+
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">Day Streak</p>
+
+                </div>
+
+                <div className="bg-blue-50 rounded-lg p-4 text-center">
+
+                  <div className="flex items-center justify-center gap-2 mb-2">
+
+                    <BookOpen className="w-5 h-5 text-blue-600" />
+
+                    <p className="text-2xl font-bold text-blue-600">{progress?.total_xp || 0}</p>
+
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">Total XP</p>
+
+                </div>
+
+              </div>
+
+            </CardContent>
+
+          </Card>
+
+
+
+          <Card className="border-border/50">
+
+            <CardHeader>
+
+              <CardTitle>Protected Learning Data</CardTitle>
+
+              <CardDescription>
+
+                These metrics are automatically tracked and cannot be manually edited
+
+              </CardDescription>
+
+            </CardHeader>
+
+            <CardContent className="space-y-3">
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+
+                <span className="text-sm">Quiz Attempts</span>
+
+                <span className="font-bold">System Tracked</span>
+
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+
+                <span className="text-sm">Lesson Completions</span>
+
+                <span className="font-bold">System Tracked</span>
+
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+
+                <span className="text-sm">Achievements</span>
+
+                <span className="font-bold">System Tracked</span>
+
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+
+                <span className="text-sm">Study Time</span>
+
+                <span className="font-bold">System Tracked</span>
+
+              </div>
+
+            </CardContent>
+
+          </Card>
+
+        </TabsContent>
+
+      </Tabs>
+
+
+
+      {/* DOB Change Warning Dialog */}
+
+      {showDobWarning && (
+
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+
+          <Card className="max-w-md w-full">
+
+            <CardHeader>
+
+              <CardTitle className="flex items-center gap-2 text-amber-600">
+
+                <AlertTriangle className="w-5 h-5" />
+
+                Date of Birth Change
+
+              </CardTitle>
+
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+
+              <Alert variant="destructive">
+
+                <AlertDescription>
+
+                  Changing date of birth will update your child's learning level and lesson recommendations.
+
+                  This may affect their current progress tracking.
+
+                </AlertDescription>
+
+              </Alert>
+
+              <div className="flex gap-2">
+
+                <Button
+
+                  variant="outline"
+
+                  onClick={() => setShowDobWarning(false)}
+
+                  className="flex-1"
+
+                >
+
+                  Cancel
+
+                </Button>
+
+                <Button
+
+                  onClick={handleConfirmDobChange}
+
+                  className="flex-1"
+
+                >
+
+                  Confirm Change
+
+                </Button>
+
+              </div>
+
+            </CardContent>
+
+          </Card>
+
+        </div>
+
+      )}
+
     </div>
+
   );
-}
+
+} 
+
