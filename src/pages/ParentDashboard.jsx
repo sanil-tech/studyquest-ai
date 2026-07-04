@@ -1,462 +1,175 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, ShieldAlert } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
-import ParentConnections from "@/components/student/ParentConnections";
-import { useToast } from "@/components/ui/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
-import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
-import ProfileForm from "@/components/profile/ProfileForm";
-import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
-import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
-import SecuritySection from "@/components/profile/SecuritySection";
-import StudentIdSection from "@/components/profile/StudentIdSection";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, UserPlus, Users, School, GraduationCap, Calendar } from "lucide-react";
+import AddChildModal from "@/components/AddChildModal";
+import { toast } from "@/components/ui/use-toast";
 
-export default function ProfilePage() {
-  const [user, setUser] = useState(null);
-  const [progress, setProgress] = useState(null);
-  const [wallet, setWallet] = useState(null);
-  const [totalQuizzes, setTotalQuizzes] = useState(0);
+export default function ParentDashboard() {
+  const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAvatar, setShowAvatar] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    full_name: "",
-    nickname: "",
-    school_year: "",
-    school_name: "",
-    class_name: "",
-    gender: "",
-    date_of_birth: "",
-    country: "Malaysia",
-    state: "",
-    notification_preferences: {
-      email_notifications: true,
-      push_notifications: true,
-      quiz_reminders: true,
-      daily_learning_reminder: true,
-      parent_progress_reports: true,
-      weekly_achievement_summary: true,
-    },
-    learning_preferences: {
-      daily_goal_minutes: 20,
-      difficulty_preference: "medium",
-      favorite_subjects: [],
-    },
-  });
-  const [avatarMode, setAvatarMode] = useState("emoji");
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const fileInputRef = useRef(null);
-  const { toast } = useToast();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Fungsi untuk mengambil data anak-anak yang berpaut dengan akaun ibu bapa ini
+  const fetchChildrenProfiles = async () => {
+    try {
+      setLoading(true);
+      const currentUser = await base44.auth.me();
+      
+      // Ambil senarai hubungan parent-child
+      const relationships = await base44.entities.ParentChildRelationship.filter({
+        parent_id: currentUser.id,
+      });
+
+      if (relationships && relationships.length > 0) {
+        // Ambil data profil bagi setiap anak berdasarkan child_id
+        const childProfiles = await Promise.all(
+          relationships.map(async (rel) => {
+            try {
+              const studentData = await base44.entities.User.get(rel.child_id);
+              return {
+                ...studentData,
+                relationshipStatus: rel.status, // 'active' atau 'pending'
+                relationshipId: rel.id
+              };
+            } catch (err) {
+              console.error(`Gagal memuatkan profil anak ID: ${rel.child_id}`, err);
+              return null;
+            }
+          })
+        );
+        
+        // Tapis keluar jika ada data yang kosong/null akibat ralat
+        setChildren(childProfiles.filter(c => c !== null));
+      } else {
+        setChildren([]);
+      }
+    } catch (error) {
+      console.error("Ralat memuatkan dashboard ibu bapa:", error);
+      toast({
+        title: "Ralat Sistem",
+        description: "Gagal memuatkan senarai profil anak anda.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const u = await base44.auth.me();
-        setUser(u);
-        
-        if (u.app_role === "student") {
-          const [progs, wallets, attempts] = await Promise.all([
-            base44.entities.Progress.filter({ student_id: u.id }),
-            base44.entities.Wallet.filter({ student_id: u.id }),
-            base44.entities.QuizAttempt.filter({ student_id: u.id }),
-          ]);
-          setProgress(progs[0]);
-          setWallet(wallets[0]);
-          totalQuizzes && setTotalQuizzes(attempts.length);
-        }
-        
-        setFormData({
-          full_name: u.full_name || "",
-          nickname: u.nickname || "",
-          school_year: u.school_year || "",
-          school_name: u.school_name || "",
-          class_name: u.class_name || "",
-          gender: u.gender || "",
-          date_of_birth: u.date_of_birth || "",
-          country: u.country || "Malaysia",
-          state: u.state || "",
-          notification_preferences: u.notification_preferences || {
-            email_notifications: true,
-            push_notifications: true,
-            quiz_reminders: true,
-            daily_learning_reminder: true,
-            parent_progress_reports: true,
-            weekly_achievement_summary: true,
-          },
-          learning_preferences: u.learning_preferences || {
-            daily_goal_minutes: 20,
-            difficulty_preference: "medium",
-            favorite_subjects: [],
-          },
-        });
-      } catch (err) {
-        console.error("Failed to load profile:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [user?.id]);
-
-  const handleLogout = () => {
-    base44.auth.logout("/login");
-  };
-
-  const handleSaveAvatar = async (emoji) => {
-    await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
-    setUser((prev) => ({ ...prev, avatar_emoji: emoji, profile_picture_url: null }));
-  };
-
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setUploading(true);
-    try {
-      const result = await base44.integrations.Core.UploadFile({ file });
-      await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
-      setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
-      setAvatarMode("photo");
-      toast({
-        title: "Photo uploaded!",
-        description: "Your profile photo has been updated.",
-      });
-    } catch (err) {
-      console.error("Photo upload failed:", err);
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload photo. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleRemovePhoto = async () => {
-    await base44.auth.updateMe({ profile_picture_url: null });
-    setUser((prev) => ({ ...prev, profile_picture_url: null }));
-    setAvatarMode("emoji");
-  };
-
-  const handleSaveProfile = async () => {
-    setSaving(true);
-    try {
-      await base44.auth.updateMe(formData);
-      const updatedUser = await base44.auth.me();
-      setUser(updatedUser);
-      setFormData({
-        full_name: updatedUser.full_name || "",
-        nickname: updatedUser.nickname || "",
-        school_year: updatedUser.school_year || "",
-        school_name: updatedUser.school_name || "",
-        class_name: updatedUser.class_name || "",
-        gender: updatedUser.gender || "",
-        date_of_birth: updatedUser.date_of_birth || "",
-        country: updatedUser.country || "Malaysia",
-        state: updatedUser.state || "",
-        notification_preferences: updatedUser.notification_preferences || formData.notification_preferences,
-        learning_preferences: updatedUser.learning_preferences || formData.learning_preferences,
-      });
-      setEditing(false);
-
-      if (updatedUser.app_role === "student") {
-        const linkReqs = await base44.entities.LinkRequest.filter({ 
-          student_email: updatedUser.email, 
-          status: "approved" 
-        });
-        await Promise.all(
-          linkReqs.map(req =>
-            base44.entities.LinkRequest.update(req.id, { 
-              student_name: updatedUser.full_name || updatedUser.email 
-            })
-          )
-        );
-      }
-
-      toast({
-        title: "Profile saved! ✓",
-        description: "Your profile has been updated successfully.",
-      });
-    } catch (err) {
-      console.error("Failed to save profile:", err);
-      toast({
-        title: "Failed to save",
-        description: err.message || "Something went wrong",
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  const isStudent = user?.app_role === "student";
-  const isParent = user?.app_role === "parent";
+    fetchChildrenProfiles();
+  }, []);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      
-      {/* Profile Header Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-indigo-600 to-violet-700 p-6 md:p-10 text-white shadow-xl shadow-indigo-900/10"
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4 blur-lg pointer-events-none" />
-        
-        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-            <div className="relative group">
-              <div className="w-28 h-28 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
-                {user?.profile_picture_url ? (
-                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-5xl select-none">{user?.avatar_emoji || "🎓"}</span>
-                )}
-              </div>
-              {isStudent && showAvatar && (
-                <button
-                  onClick={handleRemovePhoto}
-                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
-                  title="Remove photo"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex flex-col sm:flex-row items-center gap-2">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "User"}</h1>
-                <span className="px-3 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-white/20 backdrop-blur-xs text-white/90">
-                  {user?.app_role || "student"}
-                </span>
-              </div>
-              <p className="text-white/75 text-sm md:text-base font-medium">{user?.email}</p>
-            </div>
-          </div>
-
-          {/* Header Actions Panel */}
-          {(isStudent || isParent) && (
-            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/10 w-full md:w-auto">
-              {isStudent && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAvatar(!showAvatar)}
-                  className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
-                >
-                  {showAvatar ? "Hide Options" : "Change Avatar/Photo"}
-                </Button>
-              )}
-              
-              <Button
-                size="sm"
-                variant={editing ? "secondary" : "default"}
-                disabled={saving}
-                onClick={() => editing ? handleSaveProfile() : setEditing(true)}
-                className={`text-xs h-9 px-4 font-semibold rounded-xl transition-all shadow-xs ${
-                  editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-indigo-700 hover:bg-white/90"
-                }`}
-              >
-                {saving ? (
-                  <div className="w-4 h-4 border-2 border-indigo-700/30 border-t-indigo-700 rounded-full animate-spin mr-1.5" />
-                ) : editing ? (
-                  <Check className="w-3.5 h-3.5 mr-1.5" />
-                ) : (
-                  <Pen className="w-3.5 h-3.5 mr-1.5" />
-                )}
-                {saving ? "Saving..." : editing ? "Save Profile Data" : "Edit Details"}
-              </Button>
-            </div>
-          )}
+    <div className="container mx-auto p-6 max-w-5xl space-y-6">
+      {/* Header Dashboard */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-background p-4 rounded-xl border shadow-xs">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Users className="w-6 h-6 text-primary" />
+            Dashboard Ibu Bapa
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Urus profil pembelajaran, pantau prestasi akademik, dan pautkan akaun anak anda.
+          </p>
         </div>
-      </motion.div>
+        <Button onClick={() => setIsModalOpen(true)} className="gap-2 font-semibold shadow-xs">
+          <UserPlus className="w-4 h-4" />
+          Urus / Tambah Anak
+        </Button>
+      </div>
 
-      {/* Main Core Layout Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        
-        {/* Left Hand Sidebar Column */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Quick Metrics (Only for student views) */}
-          {isStudent && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="grid grid-cols-3 gap-3"
-            >
-              <Card className="border-border/60 shadow-xs bg-card">
-                <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <p className="text-xl font-bold tracking-tight mt-1">{totalQuizzes}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Quizzes</p>
-                </CardContent>
-              </Card>
-              
-              <Card className="border-border/60 shadow-xs bg-card">
-                <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
-                    <Trophy className="w-4 h-4" />
-                  </div>
-                  <p className="text-xl font-bold tracking-tight mt-1">Lv {progress?.level || 1}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Level</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/60 shadow-xs bg-card">
-                <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
-                    <Coins className="w-4 h-4" />
-                  </div>
-                  <p className="text-xl font-bold tracking-tight mt-1">{wallet?.balance || 0}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Coins</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* Student Identifiers / Security Keys */}
-          {isStudent && (
-            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
-              <StudentIdSection user={user} />
-            </div>
-          )}
-
-          {/* Associated Parent Node Bindings */}
-          {isStudent && (
-            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
-              <ParentConnections user={user} />
-            </div>
-          )}
-
-          {/* Admin Platform Tool Links */}
-          {user?.role === "admin" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-all duration-200">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                  <BookMarked className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground">Textbook Library</p>
-                  <p className="text-xs text-muted-foreground truncate">Upload Malaysian curriculum modules</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-            </motion.div>
-          )}
-
-          {/* System Sign out Operations Anchor */}
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="w-full rounded-2xl h-12 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors font-medium text-sm"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out of Account
-          </Button>
+      {/* Konten Utama Senarai Profil Anak */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3 border rounded-xl bg-muted/10">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground font-medium">Memuatkan maklumat profil anak...</p>
         </div>
-
-        {/* Right Hand / Main Content Columns Content Segment */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Avatar Settings Section Dropdown Panel */}
-          <AnimatePresence>
-            {showAvatar && isStudent && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden bg-card rounded-2xl border border-border/60 p-1 shadow-xs"
-              >
-                <ProfilePhotoSection
-                  user={user}
-                  avatarMode={avatarMode}
-                  setAvatarMode={setAvatarMode}
-                  uploading={uploading}
-                  setUploading={setUploading}
-                  fileInputRef={fileInputRef}
-                  handlePhotoUpload={handlePhotoUpload}
-                  handleRemovePhoto={handleRemovePhoto}
-                  handleSaveAvatar={handleSaveAvatar}
-                  showAvatar={showAvatar}
-                  setShowAvatar={setShowAvatar}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Core Profile Parameters Forms Layout UI Block */}
-          {(isStudent || isParent) && (
-            <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
-              <CardContent className="p-6 md:p-8">
-                <ProfileForm
-                  user={user}
-                  editing={editing}
-                  formData={formData}
-                  setFormData={setFormData}
-                  isStudent={isStudent}
-                />
+      ) : children.length === 0 ? (
+        <Card className="border-dashed bg-muted/20 text-center py-12">
+          <CardContent className="space-y-3">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary">
+              <Users className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-bold text-lg">Tiada Profil Anak Ditemui</h3>
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                Anda belum mendaftarkan profil atau memautkan mana-mana akaun pelajar sedia ada lagi.
+              </p>
+            </div>
+            <Button onClick={() => setIsModalOpen(true)} variant="outline" className="mt-2 font-medium">
+              Daftar Profil Pertama Sekarang
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Grid Kad Profil Anak */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {children.map((child) => (
+            <Card key={child.id} className="overflow-hidden border-input hover:border-primary/30 transition-all shadow-xs">
+              <CardHeader className="flex flex-row items-center gap-4 bg-muted/30 pb-4">
+                <Avatar className="w-14 h-14 border-2 border-background shadow-xs">
+                  <AvatarImage src={child.profile_picture_url || child.avatar_photo_url} alt={child.full_name} className="object-cover" />
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
+                    {child.full_name?.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 space-y-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CardTitle className="text-base font-bold leading-none">{child.full_name}</CardTitle>
+                    {child.relationshipStatus === "pending" ? (
+                      <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700 hover:bg-amber-100 font-semibold border-amber-200">
+                        Menunggu Pengesahan
+                      </Badge>
+                    ) : child.status === "inactive" ? (
+                      <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600 font-semibold">
+                        Profil Sahaja (Belum Aktif)
+                      </Badge>
+                    ) : (
+                      <Badge variant="default" className="text-[10px] bg-emerald-600 font-semibold">
+                        Aktif
+                      </Badge>
+                    )}
+                  </div>
+                  <CardDescription className="text-xs font-medium text-primary/80">
+                    ID Pelajar: <span className="font-mono bg-background px-1.5 py-0.5 rounded border text-[11px] tracking-wide">{child.student_id || "Tiada"}</span>
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 grid grid-cols-2 gap-3 text-xs border-t">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <School className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                  <span className="truncate font-medium">Sekolah: <strong className="text-foreground">{child.school_name || "—"}</strong></span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <GraduationCap className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                  <span className="truncate font-medium">Tahap: <strong className="text-foreground">{child.education_level || "—"}</strong></span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                  <span className="truncate font-medium">Tarikh Lahir: <strong className="text-foreground">{child.date_of_birth || "—"}</strong></span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Users className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                  <span className="truncate font-medium">Kelas: <strong className="text-foreground">{child.grade_year || "—"}</strong></span>
+                </div>
               </CardContent>
             </Card>
-          )}
-
-          {/* Notification System Node Hooks */}
-          {editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
-              <NotificationPreferencesSection
-                editing={editing}
-                formData={formData}
-                setFormData={setFormData}
-              />
-            </motion.div>
-          )}
-
-          {/* Curriculums Learning Track Preferences */}
-          {isStudent && editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
-              <LearningPreferencesSection
-                editing={editing}
-                formData={formData}
-                setFormData={setFormData}
-              />
-            </motion.div>
-          )}
-
-          {/* Cryptography / Account Access Keys Modification Interface */}
-          {editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
-              <SecuritySection
-                editing={editing}
-                formData={formData}
-                setFormData={setFormData}
-                onSavePassword={async () => {
-                  toast({
-                    title: "Security Request Notice",
-                    description: "Please utilize the native portal forgot password authorization pipeline to handle active updates.",
-                    variant: "destructive",
-                  });
-                }}
-              />
-            </motion.div>
-          )}
+          ))}
         </div>
-      </div>
+      )}
+
+      {/* Modal Urus / Tambah Anak */}
+      <AddChildModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onChildAdded={fetchChildrenProfiles}
+        onLinked={fetchChildrenProfiles}
+      />
     </div>
   );
 }
