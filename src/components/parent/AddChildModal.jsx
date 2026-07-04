@@ -6,7 +6,7 @@ import { toast } from "@/components/ui/use-toast";
 import { base44 } from "@/api/base44Client";
 
 // Import sub-komponen modular
-import ChildBasicInfo from "./ChildBasicInfo";
+import ChildProfilePage from "./ChildProfilePage";
 import ChildSchoolInfo from "./ChildSchoolInfo";
 import ChildAvatar from "./ChildAvatar";
 import LinkExistingStudent from "./LinkExistingStudent";
@@ -117,7 +117,7 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
             </div>
 
             {step === 1 && (
-              <ChildBasicInfo childData={childData} setChildData={setChildData} onNext={nextStep} />
+              <ChildProfilePage childData={childData} setChildData={setChildData} onNext={nextStep} />
             )}
             {step === 2 && (
               <ChildSchoolInfo childData={childData} setChildData={setChildData} onNext={nextStep} onPrev={prevStep} />
