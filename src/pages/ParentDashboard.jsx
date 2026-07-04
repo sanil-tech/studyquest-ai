@@ -1,10 +1,32 @@
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import moment from "moment";
+import { TrendingUp, Users, Bell, Plus } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+
+const calculateAge = (birthDate) => {
+  if (!birthDate) return "N/A";
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+};
+
 // ---------------- INDIVIDUAL CHILD CARD (SYNCHRONIZED MILESTONE LOGIC) ----------------
 function ChildCard({ child }) {
   // 1. Ambil data XP dan Level dari rekod Progress sebenar
-  const currentXP = child.progress?.xp_score || 0;
+  const currentXP = child.progress?.xp_score || child.progress?.total_xp || 0;
   const currentLevel = child.progress?.level || 1;
   const nextLevelXP = child.progress?.next_level_xp || (currentLevel * 500);
-  
+
   // Pengiraan kadar peratusan kemajuan XP yang tepat
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   const lastActive = child.last_active ? moment(child.last_active).fromNow() : "Baru aktif";
@@ -40,10 +62,11 @@ function ChildCard({ child }) {
   };
 
   const milestone = getDragonMilestone(currentXP, currentLevel);
+  const displayName = child.display_name || child.full_name || child.username || "Unnamed Student";
 
   return (
     <Card className="p-6 space-y-4 bg-white hover:shadow-lg transition-all border-slate-100 relative overflow-hidden group">
-      
+
       {/* Status Keaktifan Sebenar */}
       <div className="absolute top-4 right-4 flex items-center gap-1.5">
         <div className={`w-2 h-2 rounded-full ${child.last_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
@@ -51,7 +74,7 @@ function ChildCard({ child }) {
       </div>
 
       <div className="flex items-start gap-4">
-        
+
         {/* AVATAR NAGA DENGAN LOGIK MILESTONE BARU */}
         <div className="relative flex flex-col items-center justify-center p-2 select-none flex-shrink-0">
           <div style={{ perspective: "1000px" }} className="relative w-20 h-20 flex items-center justify-center">
@@ -66,18 +89,18 @@ function ChildCard({ child }) {
 
         <div className="flex-grow space-y-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-xl font-bold text-slate-800">{child.display_name}</h3>
+            <h3 className="text-xl font-bold text-slate-800">{displayName}</h3>
             <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[10px] font-bold h-5">
               {child.education_level || "Standard 2"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground font-medium">Umur {calculateAge(child.date_of_birth)} Tahun</p>
-          
+
           {/* Progress Bar Grafik XP */}
           <div className="pt-3 space-y-1.5">
             <div className="flex justify-between items-center text-[10px]">
               <span className="font-bold text-slate-500 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-indigo-500" /> 
+                <TrendingUp className="w-3 h-3 text-indigo-500" />
                 Ganjaran XP: <span className="text-slate-700 font-extrabold">{currentXP}</span> / {nextLevelXP} XP
               </span>
               <span className="font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
@@ -93,22 +116,22 @@ function ChildCard({ child }) {
       {/* Grid Subjek Fokus & Misi Harian Pelajar */}
       <div className="grid grid-cols-2 gap-3 pt-2">
         <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Topik Utama</p>
-            <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-xs shadow-sm">🔢</div>
-                <span className="text-xs font-bold text-slate-700 truncate">
-                  {child.progress?.current_topic || "Pecahan (Math)"}
-                </span>
-            </div>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Topik Utama</p>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-xs shadow-sm">🔢</div>
+            <span className="text-xs font-bold text-slate-700 truncate">
+              {child.progress?.current_topic || "Pecahan (Math)"}
+            </span>
+          </div>
         </div>
         <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Misi Hari Ini</p>
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-[10px] shadow-sm text-emerald-500 font-extrabold">
-                  {child.progress?.completed_quests || 2}/{child.progress?.total_quests || 3}
-                </div>
-                <span className="truncate">Selesaikan Misi</span>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Misi Hari Ini</p>
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+            <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-[10px] shadow-sm text-emerald-500 font-extrabold">
+              {child.progress?.completed_quests || 2}/{child.progress?.total_quests || 3}
             </div>
+            <span className="truncate">Selesaikan Misi</span>
+          </div>
         </div>
       </div>
 
@@ -122,14 +145,173 @@ function ChildCard({ child }) {
           <p className="font-black text-orange-500">🔥 {child.progress?.streak_days || 0}</p>
           <p className="text-[9px] text-muted-foreground font-bold uppercase">Streak</p>
         </div>
-        <div 
+        <div
           className="cursor-pointer hover:scale-105 transition-transform active:scale-95"
-          onClick={() => alert(`🎉 Sorakan kasih sayang telah dihantar terus ke peranti ${child.display_name}!`)}
+          onClick={() => alert(`🎉 Sorakan kasih sayang telah dihantar terus ke peranti ${displayName}!`)}
         >
           <p className="font-black text-rose-500">❤️ Sorak!</p>
           <p className="text-[9px] text-muted-foreground font-bold uppercase">Puji Anak</p>
         </div>
       </div>
     </Card>
+  );
+}
+
+// ================= MAIN DASHBOARD =================
+export default function ParentDashboard() {
+  const { toast } = useToast();
+
+  const [user, setUser] = useState(null);
+  const [children, setChildren] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // ---------------- LOAD DATA ----------------
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      const u = await base44.auth.me();
+      setUser(u);
+
+      const rel = await base44.entities.ParentChildRelationship.filter({
+        parent_id: u.id,
+        status: ["active", "pending"],
+      });
+
+      if (!rel.length) {
+        setChildren([]);
+        setPendingRequests([]);
+        setLoading(false);
+        return;
+      }
+
+      const childIds = rel.map(r => r.child_id);
+
+      const kids = await Promise.all(
+        childIds.map(async (id) => {
+          const [progress, wallet] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: id }),
+            base44.entities.Wallet.filter({ student_id: id }),
+          ]);
+          const childUser = await base44.entities.User.get(id).catch(() => null);
+
+          return {
+            id,
+            display_name: childUser?.full_name || childUser?.username || "",
+            full_name: childUser?.full_name || "",
+            username: childUser?.username || "",
+            date_of_birth: childUser?.date_of_birth || "",
+            education_level: childUser?.education_level || "",
+            last_active: childUser?.last_active || "",
+            progress: progress?.[0] || {},
+            wallet: wallet?.[0] || { balance: 0 },
+          };
+        })
+      );
+
+      const pending = await base44.entities.RewardRequest.filter({
+        status: "pending",
+      });
+
+      setChildren(kids);
+      setPendingRequests(pending);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------------- EFFECT ----------------
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // ================= UI =================
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Users className="w-6 h-6 text-primary" />
+            Parent Dashboard
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Pantau kemajuan pembelajaran dan ganjaran anak-anak anda.
+          </p>
+        </div>
+        <Link to="/parent/children">
+          <Button size="sm" className="gap-2">
+            <Plus className="w-4 h-4" />
+            Tambah Anak
+          </Button>
+        </Link>
+      </div>
+
+      {/* CHILDREN */}
+      <div>
+        <h2 className="font-bold mb-3 flex items-center gap-2">
+          Anak Saya
+          <Badge variant="secondary" className="text-xs">{children.length}</Badge>
+        </h2>
+
+        {children.length === 0 ? (
+          <Card className="p-8 text-center text-gray-500">
+            <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p className="font-medium">Belum ada profil pelajar yang disambungkan.</p>
+            <Link to="/parent/children">
+              <Button variant="outline" size="sm" className="mt-4 gap-2">
+                <Plus className="w-4 h-4" />
+                Sambungkan Anak
+              </Button>
+            </Link>
+          </Card>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {children.map(c => (
+              <Link key={c.id} to={`/parent/children/${c.id}`} className="block">
+                <ChildCard child={c} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* PENDING REWARD REQUESTS */}
+      <div>
+        <h2 className="font-bold mb-3 flex items-center gap-2">
+          <Bell className="w-4 h-4 text-amber-500" />
+          Permintaan Ganjaran Belum Selesai
+          {pendingRequests.length > 0 && (
+            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs">
+              {pendingRequests.length}
+            </Badge>
+          )}
+        </h2>
+
+        {pendingRequests.length === 0 ? (
+          <p className="text-gray-400 text-sm">Tiada permintaan tertunggak.</p>
+        ) : (
+          <div className="space-y-2">
+            {pendingRequests.map(r => (
+              <Card key={r.id} className="p-3 flex justify-between items-center">
+                <span className="font-medium">{r.reward_title}</span>
+                <span className="text-sm text-muted-foreground">{r.coin_cost} 🪙</span>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
