@@ -14,34 +14,29 @@ export default function RewardsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        // INSIDE THE CHILD'S RewardsPage.js (useEffect load function)
-
-const [rws, wallets, reqs] = await Promise.all([
-  // CHANGE student_email to student_id:
-  base44.entities.Reward.filter({ student_id: user.id, status: "active" }),
-  base44.entities.Wallet.filter({ student_id: user.id }),
-  base44.entities.RewardRequest.filter({ student_id: user.id }, "-created_date", 20),
-]);
-        const user = await base44.auth.me();
-        const [rws, wallets, reqs] = await Promise.all([
-          // FIX: Look up active rewards by the child's email address instead of id
-          base44.entities.Reward.filter({ student_email: user.email, status: "active" }),
-          base44.entities.Wallet.filter({ student_id: user.id }),
-          base44.entities.RewardRequest.filter({ student_id: user.id }, "-created_date", 20),
-        ]);
-        setRewards(rws);
-        setWallet(wallets[0] || { balance: 0 });
-        setRequests(reqs);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+  const load = async () => {
+    try {
+      const user = await base44.auth.me();
+      
+      // Clean, single declaration of variables from Promise results
+      const [fetchedRewards, wallets, reqs] = await Promise.all([
+        // Using student_id instead of string email prevents case-sensitivity bugs
+        base44.entities.Reward.filter({ student_id: user.id, status: "active" }),
+        base44.entities.Wallet.filter({ student_id: user.id }),
+        base44.entities.RewardRequest.filter({ student_id: user.id }, "-created_date", 20),
+      ]);
+      
+      setRewards(fetchedRewards);
+      setWallet(wallets[0] || { balance: 0 });
+      setRequests(reqs);
+    } catch (err) {
+      console.error("Error loading child data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  load();
+}, []);
 
   const requestReward = async (reward) => {
     if ((wallet?.balance || 0) < reward.coin_cost) {
