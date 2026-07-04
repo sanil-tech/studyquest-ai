@@ -12,6 +12,17 @@ import { useToast } from "@/components/ui/use-toast";
 import moment from "moment";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+
+const calculateAge = (birthDate) => {
+  if (!birthDate) return "N/A";
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+};
 
 // ---------------- WEATHER ----------------
 const parseWmoCode = (code) => {
@@ -26,38 +37,45 @@ const parseWmoCode = (code) => {
   return map[code] || { status: "Clear", emoji: "☀️" };
 };
 
-<Card className="p-6 space-y-4">
+function ChildCard({ child, onUnlink }) {
+  return (
+    <Card className="p-6 space-y-4">
+      <div>
+        <h3 className="text-xl font-bold">
+          {child.full_name || child.username || "Unnamed Student"}
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Age {calculateAge(child.date_of_birth)} • {child.education_level}
+        </p>
+      </div>
 
-  {/* NAME FIXED */}
-  <div>
-    <h3 className="text-xl font-bold">
-      {child.full_name || child.username || "Unnamed Student"}
-    </h3>
+      <div className="grid grid-cols-3 text-center text-sm">
+        <div>
+          <p className="font-bold">{child.progress?.level || 1}</p>
+          <p>Level</p>
+        </div>
+        <div>
+          <p className="font-bold">{child.wallet?.balance || 0}</p>
+          <p>Coins</p>
+        </div>
+        <div>
+          <p className="font-bold">{child.progress?.streak_days || 0}</p>
+          <p>Streak</p>
+        </div>
+      </div>
 
-    <p className="text-sm text-muted-foreground">
-      Age {calculateAge(child.date_of_birth)} • {child.education_level}
-    </p>
-  </div>
-
-  {/* STATS */}
-  <div className="grid grid-cols-3 text-center text-sm">
-    <div>
-      <p className="font-bold">{child.progress?.level || 1}</p>
-      <p>Level</p>
-    </div>
-
-    <div>
-      <p className="font-bold">{child.wallet?.balance || 0}</p>
-      <p>Coins</p>
-    </div>
-
-    <div>
-      <p className="font-bold">{child.progress?.streak_days || 0}</p>
-      <p>Streak</p>
-    </div>
-  </div>
-
-</Card>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onUnlink(child.id, child.full_name || child.username || "Student")}
+        className="text-rose-500 hover:bg-rose-50"
+      >
+        <Trash2 className="w-4 h-4 mr-2" />
+        Unlink
+      </Button>
+    </Card>
+  );
+}
 
 // ================= MAIN DASHBOARD =================
 export default function ParentDashboard() {
@@ -98,13 +116,20 @@ export default function ParentDashboard() {
 
       const kids = await Promise.all(
         childIds.map(async (id) => {
-          const progress = await base44.entities.Progress.filter({ student_id: id });
+          const [progress, wallet] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: id }),
+            base44.entities.Wallet.filter({ student_id: id }),
+          ]);
           const user = await base44.entities.User.get(id).catch(() => null);
 
           return {
             id,
-            name: user?.full_name || "Student",
+            full_name: user?.full_name || "",
+            username: user?.username || "",
+            date_of_birth: user?.date_of_birth || "",
+            education_level: user?.education_level || "",
             progress: progress?.[0] || {},
+            wallet: wallet?.[0] || { balance: 0 },
           };
         })
       );
