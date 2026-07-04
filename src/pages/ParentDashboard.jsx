@@ -159,7 +159,7 @@ export default function ParentDashboard() {
 
       const relationships = await base44.entities.ParentChildRelationship.filter({
         parent_id: u.id,
-        status: "active",
+        status: ["active", "inactive"],
       });
 
       const studentIds = relationships.map(r => r.child_id);
@@ -235,7 +235,7 @@ export default function ParentDashboard() {
       const rel = await base44.entities.ParentChildRelationship.filter({
         parent_id: user.id,
         child_id: childId,
-        status: "active",
+        status: ["active", "inactive"],
       });
       if (rel?.[0]) {
         await base44.entities.ParentChildRelationship.update(rel[0].id, { status: "inactive" });
