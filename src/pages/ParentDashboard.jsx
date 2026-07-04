@@ -11,7 +11,11 @@ import {
   Zap,
   Check,
   X,
-  Gift
+  Gift,
+  MapPin,
+  Wind,
+  CloudRain,
+  Clock
 } from "lucide-react";
 import { getDisplayName } from "@/lib/utils"; 
 import { useToast } from "@/components/ui/use-toast";
@@ -30,17 +34,26 @@ const calculateAge = (birthDate) => {
   return age;
 };
 
-// ---------------- WEATHER ----------------
+// ---------------- WEATHER HELPERS ----------------
 const parseWmoCode = (code) => {
   const map = {
-    0: { status: "Sunny", emoji: "☀️" },
-    1: { status: "Clear", emoji: "🌤️" },
-    2: { status: "Cloudy", emoji: "⛅" },
-    3: { status: "Overcast", emoji: "☁️" },
-    61: { status: "Rain", emoji: "🌧️" },
-    95: { status: "Thunderstorm", emoji: "⛈️" },
+    0: { status: "Cerah Besari", emoji: "☀️" },
+    1: { status: "Cerah Berawan", emoji: "🌤️" },
+    2: { status: "Berawan", emoji: "⛅" },
+    3: { status: "Mendung", emoji: "☁️" },
+    45: { status: "Kabus", emoji: "🌫️" },
+    48: { status: "Kabus Berair", emoji: "🌫️" },
+    51: { status: "Gerimis Ringan", emoji: "🌧️" },
+    53: { status: "Gerimis", emoji: "🌧️" },
+    55: { status: "Gerimis Lebat", emoji: "🌧️" },
+    61: { status: "Hujan Ringan", emoji: "🌧️" },
+    63: { status: "Hujan", emoji: "🌧️" },
+    65: { status: "Hujan Lebat", emoji: "🌧️" },
+    80: { status: "Hujan Mandi Ringan", emoji: "🌧️" },
+    81: { status: "Hujan Mandi", emoji: "🌧️" },
+    95: { status: "Ribut Petir", emoji: "⛈️" },
   };
-  return map[code] || { status: "Clear", emoji: "☀️" };
+  return map[code] || { status: "Cerah", emoji: "☀️" };
 };
 
 // ---------------- 3D REALISTIC LIVE DRAGON AVATAR ----------------
@@ -147,7 +160,7 @@ function Realistic3DAvatar({ level }) {
 // ---------------- INDIVIDUAL CHILD CARD ----------------
 function ChildCard({ child }) {
   return (
-    <Card className="p-6 space-y-4 hover:shadow-md transition-shadow duration-200 border border-slate-100 relative overflow-hidden">
+    <Card className="p-6 space-y-4 hover:shadow-md transition-shadow duration-200 border border-slate-100 relative overflow-hidden bg-white">
       <div className="flex items-start justify-between">
         <div className="flex items-center space-x-4">
           <Realistic3DAvatar level={child.progress?.level} />
@@ -190,10 +203,15 @@ export default function ParentDashboard() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Status Cuaca Lengkap
   const [weather, setWeather] = useState({
     temp: "--",
-    status: "Loading...",
+    status: "Mencari isyarat langit...",
     emoji: "☀️",
+    location: "Lokasi tidak dikesan",
+    windSpeed: "0",
+    rainProbability: "0",
+    hourlyForecast: [] // Menampung ramalan 5 jam kehadapan
   });
 
   // ---------------- LOAD DATA ----------------
@@ -273,25 +291,68 @@ export default function ParentDashboard() {
     }
   };
 
-  // ---------------- WEATHER ----------------
+  // ---------------- WEATHER & GEOLOCATION DATA ----------------
   const fetchWeather = useCallback(() => {
     if (!navigator.geolocation) return;
 
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const { latitude, longitude } = pos.coords;
 
-      const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
-      );
+      try {
+        // 1. Dapatkan nama kawasan/lokasi (Reverse Geocoding Percuma)
+        let locName = "Kawasan Setempat";
+        try {
+          const geoRes = await fetch(`https://api.bigdatacloud.com/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ms`);
+          const geoData = await geoRes.json();
+          locName = geoData.principalSubdivision || geoData.city || geoData.locality || "Kawasan Setempat";
+        } catch (e) {
+          console.error("Gagal menjejak nama bandar:", e);
+        }
 
-      const data = await res.json();
-      const meta = parseWmoCode(data.current_weather.weathercode);
+        // 2. Dapatkan data cuaca semasa & ramalan setiap jam (hourly)
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,weathercode,windspeed_10m,precipitation_probability`
+        );
+        const data = await res.json();
+        const current = data.current_weather;
+        const meta = parseWmoCode(current.weathercode);
 
-      setWeather({
-        temp: `${Math.round(data.current_weather.temperature)}°C`,
-        status: meta.status,
-        emoji: meta.emoji,
-      });
+        // 3. Proses ramalan untuk 5 jam seterusnya
+        const currentHourIndex = new Date().getHours();
+        const hourlyList = [];
+
+        // Ambil 5 jam berikutnya dari struktur array hourly Open-Meteo
+        for (let i = 1; i <= 5; i++) {
+          const index = currentHourIndex + i;
+          if (data.hourly && data.hourly.time[index]) {
+            const timeString = moment(data.hourly.time[index]).format("h A");
+            const wCode = data.hourly.weathercode[index];
+            const hourMeta = parseWmoCode(wCode);
+
+            hourlyList.push({
+              time: timeString,
+              temp: `${Math.round(data.hourly.temperature_2m[index])}°C`,
+              emoji: hourMeta.emoji,
+              status: hourMeta.status,
+              wind: `${Math.round(data.hourly.windspeed_10m[index])} km/h`,
+              rain: `${data.hourly.precipitation_probability[index]}%`
+            });
+          }
+        }
+
+        setWeather({
+          temp: `${Math.round(current.temperature)}°C`,
+          status: meta.status,
+          emoji: meta.emoji,
+          location: locName,
+          windSpeed: `${Math.round(current.windspeed)} km/h`,
+          rainProbability: data.hourly ? `${data.hourly.precipitation_probability[currentHourIndex]}%` : "--%",
+          hourlyForecast: hourlyList
+        });
+
+      } catch (err) {
+        console.error("Gagal memproses data cuaca:", err);
+      }
     });
   }, []);
 
@@ -309,14 +370,62 @@ export default function ParentDashboard() {
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
 
-      {/* WEATHER */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 flex justify-between items-center shadow-xs">
-        <div>
-          <div className="text-2xl font-black text-slate-700">{weather.temp}</div>
-          <div className="text-xs text-muted-foreground font-medium mt-0.5">{weather.status}</div>
+      {/* DYNAMIC METEO WEATHER BLOCK */}
+      <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl shadow-md border-0 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+        
+        {/* Atas: Semasa */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-4 gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-sky-400 font-bold text-sm tracking-wide">
+              <MapPin className="w-4 h-4 animate-pulse" />
+              <span>{weather.location}</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black">{weather.temp}</span>
+              <span className="text-sm font-semibold text-slate-300">| {weather.status}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 bg-white/5 px-4 py-2 rounded-xl border border-white/5 w-full sm:w-auto justify-around">
+            <div className="text-center">
+              <div className="text-slate-400 text-[10px] uppercase font-bold flex items-center justify-center gap-1">
+                <Wind className="w-3 h-3 text-teal-400" /> Angin
+              </div>
+              <div className="text-xs font-black mt-0.5">{weather.windSpeed}</div>
+            </div>
+            <div className="h-6 w-px bg-white/10" />
+            <div className="text-center">
+              <div className="text-slate-400 text-[10px] uppercase font-bold flex items-center justify-center gap-1">
+                <CloudRain className="w-3 h-3 text-sky-400" /> Hujan
+              </div>
+              <div className="text-xs font-black mt-0.5">{weather.rainProbability}</div>
+            </div>
+            <div className="text-4xl select-none hidden sm:block ml-2">{weather.emoji}</div>
+          </div>
         </div>
-        <div className="text-3xl select-none">{weather.emoji}</div>
-      </div>
+
+        {/* Bawah: Ramalan 5 Jam Seterusnya */}
+        <div className="pt-4 space-y-2">
+          <div className="flex items-center gap-1 text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+            <Clock className="w-3.5 h-3.5 text-purple-400" />
+            <span>Ramalan 5 Jam Seterusnya</span>
+          </div>
+
+          <div className="grid grid-cols-5 gap-2 pt-1 overflow-x-auto">
+            {weather.hourlyForecast.map((hour, idx) => (
+              <div key={idx} className="bg-white/5 rounded-xl p-2.5 text-center min-w-[75px] border border-white/[0.03] space-y-1">
+                <p className="text-[10px] text-slate-400 font-bold">{hour.time}</p>
+                <p className="text-lg select-none py-0.5">{hour.emoji}</p>
+                <p className="text-xs font-black">{hour.temp}</p>
+                <div className="text-[9px] text-slate-300/80 flex items-center justify-center gap-0.5 font-medium">
+                  <span>💧 {hour.rain}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
