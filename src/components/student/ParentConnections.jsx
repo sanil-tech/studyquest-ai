@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, X, Shield, CheckCircle, Loader2 } from "lucide-react";
+import { Users, X, Shield, CheckCircle, Loader2, Heart, Sparkles, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function ParentConnections({ user }) {
@@ -24,7 +23,7 @@ export default function ParentConnections({ user }) {
     try {
       setLoading(true);
 
-      // 1. Fetch relationships tied to this child from the single source of truth table
+      // 1. Ambil rekod hubungan daripada single source of truth table
       const links = await base44.entities.ParentChildRelationship.filter({
         child_id: user.id
       });
@@ -32,7 +31,7 @@ export default function ParentConnections({ user }) {
       const activeLinks = links.filter((l) => l.status === "active");
       const pendingLinks = links.filter((l) => l.status === "pending");
 
-      // Helper function to hydrate full parent profile data from User collections
+      // Fungsi bantuan untuk dapatkan profil penuh maklumat User (Ibu bapa)
       const hydrateParents = async (relationshipRecords) => {
         return Promise.all(
           relationshipRecords.map(async (rel) => {
@@ -42,11 +41,11 @@ export default function ParentConnections({ user }) {
               return {
                 ...parentUsers[0],
                 relationshipId: rel.id,
-                relationship: rel.relationship || "parent",
+                relationship: rel.relationship || "Ibu Bapa",
                 linked_at: rel.linked_at
               };
             } catch (err) {
-              console.error(`Error loading parent info for ID: ${rel.parent_id}`, err);
+              console.error(`Gagal memuatkan info ibu bapa untuk ID: ${rel.parent_id}`, err);
               return null;
             }
           })
@@ -61,7 +60,7 @@ export default function ParentConnections({ user }) {
       setParents(hydratedActive.filter((p) => p !== null));
       setPendingRequests(hydratedPending.filter((p) => p !== null));
     } catch (err) {
-      console.error("Failed to load parent connections:", err);
+      console.error("Gagal memuatkan pautan ibu bapa:", err);
     } finally {
       setLoading(false);
     }
@@ -70,26 +69,26 @@ export default function ParentConnections({ user }) {
   const handleAction = async (relationshipId, action, parentName) => {
     setProcessingId(relationshipId);
     try {
-      // Direct call to your backend Deno Edge Function
+      // Panggilan terus ke Deno Edge Function backend anda
       const response = await base44.functions.respondToLinkRequest({
         relationship_id: relationshipId,
-        action: action // 'approve' or 'reject'
+        action: action // 'approve' atau 'reject'
       });
 
       if (response?.error) throw new Error(response.error);
 
       toast({
-        title: action === "approve" ? "Parent Linked! 🎉" : "Request Declined",
+        title: action === "approve" ? "Pautan Berjaya! 🎉" : "Permintaan Ditolak",
         description: action === "approve" 
-          ? `${parentName} can now view your learning tracks and progress dashboards.`
-          : "The link request was removed."
+          ? `${parentName} kini boleh melihat trek pembelajaran dan papan pemuka progres anda.`
+          : "Permintaan pautan akaun telah dialih keluar."
       });
 
       await loadConnections();
     } catch (err) {
       toast({
-        title: "Action Failed",
-        description: err.message || "Failed to route process state.",
+        title: "Tindakan Gagal",
+        description: err.message || "Gagal memproses status pautan.",
         variant: "destructive"
       });
     } finally {
@@ -98,27 +97,26 @@ export default function ParentConnections({ user }) {
   };
 
   const handleRemoveParent = async (relationshipId, parentName) => {
-    if (!confirm(`Are you sure you want to remove ${parentName}? They will lose access to your progression logs.`)) {
+    if (!confirm(`Adakah anda pasti mahu mengeluarkan ${parentName}? Mereka tidak akan dapat melihat log perkembangan anda lagi.`)) {
       return;
     }
 
     setProcessingId(relationshipId);
     try {
-      // Set status to inactive directly or call endpoint depending on preference
       await base44.entities.ParentChildRelationship.update(relationshipId, {
         status: "inactive"
       });
 
       toast({
-        title: "Parent Removed",
-        description: `${parentName} is no longer linked to your account.`,
+        title: "Pautan Diputuskan",
+        description: `${parentName} tidak lagi terhubung dengan akaun anda.`,
       });
 
       await loadConnections();
     } catch (err) {
       toast({
-        title: "Removal Failed",
-        description: err.message || "Please try again.",
+        title: "Gagal Mengeluarkan",
+        description: err.message || "Sila cuba lagi sebentar lagi.",
         variant: "destructive",
       });
     } finally {
@@ -128,129 +126,151 @@ export default function ParentConnections({ user }) {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-muted rounded w-1/3" />
-            <div className="h-20 bg-muted rounded" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-12 bg-white rounded-[2rem] border-4 border-slate-100 shadow-xl">
+        <Sparkles className="w-8 h-8 text-indigo-500 animate-spin mb-3" style={{ animationDuration: '3s' }} />
+        <p className="text-sm font-medium text-slate-500 animate-pulse">Menyemak rangkaian keluarga...</p>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Users className="w-5 h-5 text-primary" />
-          Parent Connections
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="bg-white rounded-[2rem] p-6 sm:p-8 border-4 border-slate-100 shadow-xl relative overflow-hidden">
+      {/* Hiasan Latar Belakang */}
+      <Users className="absolute -top-6 -right-6 w-32 h-32 text-indigo-50/40 rotate-12 pointer-events-none" />
+
+      <div className="relative z-10 space-y-6">
         
-        {/* ========================================= */}
-        {/* PENDING APPROVAL REQUESTS SECTION         */}
-        {/* ========================================= */}
-        {pendingRequests.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-amber-600">Pending Requests</h3>
-            {pendingRequests.map((request) => (
-              <motion.div
-                key={request.relationshipId}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between"
-              >
-                <div>
-                  <p className="font-medium text-amber-900">
-                    {request.full_name || request.nickname || request.email}
-                  </p>
-                  <p className="text-xs text-amber-700">Wants to link to your account</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-amber-300 text-amber-800 hover:bg-amber-100"
-                    disabled={processingId !== null}
-                    onClick={() => handleAction(request.relationshipId, "reject", request.full_name || request.email)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-amber-600 hover:bg-amber-700 text-white"
-                    disabled={processingId !== null}
-                    onClick={() => handleAction(request.relationshipId, "approve", request.full_name || request.email)}
-                  >
-                    {processingId === request.relationshipId ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                    )}
-                    Approve
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
+        {/* Header Utama */}
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-indigo-100 rounded-2xl">
+            <Users className="w-6 h-6 text-indigo-600" />
           </div>
-        )}
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Pautan Ibu Bapa 👨‍👩‍👧‍👦</h2>
+            <p className="text-sm text-slate-500">Uruskan akaun penjaga yang boleh melihat perkembangan quest anda.</p>
+          </div>
+        </div>
 
         {/* ========================================= */}
-        {/* ACTIVE CONFIRMED CONNECTIONS SECTION     */}
+        // {/* SEKSYEN PERMINTAAN MENUNGGU (PENDING)    */}
+        {/* ========================================= */}
+        <AnimatePresence>
+          {pendingRequests.length > 0 && (
+            <div className="space-y-3 bg-amber-50/50 border-2 border-amber-100 p-4 rounded-2xl">
+              <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> Permintaan Menunggu Kelulusan ({pendingRequests.length})
+              </h3>
+              <div className="space-y-2">
+                {pendingRequests.map((request) => (
+                  <motion.div
+                    key={request.relationshipId}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="bg-white border-2 border-amber-200/70 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+                  >
+                    <div>
+                      <p className="font-extrabold text-slate-800">
+                        {request.full_name || request.nickname || request.email}
+                      </p>
+                      <p className="text-xs text-amber-600 font-medium">Mahu memautkan akaun penjaga ke profil anda</p>
+                    </div>
+                    
+                    <div className="flex gap-2 self-end sm:self-auto">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 rounded-lg border-b-4 border-slate-300 active:border-b-0 active:translate-y-0.5 text-slate-600 bg-white hover:bg-slate-50 transition-all px-3"
+                        disabled={processingId !== null}
+                        onClick={() => handleAction(request.relationshipId, "reject", request.full_name || request.email)}
+                      >
+                        <X className="w-4 h-4 mr-1 text-rose-500" /> Tolak
+                      </Button>
+                      
+                      <Button
+                        size="sm"
+                        className="h-9 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg border-b-4 border-emerald-700 active:border-b-0 active:translate-y-0.5 transition-all px-3"
+                        disabled={processingId !== null}
+                        onClick={() => handleAction(request.relationshipId, "approve", request.full_name || request.email)}
+                      >
+                        {processingId === request.relationshipId ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                        )}
+                        Terima
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* ========================================= */}
+        {/* SEKSYEN SENARAI IBU BAPA AKTIF (ACTIVE)  */}
         {/* ========================================= */}
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Linked Parents ({parents.length})
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Heart className="w-4 h-4 text-rose-400 fill-rose-400/10" /> Ibu Bapa Terhubung ({parents.length})
           </h3>
           
           {parents.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
-              <p className="text-sm">No parents linked yet</p>
-              <p className="text-xs mt-1">Share your Student ID or Link Code with your parents</p>
+            <div className="text-center py-8 bg-slate-50/60 border-2 border-dashed border-slate-200 rounded-2xl p-6">
+              <Users className="w-12 h-12 mx-auto mb-2 opacity-20 text-slate-500" />
+              <p className="text-sm font-bold text-slate-700">Tiada penjaga terhubung</p>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">
+                Kongsi ID Pelajar tetap atau Kod Pautan Segera anda untuk mula menghubungkan ahli keluarga anda.
+              </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid gap-3">
               {parents.map((parent) => (
                 <motion.div
                   key={parent.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="bg-primary/5 border border-primary/10 rounded-lg p-4 flex items-center justify-between"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-slate-50/80 border-2 border-slate-100 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-2xs hover:border-indigo-100 transition-all"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Bekas Avatar */}
+                    <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 shadow-3xs overflow-hidden">
                       {parent.profile_picture_url ? (
                         <img
                           src={parent.profile_picture_url}
                           alt={parent.full_name}
-                          className="w-full h-full object-cover rounded-full"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <span className="text-xl">{parent.avatar_emoji || "👤"}</span>
                       )}
                     </div>
-                    <div>
-                      <p className="font-medium">{parent.full_name || parent.nickname || parent.email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Linked {new Date(parent.linked_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}
+
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-slate-800 truncate leading-tight">
+                        {parent.full_name || parent.nickname || parent.email}
+                      </p>
+                      <p className="text-[11px] font-medium text-slate-400 mt-1">
+                        Terhubung pada {new Date(parent.linked_at).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' })}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs capitalize">
-                      <Shield className="w-3 h-3 mr-1" />
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-wider bg-white border-slate-200 text-slate-600 px-2 py-0.5 rounded-md shadow-3xs flex items-center gap-1">
+                      <Shield className="w-3 h-3 text-indigo-500 fill-indigo-500/10" />
                       {parent.relationship}
                     </Badge>
+                    
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="h-8 w-8 p-0 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50/50 active:scale-95 transition-all"
                       disabled={processingId !== null}
                       onClick={() => handleRemoveParent(parent.relationshipId, parent.full_name || parent.email)}
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-4 h-4 stroke-[2.5]" />
                     </Button>
                   </div>
                 </motion.div>
@@ -258,7 +278,8 @@ export default function ParentConnections({ user }) {
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+
+      </div>
+    </div>
   );
 }
