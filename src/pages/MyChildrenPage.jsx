@@ -284,15 +284,38 @@ export default function MyChildrenPage() {
                         </div>
                       </div>
 
-                      {/* Parent Supervision Navigation System */}
-                      <div className="pt-2 border-t border-border/40 flex flex-col sm:flex-row items-center gap-2">
-                        <Link to="/parent" className="w-full sm:flex-1">
-                          <Button variant="default" size="sm" className="w-full h-10 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold shadow-xs gap-2 group">
-                            <Eye className="w-4 h-4" />
-                            Monitor Analytics
-                            <ArrowRight className="w-3.5 h-3.5 ml-auto opacity-60 group-hover:translate-x-0.5 transition-transform" />
-                          </Button>
-                        </Link>
+                     {/* Parent Supervision Navigation System */}
+<div className="pt-2 border-t border-border/40 flex flex-col sm:flex-row items-center gap-2">
+  <Link to="/parent" className="w-full sm:flex-1">
+    <Button variant="default" size="sm" className="w-full h-10 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold shadow-xs gap-2 group">
+      <Eye className="w-4 h-4" />
+      Monitor Analytics
+      <ArrowRight className="w-3.5 h-3.5 ml-auto opacity-60 group-hover:translate-x-0.5 transition-transform" />
+    </Button>
+  </Link>
+  
+  <div className="flex items-center gap-2 w-full sm:w-auto">
+    {/* FIXED: Dynamic navigation link passing the specific child.id to the update page */}
+    <Link to={`/parent/children/${child.id}`} className="flex-1 sm:flex-initial">
+      <Button variant="outline" size="sm" className="w-full h-10 font-semibold px-3 text-muted-foreground hover:text-foreground shadow-xs gap-2">
+        <Settings className="w-4 h-4" />
+        <span>Update Profile</span>
+      </Button>
+    </Link>
+
+    <Button
+      variant="outline"
+      size="sm"
+      className="flex-1 sm:flex-initial h-10 font-semibold px-3 text-muted-foreground hover:text-foreground shadow-xs gap-2"
+      onClick={() => {
+        setSelectedChild(child);
+        setShowCredentialManager(true);
+      }}
+      title="Manage Passwords & Credentials"
+    >
+      <Key className="w-4 h-4" />
+    </Button>
+  </div>
                         
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                           <Link to={`/parent/children/${child.id}`} className="flex-1 sm:flex-initial" title="Configure Core Profiles">
