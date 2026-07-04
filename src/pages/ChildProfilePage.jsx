@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { User, Check, X, Clock, ShieldCheck, Sparkles, Heart } from "lucide-react";
+import { User, Check, X, Clock, ShieldCheck, Sparkles, Heart, Key, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -11,6 +12,10 @@ export default function StudentParentConnections({ studentId }) {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  
+  // State baru untuk Kod Pautan (Link Code)
+  const [linkCode, setLinkCode] = useState("");
+  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
 
   useEffect(() => {
     if (studentId) {
@@ -33,7 +38,6 @@ export default function StudentParentConnections({ studentId }) {
         })
       ]);
 
-      // Ambil nama profil ibu bapa untuk sambungan yang aktif
       const enhancedActiveData = await Promise.all(
         (activeData || []).map(async (conn) => {
           try {
@@ -79,7 +83,6 @@ export default function StudentParentConnections({ studentId }) {
           description: "Anda telah menolak permintaan pautan ini.",
         });
       }
-
       await loadConnections();
     } catch (err) {
       toast({
@@ -89,6 +92,48 @@ export default function StudentParentConnections({ studentId }) {
       });
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  // Fungsi baru untuk menghantar Kod Pautan ke Backend (Method 2)
+  const handleLinkCodeSubmit = async (e) => {
+    e.preventDefault();
+    if (!linkCode.trim()) return;
+
+    setIsSubmittingCode(true);
+    try {
+      // NOTA: Gantikan "/api/parent-link" dengan URL laluan Edge Function Deno anda
+      const res = await fetch('/api/parent-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'link_code',
+          link_code: linkCode.trim()
+        })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Ralat tidak diketahui.");
+      }
+
+      toast({
+        title: "Berjaya! 🎉",
+        description: "Kod sah! Akaun anda telah berjaya disambungkan.",
+      });
+      
+      setLinkCode(""); // Kosongkan input selepas berjaya
+      await loadConnections(); // Muat semula senarai aktif
+
+    } catch (err) {
+      toast({
+        title: "Oh tidak! 😢",
+        description: err.message || "Kod tidak sah atau telah tamat tempoh.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmittingCode(false);
     }
   };
 
@@ -103,11 +148,10 @@ export default function StudentParentConnections({ studentId }) {
 
   return (
     <div className="bg-white rounded-[2rem] p-6 sm:p-8 border-4 border-slate-100 shadow-xl relative overflow-hidden">
-      {/* Dekorasi Kad */}
       <Heart className="absolute -top-6 -right-6 w-32 h-32 text-pink-50/50 rotate-12" />
 
       <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center gap-3 mb-6">
           <div className="p-3 bg-cyan-100 rounded-2xl">
             <ShieldCheck className="w-6 h-6 text-cyan-600" />
           </div>
@@ -117,7 +161,35 @@ export default function StudentParentConnections({ studentId }) {
           </div>
         </div>
 
-        <div className="mt-8 space-y-8">
+        {/* UI BARU: Masukkan Kod Pautan (Link Code) */}
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-5 rounded-2xl border-2 border-amber-200 mb-8 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <Key className="w-5 h-5 text-amber-600" />
+            <h3 className="font-bold text-amber-900 text-sm">Ada Kod Pautan dari Ibu Bapa?</h3>
+          </div>
+          <p className="text-xs text-amber-700 mb-4 font-medium">
+            Masukkan kod rahsia yang ibu bapa anda berikan untuk terus berhubung!
+          </p>
+          
+          <form onSubmit={handleLinkCodeSubmit} className="flex gap-2">
+            <Input 
+              placeholder="Contoh: ABCD-1234" 
+              value={linkCode}
+              onChange={(e) => setLinkCode(e.target.value)}
+              className="bg-white border-amber-300 focus-visible:ring-amber-500 rounded-xl h-11 text-amber-950 font-medium"
+              disabled={isSubmittingCode}
+            />
+            <Button 
+              type="submit" 
+              disabled={!linkCode.trim() || isSubmittingCode}
+              className="h-11 px-6 bg-amber-500 hover:bg-amber-600 text-white rounded-xl shadow-md border-b-4 border-amber-700 active:border-b-0 active:translate-y-1 transition-all"
+            >
+              {isSubmittingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sambung!"}
+            </Button>
+          </form>
+        </div>
+
+        <div className="space-y-8">
           
           {/* Sesi Permintaan Menunggu (Pending) */}
           <AnimatePresence>
