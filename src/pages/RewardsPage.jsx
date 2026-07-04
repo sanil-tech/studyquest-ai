@@ -19,33 +19,41 @@ export default function RewardsPage() {
     const u = await base44.auth.me();
     setUser(u);
     
-    // 1. Fetch rewards assigned to this parent
+    // 1. Fetch parent's rewards
     const rws = await base44.entities.Reward.filter({ parent_id: u.id });
     setRewards(rws);
     
-    // 2. Fetch link requests
-    const allReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
+    // 2. WIDEN THE NET: Fetch using BOTH id and email to bypass casing bugs
+    const [reqsByEmail, reqsById] = await Promise.all([
+      base44.entities.LinkRequest.filter({ parent_email: u.email }),
+      base44.entities.LinkRequest.filter({ parent_id: u.id }) // Try looking up by parent ID as well
+    ]);
+
+    // Combine both results into a single array and remove duplicates by record ID
+    const combinedReqs = [...reqsByEmail, ...reqsById];
+    const uniqueReqs = Array.from(new Map(combinedReqs.map(item => [item.id, item])).values());
     
-    // DEBUG LOG: Open your browser inspect console to see exactly what fields exist!
-    console.log("Raw Link Requests Found:", allReqs);
+    console.log("Found unique link requests:", uniqueReqs);
     
-    // 3. Fallback filtering: check for approved status and catch alternative ID fields
-    const approvedLinks = allReqs.filter(r => {
-      const isApproved = r.status === "approved";
-      // Ensure we have SOME kind of identifier to tie the reward to
-      const hasIdentifier = r.student_id || r.user_id || r.id; 
-      return isApproved && hasIdentifier;
+    // 3. Keep it flexible: accept any record marked 'approved'
+    const approvedLinks = uniqueReqs.filter(r => {
+      const statusStr = String(r.status || "").toLowerCase();
+      return statusStr === "approved";
     });
     
-    setChildren(approvedLinks.map(r => ({ 
-      // Fallback matrix: uses student_id, user_id, or the row id if nothing else exists
+    // 4. Map the student objects securely
+    const mappedChildren = approvedLinks.map(r => ({ 
       id: r.student_id || r.user_id || r.id, 
-      full_name: r.student_name || r.student_username || `Profile (${r.student_email?.split("@")[0]})`, 
-      email: r.student_email || "",
+      full_name: r.student_name || r.student_username || r.child_name || `Child Profile`, 
+      email: r.student_email || r.child_email || "",
       username: r.student_username || r.username || "" 
-    })));
+    }));
+
+    console.log("Successfully mapped children for dropdown:", mappedChildren);
+    setChildren(mappedChildren);
+
   } catch (err) {
-    console.error("Error loading parent reward data:", err);
+    console.error("Error loading children profiles:", err);
   } finally {
     setLoading(false);
   }
