@@ -31,12 +31,14 @@ export default function ParentRewards() {
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
       
-      // Fetch link requests (capturing all states: approved, pending, etc.)
+      // Fetch link requests
       const allReqs = await base44.entities.LinkRequest.filter({ parent_email: u.email });
-      const validLinks = allReqs.filter(r => r.status === "approved" || r.status === "pending" || !r.status);
       
-      setChildren(validLinks.map(r => ({ 
-        id: r.student_id || "", 
+      // FIX (Option 1): Only display fully approved profiles that have an established student_id
+      const approvedLinks = allReqs.filter(r => r.status === "approved" && r.student_id);
+      
+      setChildren(approvedLinks.map(r => ({ 
+        id: r.student_id, 
         full_name: r.student_name || r.student_username || `Profile (${r.student_email?.split("@")[0]})`, 
         email: r.student_email || "",
         username: r.student_username || r.username || "" 
@@ -56,7 +58,7 @@ export default function ParentRewards() {
       title: "", 
       coin_cost: "", 
       icon: "🎁", 
-      student_id: children.length > 1 ? "all" : (children[0]?.id || children[0]?.email || children[0]?.username || "") 
+      student_id: children.length > 1 ? "all" : (children[0]?.id || "") 
     });
     setDialogOpen(true);
   };
@@ -73,14 +75,12 @@ export default function ParentRewards() {
     
     try {
       if (editingReward) {
-        // Find matching child configuration details
-        const selectedChild = children.find(c => c.id === form.student_id || c.email === form.student_id || c.username === form.student_id);
+        const selectedChild = children.find(c => c.id === form.student_id);
         const data = {
           title: form.title,
           coin_cost: Number(form.coin_cost),
           icon: form.icon,
-          // Fallback mechanism if profile is stuck in pending state
-          student_id: form.student_id || selectedChild?.id || selectedChild?.email || selectedChild?.username,
+          student_id: form.student_id,
           student_email: selectedChild ? selectedChild.email : "",
           student_username: selectedChild ? selectedChild.username : "",
           username: selectedChild ? selectedChild.username : "",
@@ -92,15 +92,14 @@ export default function ParentRewards() {
         toast({ title: "Reward updated! ✨" });
       } else {
         if (form.student_id === "all") {
-          // Clone complete payloads across all identifier paradigms so any child query matches
+          // Loop through children and reliably use their verified IDs
           await Promise.all(
             children.map(child => {
-              const targetedId = child.id || child.email || child.username;
               return base44.entities.Reward.create({
                 title: form.title,
                 coin_cost: Number(form.coin_cost),
                 icon: form.icon,
-                student_id: targetedId,
+                student_id: child.id,
                 student_email: child.email, 
                 student_username: child.username, 
                 username: child.username, 
@@ -112,14 +111,13 @@ export default function ParentRewards() {
           );
           toast({ title: "Reward published to all children! 🎁🎉" });
         } else {
-          const selectedChild = children.find(c => c.id === form.student_id || c.email === form.student_id || c.username === form.student_id);
-          const targetedId = form.student_id || selectedChild?.id || selectedChild?.email || selectedChild?.username;
+          const selectedChild = children.find(c => c.id === form.student_id);
           
           await base44.entities.Reward.create({
             title: form.title,
             coin_cost: Number(form.coin_cost),
             icon: form.icon,
-            student_id: targetedId,
+            student_id: form.student_id,
             student_email: selectedChild ? selectedChild.email : "",
             student_username: selectedChild ? selectedChild.username : "",
             username: selectedChild ? selectedChild.username : "", 
@@ -195,9 +193,9 @@ export default function ParentRewards() {
       {children.length === 0 && (
         <div className="text-center py-12 bg-white rounded-3xl border border-slate-200 border-dashed max-w-md mx-auto">
           <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="font-bold text-slate-700">No Linked Accounts</h3>
+          <h3 className="font-bold text-slate-700">No Approved Linked Accounts</h3>
           <p className="text-slate-400 text-xs px-6 mt-1">
-            You must finish linking a child's account on your main dashboard before setting up custom incentives.
+            You must finish linking a child's account and ensure it is fully approved on your main dashboard before setting up custom incentives.
           </p>
         </div>
       )}
@@ -218,13 +216,7 @@ export default function ParentRewards() {
         <div className="grid gap-3 sm:grid-cols-2">
           <AnimatePresence>
             {rewards.map((reward, i) => {
-              const assignedChild = children.find(c => 
-                (c.id && c.id === reward.student_id) || 
-                (c.email && c.email === reward.student_email) || 
-                (c.username && c.username === reward.student_username) ||
-                (c.email && c.email === reward.student_id) ||
-                (c.username && c.username === reward.student_id)
-              );
+              const assignedChild = children.find(c => c.id === reward.student_id);
               const isActive = reward.status === "active";
 
               return (
@@ -378,14 +370,11 @@ export default function ParentRewards() {
                         ✨ All Children
                       </SelectItem>
                     )}
-                    {children.map(c => {
-                      const selectionValue = c.id || c.email || c.username;
-                      return (
-                        <SelectItem key={selectionValue} value={selectionValue} className="rounded-lg font-medium text-slate-700">
-                          {c.full_name}
-                        </SelectItem>
-                      );
-                    })}
+                    {children.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="rounded-lg font-medium text-slate-700">
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
