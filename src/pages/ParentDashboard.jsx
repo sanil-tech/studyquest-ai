@@ -10,11 +10,12 @@ import {
   Flame,
   Award,
   Sparkles,
-  Zap
+  Zap,
+  Bot
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import moment from "moment";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -41,58 +42,113 @@ const parseWmoCode = (code) => {
   return map[code] || { status: "Clear", emoji: "☀️" };
 };
 
-// ---------------- DYNAMIC 3D-STYLE AVATAR COMPONENT ----------------
-function InteractiveAvatar({ level }) {
+// ---------------- LIVE ANIMATED AVATAR COMPONENT ----------------
+function LiveAvatar({ level }) {
   const lvl = level || 1;
 
   const getAvatarTheme = (l) => {
     if (l >= 15) {
       return {
-        bg: "bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500",
-        aura: "animate-ping border-pink-400 opacity-40",
-        badgeColor: "bg-pink-500 text-white border-pink-300",
+        bg: "bg-gradient-to-br from-violet-600 via-fuchsia-600 to-pink-500",
+        auraColor: "border-pink-300",
         title: "Mythic Hero",
-        accessory: "👑"
+        accessory: "👑",
+        model: "🧙‍♂️"
       };
     } else if (l >= 6) {
       return {
-        bg: "bg-gradient-to-br from-cyan-500 via-blue-500 to-indigo-600",
-        aura: "animate-pulse border-cyan-400 opacity-60",
-        badgeColor: "bg-cyan-500 text-white border-cyan-300",
+        bg: "bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-600",
+        auraColor: "border-cyan-200",
         title: "Adventurer",
-        accessory: "🛡️"
+        accessory: "🛡️",
+        model: "🧑‍🚀"
       };
     } else {
       return {
         bg: "bg-gradient-to-br from-amber-200 via-orange-300 to-rose-400",
-        aura: "border-amber-300 opacity-30",
-        badgeColor: "bg-amber-500 text-white border-amber-200",
+        auraColor: "border-amber-100",
         title: "Novice",
-        accessory: "🌱"
+        accessory: "🌱",
+        model: "👶"
       };
     }
   };
 
   const theme = getAvatarTheme(lvl);
 
-  return (
-    <div className="relative flex flex-col items-center justify-center p-2 flex-shrink-0">
-      <div className={`absolute w-24 h-24 rounded-full border-4 ${theme.aura}`} />
-      
-      <motion.div 
-        whileHover={{ scale: 1.1, rotate: 3 }}
-        className={`w-20 h-20 rounded-full ${theme.bg} shadow-lg border-2 border-white flex items-center justify-center relative overflow-hidden`}
-      >
-        <span className="text-4xl select-none filter drop-shadow-md">
-          {lvl >= 15 ? "🧙‍♂️" : lvl >= 6 ? "🧑‍🚀" : "👶"}
-        </span>
+  // Animation constants for reusable motion properties
+  const floatTransition = {
+    duration: 3,
+    repeat: Infinity,
+    ease: "easeInOut"
+  };
 
-        <div className="absolute top-1 right-1 text-xs">
-          {theme.accessory}
-        </div>
+  const auraPulseTransition = {
+    duration: 2.5,
+    repeat: Infinity,
+    ease: "easeInOut",
+    repeatType: "reverse"
+  };
+
+  const orbitTransition = {
+    duration: 5,
+    repeat: Infinity,
+    ease: "linear"
+  };
+
+  return (
+    <div className="relative flex flex-col items-center justify-center p-3 flex-shrink-0">
+      
+      {/* 1. LIVE AURA: Continuous pulse and rotation */}
+      <motion.div 
+        animate={{ 
+          scale: [1, 1.1, 1], 
+          opacity: [0.3, 0.6, 0.3],
+          rotate: [0, 360] 
+        }}
+        transition={{...auraPulseTransition, duration: 8}}
+        className={`absolute w-28 h-28 rounded-full border-2 border-dashed ${theme.auraColor}`} 
+      />
+      
+      {/* 2. INNER GLOW LAYER */}
+      <motion.div 
+        animate={{ scale: [1.1, 1, 1.1] }}
+        transition={auraPulseTransition}
+        className={`absolute w-24 h-24 rounded-full border-4 ${theme.auraColor} opacity-40`} 
+      />
+      
+      {/* 3. MAIN LIVE CHARACTER CONTAINER */}
+      <motion.div 
+        whileHover={{ scale: 1.15, rotate: 10 }}
+        className={`w-20 h-20 rounded-full ${theme.bg} shadow-lg border-2 border-white flex items-center justify-center relative overflow-hidden z-10`}
+      >
+        {/* CHARACTER MODEL: Has gentle floating animation */}
+        <motion.span 
+          animate={{ y: [-5, 5, -5] }}
+          transition={floatTransition}
+          className="text-5xl select-none filter drop-shadow-md relative z-20"
+        >
+          {theme.model}
+        </motion.span>
+
+        {/* ORBITING ACCESSORY: Continuously spins around the edge of the avatar */}
+        <motion.div 
+          animate={{ rotate: [-360, 0] }}
+          transition={orbitTransition}
+          className="absolute inset-0 z-10"
+        >
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={auraPulseTransition}
+            className="absolute top-1 right-1 text-base bg-white/60 p-1 rounded-full shadow-inner"
+          >
+            {theme.accessory}
+          </motion.div>
+        </motion.div>
       </motion.div>
 
-      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mt-2">
+      {/* Title Subtext */}
+      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mt-2 relative z-20">
         {theme.title}
       </span>
     </div>
@@ -108,7 +164,7 @@ function ChildCard({ child, onUnlink }) {
       <div className="flex items-start justify-between">
         
         <div className="flex items-center space-x-4">
-          <InteractiveAvatar level={currentLevel} />
+          <LiveAvatar level={currentLevel} />
           <div>
             {/* Reverted back to your original fallback rendering pattern here */}
             <h3 className="text-xl font-bold">
@@ -293,16 +349,25 @@ export default function ParentDashboard() {
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
 
       {/* HEADER SECTION WITH WEATHER */}
-      <div className="bg-gradient-to-r from-slate-50 to-white p-6 rounded-2xl border flex items-center justify-between shadow-sm">
-        <div>
-          <h1 className="text-2xl font-black text-gray-800">
-            Selamat Datang, {user?.full_name || "Ibu Bapa"} 👋
+      <div className="bg-gradient-to-r from-slate-50 to-white p-6 rounded-2xl border flex items-center justify-between shadow-sm relative overflow-hidden">
+        {/* Subtle live background effect for the header itself */}
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
+          transition={{ duration: 15, repeat: Infinity }}
+          className="absolute -top-10 -right-10 w-40 h-40 bg-purple-200 rounded-full blur-3xl z-0" 
+        />
+        
+        <div className="relative z-10">
+          <h1 className="text-2xl font-black text-gray-800 flex items-center gap-3">
+            <motion.span animate={{ rotate: [0, 20, 0] }} transition={{ duration: 0.5, delay: 1 }} className="origin-bottom-right select-none">👋</motion.span>
+            <span>Selamat Datang, {user?.full_name || "Ibu Bapa"}</span>
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             Berikut adalah ringkasan aktiviti dan pencapaian anak-anak hari ini.
           </p>
         </div>
-        <div className="bg-white px-4 py-2 rounded-xl border flex items-center gap-3 shadow-sm">
+        
+        <div className="bg-white px-4 py-2 rounded-xl border flex items-center gap-3 shadow-sm relative z-10">
           <div className="text-right">
             <div className="text-lg font-bold text-gray-700">{weather.temp}</div>
             <div className="text-xs text-gray-400 font-medium">{weather.status}</div>
@@ -350,19 +415,22 @@ export default function ParentDashboard() {
             </div>
           ) : (
             <div className="space-y-2">
-              {pendingRequests.map(r => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  key={r.id} 
-                  className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-sm font-medium text-amber-900 flex justify-between items-center"
-                >
-                  <span>{r.reward_title}</span>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-amber-200 rounded-full text-amber-700">
-                    Verify
-                  </span>
-                </motion.div>
-              ))}
+              <AnimatePresence>
+                {pendingRequests.map(r => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    key={r.id} 
+                    className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-sm font-medium text-amber-900 flex justify-between items-center group hover:bg-amber-100 transition-colors"
+                  >
+                    <span>{r.reward_title}</span>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-amber-200 rounded-full text-amber-700 group-hover:bg-amber-300 transition-colors">
+                      Verify
+                    </span>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </div>
