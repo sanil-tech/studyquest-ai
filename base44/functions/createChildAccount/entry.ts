@@ -1,5 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// Fungsi hashing wajib SAMA persis seperti di childLogin
+const hashPassword = (password) => {
+  return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
+};
+
 // Retry wrapper dengan exponential backoff untuk mengelakkan rate limits
 const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
   let lastError;
@@ -32,23 +37,39 @@ Deno.serve(async (req) => {
 
     const { childData } = await req.json();
     
-    // 2. Validasi Kritikal: Nama penuh & tarikh lahir wajib ada
+    // 2. Validasi Kritikal: Nama, Tarikh Lahir, Username & Password wajib ada
     if (!childData.full_name || !childData.full_name.trim() || !childData.date_of_birth) {
       return Response.json({ 
-        error: 'Nama penuh dan tarikh lahir diperlukan. Nama tidak boleh dibiarkan kosong.' 
+        error: 'Nama penuh dan tarikh lahir diperlukan.' 
       }, { status: 400 });
     }
 
-    // 3. CIPTA PENGGUNA (Status: inactive, Tiada password/student_id dijana lagi)
+    if (!childData.username || !childData.password) {
+      return Response.json({ 
+        error: 'Username dan Password diperlukan untuk pengaktifan akaun anak.' 
+      }, { status: 400 });
+    }
+
+    // Pembersihan akhir data kredensial di peringkat backend
+    const cleanUsername = childData.username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    const generatedHash = hashPassword(childData.password);
+
+    // Semakan awal jika username sudah diambil orang lain
+    const existingUser = await base44.asServiceRole.entities.User.filter({ username: cleanUsername });
+    if (existingUser && existingUser.length > 0) {
+      return Response.json({ error: `Username '${cleanUsername}' sudah diambil. Sila cuba nama lain.` }, { status: 400 });
+    }
+
+    // 3. CIPTA PENGGUNA (Status: active, dengan Kredensial Lengkap)
     const childUser = await retryWithBackoff(async () => {
       return await base44.asServiceRole.entities.User.create({
         full_name: childData.full_name.trim(),
         nickname: childData.nickname || childData.full_name.trim().split(' ')[0],
         email: `profile.${crypto.randomUUID().split('-')[0]}@studyquest.local`, // Email placeholder sementara
         app_role: 'student',
-        student_id: '', // Kosong kerana belum diaktifkan log masuk
-        username: null,
-        password_hash: '', // Tiada kata laluan buat masa ini
+        student_id: `SQ${Math.floor(10000 + Math.random() * 90000)}`, // Jana Student ID rawak (cth: SQ58312)
+        username: cleanUsername,      // MASUKKAN USERNAME
+        password_hash: generatedHash, // MASUKKAN HASH PASSWORD
         pin_hash: '',
         pin_enabled: false,
         login_method: 'password',
@@ -63,8 +84,8 @@ Deno.serve(async (req) => {
         profile_picture_url: childData.profile_picture_url || '',
         avatar_photo_url: childData.profile_picture_url || '',
         profile_completed: true,
-        is_child_account: true,
-        status: 'inactive', // Penanda aras profil belum diaktifkan kredensialnya
+        is_child_account: true,       // WAJIB TRUE untuk melepasi guard childLogin
+        status: 'active',             // SET ACTIVE TERUS
         linked_parent_id: parent.id,
         failed_login_attempts: 0,
         account_locked: false,
@@ -78,22 +99,22 @@ Deno.serve(async (req) => {
       });
     });
 
-    console.log(`[Langkah 1] Profil anak berjaya dicipta: ${childUser.id} (Status: Inactive)`);
+    console.log(`[Langkah 1] Profil & Kredensial anak berjaya dicipta: ${childUser.id} (Status: Active)`);
 
-    // 4. CIPTA HUBUNGAN (ParentChildRelationship terus 'active' kerana dicipta oleh ibu bapa sendiri)
+    // 4. CIPTA HUBUNGAN
     const relationship = await retryWithBackoff(async () => {
       return await base44.asServiceRole.entities.ParentChildRelationship.create({
         parent_id: parent.id,
         child_id: childUser.id,
         relationship: 'parent',
-        status: 'active', // Terus aktif bagi profil ciptaan baru
+        status: 'active',
         linked_at: new Date().toISOString(),
       });
     });
 
     console.log(`[Langkah 2] Hubungan berjaya dicipta: ${relationship.id}`);
 
-    // 5. CIPTA WALLET & PROGRESS (Asas untuk kegunaan sistem gamifikasi kelak)
+    // 5. CIPTA WALLET & PROGRESS
     await retryWithBackoff(async () => {
       await Promise.all([
         base44.asServiceRole.entities.Wallet.create({
@@ -130,9 +151,10 @@ Deno.serve(async (req) => {
       child: {
         id: childUser.id,
         full_name: childUser.full_name,
-        status: 'inactive'
+        username: childUser.username,
+        status: 'active'
       },
-      message: 'Profil anak berjaya didaftarkan. Anda boleh mengaktifkan akaun log masuk mereka pada bila-bila masa melalui dashboard.',
+      message: 'Akaun murid berjaya didaftarkan secara aktif. Anak anda kini boleh terus log masuk dengan username dan password yang dibina.',
     });
 
   } catch (error) {
