@@ -189,6 +189,8 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // 1. Validasi Input Tempatan (Frontend Guard)
     if (!childData.full_name || !childData.full_name.trim()) {
       toast({ title: "⚠️ Name Required", description: "Please enter your child's full name.", variant: "destructive" });
       return;
@@ -208,12 +210,17 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
 
     setLoading(true);
     try {
-      // Panggil cloud function untuk mendaftar profil pelajar baru beserta kelayakan log masuk
+      // 2. Dapatkan data Parent yang sedang log masuk aktif
+      const currentUser = await base44.auth.me();
+
+      // 3. Panggil cloud function untuk mendaftar profil pelajar baru beserta kelayakan log masuk
       const response = await base44.functions.invoke("createChildAccount", {
         childData: {
           ...childData,
           full_name: childData.full_name.trim(),
-          status: "active" // Diaktifkan terus kerana sudah mempunyai username & password
+          username: childData.username.trim().toLowerCase(),
+          password: childData.password, // Dihantar sebagai plain text, backend akan hash
+          parent_id: currentUser.id,    // Diperlukan oleh backend untuk pautan terus entiti
         },
       });
 
@@ -223,6 +230,7 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
           description: `${childData.full_name} can now log in using username "${childData.username}".`,
         });
 
+        // Reset borang ke bentuk asal selepas berjaya
         setChildData({
           full_name: "", nickname: "", username: "", password: "", date_of_birth: "", gender: "",
           school_name: "", education_level: "", grade_year: "",
