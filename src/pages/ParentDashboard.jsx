@@ -76,7 +76,6 @@ function LiveAvatar({ level }) {
 
   const theme = getAvatarTheme(lvl);
 
-  // Animation constants for reusable motion properties
   const floatTransition = {
     duration: 3,
     repeat: Infinity,
@@ -99,7 +98,7 @@ function LiveAvatar({ level }) {
   return (
     <div className="relative flex flex-col items-center justify-center p-3 flex-shrink-0">
       
-      {/* 1. LIVE AURA: Continuous pulse and rotation */}
+      {/* LIVE AURA: Continuous pulse and rotation */}
       <motion.div 
         animate={{ 
           scale: [1, 1.1, 1], 
@@ -110,14 +109,14 @@ function LiveAvatar({ level }) {
         className={`absolute w-28 h-28 rounded-full border-2 border-dashed ${theme.auraColor}`} 
       />
       
-      {/* 2. INNER GLOW LAYER */}
+      {/* INNER GLOW LAYER */}
       <motion.div 
         animate={{ scale: [1.1, 1, 1.1] }}
         transition={auraPulseTransition}
         className={`absolute w-24 h-24 rounded-full border-4 ${theme.auraColor} opacity-40`} 
       />
       
-      {/* 3. MAIN LIVE CHARACTER CONTAINER */}
+      {/* MAIN LIVE CHARACTER CONTAINER */}
       <motion.div 
         whileHover={{ scale: 1.15, rotate: 10 }}
         className={`w-20 h-20 rounded-full ${theme.bg} shadow-lg border-2 border-white flex items-center justify-center relative overflow-hidden z-10`}
@@ -131,7 +130,7 @@ function LiveAvatar({ level }) {
           {theme.model}
         </motion.span>
 
-        {/* ORBITING ACCESSORY: Continuously spins around the edge of the avatar */}
+        {/* ORBITING ACCESSORY */}
         <motion.div 
           animate={{ rotate: [-360, 0] }}
           transition={orbitTransition}
@@ -166,7 +165,7 @@ function ChildCard({ child, onUnlink }) {
         <div className="flex items-center space-x-4">
           <LiveAvatar level={currentLevel} />
           <div>
-            {/* Reverted back to your original fallback rendering pattern here */}
+            {/* EXACT OLD CODE restored here for naming logic fallback */}
             <h3 className="text-xl font-bold">
               {child.full_name || child.username || "Unnamed Student"}
             </h3>
@@ -350,7 +349,6 @@ export default function ParentDashboard() {
 
       {/* HEADER SECTION WITH WEATHER */}
       <div className="bg-gradient-to-r from-slate-50 to-white p-6 rounded-2xl border flex items-center justify-between shadow-sm relative overflow-hidden">
-        {/* Subtle live background effect for the header itself */}
         <motion.div 
           animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
           transition={{ duration: 15, repeat: Infinity }}
