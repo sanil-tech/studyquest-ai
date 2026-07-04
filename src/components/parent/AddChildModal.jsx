@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-// CredentialsSummary dialih keluar dari fasa pendaftaran awal
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card"; // Ditambah untuk Confirmation Card
-import { Loader2, User, Upload, X, Link2, UserPlus, Search, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, User, Upload, X, Link2, UserPlus, Search, AlertCircle, CheckCircle2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { getDisplayName } from "@/lib/utils";
 
@@ -26,15 +25,18 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
   const [activeTab, setActiveTab] = useState("create");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // State untuk pengesahan pautan (Link Confirmation Flow)
   const [studentIdInput, setStudentIdInput] = useState("");
   const [linkError, setLinkError] = useState("");
-  const [targetStudent, setTargetStudent] = useState(null); // Ditambah untuk simpan data preview anak
+  const [targetStudent, setTargetStudent] = useState(null);
 
   const [childData, setChildData] = useState({
     full_name: "",
     nickname: "",
+    username: "", // Ditambah untuk login murid tanpa e-mel
+    password: "", // Ditambah untuk login murid tanpa e-mel
     date_of_birth: "",
     gender: "",
     school_name: "",
@@ -57,8 +59,7 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
   };
 
   const getRecommendedLevel = (age) => {
-    if (age < 7) return "Standard 1";
-    if (age === 7) return "Standard 1";
+    if (age <= 7) return "Standard 1";
     if (age === 8) return "Standard 2";
     if (age === 9) return "Standard 3";
     if (age === 10) return "Standard 4";
@@ -70,6 +71,13 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
     if (age === 16) return "Form 4";
     if (age === 17) return "Form 5";
     return "Other";
+  };
+
+  const handleUsernameChange = (e) => {
+    const value = e.target.value;
+    // Paksa huruf kecil dan buang karakter pelik/ruang kosong
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+    setChildData(prev => ({ ...prev, username: cleaned }));
   };
 
   const handleFileUpload = async (e) => {
@@ -91,9 +99,6 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
     }
   };
 
-  // ============================================================================
-  // UBAH: FASA 1 - CARI REKOD STUDENT SAHAJA (BELUM LINK LAGI)
-  // ============================================================================
   const handleFindStudent = async (e) => {
     e.preventDefault();
     const targetId = studentIdInput.trim();
@@ -134,7 +139,6 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
         }
       }
 
-      // Set student data untuk paparan Confirmation Card
       setTargetStudent(student);
     } catch (err) {
       setLinkError(err.message || "An error occurred during account verification.");
@@ -143,9 +147,6 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
     }
   };
 
-  // ============================================================================
-  // UBAH: FASA 2 - IBU BAPA SAHKAN & HANTAR LINK REQUEST STATUS PENDING
-  // ============================================================================
   const handleConfirmLink = async () => {
     setLoading(true);
     try {
@@ -186,12 +187,18 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
     }
   };
 
-  // ============================================================================
-  // UBAH: HANDLER PROFIL BARU (TIADA USERNAME/PASSWORD GENERATION)
-  // ============================================================================
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     if (!childData.full_name || !childData.full_name.trim()) {
       toast({ title: "⚠️ Name Required", description: "Please enter your child's full name.", variant: "destructive" });
+      return;
+    }
+    if (!childData.username || childData.username.length < 3) {
+      toast({ title: "⚠️ Invalid Username", description: "Username must be at least 3 characters long.", variant: "destructive" });
+      return;
+    }
+    if (!childData.password || childData.password.length < 4) {
+      toast({ title: "⚠️ Weak Password", description: "Password must be at least 4 characters long.", variant: "destructive" });
       return;
     }
     if (!childData.date_of_birth) {
@@ -201,24 +208,23 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
 
     setLoading(true);
     try {
-      // Ditukar ke fungsi 'createChildAccount' yang hanya set status = 'inactive'
+      // Panggil cloud function untuk mendaftar profil pelajar baru beserta kelayakan log masuk
       const response = await base44.functions.invoke("createChildAccount", {
         childData: {
           ...childData,
           full_name: childData.full_name.trim(),
-          grade_year: childData.grade_year,
-          status: "inactive",
+          status: "active" // Diaktifkan terus kerana sudah mempunyai username & password
         },
       });
 
       if (response.data.success) {
         toast({
-          title: "Child profile created successfully.",
-          description: "You can activate their student login credentials later from the dashboard card.",
+          title: "Child account created! 🎉",
+          description: `${childData.full_name} can now log in using username "${childData.username}".`,
         });
 
         setChildData({
-          full_name: "", nickname: "", date_of_birth: "", gender: "",
+          full_name: "", nickname: "", username: "", password: "", date_of_birth: "", gender: "",
           school_name: "", education_level: "", grade_year: "",
           country: "Malaysia", state: "", profile_picture_url: "",
         });
@@ -248,180 +254,222 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
   const recommendedLevel = age ? getRecommendedLevel(age) : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange || onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-2">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-            <User className="w-5 h-5 text-primary" />
-            Manage Child Profiles
+            <UserPlus className="w-5 h-5 text-primary" />
+            Add Child Account
           </DialogTitle>
           <DialogDescription>
-            Create a brand new learning account profile or connect an existing child account.
+            Create a password-based profile or link an existing student to your portal.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="create" className="text-xs font-semibold gap-2">
-              <UserPlus className="w-3.5 h-3.5" />
-              Create New Profile
-            </TabsTrigger>
-            <TabsTrigger value="link" className="text-xs font-semibold gap-2">
-              <Link2 className="w-3.5 h-3.5" />
-              Link Existing ID
-            </TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="create">New Account</TabsTrigger>
+            <TabsTrigger value="link">Link Existing</TabsTrigger>
           </TabsList>
 
-          {/* TAB CONTENT: LINK EXISTING STUDENT */}
-          <TabsContent value="link" className="space-y-4 py-2 focus-visible:outline-none focus-visible:ring-0">
+          {/* TAB 1: REGISTER NEW STUDENT (NO EMAIL) */}
+          <TabsContent value="create" className="space-y-4 pt-3">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="full_name">Full Name</Label>
+                  <Input 
+                    id="full_name"
+                    placeholder="Ali Bin Ahmad"
+                    value={childData.full_name}
+                    onChange={(e) => setChildData(prev => ({ ...prev, full_name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nickname">Nickname</Label>
+                  <Input 
+                    id="nickname"
+                    placeholder="Ali"
+                    value={childData.nickname}
+                    onChange={(e) => setChildData(prev => ({ ...prev, nickname: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* BARU: KELAYAKAN LOG MASUK LOGIN CREDENTIALS */}
+              <div className="p-3 bg-muted/40 rounded-xl border border-border space-y-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wider">Login Credentials (No Email Required)</p>
+                <div className="space-y-1">
+                  <Label htmlFor="child_username">Unique Username</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      id="child_username"
+                      placeholder="ali_quest12"
+                      value={childData.username}
+                      onChange={handleUsernameChange}
+                      className="pl-9 text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="child_password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      id="child_password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={childData.password}
+                      onChange={(e) => setChildData(prev => ({ ...prev, password: e.target.value }))}
+                      className="pl-9 pr-9 text-sm"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="dob">Date of Birth</Label>
+                  <Input 
+                    id="dob"
+                    type="date"
+                    value={childData.date_of_birth}
+                    onChange={(e) => setChildData(prev => ({ ...prev, date_of_birth: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select onValueChange={(val) => setChildData(prev => ({ ...prev, gender: val }))} value={childData.gender}>
+                    <SelectTrigger id="gender"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {recommendedLevel && (
+                <div className="p-2.5 rounded-lg bg-indigo-50/60 border border-indigo-100 text-xs text-indigo-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Based on age ({age}), we recommend selecting <strong>{recommendedLevel}</strong>.</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="edu_level">Education Level</Label>
+                  <Select 
+                    onValueChange={(val) => setChildData(prev => ({ ...prev, education_level: val, grade_year: val }))} 
+                    value={childData.education_level}
+                  >
+                    <SelectTrigger id="edu_level"><SelectValue placeholder="Level" /></SelectTrigger>
+                    <SelectContent>
+                      {educationLevels.map((lvl) => (
+                        <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="state">State</Label>
+                  <Select onValueChange={(val) => setChildData(prev => ({ ...prev, state: val }))} value={childData.state}>
+                    <SelectTrigger id="state"><SelectValue placeholder="State" /></SelectTrigger>
+                    <SelectContent>
+                      {malaysianStates.map((st) => (
+                        <SelectItem key={st} value={st}>{st}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="school">School Name</Label>
+                <Input 
+                  id="school"
+                  placeholder="SK Taman Tun Dr Ismail"
+                  value={childData.school_name}
+                  onChange={(e) => setChildData(prev => ({ ...prev, school_name: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" type="button" onClick={() => onOpenChange?.(false)} disabled={loading}>Cancel</Button>
+                <Button type="submit" disabled={loading || uploading}>
+                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Create Account
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
+
+          {/* TAB 2: LINK EXISTING STUDENT VIA REQUESTS */}
+          <TabsContent value="link" className="space-y-4 pt-3">
             {!targetStudent ? (
               <form onSubmit={handleFindStudent} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="student_id" className="text-sm font-semibold text-foreground">
-                    Student ID Key *
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="student_id"
-                      type="text"
-                      disabled={loading}
-                      value={studentIdInput}
-                      onChange={(e) => setStudentIdInput(e.target.value)}
-                      placeholder="e.g. SQ10023"
-                      className="font-mono text-sm pl-10 h-11 tracking-wider border-input"
-                    />
-                    <Search className="w-4 h-4 text-muted-foreground/40 absolute left-3.5 top-3.5" />
+                  <Label htmlFor="student_id">Enter Child's Student ID</Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="student_id"
+                        placeholder="e.g., SQ10001"
+                        value={studentIdInput}
+                        onChange={(e) => setStudentIdInput(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Button type="submit" disabled={loading}>
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
+                    </Button>
                   </div>
                 </div>
 
                 {linkError && (
-                  <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-xs font-medium flex items-start gap-2.5">
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-xl flex items-start gap-2">
                     <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                     <span>{linkError}</span>
                   </div>
                 )}
-
-                <Button type="submit" disabled={loading} className="w-full h-11 font-semibold text-sm rounded-xl mt-2 shadow-xs">
-                  {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Search Student"}
-                </Button>
               </form>
             ) : (
-              /* UBAH: CONFIRMATION CARD UI LAYOUT */
-              <Card className="border border-primary/20 bg-primary/5">
-                <CardContent className="p-5 text-center space-y-4">
-                  <h4 className="font-semibold text-base">Is this your child?</h4>
-                  <div className="text-sm space-y-1 bg-background p-3 rounded-lg border">
-                    <p className="font-bold text-primary text-base">{getDisplayName(targetStudent)}</p>
-                    <p className="text-muted-foreground text-xs">{targetStudent.school_name || "No school specified"}</p>
-                    <p className="text-muted-foreground text-xs">{targetStudent.education_level || "General Level"}</p>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="ghost" className="w-1/2" onClick={() => setTargetStudent(null)}>Cancel</Button>
-                    <Button className="w-1/2" disabled={loading} onClick={handleConfirmLink}>
-                      {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                      Send Link Request
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+              <div className="space-y-4">
+                <Card className="border-green-100 bg-green-50/30 overflow-hidden">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wider">Profile Verified</p>
+                      <h4 className="text-base font-bold text-foreground truncate">{getDisplayName(targetStudent)}</h4>
+                      <p className="text-xs text-muted-foreground truncate">ID: {targetStudent.student_id}</p>
+                    </div>
+                  </CardContent>
+                </Card>
 
-          {/* TAB CONTENT: ORIGINAL REGISTRATION FORM */}
-          <TabsContent value="create" className="space-y-4 focus-visible:outline-none focus-visible:ring-0">
-            {/* Profile Picture Upload Section */}
-            <div className="space-y-2">
-              <Label>Profile Picture (optional)</Label>
-              <div className="flex items-center gap-4">
-                {childData.profile_picture_url ? (
-                  <div className="relative">
-                    <img src={childData.profile_picture_url} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-primary" />
-                    <button onClick={() => setChildData(prev => ({ ...prev, profile_picture_url: "" }))} className="absolute -top-2 -right-2 p-1 rounded-full bg-destructive text-white hover:bg-destructive/90"><X className="w-3 h-3" /></button>
-                  </div>
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center"><User className="w-8 h-8 text-primary" /></div>
-                )}
-                <div className="flex-1">
-                  <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} className="hidden" id="child-profile-upload" />
-                  <Label htmlFor="child-profile-upload" className="cursor-pointer">
-                    <Button variant="outline" asChild disabled={uploading}>
-                      <span><Upload className="w-4 h-4 mr-2" />{uploading ? "Uploading..." : "Upload Photo"}</span>
-                    </Button>
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="ghost" onClick={() => setTargetStudent(null)} disabled={loading}>Back</Button>
+                  <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleConfirmLink} disabled={loading}>
+                    {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Send Link Request
+                  </Button>
                 </div>
               </div>
-            </div>
-
-            {/* Fields Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="full_name">Full Name *</Label>
-                <Input id="full_name" value={childData.full_name} onChange={(e) => setChildData(prev => ({ ...prev, full_name: e.target.value }))} placeholder="e.g. Ahmad bin Abu" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nickname">Nickname (optional)</Label>
-                <Input id="nickname" value={childData.nickname} onChange={(e) => setChildData(prev => ({ ...prev, nickname: e.target.value }))} placeholder="What to call them" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="dob">Date of Birth *</Label>
-                <Input id="dob" type="date" value={childData.date_of_birth} onChange={(e) => setChildData(prev => ({ ...prev, date_of_birth: e.target.value }))} />
-                {age && <p className="text-xs text-muted-foreground">Age: {age} years old</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="gender">Gender</Label>
-                <Select value={childData.gender} onValueChange={(val) => setChildData(prev => ({ ...prev, gender: val }))}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                    <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="state">State</Label>
-              <Select value={childData.state} onValueChange={(val) => setChildData(prev => ({ ...prev, state: val }))}>
-                <SelectTrigger><SelectValue placeholder="Select your state" /></SelectTrigger>
-                <SelectContent>
-                  {malaysianStates.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="school">School Name</Label>
-              <Input id="school" value={childData.school_name} onChange={(e) => setChildData(prev => ({ ...prev, school_name: e.target.value }))} placeholder="e.g. SK Taman Jaya" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="education">Education Level</Label>
-                <Select value={childData.education_level} onValueChange={(val) => setChildData(prev => ({ ...prev, education_level: val }))}>
-                  <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
-                  <SelectContent>
-                    {educationLevels.map(level => <SelectItem key={level} value={level}>{level}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {recommendedLevel && !childData.education_level && (
-                  <p className="text-xs text-emerald-600 font-medium">💡 Recommended for age {age}: {recommendedLevel}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="grade">Class (optional)</Label>
-                <Input id="grade" value={childData.grade_year} onChange={(e) => setChildData(prev => ({ ...prev, grade_year: e.target.value }))} placeholder="e.g. Jaya, Bestari" />
-              </div>
-            </div>
-
-            <Button onClick={handleSubmit} disabled={loading} className="w-full h-12 rounded-xl text-base font-semibold mt-2">
-              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Save Child Profile & Continue"}
-            </Button>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
