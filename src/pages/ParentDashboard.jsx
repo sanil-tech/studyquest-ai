@@ -12,6 +12,7 @@ import {
   Sparkles,
   Zap
 } from "lucide-react";
+import { getDisplayName } from "@/lib/utils"; // Imported your native utility helper here
 import { useToast } from "@/components/ui/use-toast";
 import moment from "moment";
 import { motion, AnimatePresence } from "framer-motion";
@@ -144,17 +145,15 @@ function Realistic3DAvatar({ level }) {
 
 // ---------------- CHILD CARD ----------------
 function ChildCard({ child, onUnlink }) {
-  // Use nick_name first, then fallback to full_name, username, or default fallback
-  const displayName = child.nick_name || child.full_name || child.username || "Unnamed Student";
-
   return (
     <Card className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Realistic3DAvatar level={child.progress?.level} />
           <div>
+            {/* UPDATED: Pulls the processed display_name configured exactly like MyChildrenPage */}
             <h3 className="text-xl font-bold">
-              {displayName}
+              {child.display_name}
             </h3>
             <p className="text-sm text-muted-foreground">
               Age {calculateAge(child.date_of_birth)} • {child.education_level}
@@ -165,7 +164,7 @@ function ChildCard({ child, onUnlink }) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => onUnlink(child.id, displayName)}
+          onClick={() => onUnlink(child.id, child.display_name)}
           className="text-rose-500 hover:bg-rose-50"
         >
           <Trash2 className="w-4 h-4 mr-2" />
@@ -237,13 +236,14 @@ export default function ParentDashboard() {
           const userRecord = await base44.entities.User.get(id).catch(() => null);
 
           return {
+            ...userRecord,
             id,
             full_name: userRecord?.full_name || "",
             username: userRecord?.username || "",
-            // Mapped your custom profile nick_name field here!
-            nick_name: userRecord?.nick_name || "", 
             date_of_birth: userRecord?.date_of_birth || "",
             education_level: userRecord?.education_level || "",
+            // UPDATED: Generates the exact display_name via your app configuration utility
+            display_name: userRecord ? getDisplayName(userRecord) : "Unnamed Student",
             progress: progress?.[0] || {},
             wallet: wallet?.[0] || { balance: 0 },
           };
