@@ -201,8 +201,8 @@ export default function AddChildModal({ open, onOpenChange, onClose, onChildAdde
 
     setLoading(true);
     try {
-      // Ditukar ke fungsi 'createChildProfile' yang hanya set status = 'inactive'
-      const response = await base44.functions.invoke("createChildProfile", {
+      // Ditukar ke fungsi 'createChildAccount' yang hanya set status = 'inactive'
+      const response = await base44.functions.invoke("createChildAccount", {
         childData: {
           ...childData,
           full_name: childData.full_name.trim(),
