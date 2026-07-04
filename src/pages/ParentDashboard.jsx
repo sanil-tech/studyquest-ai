@@ -223,6 +223,11 @@ export default function ParentDashboard() {
     } finally {
       setLoading(false);
     }
+    const relationships = await base44.entities.ParentChildRelationship.filter({
+  parent_id: u.id,
+});
+
+console.log("RELATIONSHIPS:", relationships);
   };
 
   useEffect(() => {
