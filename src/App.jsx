@@ -46,9 +46,9 @@ const ParentApprovals = React.lazy(() => import('@/pages/ParentApprovals'));
 // Admin Pages
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
 
-// Common Loading Fallback Component
-const LoadingSpinner = ({ message = "Loading..." }: { message?: string }) => (
-  <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-pink-50">
+// Common Loading Fallback Component (Fixed to Pure JavaScript)
+const LoadingSpinner = ({ message = "Loading StudyQuest...", "data-collection-item-id": __dataCollectionItemId }) => (
+  <div data-collection-item-id={__dataCollectionItemId} className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-pink-50">
     <div className="text-center">
       <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" />
       <p className="text-sm text-muted-foreground">{message}</p>
@@ -79,12 +79,12 @@ const AuthenticatedApp = () => {
 
         {/* Authenticated routes */}
         <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-          {/* Role setup & Profile completion (no shared AppLayout here) */}
+          {/* Role setup & Profile completion (No shared layout here) */}
           <Route path="/role-setup" element={<RoleSetup />} />
           <Route path="/complete-profile" element={<CompleteProfile />} />
 
           {/* Admin-only routes */}
-          <Route element={<AdminRoute />}>
+          <Route element={<AdminRoute />} >
             <Route path="/admin/textbooks" element={<TextbookUpload />} />
           </Route>
 
