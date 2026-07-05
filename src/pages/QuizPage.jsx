@@ -1,314 +1,582 @@
-// src/pages/QuizPage.jsx
-import React, { useState, useEffect } from "react";
+// src/pages/LessonPage.jsx
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, XCircle, Loader2, Trophy } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import confetti from "canvas-confetti";
 
-export default function QuizPage() {
-  const { quizId } = useParams();
+import LessonProgress from "@/components/lesson/LessonProgress";
+import LessonContent from "@/components/lesson/LessonContent";
+import VoicePlayer from "@/components/lesson/VoicePlayer";
+import Flashcards from "@/components/lesson/Flashcards";
+import MindMap from "@/components/lesson/MindMap";
+
+// ============================================================================
+// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY
+// ============================================================================
+const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
+
+const FORMAT_CONSTRAINTS = {
+  ms: "Tulis SELURUH kandungan dalam Bahasa Melayu sahaja. JANGAN gunakan perkataan Bahasa Inggeris.",
+  en: "Write the ENTIRE content in English only."
+};
+
+const LESSON_PROMPT = (topic, subject, level, lang, studentNickname) => `
+${BASE_SYSTEM_PROMPT}
+${FORMAT_CONSTRAINTS[lang]}
+Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
+
+CRITICAL TONE INSTRUCTION:
+The student's personalized friendly nickname is "${studentNickname}".
+Your tone must be exceptionally warm, encouraging, cheerful, and affectionate—like a loving older sibling or a favorite supportive teacher.
+Do NOT sound robotic or dry. Use words of encouragement frequently (e.g., "Wah, hebatnya!", "Bijak!", "Jom kita teroka sama-sama!").
+Address the student directly and personally by their nickname "${studentNickname}" naturally throughout the lesson, especially at the start of new concepts and during encouraging remarks.
+
+Generate a concise, highly engaging lesson (700-1000 words max). Use short paragraphs (2-3 sentences max for easy mobile reading), clear subheadings (###), and bold key terms.
+Incorporate 1-2 specialized info card markers directly in text: [REMEMBER]...[/REMEMBER] or [EXAMPLE]...[/EXAMPLE].
+Return JSON schema matching: { "lesson_markdown": "string", "summary": "string", "keywords": ["string"] }
+`;
+
+const MINDMAP_PROMPT = (summary, keywords, lang) => `
+${BASE_SYSTEM_PROMPT}
+${FORMAT_CONSTRAINTS[lang]}
+Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, create a mind map structure.
+Return JSON schema matching: [{ "label": "string", "children": ["string"] }]
+`;
+
+// Helper untuk merawakkan array (Fisher-Yates Shuffle Algorithm)
+const shuffleArray = (array) => {
+  const newArr = [...array];
+  for (let i = newArr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+  }
+  return newArr;
+};
+
+// ============================================================================
+// 2. DYNAMIC RESPONSIVE MAIN COMPONENT LAYER
+// ============================================================================
+export default function LessonPage() {
+  const { subjectId, topicId } = useParams();
   const navigate = useNavigate();
-  const [quiz, setQuiz] = useState(null);
-  const [questions, setQuestions] = useState([]);
-  const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false); // 🌟 Solusi ralat double-submit
+ 
+  const [subject, setSubject] = useState(null);
+  const [topic, setTopic] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [studentNickname, setStudentNickname] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    base44.entities.Quiz.get(quizId)
-      .then(q => {
-        if (!isMounted) return;
-        setQuiz(q);
-        setQuestions(JSON.parse(q.questions_json || "[]"));
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Gagal memuatkan data kuiz:", err);
-        setLoading(false);
-      });
-    return () => { isMounted = false; };
-  }, [quizId]);
+  // Cache States
+  const [explanation, setExplanation] = useState("");
+  const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
+  const [flashcards, setFlashcards] = useState(null);
+  const [mindMap, setMindMap] = useState(null);
+  
+  // 🌟 State Baharu: Memisahkan pool soalan bagi mengelakkan pertindihan
+  const [flashcardPoolQuestions, setFlashcardPoolQuestions] = useState([]);
+  const [quizPoolQuestions, setQuizPoolQuestions] = useState([]);
 
-  const handleAnswer = (qIndex, answer) => {
-    if (submitted || submitting) return;
-    setAnswers(prev => ({ ...prev, [qIndex]: answer }));
+  const [activeTab, setActiveTab] = useState("lesson");
+  const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
+
+  const studyStartRef = useRef(null);
+  const sessionRef = useRef(null);
+
+  useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
+
+  const tentukanPanggilanMesra = (userObj, formLevel) => {
+    const customNickname = userObj?.nickname || userObj?.profile?.nickname;
+    if (customNickname?.trim()) return customNickname.trim();
+    const namaPenuh = userObj?.name || userObj?.display_name || userObj?.profile?.name;
+    if (namaPenuh?.trim()) {
+      const namaPertama = namaPenuh.trim().split(" ")[0];
+      if (namaPertama && !namaPertama.includes("@")) return namaPertama;
+    }
+    if (!formLevel) return "Kawan";
+    const level = formLevel.toLowerCase();
+    if (level.includes("tahun") || level.includes("standard") || level.includes("primary")) return "Bintang";
+    return "Sahabat";
   };
 
-  const handleSubmit = async () => {
-    if (submitting || submitted) return; // 🌟 Block serta merta klik berganda
-    setSubmitting(true);
-
-    try {
-      const user = await base44.auth.me();
-
-      // Calculate score
-      let correct = 0;
-      questions.forEach((q, i) => {
-        if (answers[i] === q.correct_answer) correct++;
-      });
-      const score = Math.round((correct / questions.length) * 100);
-
-      // Calculate coins — 10 per correct answer, bonus 50 for perfect score
-      let coins = correct * 10;
-      if (score === 100) coins += 50;
-
-      // XP earned — 5 per correct answer
-      const xpEarned = correct * 5;
-
-      // Generate AI feedback
-      let feedbackResult = "Hebat usaha anda! Cuba lagi pada masa akan datang.";
+  useEffect(() => {
+    const initializeLesson = async () => {
       try {
-        feedbackResult = await base44.integrations.Core.InvokeLLM({
-          prompt: `A student scored ${score}% on a quiz about "${quiz.topic_name}". They got ${correct}/${questions.length} correct.
+        const [sub, top, user] = await Promise.all([
+          base44.entities.Subject.get(subjectId),
+          base44.entities.Topic.get(topicId),
+          base44.auth.me(),
+        ]);
+        setSubject(sub);
+        setTopic(top);
+        setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
+        setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-Their answers: ${JSON.stringify(questions.map((q, i) => ({
-            question: q.question,
-            student_answer: answers[i] || "No answer",
-            correct_answer: q.correct_answer,
-            is_correct: answers[i] === q.correct_answer
-          })))}
+        // Tarik semua data kuiz/bank soalan dari database
+        const allQuizBanks = await base44.entities.Quiz.filter({});
 
-Provide brief, encouraging feedback in Bahasa Melayu:
-1. Score summary
-2. Brief explanation of mistakes (if any)
-3. One improvement tip
-4. Suggested next topic
+        if (allQuizBanks && allQuizBanks.length > 0) {
+          const namaTopikSemasa = top.name.toLowerCase().trim();
+          
+          const foundBank = allQuizBanks.find(bank => {
+            const namaBankCsv = (bank.topic_name || "").toLowerCase().trim();
+            return namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv);
+          });
 
-Keep it short, playful and highly motivating. Use lots of emojis and celebrate their effort (e.g. "Hebat! ⭐", "Tabik spring! 👏"). Be warm like a friendly teacher cheering on a young learner.`,
-        });
-      } catch (aiErr) {
-        console.warn("AI Feedback generation failed, using fallback.", aiErr);
-      }
-
-      // Create quiz attempt
-      const attempt = await base44.entities.QuizAttempt.create({
-        student_id: user.id,
-        quiz_id: quizId,
-        topic_name: quiz.topic_name,
-        subject_name: quiz.subject_name,
-        answers_json: JSON.stringify(answers),
-        score,
-        coins_earned: coins,
-        feedback_text: typeof feedbackResult === "string" ? feedbackResult : JSON.stringify(feedbackResult),
-      });
-
-      // Update wallet balance safely
-      const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
-      if (wallets.length > 0) {
-        await base44.entities.Wallet.update(wallets[0].id, { balance: Number(wallets[0].balance || 0) + coins });
-      }
-
-      // Log transaction
-      await base44.entities.Transaction.create({
-        student_id: user.id,
-        type: "earn",
-        amount: coins,
-        reason: `Quiz completed: ${quiz.topic_name} (Score: ${score}%)`,
-        reference_id: attempt.id,
-      });
-
-      // Update progress & streak calculation
-      const progresses = await base44.entities.Progress.filter({ student_id: user.id });
-      if (progresses.length > 0) {
-        const p = progresses[0];
-        const newXP = (p.total_xp || 0) + xpEarned;
-        const newLevel = Math.floor(newXP / 200) + 1;
-        const today = new Date().toISOString().split("T")[0];
-        
-        let finalStreak = p.streak_days || 0;
-        if (p.last_study_date !== today) {
-          const msd = p.last_study_date ? new Date(p.last_study_date) : null;
-          const currentDay = new Date(today);
-          const diffTime = msd ? Math.abs(currentDay - msd) : null;
-          const diffDays = diffTime ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : null;
-
-          if (diffDays === 1) {
-            finalStreak += 1;
-          } else if (diffDays > 1 || !msd) {
-            finalStreak = 1;
+          if (foundBank) {
+            const parsedQs = JSON.parse(foundBank.questions_json || "[]");
+            
+            // 🌟 Pembahagian Pool: Rawakkan semua soalan terlebih dahulu
+            const shuffledAll = shuffleArray(parsedQs);
+            
+            // Ambil tepat 10 soalan pertama untuk Flashcard, baki selebihnya untuk Kuiz
+            if (shuffledAll.length >= 15) {
+              setFlashcardPoolQuestions(shuffledAll.slice(0, 10));
+              setQuizPoolQuestions(shuffledAll.slice(10));
+              console.log(`🎯 Diasingkan: 10 kad memori & ${shuffledAll.length - 10} soalan kuiz unik.`);
+            } else {
+              // Pelan sandaran jika jumlah soalan di dalam bank terlalu sedikit
+              setFlashcardPoolQuestions(shuffledAll.slice(0, Math.min(5, shuffledAll.length)));
+              setQuizPoolQuestions(shuffledAll);
+            }
           }
         }
 
-        await base44.entities.Progress.update(p.id, {
-          total_xp: newXP,
-          level: newLevel,
-          streak_days: finalStreak,
-          last_study_date: today,
-        });
-      }
+        const cachedSessions = await base44.entities.StudySession.filter(
+          { student_id: user.id, topic_id: topicId },
+          "-created_date",
+          1
+        );
 
-      // Create system notifications
-      await base44.entities.Notification.create({
-        user_id: user.id,
-        title: "Kuiz Selesai! 🎉",
-        message: `Anda mendapat skor ${score}% dan berjaya meraih ${coins} syiling!`,
-        type: "quiz_complete",
-        reference_id: attempt.id,
+        if (cachedSessions.length > 0) {
+          const session = cachedSessions[0];
+          setSessionId(session.id);
+          
+          if (session.ai_explanation) {
+            const parsed = JSON.parse(session.ai_explanation);
+            setExplanation(parsed.lesson_markdown);
+            setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+            
+            if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
+            if (session.flashcards_json) setFlashcards(JSON.parse(session.flashcards_json));
+          }
+        }
+      } catch (err) {
+        console.error("Cache initialization failed", err);
+      } finally {
+        studyStartRef.current = Date.now();
+        setLoading(false);
+      }
+    };
+    initializeLesson();
+  }, [subjectId, topicId]);
+
+  const recordStudyTime = async () => {
+    if (!sessionRef.current || !studyStartRef.current) return;
+    const minutes = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
+    try { await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); } catch (err) { console.warn("Failed to record study time", err); }
+  };
+
+  useEffect(() => { return () => { recordStudyTime(); }; }, []);
+
+  const getLanguageMode = () => subject?.name?.toLowerCase().includes("english") ? "en" : "ms";
+
+  const getContextConfiguration = async () => {
+    const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
+    const matchingBook = textbooks.find(t => t.form_level === topic.form_level);
+    if (matchingBook && (!matchingBook.file_size || matchingBook.file_size <= 10 * 1024 * 1024)) {
+      return { urls: [matchingBook.file_url], useInternet: false };
+    }
+    return { urls: undefined, useInternet: true };
+  };
+
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 150,
+      spread: 80,
+      origin: { y: 0.6 },
+      colors: ['#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981']
+    });
+  };
+
+  const generateCoreLesson = async () => {
+    setStatus(p => ({ ...p, lesson: true }));
+    try {
+      const user = await base44.auth.me();
+      const config = await getContextConfiguration();
+      const lang = getLanguageMode();
+
+      const response = await base44.integrations.Core.InvokeLLM({
+        model: "gemini_3_flash",
+        add_context_from_internet: config.useInternet,
+        file_urls: config.urls,
+        prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, studentNickname),
+        response_json_schema: {
+          type: "object",
+          properties: {
+            lesson_markdown: { type: "string" },
+            summary: { type: "string" },
+            keywords: { type: "array", items: { type: "string" } }
+          },
+          required: ["lesson_markdown", "summary", "keywords"]
+        }
       });
 
-      setSubmitted(true);
-      navigate(`/quiz-result/${attempt.id}`);
-    } catch (err) {
-      console.error("Proses hantaran kuiz gagal:", err);
-      alert("Alamak, ada ralat teknikal berlaku semasa menghantar kuiz. Sila cuba sekali lagi!");
-    } finally {
-      setSubmitting(false);
+      const session = await base44.entities.StudySession.create({
+        student_id: user.id,
+        subject_id: subjectId,
+        topic_id: topicId,
+        topic_name: topic.name,
+        subject_name: subject.name,
+        ai_explanation: JSON.stringify(response),
+        duration_minutes: 0,
+      });
+
+      setSessionId(session.id);
+      setExplanation(response.lesson_markdown);
+      setMetaData({ summary: response.summary, keywords: response.keywords });
+      
+      triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
+      triggerConfetti();
+    } catch (e) {
+      console.error(e);
+    } finally { setStatus(p => ({ ...p, lesson: false })); }
+  };
+
+  const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
+    try {
+      base44.integrations.Core.InvokeLLM({
+        model: "gemini_3_flash",
+        prompt: MINDMAP_PROMPT(summary, keywords, lang),
+      }).then(res => {
+        if (res && Array.isArray(res)) {
+          base44.entities.StudySession.update(targetSessionId, { mindmap_json: JSON.stringify(res) });
+          setMindMap(res);
+        }
+      });
+    } catch (e) {
+      console.warn("Background prefetch failed", e);
     }
+  };
+
+  const loadFlashcardsOnDemand = async () => {
+    if (flashcards && flashcards.length > 0) return;
+    if (status.flashcards) return;
+   
+    setStatus(p => ({ ...p, flashcards: true }));
+   
+    try {
+      // 🌟 Menggunakan 10 soalan eksklusif dari pool flashcard yang diasingkan tadi
+      if (flashcardPoolQuestions && flashcardPoolQuestions.length > 0) {
+        const targetCards = flashcardPoolQuestions.slice(0, 10);
+        const mappedCards = targetCards.map(q => ({
+          front: q.question,
+          back: `${q.correct_answer}\n\n${q.explanation || ""}`
+        }));
+
+        if (sessionId) {
+          try {
+            await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(mappedCards) });
+          } catch (dbErr) {
+            console.error("Gagal mengemas kini StudySession:", dbErr);
+          }
+        }
+        
+        setFlashcards(mappedCards);
+        setStatus(p => ({ ...p, flashcards: false }));
+        return;
+      }
+     
+      const konteksRujukan = metaData?.summary || topic?.name || "Silibus Sekolah";
+      const lang = getLanguageMode();
+
+      // 🌟 Jika tiada database fizikal, arahkan LLM menjana TEPAT 10 Flashcards dinamik
+      const res = await base44.integrations.Core.InvokeLLM({
+        model: "gemini_3_flash",
+        prompt: `Based on the topic/summary: "${konteksRujukan}", generate exactly 10 educational flashcards for a school student. Ensure high engagement. The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}. Return JSON schema matching: [{ "front": "string", "back": "string" }]`,
+      });
+
+      if (res && Array.isArray(res) && res.length > 0) {
+        const finalCards = res.slice(0, 10);
+        if (sessionId) {
+          try {
+            await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(finalCards) });
+          } catch (dbErr) {
+            console.error("Gagal mengemas kini StudySession:", dbErr);
+          }
+        }
+        setFlashcards(finalCards);
+      } else {
+        throw new Error("Fallback triggered");
+      }
+    } catch (err) {
+      console.error("Ralat kritikal dalam loadFlashcardsOnDemand:", err);
+      setFlashcards([
+        { front: `Mari teroka topik ${topic?.name || "ini"} bersama-sama!`, back: "Hebat! Klik butang 'Seterusnya' untuk kad lain. ✨" }
+      ]);
+    } finally {
+      setStatus(p => ({ ...p, flashcards: false }));
+    }
+  };
+
+  const runQuizGeneration = async (numQ) => {
+    await recordStudyTime();
+    setStatus(p => ({ ...p, quiz: true }));
+
+    const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
+
+    try {
+      // 🌟 Menggunakan quizPoolQuestions yang bersih daripada soalan Flashcards
+      if (quizPoolQuestions && quizPoolQuestions.length > 0) {
+        let filteredPool = [...quizPoolQuestions];
+
+        if (determinedDifficulty === "hard") {
+          const hardQuestions = quizPoolQuestions.filter(q =>
+            q.difficulty?.toLowerCase() === "hard" || q.difficulty?.toLowerCase() === "medium"
+          );
+          if (hardQuestions.length >= numQ) {
+            filteredPool = hardQuestions;
+          }
+        }
+
+        const shuffledQuestions = shuffleArray(filteredPool);
+        const selectedPool = shuffledQuestions.slice(0, Math.min(numQ, shuffledQuestions.length));
+
+        const quiz = await base44.entities.Quiz.create({
+          session_id: sessionId,
+          topic_name: topic.name,
+          subject_name: subject?.name || "Matematik",
+          questions_json: JSON.stringify(selectedPool),
+          difficulty: determinedDifficulty,
+          num_questions: selectedPool.length,
+        });
+       
+        navigate(`/quiz/${quiz.id}`);
+        return;
+      }
+      else {
+        const lang = getLanguageMode();
+       
+        // 🌟 Jika soalan dijana oleh LLM, beri arahan tegas supaya tidak bertindih dengan takrifan flashcard
+        const res = await base44.integrations.Core.InvokeLLM({
+          model: "gemini_3_flash",
+          prompt: `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary}", generate exactly ${numQ} multiple-choice exam questions for school students.
+          CRITICAL: Ensure these questions are completely unique conceptual/application challenges to prevent any overlap with standard flashcards.
+          The difficulty level must be "${determinedDifficulty}". Include higher-order thinking (KBAT).
+          The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
+          Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
+        });
+       
+        if (res && Array.isArray(res) && res.length > 0) {
+          const finalQuestions = res.slice(0, numQ);
+
+          const quiz = await base44.entities.Quiz.create({
+            session_id: sessionId,
+            topic_name: topic.name,
+            subject_name: subject?.name || "Matematik",
+            questions_json: JSON.stringify(finalQuestions),
+            difficulty: determinedDifficulty,
+            num_questions: finalQuestions.length,
+          });
+          navigate(`/quiz/${quiz.id}`);
+        }
+      }
+    } catch (err) {
+      console.error("Gagal menjana kuiz exam:", err);
+    } finally {
+      setStatus(p => ({ ...p, quiz: false }));
+    }
+  };
+
+  const loadMindMapOnDemand = async () => {
+    if (mindMap && mindMap.length > 0) return;
+    if (status.mindmap) return;
+
+    setStatus(p => ({ ...p, mindmap: true }));
+    try {
+      const lang = getLanguageMode();
+      const summary = metaData?.summary || topic?.name || "";
+      const keywords = metaData?.keywords || [];
+
+      const res = await base44.integrations.Core.InvokeLLM({
+        model: "gemini_3_flash",
+        prompt: MINDMAP_PROMPT(summary, keywords, lang),
+      });
+
+      if (res && Array.isArray(res)) {
+        if (sessionId) {
+          try {
+            await base44.entities.StudySession.update(targetSessionId, { mindmap_json: JSON.stringify(res) });
+          } catch (dbErr) {
+            console.error("Gagal mengemas kini StudySession untuk mindmap:", dbErr);
+          }
+        }
+        setMindMap(res);
+      }
+    } catch (err) {
+      console.error("Ralat dalam loadMindMapOnDemand:", err);
+    } finally {
+      setStatus(p => ({ ...p, mindmap: false }));
+    }
+  };
+
+  const handlePremiumRedirect = () => {
+    alert("Opps! Ciri eksklusif ini hanya untuk ahli Premium sahaja. Jom langgan premium sekarang untuk belajar tanpa had! 🚀");
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-10 h-10 border-t-primary rounded-full animate-spin text-primary" />
-        <p className="text-sm font-medium text-slate-500">Membuka lembaran kuiz ajaib...</p>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-10 h-10 border-4 border-cyan-200 border-t-cyan-500 rounded-full animate-spin" />
       </div>
     );
   }
-
-  if (!questions || questions.length === 0) {
-    return (
-      <div className="text-center py-20 bg-white rounded-3xl border p-8 max-w-md mx-auto shadow-sm">
-        <p className="text-slate-600 font-medium mb-4">Kuiz ini tidak mengandungi sebarang soalan buat masa ini.</p>
-        <Button onClick={() => navigate(-1)} className="rounded-full">Kembali</Button>
-      </div>
-    );
-  }
-
-  const q = questions[currentQ];
-  const selectedAnswer = answers[currentQ];
-  const allAnswered = Object.keys(answers).length === questions.length;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 min-h-screen pb-24 font-sans">
+    <div className="px-3 sm:px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-8 pb-24 font-sans bg-slate-50/50 min-h-screen">
       
-      {/* Top Meta Header */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-xl active:scale-95 transition-transform">
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
-          </button>
-          <div className="min-w-0">
-            <h1 className="text-base font-bold text-slate-800 truncate tracking-tight">{quiz?.topic_name}</h1>
-            <p className="text-xs text-slate-400 font-medium truncate">{quiz?.subject_name}</p>
-          </div>
+      {/* Top Header Row */}
+      <motion.div
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="flex items-center gap-4 bg-gradient-to-r from-cyan-100 to-blue-100 p-4 sm:p-5 rounded-3xl border-2 border-cyan-200 shadow-sm"
+      >
+        <Link to={`/study/${subjectId}`} className="p-3 bg-white rounded-2xl shadow-sm hover:shadow-md hover:bg-cyan-50 active:scale-90 transition-all">
+          <ArrowLeft className="w-6 h-6 text-cyan-600" />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold truncate text-slate-800 tracking-tight">
+            {topic?.name} 🌟
+          </h1>
+          <p className="text-cyan-700 font-medium text-xs sm:text-sm truncate">
+            {subject?.icon} {subject?.name} • {topic?.form_level}
+          </p>
         </div>
-        <span className="text-xs font-bold bg-primary/10 text-primary px-3 py-1.5 rounded-full shrink-0">
-          Soalan {currentQ + 1} / {questions.length}
-        </span>
-      </div>
+      </motion.div>
 
-      {/* Modern Fluid Progress Bar */}
-      <div className="h-2.5 bg-slate-200/60 rounded-full overflow-hidden shadow-inner">
+      {!explanation ? (
         <motion.div
-          animate={{ width: `${((currentQ + 1) / questions.length) * 100}%` }}
-          className="h-full bg-gradient-to-r from-primary via-cyan-500 to-emerald-500 rounded-full"
-          transition={{ duration: 0.3, ease: "easeOut" }}
-        />
-      </div>
-
-      {/* Dynamic Animated Core Question Body */}
-      <div className="relative overflow-hidden min-h-[300px]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentQ}
-            initial={{ opacity: 0, x: 25 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -25 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="bg-white rounded-3xl p-5 sm:p-7 border-2 border-slate-100 shadow-md space-y-5"
-          >
-            <h2 className="text-base sm:text-lg font-bold text-slate-800 leading-relaxed">
-              {q?.question}
-            </h2>
-            
-            <div className="space-y-3">
-              {q?.options?.map((option, i) => {
-                const isSelected = selectedAnswer === option;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => handleAnswer(currentQ, option)}
-                    disabled={submitted || submitting}
-                    className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex items-center gap-3 text-sm group ${
-                      isSelected
-                        ? "border-primary bg-primary/5 font-semibold text-primary shadow-sm"
-                        : "border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-600"
-                    }`}
-                  >
-                    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-xl text-xs font-black shrink-0 transition-colors ${
-                      isSelected ? "bg-primary text-white" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
-                    }`}>
-                      {String.fromCharCode(65 + i)}
-                    </span>
-                    <span className="flex-1 break-words">{option}</span>
-                  </button>
-                );
-              })}
-            </div>
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", bounce: 0.5 }}
+          className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto"
+        >
+          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800">
+            Hai {studentNickname}! 👋<br/>Sedia untuk belajar? 🚀
+          </h2>
+          <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">
+            Jom kita teroka ilmu baru hari ini dengan nota yang super seronok!
+          </p>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 rounded-full text-base font-bold shadow-lg shadow-primary/30 bg-primary hover:bg-primary/90">
+              {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Tunggu sekejap ya... 🪄</> : <><Sparkles className="w-5 h-5 mr-2"/> Mula Pengembaraan!</>}
+            </Button>
           </motion.div>
-        </AnimatePresence>
-      </div>
+        </motion.div>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+          
+          {/* Responsive Sticky Tabs */}
+          <div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
+            <Button size="sm" variant={activeTab === "lesson" ? "default" : "ghost"} onClick={() => setActiveTab("lesson")} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "lesson" ? "shadow-md bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+              <BookOpen className="w-5 h-5"/> Nota Pintar 📖
+            </Button>
+            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "ghost"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "flashcards" ? "shadow-md bg-purple-500 hover:bg-purple-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+              <Layers className="w-5 h-5"/> Kad Memori 🃏
+            </Button>
+            <Button size="sm" variant={activeTab === "mindmap" ? "default" : "ghost"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "mindmap" ? "shadow-md bg-blue-500 hover:bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+              <GitFork className="w-5 h-5"/> Peta Minda 🧠
+            </Button>
+          </div>
 
-      {/* Contextual Action Buttons */}
-      <div className="flex items-center gap-3">
-        {currentQ > 0 && (
-          <Button
-            variant="outline"
-            onClick={() => setCurrentQ(currentQ - 1)}
-            disabled={submitting}
-            className="flex-1 rounded-2xl h-14 font-bold border-2 border-slate-200 text-slate-600 hover:bg-slate-50 active:scale-98 transition-transform"
-          >
-            Sebelumnya
-          </Button>
-        )}
-        
-        {currentQ < questions.length - 1 ? (
-          <Button
-            onClick={() => setCurrentQ(currentQ + 1)}
-            disabled={!selectedAnswer}
-            className="flex-1 rounded-2xl h-14 font-bold text-white shadow-md active:scale-98 transition-transform"
-          >
-            Seterusnya
-          </Button>
-        ) : (
-          <Button
-            onClick={handleSubmit}
-            disabled={!allAnswered || submitting || submitted}
-            className="flex-1 rounded-2xl h-14 font-extrabold text-white bg-emerald-500 hover:bg-emerald-600 border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 shadow-md transition-all"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                Menghantar...
-              </>
-            ) : (
-              "Selesai & Semak Impak! 🏆"
-            )}
-          </Button>
-        )}
-      </div>
+          {/* Dynamic Content Container */}
+          {activeTab === "lesson" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
+                <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2">✨ Nota Ringkas</h2>
+                {isPremium ? (
+                  <div className="bg-primary/10 rounded-full pr-2">
+                     <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm hover:bg-amber-100">
+                    <Lock className="w-4 h-4 text-amber-500" /> Dengar Audio Cerita 🎧
+                  </Button>
+                )}
+              </div>
+              <div className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-loose">
+                <LessonContent content={explanation} />
+              </div>
+            </motion.div>
+          )}
 
-      {/* Interactive Bottom Footprint Dots */}
-      <div className="flex items-center justify-center flex-wrap gap-2 pt-2 bg-slate-100/50 p-3 rounded-full border border-dashed border-slate-200">
-        {questions.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => { if (!submitting) setCurrentQ(i); }}
-            className={`w-3 h-3 rounded-full transition-all ${
-              i === currentQ
-                ? "bg-primary scale-125 ring-4 ring-primary/20"
-                : answers[i]
-                  ? "bg-primary/50"
-                  : "bg-slate-300"
-            }`}
-          />
-        ))}
-      </div>
-      
+          {activeTab === "flashcards" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100">
+              {status.flashcards ? (
+                <div className="flex flex-col items-center justify-center py-16 text-sm text-purple-600 font-medium">
+                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-500" /> 🎮 Menyusun 10 kad ajaib...
+                </div>
+              ) : <Flashcards flashcards={flashcards || []} />}
+            </div>
+          )}
+
+          {activeTab === "mindmap" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] overflow-x-auto rounded-[2rem] bg-blue-50/30 border-2 border-blue-100 p-6 shadow-inner">
+              {status.mindmap ? (
+                <div className="flex flex-col items-center justify-center py-16 text-sm text-blue-600 font-medium">
+                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" /> Melukis peta harta karun... 🗺️
+                </div>
+              ) : mindMap ? <MindMap mindMap={{ central_topic: topic.name, branches: mindMap }} /> : null}
+            </motion.div>
+          )}
+
+          {/* Responsive Quiz Panel - Super Gamified */}
+          <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
+            <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/50 rotate-12" />
+            
+            <div className="relative z-10">
+              <h3 className="font-bold text-xl sm:text-2xl text-orange-900 mb-2">
+                Uji Minda, {studentNickname}! 🎯
+              </h3>
+              <p className="text-sm sm:text-base text-orange-700 mb-6 font-medium">
+                Kumpul Syiling 🪙, naik level, dan jadi juara kelas! Jom sahut cabaran! **(Soalan kuiz dijamin berbeza dari Kad Memori!)**
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
+                  <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-orange-500 hover:bg-orange-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all">
+                    {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2 fill-current" />} Cabaran Pantas (10 Soalan)
+                  </Button>
+                </motion.div>
+
+                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
+                  <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-red-500 hover:bg-red-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all">
+                    {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />} Ujian Boss (20 Soalan)
+                  </Button>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+
+          {/* Premium Trigger Actions */}
+          {isPremium ? (
+             <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
+               {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
+             </Button>
+           ) : (
+             <Button variant="ghost" size="sm" onClick={handlePremiumRedirect} className="w-full text-sm font-medium text-amber-600 bg-amber-50/50 hover:bg-amber-100 py-3 rounded-full border-2 border-dashed border-amber-200 transition-colors">
+               <Lock className="w-4 h-4 mr-2 text-amber-500" /> Ciri Premium: Jana Semula Nota 🌟
+             </Button>
+           )}
+            
+        </motion.div>
+      )}
     </div>
   );
 }
