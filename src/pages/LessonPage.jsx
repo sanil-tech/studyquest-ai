@@ -29,8 +29,8 @@ ${FORMAT_CONSTRAINTS[lang]}
 Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
 
 CRITICAL TONE INSTRUCTION:
-The student's personalized friendly nickname is "${studentNickname}".
-Your tone must be exceptionally warm, encouraging, cheerful, and affectionate—like a loving older sibling or a favorite supportive teacher.
+The student's personalized friendly nickname is "${studentNickname}". 
+Your tone must be exceptionally warm, encouraging, cheerful, and affectionate—like a loving older sibling or a favorite supportive teacher. 
 Do NOT sound robotic or dry. Use words of encouragement frequently (e.g., "Wah, hebatnya!", "Bijak!", "Jom kita teroka sama-sama!").
 Address the student directly and personally by their nickname "${studentNickname}" naturally throughout the lesson, especially at the start of new concepts and during encouraging remarks.
 
@@ -57,49 +57,6 @@ const shuffleArray = (array) => {
 };
 
 // ============================================================================
-// 🐵 MORRY AVATAR COMPONENT (INLINE COMPONENT)
-// ============================================================================
-const MorryAvatar = ({ message, isThinking = false, className = "", size = "text-6xl sm:text-7xl" }) => {
-  const bobbingDuration = isThinking ? 0.8 : 2.5; // Laju sikit kalau tengah fikir
-  const bobbingDistance = isThinking ? -16 : -12;
-
-  return (
-    <div className={`flex flex-col items-center pointer-events-none drop-shadow-xl z-30 ${className}`}>
-      {/* Bouncing Speech Bubble */}
-      {message && (
-        <motion.div
-          animate={{ y: [0, -4, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          className="bg-white text-[11px] font-black px-3 py-1 rounded-full border-2 border-orange-200 text-orange-600 shadow-md mb-2 whitespace-nowrap uppercase tracking-wider relative"
-        >
-          {message}
-          {/* Segitiga ekor belon dialog */}
-          <div className="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white" />
-        </motion.div>
-      )}
-
-      {/* 3D Character Avatar (Morry Emoji) */}
-      <motion.div
-        animate={{
-          y: [0, bobbingDistance, 0], // Naik turun
-          rotate: isThinking ? [0, 10, -10, 0] : [-4, 4, -4], // Goyang
-          scale: [1, 1.05, 1] // Bernafas
-        }}
-        transition={{
-          duration: bobbingDuration,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-        className={`filter drop-shadow-[0_12px_10px_rgba(0,0,0,0.25)] ${size}`}
-      >
-        🦧
-      </motion.div>
-    </div>
-  );
-};
-
-
-// ============================================================================
 // 2. DYNAMIC RESPONSIVE MAIN COMPONENT LAYER
 // ============================================================================
 export default function LessonPage() {
@@ -109,7 +66,7 @@ export default function LessonPage() {
   const [subject, setSubject] = useState(null);
   const [topic, setTopic] = useState(null);
   const [sessionId, setSessionId] = useState(null);
-  const [studentNickname, setStudentNickname] = useState("");
+  const [studentNickname, setStudentNickname] = useState(""); 
   const [loading, setLoading] = useState(true);
   
   // Logik Premium Status
@@ -122,26 +79,22 @@ export default function LessonPage() {
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  const [activeTab, setActiveTab] = useState("lesson");
+  const [activeTab, setActiveTab] = useState("lesson"); 
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
 
   const studyStartRef = useRef(null);
   const sessionRef = useRef(null);
 
-  useEffect(() => { 
-    sessionRef.current = sessionId; 
-  }, [sessionId]);
+  useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
 
   const tentukanPanggilanMesra = (userObj, formLevel) => {
     const customNickname = userObj?.nickname || userObj?.profile?.nickname;
     if (customNickname?.trim()) return customNickname.trim();
-    
     const namaPenuh = userObj?.name || userObj?.display_name || userObj?.profile?.name;
     if (namaPenuh?.trim()) {
       const namaPertama = namaPenuh.trim().split(" ")[0];
       if (namaPertama && !namaPertama.includes("@")) return namaPertama;
     }
-    
     if (!formLevel) return "Kawan";
     const level = formLevel.toLowerCase();
     if (level.includes("tahun") || level.includes("standard") || level.includes("primary")) return "Bintang";
@@ -156,10 +109,10 @@ export default function LessonPage() {
           base44.entities.Topic.get(topicId),
           base44.auth.me(),
         ]);
-        
         setSubject(sub);
         setTopic(top);
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
+        
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
         // Tarik semua data kuiz/bank soalan dari database
@@ -205,23 +158,16 @@ export default function LessonPage() {
         setLoading(false);
       }
     };
-    
     initializeLesson();
   }, [subjectId, topicId]);
 
   const recordStudyTime = async () => {
     if (!sessionRef.current || !studyStartRef.current) return;
     const minutes = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
-    try { 
-      await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); 
-    } catch (err) { 
-      console.warn("Failed to record study time", err); 
-    }
+    try { await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); } catch (err) { console.warn("Failed to record study time", err); }
   };
 
-  useEffect(() => { 
-    return () => { recordStudyTime(); }; 
-  }, []);
+  useEffect(() => { return () => { recordStudyTime(); }; }, []);
 
   const getLanguageMode = () => subject?.name?.toLowerCase().includes("english") ? "en" : "ms";
 
@@ -251,7 +197,7 @@ export default function LessonPage() {
       const lang = getLanguageMode();
 
       const response = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
+        model: "gemini_3_flash", 
         add_context_from_internet: config.useInternet,
         file_urls: config.urls,
         prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, studentNickname),
@@ -281,12 +227,12 @@ export default function LessonPage() {
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
       triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
+      
+      // 🎉 Cetuskan animasi confetti apabila berjaya!
       triggerConfetti();
     } catch (e) {
       console.error(e);
-    } finally { 
-      setStatus(p => ({ ...p, lesson: false })); 
-    }
+    } finally { setStatus(p => ({ ...p, lesson: false })); }
   };
 
   const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
@@ -331,8 +277,8 @@ export default function LessonPage() {
         
         setFlashcards(mappedCards);
         setStatus(p => ({ ...p, flashcards: false }));
-        return;
-      }
+        return; 
+      } 
       
       const konteksRujukan = metaData?.summary || topic?.name || "Matematik Tahun 1";
       const lang = getLanguageMode();
@@ -365,8 +311,8 @@ export default function LessonPage() {
         { front: `Jom uji kefahaman tentang ${topic?.name || "topik ini"}!`, back: "Sedia! Tekan butang Kuiz di bawah untuk mula menjawab soalan. 🎯" }
       ];
       setFlashcards(errorFallback);
-    } finally {
-      setStatus(p => ({ ...p, flashcards: false }));
+    } finally { 
+      setStatus(p => ({ ...p, flashcards: false })); 
     }
   };
 
@@ -381,7 +327,7 @@ export default function LessonPage() {
         let filteredPool = [...rawBankQuestions];
 
         if (determinedDifficulty === "hard") {
-          const hardQuestions = rawBankQuestions.filter(q =>
+          const hardQuestions = rawBankQuestions.filter(q => 
             q.difficulty?.toLowerCase() === "hard" || q.difficulty?.toLowerCase() === "medium"
           );
           if (hardQuestions.length >= numQ) {
@@ -403,13 +349,14 @@ export default function LessonPage() {
         
         navigate(`/quiz/${quiz.id}`);
         return;
-      } else {
+      } 
+      else {
         const lang = getLanguageMode();
         
         const res = await base44.integrations.Core.InvokeLLM({
           model: "gemini_3_flash",
-          prompt: `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary}", generate exactly ${numQ} multiple-choice questions for primary school students.
-          Since this is an EXAM mode, the difficulty level must be "${determinedDifficulty}". Include higher-order thinking (KBAT) questions suitable for this level.
+          prompt: `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary}", generate exactly ${numQ} multiple-choice questions for primary school students. 
+          Since this is an EXAM mode, the difficulty level must be "${determinedDifficulty}". Include higher-order thinking (KBAT) questions suitable for this level. 
           The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
           Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
         });
@@ -483,7 +430,7 @@ export default function LessonPage() {
     <div className="px-3 sm:px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-8 pb-24 font-sans bg-slate-50/50 min-h-screen">
       
       {/* Top Header Row - Warna Cyan yang Ceria */}
-      <motion.div
+      <motion.div 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="flex items-center gap-4 bg-gradient-to-r from-cyan-100 to-blue-100 p-4 sm:p-5 rounded-3xl border-2 border-cyan-200 shadow-sm"
@@ -502,21 +449,16 @@ export default function LessonPage() {
       </motion.div>
 
       {!explanation ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }} 
           transition={{ type: "spring", bounce: 0.5 }}
-          className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto relative mt-10"
+          className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto"
         >
-          {/* LOKASI 1: MORRY DI SKRIN MENU UTAMA (Menunggu Butang Ditekan) */}
-          <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
-            <MorryAvatar 
-              message={status.lesson ? "Morry tengah fikir jap..." : "Jom mula!"} 
-              isThinking={status.lesson}
-            />
+          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <Sparkles className="w-10 h-10 text-primary animate-pulse" />
           </div>
-
-          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800 mt-10">
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800">
             Hai {studentNickname}! 👋<br/>Sedia untuk belajar? 🚀
           </h2>
           <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">
@@ -532,7 +474,7 @@ export default function LessonPage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
           
           {/* Responsive Sticky Tabs - Gaya "Pill" Bubbly */}
-          <div className="sticky top-2 z-40 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
+          <div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
             <Button size="sm" variant={activeTab === "lesson" ? "default" : "ghost"} onClick={() => setActiveTab("lesson")} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "lesson" ? "shadow-md bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
               <BookOpen className="w-5 h-5"/> Nota Pintar 📖
             </Button>
@@ -566,16 +508,7 @@ export default function LessonPage() {
           )}
 
           {activeTab === "flashcards" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100 relative mt-8">
-              
-              {/* LOKASI 2: MORRY PADA KAD MEMORI */}
-              <MorryAvatar 
-                message={status.flashcards ? "Tengah susun kad..." : "Ingat betul-betul!"} 
-                isThinking={status.flashcards}
-                className="absolute -top-12 -right-2 sm:-top-16 sm:-right-6"
-                size="text-5xl sm:text-6xl"
-              />
-
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100">
               {status.flashcards ? (
                 <div className="flex flex-col items-center justify-center py-16 text-sm text-purple-600 font-medium">
                   <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-500" /> 🎮 Menyusun kad ajaib...
@@ -585,16 +518,7 @@ export default function LessonPage() {
           )}
 
           {activeTab === "mindmap" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] overflow-x-auto rounded-[2rem] bg-blue-50/30 border-2 border-blue-100 p-6 shadow-inner relative mt-8">
-              
-              {/* LOKASI 3: MORRY PADA PETA MINDA */}
-              <MorryAvatar 
-                message={status.mindmap ? "Melukis peta..." : "Wah, cantiknya!"} 
-                isThinking={status.mindmap}
-                className="absolute -top-12 -left-2 sm:-top-16 sm:-left-6"
-                size="text-5xl sm:text-6xl"
-              />
-
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] overflow-x-auto rounded-[2rem] bg-blue-50/30 border-2 border-blue-100 p-6 shadow-inner">
               {status.mindmap ? (
                 <div className="flex flex-col items-center justify-center py-16 text-sm text-blue-600 font-medium">
                   <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" /> Melukis peta harta karun... 🗺️
@@ -634,15 +558,15 @@ export default function LessonPage() {
 
           {/* Ciri Premium */}
           {isPremium ? (
-            <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
-              {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={handlePremiumRedirect} className="w-full text-sm font-medium text-amber-600 bg-amber-50/50 hover:bg-amber-100 py-3 rounded-full border-2 border-dashed border-amber-200 transition-colors">
-              <Lock className="w-4 h-4 mr-2 text-amber-500" /> Ciri Premium: Jana Semula Nota 🌟
-            </Button>
-          )}
-            
+             <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
+               {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
+             </Button>
+           ) : (
+             <Button variant="ghost" size="sm" onClick={handlePremiumRedirect} className="w-full text-sm font-medium text-amber-600 bg-amber-50/50 hover:bg-amber-100 py-3 rounded-full border-2 border-dashed border-amber-200 transition-colors">
+               <Lock className="w-4 h-4 mr-2 text-amber-500" /> Ciri Premium: Jana Semula Nota 🌟
+             </Button>
+           )}
+           
         </motion.div>
       )}
     </div>
