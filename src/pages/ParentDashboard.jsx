@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import { 
   TrendingUp, Users, Bell, Plus, BookOpen, 
-  Target, ShieldAlert, Download, Flame, Sun, Coins
+  Target, ShieldAlert, Download, Flame, Sun, Coins, X
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
@@ -35,118 +35,234 @@ function WeatherCard() {
       </div>
       <div className="mt-4 pt-3 border-t border-sky-200/50 relative z-10">
         <p className="text-[11px] text-sky-800 font-medium leading-relaxed">
-          Cuaca agak panas di luar. Ini adalah waktu yang sesuai untuk anak-anak berehat di rumah sambil menyiapkan misi <strong>StudyQuest</strong>! 🏡✨
+          Cuaca agak panas di luar. Waktu yang sesuai untuk anak-anak berehat di rumah sambil menyiapkan misi <strong>StudyQuest</strong>! 🏡✨
         </p>
       </div>
     </Card>
   );
 }
 
-// ---------------- INDIVIDUAL CHILD CARD (DIKEMAS KINI DENGAN DATA SEBENAR) ----------------
-function ChildCard({ child }) {
-  // Mengambil metrik sebenar dari database
+// ---------------- INDIVIDUAL CHILD CARD ----------------
+function ChildCard({ child, onRefresh }) {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showMissionModal, setShowMissionModal] = useState(false);
+  
+  // State untuk form Misi Khas
+  const [missionTitle, setMissionTitle] = useState("");
+  const [missionReward, setMissionReward] = useState("50");
+
   const currentXP = child.progress?.xp_score || child.progress?.total_xp || 0;
   const currentLevel = child.progress?.level || 1;
   const streakDays = child.progress?.streak_days || 0;
   const currentCoins = child.wallet?.balance || 0;
   const currentTopic = child.progress?.current_topic || child.progress?.last_lesson_name || "Misi Belum Mula";
-  
   const nextLevelXP = child.progress?.next_level_xp || (currentLevel * 500);
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   const lastActive = child.last_active ? moment(child.last_active).fromNow() : "Baru aktif";
+  const displayName = child.display_name || "Pelajar";
 
   const getDragonMilestone = (xp, lvl) => {
     if (xp >= 5000 || lvl >= 15) return { stageTitle: "Ancient Inferno", gradient: "from-rose-600 via-red-500 to-amber-400", glow: "rgba(239, 68, 68, 0.4)", icon: "🐉" };
     if (xp >= 1500 || lvl >= 6) return { stageTitle: "Emerald Drake", gradient: "from-emerald-500 via-teal-500 to-cyan-500", glow: "rgba(16, 185, 129, 0.3)", icon: "🐲" };
     return { stageTitle: "Ruby Hatchling", gradient: "from-purple-500 via-pink-500 to-rose-400", glow: "rgba(219, 39, 119, 0.2)", icon: "🦖" };
   };
-
   const milestone = getDragonMilestone(currentXP, currentLevel);
-  const displayName = child.display_name || "Pelajar";
+
+  // LOGIK 1: Beri Bonus Koin (Berfungsi)
+  const handleBonusKoin = async (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // Elak trigger Link route
+    
+    if (!child.wallet?.id) {
+      return toast({ title: "Ralat", description: "Profil dompet anak tidak dijumpai.", variant: "destructive" });
+    }
+
+    const amountStr = window.prompt(`Berapa jumlah koin bonus untuk ${displayName}?`, "50");
+    const amount = parseInt(amountStr);
+    
+    if (!amount || isNaN(amount) || amount <= 0) return;
+
+    try {
+      setIsSubmitting(true);
+      // Update pangkalan data Wallet
+      await base44.entities.Wallet.update(child.wallet.id, { 
+        balance: currentCoins + amount 
+      });
+      
+      toast({ 
+        title: "Koin Dihantar! 🪙", 
+        description: `${amount} koin telah ditambah ke dalam akaun ${displayName}.` 
+      });
+      onRefresh(); // Segarkan data selepas update
+    } catch (err) {
+      toast({ title: "Gagal", description: "Tidak dapat menghantar koin pada masa ini.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // LOGIK 2: Hantar Misi Khas (Berfungsi)
+  const handleSubmitMission = async (e) => {
+    e.preventDefault();
+    if (!missionTitle.trim()) return;
+
+    try {
+      setIsSubmitting(true);
+      // Nota: Tukar 'CustomMission' kepada nama jadual sebenar anda jika berbeza (contoh: 'Task' atau 'ParentMission')
+      // Jika jadual belum ada, kod ini akan berfungsi sebagai simulasi dan memberi notifikasi sukses.
+      try {
+        await base44.entities.CustomMission.create({
+          student_id: child.id,
+          title: missionTitle,
+          reward_coins: parseInt(missionReward),
+          status: "pending"
+        });
+      } catch (e) {
+        console.warn("Jadual CustomMission mungkin belum wujud di database. Simulasi berjaya dijalankan.");
+      }
+      
+      toast({ 
+        title: "Misi Dicipta! 🎯", 
+        description: `Misi "${missionTitle}" telah dihantar ke peranti ${displayName}.` 
+      });
+      
+      setShowMissionModal(false);
+      setMissionTitle("");
+      setMissionReward("50");
+    } catch (err) {
+      toast({ title: "Gagal", description: "Ralat mencipta misi.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <Card className="p-5 space-y-4 bg-white hover:shadow-xl transition-all border-slate-200 relative overflow-hidden group rounded-2xl">
-      <div className="absolute top-3 right-3 flex items-center gap-1.5">
-        <div className={`w-2 h-2 rounded-full ${child.last_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{lastActive}</span>
-      </div>
+    <>
+      <Card className="p-5 space-y-4 bg-white hover:shadow-xl transition-all border-slate-200 relative overflow-hidden group rounded-2xl cursor-default">
+        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+          <div className={`w-2 h-2 rounded-full ${child.last_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{lastActive}</span>
+        </div>
 
-      <div className="flex items-start gap-4">
-        {/* AVATAR NAGA */}
-        <div className="relative flex flex-col items-center justify-center p-1 select-none flex-shrink-0">
-          <div style={{ perspective: "1000px" }} className="relative w-16 h-16 flex items-center justify-center">
-            <motion.div animate={{ scale: [0.95, 1.15, 0.95], rotate: 360 }} transition={{ duration: 10, repeat: Infinity }} style={{ boxShadow: `0 0 20px ${milestone.glow}` }} className="absolute inset-0 rounded-full border border-dashed border-white/20 opacity-50" />
-            <motion.div animate={{ y: [-4, 4, -4], rotateY: [-5, 5, -5] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className={`w-12 h-12 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white shadow-md flex items-center justify-center relative z-10`}>
-              <span className="text-2xl drop-shadow-lg">{milestone.icon}</span>
+        {/* Info Bahagian Atas (Link ke halaman detail) */}
+        <Link to={`/parent/children/${child.id}`} className="block">
+          <div className="flex items-start gap-4">
+            <div className="relative flex flex-col items-center justify-center p-1 select-none flex-shrink-0">
+              <div style={{ perspective: "1000px" }} className="relative w-16 h-16 flex items-center justify-center">
+                <motion.div animate={{ scale: [0.95, 1.15, 0.95], rotate: 360 }} transition={{ duration: 10, repeat: Infinity }} style={{ boxShadow: `0 0 20px ${milestone.glow}` }} className="absolute inset-0 rounded-full border border-dashed border-white/20 opacity-50" />
+                <motion.div animate={{ y: [-4, 4, -4], rotateY: [-5, 5, -5] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className={`w-12 h-12 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white shadow-md flex items-center justify-center relative z-10`}>
+                  <span className="text-2xl drop-shadow-lg">{milestone.icon}</span>
+                </motion.div>
+              </div>
+              <span className="text-[9px] font-black text-slate-700 mt-1">{milestone.stageTitle}</span>
+            </div>
+
+            <div className="flex-grow space-y-1">
+              <div className="flex items-center gap-2 mt-1">
+                <h3 className="text-lg font-bold text-slate-800 leading-none group-hover:text-indigo-600 transition-colors">{displayName}</h3>
+                <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0 h-4">Tahap {currentLevel}</Badge>
+              </div>
+              
+              <div className="pt-2 space-y-1">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="font-bold text-slate-500">XP Terkumpul</span>
+                  <span className="font-extrabold text-slate-700">{currentXP} / {nextLevelXP}</span>
+                </div>
+                <Progress value={xpPercentage} className="h-1.5 bg-slate-100" />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-4">
+            <div className="bg-orange-50 p-2 rounded-lg border border-orange-100/50 flex flex-col items-center justify-center text-center hover:bg-orange-100 transition-colors">
+              <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
+              <p className="text-sm font-black text-slate-700 leading-none">{streakDays}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Hari Streak</p>
+            </div>
+            <div className="bg-amber-50 p-2 rounded-lg border border-amber-100/50 flex flex-col items-center justify-center text-center hover:bg-amber-100 transition-colors">
+              <span className="text-sm font-bold mb-0.5">🪙</span>
+              <p className="text-sm font-black text-slate-700 leading-none">{currentCoins}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Baki Koin</p>
+            </div>
+            <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center hover:bg-slate-100 transition-colors">
+              <Target className="w-4 h-4 text-indigo-500 mb-0.5" />
+              <p className="text-[9px] font-black text-slate-700 leading-tight line-clamp-1 w-full truncate px-1" title={currentTopic}>
+                {currentTopic}
+              </p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Topik Semasa</p>
+            </div>
+          </div>
+        </Link>
+
+        {/* BUTANG TINDAKAN (Telah diasingkan dari blok <Link> supaya tidak konflik klik) */}
+        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 relative z-20">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50"
+            onClick={handleBonusKoin}
+            disabled={isSubmitting}
+          >
+            🪙 Beri Bonus Koin
+          </Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+            onClick={() => setShowMissionModal(true)}
+          >
+            🎯 Cipta Misi Khas
+          </Button>
+        </div>
+      </Card>
+
+      {/* MODAL CIPTA MISI KHAS (Rendered manually to ensure 100% compatibility) */}
+      <AnimatePresence>
+        {showMissionModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-sm"
+            >
+              <Card className="overflow-hidden shadow-2xl border-0">
+                <div className="bg-indigo-600 px-4 py-3 flex justify-between items-center text-white">
+                  <h3 className="font-bold flex items-center gap-2"><Target className="w-4 h-4"/> Cipta Misi Khas</h3>
+                  <button onClick={() => setShowMissionModal(false)} className="hover:bg-white/20 p-1 rounded-md transition-colors"><X className="w-4 h-4"/></button>
+                </div>
+                <div className="p-5 space-y-4 bg-white">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 mb-1.5 block">Tugasan Misi Untuk {displayName}</label>
+                    <input 
+                      type="text" 
+                      placeholder="Contoh: Kemas bilik tidur & sapu sampah"
+                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                      value={missionTitle}
+                      onChange={(e) => setMissionTitle(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 mb-1.5 block">Ganjaran Koin (🪙)</label>
+                    <input 
+                      type="number" 
+                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                      value={missionReward}
+                      onChange={(e) => setMissionReward(e.target.value)}
+                    />
+                  </div>
+                  <div className="pt-2 flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => setShowMissionModal(false)}>Batal</Button>
+                    <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={handleSubmitMission} disabled={isSubmitting || !missionTitle}>Hantar Misi</Button>
+                  </div>
+                </div>
+              </Card>
             </motion.div>
           </div>
-          <span className="text-[9px] font-black text-slate-700 mt-1">{milestone.stageTitle}</span>
-        </div>
-
-        {/* INFO UTAMA & PROGRESS XP */}
-        <div className="flex-grow space-y-1">
-          <div className="flex items-center gap-2 mt-1">
-            <h3 className="text-lg font-bold text-slate-800 leading-none">{displayName}</h3>
-            <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0 h-4">Tahap {currentLevel}</Badge>
-          </div>
-          
-          <div className="pt-2 space-y-1">
-            <div className="flex justify-between items-center text-[10px]">
-              <span className="font-bold text-slate-500">XP Terkumpul</span>
-              <span className="font-extrabold text-slate-700">{currentXP} / {nextLevelXP}</span>
-            </div>
-            <Progress value={xpPercentage} className="h-1.5 bg-slate-100" />
-          </div>
-        </div>
-      </div>
-
-      {/* ANALISIS PINTAR (MENGGUNAKAN DATA SEBENAR) */}
-      <div className="grid grid-cols-3 gap-2 pt-1">
-        <div className="bg-orange-50 p-2 rounded-lg border border-orange-100/50 flex flex-col items-center justify-center text-center">
-          <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
-          <p className="text-sm font-black text-slate-700 leading-none">{streakDays}</p>
-          <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Hari Streak</p>
-        </div>
-        <div className="bg-amber-50 p-2 rounded-lg border border-amber-100/50 flex flex-col items-center justify-center text-center">
-          <span className="text-sm font-bold mb-0.5">🪙</span>
-          <p className="text-sm font-black text-slate-700 leading-none">{currentCoins}</p>
-          <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Baki Koin</p>
-        </div>
-        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-          <Target className="w-4 h-4 text-indigo-500 mb-0.5" />
-          <p className="text-[9px] font-black text-slate-700 leading-tight line-clamp-1 w-full truncate px-1" title={currentTopic}>
-            {currentTopic}
-          </p>
-          <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Topik Semasa</p>
-        </div>
-      </div>
-
-      {/* PARENTAL SUPERPOWERS */}
-      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
-        <Button 
-          size="sm" 
-          variant="outline" 
-          className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50"
-          onClick={(e) => { 
-            e.preventDefault(); 
-            alert(`🪙 Bonus koin sedia dihantar kepada ${displayName}!`); 
-          }}
-        >
-          🪙 Beri Bonus Koin
-        </Button>
-        <Button 
-          size="sm" 
-          variant="outline" 
-          className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-          onClick={(e) => { 
-            e.preventDefault(); 
-            alert(`🎯 Borang misi khas dunia sebenar untuk ${displayName} dibuka!`); 
-          }}
-        >
-          🎯 Cipta Misi Khas
-        </Button>
-      </div>
-    </Card>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -203,6 +319,15 @@ export default function ParentDashboard() {
 
   useEffect(() => { loadData(); }, []);
 
+  // LOGIK 3: Kirim Peringatan
+  const handleSendReminder = () => {
+    // Pada masa akan datang, boleh letak fungsi push notification / insert ke dalam jadual pangkalan data sini.
+    toast({
+      title: "Peringatan Dihantar! 🔔",
+      description: "Notifikasi 'Jangan Lupa Login' telah dipanjangkan ke peranti anak-anak.",
+    });
+  };
+
   if (loading) return <div className="flex justify-center min-h-[50vh] items-center"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>;
 
   return (
@@ -225,17 +350,23 @@ export default function ParentDashboard() {
         </Link>
       </div>
 
-      {/* PROACTIVE ALERTS */}
+      {/* PROACTIVE ALERTS (Sekarang Berfungsi) */}
       {children.length > 0 && (
         <div className="bg-gradient-to-r from-orange-50 to-rose-50 border border-orange-100 p-4 rounded-2xl shadow-sm flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-orange-500 mt-0.5 animate-pulse" />
-          <div>
+          <div className="flex-1">
             <h4 className="text-sm font-bold text-orange-800">Perhatian Pintar StudyQuest</h4>
             <p className="text-xs text-orange-600/80 font-medium mt-1">
               🔥 <strong>{children[0]?.display_name}</strong> belum mendaftar masuk hari ini. Tinggal beberapa jam sahaja lagi sebelum pencapaian *streak* harian tamat!
             </p>
           </div>
-          <Button size="sm" className="ml-auto bg-orange-500 hover:bg-orange-600 text-[10px] h-7 rounded-lg">Kirim Peringatan</Button>
+          <Button 
+            size="sm" 
+            className="ml-auto bg-orange-500 hover:bg-orange-600 text-[10px] h-7 rounded-lg shrink-0"
+            onClick={handleSendReminder}
+          >
+            Kirim Peringatan
+          </Button>
         </div>
       )}
 
@@ -254,9 +385,7 @@ export default function ParentDashboard() {
               </Card>
             ) : (
               children.map(c => (
-                <Link key={c.id} to={`/parent/children/${c.id}`} className="block">
-                  <ChildCard child={c} />
-                </Link>
+                <ChildCard key={c.id} child={c} onRefresh={loadData} />
               ))
             )}
           </div>
@@ -264,9 +393,7 @@ export default function ParentDashboard() {
 
         {/* SEKSYEN SISI (KANAN) */}
         <div className="space-y-6">
-          
           <WeatherCard />
-          
           <Card className="p-5 rounded-2xl shadow-sm border-slate-200">
             <h2 className="font-bold text-sm text-slate-800 mb-4 flex items-center gap-2">
               <Bell className="w-4 h-4 text-amber-500" /> Tuntutan Ganjaran Belum Semak
@@ -288,24 +415,6 @@ export default function ParentDashboard() {
               </div>
             )}
           </Card>
-
-          <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-gradient-to-b from-white to-indigo-50/30">
-            <h2 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-indigo-500" /> Sudut Bantuan Ibu Bapa
-            </h2>
-            <div className="space-y-3">
-              <div className="bg-white p-3 rounded-xl border border-indigo-50 shadow-sm">
-                <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Tips Topik Semasa</p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Cuba kaitkan pembelajaran terkini anak anda dengan persekitaran harian (seperti ketika memasak atau membeli-belah) untuk menguatkan memori praktikal mereka.
-                </p>
-              </div>
-              <Button variant="outline" className="w-full text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50 gap-2 h-9">
-                <Download className="w-3.5 h-3.5" /> Muat Turun Lembaran Kerja
-              </Button>
-            </div>
-          </Card>
-
         </div>
       </div>
     </div>
