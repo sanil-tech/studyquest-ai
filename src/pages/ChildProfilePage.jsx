@@ -15,17 +15,37 @@ import SecuritySection from "@/components/profile/SecuritySection";
 import StudentIdSection from "@/components/profile/StudentIdSection";
 
 // ==========================================
-// KOLEKSI AVATAR PERCUMA (DICEBEAR API)
+// KOLEKSI AVATAR PERCUMA (LEBIH BANYAK PILIHAN)
 // ==========================================
 const FREE_AVATARS = [
+  // Kategori: Emoji & Comel
   "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy&backgroundColor=ffdfbf",
   "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Wink&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Star&backgroundColor=ffd700",
+  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Cool&backgroundColor=98fb98",
+  
+  // Kategori: Robot & Sci-Fi
   "https://api.dicebear.com/7.x/bottts/svg?seed=Robot1&backgroundColor=c0aede",
   "https://api.dicebear.com/7.x/bottts/svg?seed=Cody&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Sparky&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Buster&backgroundColor=d3d3d3",
+
+  // Kategori: Adventurer (Wira & Pelembara)
   "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix&backgroundColor=ffdfbf",
   "https://api.dicebear.com/7.x/adventurer/svg?seed=Mia&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/adventurer/svg?seed=Leo&backgroundColor=c0aede",
+  "https://api.dicebear.com/7.x/adventurer/svg?seed=Zoe&backgroundColor=d1d4f9",
+
+  // Kategori: Gaya Remaja / Moden
   "https://api.dicebear.com/7.x/micah/svg?seed=Alex&backgroundColor=ffdfbf",
-  "https://api.dicebear.com/7.x/notionists/svg?seed=Luna&backgroundColor=ffdfbf"
+  "https://api.dicebear.com/7.x/micah/svg?seed=Sam&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/notionists/svg?seed=Luna&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/notionists/svg?seed=Ryan&backgroundColor=c0aede",
+  
+  // Kategori: Raksasa Comel
+  "https://api.dicebear.com/7.x/monster/svg?seed=Zub&backgroundColor=ffb6c1",
+  "https://api.dicebear.com/7.x/monster/svg?seed=Blob&backgroundColor=98fb98",
+  "https://api.dicebear.com/7.x/monster/svg?seed=Garg&backgroundColor=add8e6"
 ];
 
 // ==========================================
@@ -37,7 +57,9 @@ const PREMIUM_AVATARS = [
   { id: "prem3", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Magic&backgroundColor=87ceeb", cost: 250, label: "Magik Ais" },
   { id: "prem4", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Fire&backgroundColor=ff7f50", cost: 250, label: "Wira Api" },
   { id: "prem5", url: "https://api.dicebear.com/7.x/shapes/svg?seed=Pro&backgroundColor=98fb98", cost: 500, label: "Pro Master" },
-  { id: "prem6", url: "https://api.dicebear.com/7.x/rings/svg?seed=Legend&backgroundColor=dda0dd", cost: 1000, label: "Legend" },
+  { id: "prem6", url: "https://api.dicebear.com/7.x/rings/svg?seed=Legend&backgroundColor=dda0dd", cost: 1000, label: "Aura Legend" },
+  { id: "prem7", url: "https://api.dicebear.com/7.x/glass/svg?seed=Diamond&backgroundColor=000000", cost: 2000, label: "Kristal Hitam" },
+  { id: "prem8", url: "https://api.dicebear.com/7.x/thumbs/svg?seed=Winner&backgroundColor=ff4500", cost: 2000, label: "Juara" },
 ];
 
 export default function ProfilePage() {
@@ -201,7 +223,7 @@ export default function ProfilePage() {
             <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/20">
               {isStudent && (
                 <Button variant="ghost" size="sm" onClick={() => setShowAvatar(!showAvatar)} className="text-white hover:bg-white/20 hover:text-white rounded-xl text-xs h-9 px-4 font-bold">
-                  {showAvatar ? "Tutup Tetapan" : "Tukar Avatar/Gambar"}
+                  {showAvatar ? "Tutup Menu Avatar" : "Tukar Avatar/Gambar"}
                 </Button>
               )}
               <Button size="sm" variant={editing ? "secondary" : "default"} disabled={saving} onClick={() => editing ? handleSaveProfile() : setEditing(true)} className={`text-xs h-9 px-4 font-bold rounded-xl transition-all shadow-sm ${editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-orange-600 hover:bg-orange-50"}`}>
@@ -243,14 +265,15 @@ export default function ProfilePage() {
                   />
                 </div>
 
-                {/* 2. Galeri Avatar Percuma */}
+                {/* 2. Galeri Avatar Percuma (Sekarang ada 19 Pilihan!) */}
                 <div className="p-6 bg-slate-50/50">
                   <div className="flex items-center gap-2 mb-4">
                     <Sparkles className="w-5 h-5 text-blue-500" />
                     <h3 className="text-sm font-bold text-slate-700">Koleksi Avatar Percuma</h3>
                   </div>
                   
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
+                  {/* Grid diubah supaya paparan muat untuk senarai yang panjang */}
+                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3 sm:gap-4 max-h-[400px] overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-orange-200 scrollbar-track-transparent">
                     {FREE_AVATARS.map((url, idx) => {
                       const isSelected = user?.profile_picture_url === url;
                       return (
