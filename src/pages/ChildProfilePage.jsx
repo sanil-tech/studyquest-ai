@@ -1,18 +1,55 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X } from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, Bot, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
-import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
 import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
 import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
 import SecuritySection from "@/components/profile/SecuritySection";
 import StudentIdSection from "@/components/profile/StudentIdSection";
+
+// ==========================================
+// DATA AVATAR 3D BERTEMA (SIMPAN TERUS DI SINI)
+// ==========================================
+const AVATAR_THEMES = {
+  robot: {
+    label: "🤖 Cyber-Bots",
+    items: [
+      { id: "rob_01", name: "Alpha Mech", url: "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Alpha" },
+      { id: "rob_02", name: "Neon Spark", url: "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Spark" },
+      { id: "rob_03", name: "Cyber Node", url: "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Node" },
+    ]
+  },
+  haiwan: {
+    label: "🦁 Wild 3D",
+    items: [
+      { id: "ani_01", name: "Shadow Tiger", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Tiger" },
+      { id: "ani_02", name: "Sonic Falcon", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Falcon" },
+      { id: "ani_03", name: "Mystic Fox", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Fox" },
+    ]
+  },
+  dragon: {
+    label: "🐉 Dragon Clan",
+    items: [
+      { id: "drg_01", name: "Inferno Drake", url: "https://api.dicebear.com/7.x/identicon/svg?seed=Inferno" },
+      { id: "drg_02", name: "Frost Wyrm", url: "https://api.dicebear.com/7.x/identicon/svg?seed=Frost" },
+      { id: "drg_03", name: "Abyss Dragon", url: "https://api.dicebear.com/7.x/identicon/svg?seed=Abyss" },
+    ]
+  },
+  mystic: {
+    label: "🔮 Mystic Roleplay",
+    items: [
+      { id: "mys_01", name: "Astral Mage", url: "https://api.dicebear.com/7.x/adventurer/svg?seed=Mage" },
+      { id: "mys_02", name: "Void Rogue", url: "https://api.dicebear.com/7.x/adventurer/svg?seed=Rogue" },
+      { id: "mys_03", name: "Solar Knight", url: "https://api.dicebear.com/7.x/adventurer/svg?seed=Knight" },
+    ]
+  }
+};
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -21,9 +58,9 @@ export default function ProfilePage() {
   const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showAvatar, setShowAvatar] = useState(false);
+  const [activeTab, setActiveTab] = useState("robot"); // Mengawal tab tema avatar yang aktif
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [avatarMode, setAvatarMode] = useState("emoji");
   const [uploading, setUploading] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -54,7 +91,6 @@ export default function ProfilePage() {
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
-  // Helper to map user object data cleanly into form state fields
   const syncFormData = (userData) => {
     setFormData({
       full_name: userData.full_name || "",
@@ -98,7 +134,7 @@ export default function ProfilePage() {
           
           if (progs?.[0]) setProgress(progs[0]);
           if (wallets?.[0]) setWallet(wallets[0]);
-          if (attempts) setTotalQuizzes(attempts.length); // Fixed short-circuit bug evaluation
+          if (attempts) setTotalQuizzes(attempts.length);
         }
       } catch (err) {
         console.error("Failed to load profile:", err);
@@ -107,47 +143,34 @@ export default function ProfilePage() {
       }
     };
     load();
-  }, []); // Fixed empty array dependency prevents an immediate infinite duplicate request loop
+  }, []);
 
   const handleLogout = () => {
     base44.auth.logout("/login");
   };
 
-  const handleSaveAvatar = async (emoji) => {
-    await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
-    setUser((prev) => ({ ...prev, avatar_emoji: emoji, profile_picture_url: null }));
-  };
-
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setUploading(true);
+  // Fungsi menyimpan avatar bertema 3D yang dipilih oleh anak
+  const handleSelectThemeAvatar = async (avatarUrl) => {
     try {
-      const result = await base44.integrations.Core.UploadFile({ file });
-      await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
-      setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
-      setAvatarMode("photo");
+      await base44.auth.updateMe({ profile_picture_url: avatarUrl, avatar_emoji: null });
+      setUser((prev) => ({ ...prev, profile_picture_url: avatarUrl, avatar_emoji: null }));
       toast({
-        title: "Photo uploaded!",
-        description: "Your profile photo has been updated.",
+        title: "Avatar Dikemaskini! 🎉",
+        description: "Penampilan avatar baharu anda berjaya disimpan.",
       });
     } catch (err) {
-      console.error("Photo upload failed:", err);
+      console.error("Failed to save avatar:", err);
       toast({
-        title: "Upload failed",
-        description: "Failed to upload photo. Please try again.",
+        title: "Gagal menukar avatar",
+        description: "Sila cuba sebentar lagi.",
         variant: "destructive",
       });
-    } finally {
-      setUploading(false);
     }
   };
 
   const handleRemovePhoto = async () => {
-    await base44.auth.updateMe({ profile_picture_url: null });
-    setUser((prev) => ({ ...prev, profile_picture_url: null }));
-    setAvatarMode("emoji");
+    await base44.auth.updateMe({ profile_picture_url: null, avatar_emoji: "🎓" });
+    setUser((prev) => ({ ...prev, profile_picture_url: null, avatar_emoji: "🎓" }));
   };
 
   const handleSaveProfile = async () => {
@@ -222,11 +245,11 @@ export default function ProfilePage() {
                   <span className="text-5xl select-none">{user?.avatar_emoji || "🎓"}</span>
                 )}
               </div>
-              {isStudent && showAvatar && (
+              {isStudent && (user?.profile_picture_url || user?.avatar_emoji !== "🎓") && (
                 <button
                   onClick={handleRemovePhoto}
                   className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
-                  title="Remove photo"
+                  title="Reset Avatar"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -254,7 +277,7 @@ export default function ProfilePage() {
                   onClick={() => setShowAvatar(!showAvatar)}
                   className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
                 >
-                  {showAvatar ? "Hide Options" : "Change Avatar/Photo"}
+                  {showAvatar ? "Tutup Pilihan" : "Pilih Avatar Roleplay 3D"}
                 </Button>
               )}
               
@@ -367,31 +390,67 @@ export default function ProfilePage() {
           </Button>
         </div>
 
-        {/* Right Hand / Main Content Columns Content Segment */}
+        {/* Right Hand / Main Content Column */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Avatar Options Panel Toggle */}
+          {/* SECRESY SELECTION: INTEGRATED TEMA AVATAR BARU */}
           <AnimatePresence>
             {showAvatar && isStudent && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden bg-card rounded-2xl border border-border/60 p-1 shadow-xs"
+                className="bg-card rounded-2xl border border-border/60 p-6 shadow-md overflow-hidden space-y-4"
               >
-                <ProfilePhotoSection
-                  user={user}
-                  avatarMode={avatarMode}
-                  setAvatarMode={setAvatarMode}
-                  uploading={uploading}
-                  setUploading={setUploading}
-                  fileInputRef={fileInputRef}
-                  handlePhotoUpload={handlePhotoUpload}
-                  handleRemovePhoto={handleRemovePhoto}
-                  handleSaveAvatar={handleSaveAvatar}
-                  showAvatar={showAvatar}
-                  setShowAvatar={setShowAvatar}
-                />
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500 animate-pulse" />
+                  <h3 className="font-bold text-lg tracking-tight text-foreground">Pilih Tema Avatar Lively 3D</h3>
+                </div>
+
+                {/* Butang Navigasi Kategori / Tema Tab */}
+                <div className="flex flex-wrap gap-2 p-1 bg-secondary/40 rounded-xl">
+                  {Object.entries(AVATAR_THEMES).map(([key, theme]) => (
+                    <button
+                      key={key}
+                      onClick={() => setActiveTab(key)}
+                      className={`flex-1 min-w-[80px] py-2 px-3 text-xs font-semibold rounded-lg transition-all capitalize ${
+                        activeTab === key
+                          ? "bg-primary text-white shadow-xs"
+                          : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                      }`}
+                    >
+                      {theme.label.split(" ")[1] || theme.label} 
+                    </button>
+                  ))}
+                </div>
+
+                {/* Paparan Grid Item Avatar Mengikut Kategori Pilihan */}
+                <div className="grid grid-cols-3 gap-4 pt-2">
+                  {AVATAR_THEMES[activeTab].items.map((avatar) => {
+                    const isSelected = user?.profile_picture_url === avatar.url;
+                    return (
+                      <div
+                        key={avatar.id}
+                        onClick={() => handleSelectThemeAvatar(avatar.url)}
+                        className={`group relative cursor-pointer border-2 rounded-2xl p-3 text-center transition-all bg-secondary/10 hover:bg-secondary/30 ${
+                          isSelected ? "border-primary bg-primary/5 shadow-md scale-102" : "border-transparent"
+                        }`}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 bg-primary text-white p-0.5 rounded-full z-10">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                        <img
+                          src={avatar.url}
+                          alt={avatar.name}
+                          className="w-16 h-16 sm:w-20 sm:h-20 mx-auto object-contain transition-transform duration-200 group-hover:scale-110"
+                        />
+                        <p className="text-[11px] font-bold mt-2 text-foreground truncate">{avatar.name}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
