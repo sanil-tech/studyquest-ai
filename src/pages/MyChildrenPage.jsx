@@ -16,9 +16,9 @@ const getDisplayName = (user) => {
 };
 
 function DetailedChildCard({ child, onOpenReport }) {
+  // 🛡️ Perlindungan ralat objek kosong {}
   const sessionData = child.latestSession || {};
   
-  // XP & Streak (Boleh diletakkan fallback jika disimpan di entiti berbeza)
   const currentXP = sessionData.total_xp || 0; 
   const nextLevelXP = 500;
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
@@ -26,11 +26,10 @@ function DetailedChildCard({ child, onOpenReport }) {
   
   const currentCoins = child.wallet?.balance || 0;
   
-  // 🔗 DIKEMASKINI: Membaca skema tulen dari StudySession anda
+  // Membaca skema tulen dari StudySession anda
   const currentTopic = sessionData.topic_name || "Misi Belum Mula"; 
   const totalStudyMinutes = sessionData.duration_minutes || 0; 
   
-  // Menggunakan created_date / updated_date dari fail CSV anda
   const lastActiveTime = sessionData.updated_date 
     ? `Belajar Terakhir: ${moment(sessionData.updated_date).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
@@ -97,7 +96,7 @@ function DetailedChildCard({ child, onOpenReport }) {
         </div>
       </div>
 
-      {/* Masa Belajar Terkumpul */}
+      {/* Masa Sesi Terakhir */}
       <div className="bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-400" />
@@ -119,7 +118,7 @@ function DetailedChildCard({ child, onOpenReport }) {
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-[11px]">
             <span className="text-slate-500 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Status Nota Bacaan</span>
-            {/* 🛡️ Memandangkan rekod wujud di StudySession, ia bermaksud nota sudah dibaca */}
+            {/* 🛡️ Perlindungan ?.length digunakan di sini */}
             {child.allSessions?.length > 0 ? ( 
               <span className="text-emerald-600 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Selesai</span>
             ) : (
@@ -147,6 +146,16 @@ function DetailedChildCard({ child, onOpenReport }) {
       >
         <BarChart3 className="w-4 h-4" /> Lihat Laporan Penuh Topik
       </Button>
+
+      {/* Butang Tambahan */}
+      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
+          ⚙️ Kata Laluan
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
+          <ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
+        </Button>
+      </div>
     </Card>
   );
 }
@@ -169,18 +178,18 @@ export default function MyChildrenPage() {
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
+        // 🛡️ Diletakkan fungsi .catch(() => []) sebagai perlindungan ralat rangkaian / DB kosong
         const [studySessionRes, walletRes, attemptsRes, childUser] = await Promise.all([
-          // 🔥 PERTUKARAN UTAMA: Menukar 'Progress' kepada 'StudySession' mengikut data tulen anda
-          base44.entities.StudySession.filter({ student_id: id }),
-          base44.entities.Wallet.filter({ student_id: id }),
-          base44.entities.QuizAttempt.filter({ student_id: id }),
+          base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
+          base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
+          base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
           base44.entities.User.get(id).catch(() => null),
         ]);
 
         let latestSession = {};
         let sortedSessions = [];
-        if (studySessionRes && studySessionRes.length > 0) {
-          // Menyusun mengikut updated_date berasaskan data eksport CSV anda
+        // 🛡️ DIBAIKI: Menggunakan operator selamat ?. untuk mengelakkan ralat length
+        if (studySessionRes && studySessionRes?.length > 0) {
           sortedSessions = [...studySessionRes].sort((a, b) => 
             new Date(b.updated_date || b.created_date || 0) - new Date(a.updated_date || a.created_date || 0)
           );
@@ -189,14 +198,16 @@ export default function MyChildrenPage() {
 
         let latestQuizScore = null;
         let allAttempts = [];
-        if (attemptsRes && attemptsRes.length > 0) {
+        // 🛡️ DIBAIKI: Menggunakan operator selamat ?. untuk mengelakkan ralat length jika rekod kuiz kosong
+        if (attemptsRes && attemptsRes?.length > 0) {
           allAttempts = [...attemptsRes].sort((a, b) => 
             new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
           );
           latestQuizScore = allAttempts[0].score;
         }
 
-        const activeWallet = walletRes && walletRes.length > 0 ? walletRes[0] : { balance: 0 };
+        // 🛡️ DIBAIKI: Menggunakan operator selamat ?. untuk data dompet
+        const activeWallet = walletRes && walletRes?.length > 0 ? walletRes[0] : { balance: 0 };
 
         return { 
           id, 
@@ -205,7 +216,7 @@ export default function MyChildrenPage() {
           username: childUser?.username || "",
           wallet: activeWallet,
           allAttempts, 
-          allSessions: sortedSessions, // Menyimpan semua sesi pengajian untuk modal popup
+          allSessions: sortedSessions, 
           latestSession,
           quiz: {
             quiz_score: latestQuizScore
@@ -241,7 +252,7 @@ export default function MyChildrenPage() {
         ))}
       </div>
 
-      {/* MODAL POPUP: LAPORAN PENUH BERDASARKAN STUDYSESSION */}
+      {/* MODAL POPUP: LAPORAN PENUH */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
           <DialogHeader className="border-b pb-3">
@@ -258,7 +269,8 @@ export default function MyChildrenPage() {
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
                 </h4>
-                {selectedChild.allSessions.length === 0 ? (
+                {/* 🛡️ Perlindungan ralat ?.length */}
+                {!selectedChild.allSessions || selectedChild.allSessions?.length === 0 ? (
                   <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum ada topik pelajaran dimulakan.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -282,7 +294,8 @@ export default function MyChildrenPage() {
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
                 </h4>
-                {selectedChild.allAttempts.length === 0 ? (
+                {/* 🛡️ Perlindungan ralat ?.length */}
+                {!selectedChild.allAttempts || selectedChild.allAttempts?.length === 0 ? (
                   <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum menduduki sebarang kuiz.</p>
                 ) : (
                   <div className="space-y-2">
