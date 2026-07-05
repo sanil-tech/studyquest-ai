@@ -360,13 +360,6 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Student Identifiers */}
-          {isStudent && (
-            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
-              <StudentIdSection user={user} />
-            </div>
-          )}
-
           {/* Connected Parents Links */}
           {isStudent && (
             <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
