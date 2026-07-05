@@ -17,13 +17,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import AddChildModal from "@/components/parent/AddChildModal";
 import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
 
-// ---------------- KOMPONEN KECIL: LESSON CARD (MENGGUNAKAN LOGIK DATA SEBENAR ANDA) ----------------
+// ---------------- KOMPONEN KECIL: LESSON CARD (DATA SEBENAR) ----------------
 function ChildLessonCard({ lesson }) {
-  // Menggunakan STEPS mengikut komponen LessonProgress anda
   const stepsData = lesson.steps || {};
   const totalSteps = ["lesson", "flashcards", "mindmap", "activity"];
   const completedSteps = totalSteps.filter((key) => stepsData[key]).length;
-  const percent = Math.round((completedSteps / totalSteps.length) * 100);
+  
+  // Menggunakan durasi minit dari StudySession sebagai sandaran jika tiada objek steps
+  const duration = lesson.duration_minutes || 0;
+  const percent = completedSteps > 0 ? Math.round((completedSteps / totalSteps.length) * 100) : (duration > 0 ? 100 : 0);
   const isCompleted = percent === 100;
 
   return (
@@ -36,34 +38,37 @@ function ChildLessonCard({ lesson }) {
           {isCompleted ? (
             <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">100% Selesai</Badge>
           ) : (
-            <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">{percent}% Proses</Badge>
+            <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">Aktif</Badge>
           )}
         </div>
         
-        <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={lesson.title || lesson.lesson_name}>
-          {lesson.title || lesson.lesson_name || "Pelajaran Tanpa Tajuk"}
+        {/* Membaca topic_name daripada StudySession */}
+        <h4 className="text-xs font-bold text-slate-800 line-clamp-2 mb-1 h-8" title={lesson.topic_name}>
+          {lesson.topic_name || "Sesi Pembelajaran"}
         </h4>
         
         <span className="text-[10px] font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
-          {lesson.subject || lesson.category || "Umum"}
+          {lesson.subject || "Umum"}
         </span>
       </div>
 
-      {/* Mini Progress Bar berdasarkan steps anak */}
       <div className="mt-3 space-y-1">
         <div className="flex justify-between text-[8px] text-slate-400 font-bold">
-          <span>Tugasan: {completedSteps}/4</span>
+          <span>Masa Belajar: {duration} minit</span>
         </div>
-        <Progress value={percent} className="h-1 bg-slate-100" />
+        <Progress value={percent || 100} className="h-1 bg-slate-100" />
       </div>
     </div>
   );
 }
 
-// ---------------- KOMPONEN KECIL: QUIZ CARD ----------------
+// ---------------- KOMPONEN KECIL: QUIZ CARD (DATA SEBENAR) ----------------
 function ChildQuizCard({ quiz }) {
-  const actualScore = quiz.score !== undefined ? quiz.score : (quiz.marks || quiz.percentage || 0);
-  const scoreColor = actualScore >= 80 ? "text-emerald-600 bg-emerald-50 border-emerald-100" : actualScore >= 50 ? "text-amber-600 bg-amber-50 border-amber-100" : "text-rose-600 bg-rose-50 border-rose-100";
+  // Membaca score daripada QuizAttempt
+  const actualScore = quiz.score !== undefined ? quiz.score : 0;
+  const scoreColor = actualScore >= 80 
+    ? "text-emerald-600 bg-emerald-50 border-emerald-100" 
+    : actualScore >= 50 ? "text-amber-600 bg-amber-50 border-amber-100" : "text-rose-600 bg-rose-50 border-rose-100";
 
   return (
     <div className="min-w-[240px] max-w-[240px] bg-white border border-border/60 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all flex-shrink-0 flex flex-col justify-between">
@@ -76,13 +81,15 @@ function ChildQuizCard({ quiz }) {
             Skor: {actualScore}%
           </div>
         </div>
-        <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={quiz.title || quiz.quiz_name}>
-          {quiz.title || quiz.quiz_name || "Kuiz Tanpa Tajuk"}
+        
+        {/* Membaca topic_name daripada QuizAttempt */}
+        <h4 className="text-xs font-bold text-slate-800 line-clamp-2 mb-1 h-8" title={quiz.topic_name}>
+          {quiz.topic_name || "Penilaian Kuiz"}
         </h4>
       </div>
       <div className="flex items-center justify-between text-[10px] text-slate-500 mt-2">
         <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{quiz.subject || "Subjek"}</span>
-        <span>{quiz.completed_at ? new Date(quiz.completed_at).toLocaleDateString('ms-MY') : "Selesai"}</span>
+        <span>{quiz.created_date ? new Date(quiz.created_date).toLocaleDateString('ms-MY') : "Selesai"}</span>
       </div>
     </div>
   );
@@ -194,12 +201,12 @@ export default function MyChildrenPage() {
             let quizzes = [];
 
             try {
-              // PENAPISAN DATA SEBENAR: Menggunakan child.id
+              // PENGAMBILAN DATA SEBENAR: Menyelaras entiti dengan StudentDashboard
               const [p, w, l, q] = await Promise.all([
                 base44.entities.Progress.filter({ student_id: child.id }).then((r) => r[0] || null),
                 base44.entities.Wallet.filter({ student_id: child.id }).then((r) => r[0] || null),
-                base44.entities.Lesson.filter({ student_id: child.id, _sort: "id:DESC", _limit: 5 }).catch(() => []),
-                base44.entities.QuizResult.filter({ student_id: child.id, _sort: "id:DESC", _limit: 5 }).catch(() => []), 
+                base44.entities.StudySession.filter({ student_id: child.id }, "-created_date", 5).catch(() => []),
+                base44.entities.QuizAttempt.filter({ student_id: child.id }, "-created_date", 5).catch(() => []), 
               ]);
               progress = p;
               wallet = w;
@@ -282,7 +289,7 @@ export default function MyChildrenPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            Pantau perkembangan pelajaran, urus akaun, dan lihat analisis AI secara langsung.
+            Pantau perkembangan pelajaran, urus akaun, and lihat analisis AI secara langsung.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -364,7 +371,7 @@ export default function MyChildrenPage() {
 
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 border-t border-slate-100">
                         
-                        {/* Kiri: Real Lesson (Menggunakan data steps dari komponen anda) */}
+                        {/* Kiri: Real Lesson & Quizzes List */}
                         <div className="lg:col-span-7 space-y-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
                             <div className="flex gap-2">
