@@ -8,7 +8,7 @@ import {
 import { motion } from "framer-motion";
 
 // ============================================================================
-// 🐵 MORRY AVATAR COMPONENT (INLINE)
+// 🐵 MORRY AVATAR COMPONENT (INLINE) - TELAH DIKEMBALIKAN
 // ============================================================================
 const MorryAvatar = ({ message, isThinking = false, className = "", size = "text-6xl sm:text-7xl" }) => {
   const bobbingDuration = isThinking ? 0.8 : 2.5; 
@@ -35,7 +35,7 @@ const MorryAvatar = ({ message, isThinking = false, className = "", size = "text
         transition={{ duration: bobbingDuration, repeat: Infinity, ease: "easeInOut" }}
         className={`filter drop-shadow-[0_12px_10px_rgba(0,0,0,0.25)] ${size}`}
       >
-        {"\uD83E\uA7A7"} {/* Emoji Orangutan */}
+        🦧
       </motion.div>
     </div>
   );
@@ -141,6 +141,7 @@ export default function StudyPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F7F9F2] flex flex-col items-center justify-center space-y-4">
+        {/* Morry kembali menemani skrin loading */}
         <MorryAvatar message="Morry tengah cari map..." isThinking={true} />
         <p className="text-lg font-extrabold text-green-600 tracking-wide mt-4">Loading Expedition... 🚀</p>
       </div>
@@ -150,22 +151,19 @@ export default function StudyPage() {
   return (
     <div className="min-h-screen bg-[#F7F9F2] font-sans text-slate-800 pb-32">
       
-      {/* 🎯 HEADER DIKUT DATA SEBENAR USER */}
+      {/* 🎯 HEADER (DATA SEBENAR USER) */}
       <div className="sticky top-0 z-50 bg-white border-b-2 border-slate-200 shadow-sm px-4 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="text-xl sm:text-2xl font-black text-green-500 tracking-tight">StudyQuest</span>
           </div>
           <div className="flex items-center space-x-3 sm:space-x-6 font-bold text-slate-600 text-sm sm:text-base">
-            {/* Streak Semasa */}
             <div className="flex items-center text-orange-500" title="Streak Hari">
               <Flame className="w-5 h-5 mr-1" /> {user?.streak ?? 0}
             </div>
-            {/* Total XP */}
             <div className="flex items-center text-blue-500" title="Total XP">
               <Star className="w-5 h-5 mr-1" /> {user?.xp ?? 0}
             </div>
-            {/* Nyawa / Hearts */}
             <div className="flex items-center text-red-500" title="Hearts / Nyawa">
               <Heart className="w-5 h-5 mr-1" /> {user?.hearts ?? 3}
             </div>
@@ -179,6 +177,7 @@ export default function StudyPage() {
         {!selectedSubject ? (
           <>
             <div className="flex flex-col sm:flex-row items-center gap-6 mb-12 bg-white p-8 rounded-[2rem] border-2 border-b-8 border-slate-200">
+              {/* Morry menyambut di Dashboard */}
               <MorryAvatar message="Jom pilih misi!" size="text-7xl sm:text-8xl" />
               <div className="text-center sm:text-left">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">
@@ -203,7 +202,6 @@ export default function StudyPage() {
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl shadow-inner bg-green-50">
                       {sub.icon || "🗺️"}
                     </div>
-                    {/* XP Ganjaran Dinamik dari Database Subjek */}
                     <div className="bg-yellow-100 text-yellow-600 font-bold px-3 py-1 rounded-full text-xs">
                       +{sub.xp_reward || sub.xp || 50} XP
                     </div>
@@ -216,7 +214,7 @@ export default function StudyPage() {
               ))}
             </div>
 
-            {/* RESOURCE CHEST (LIBRARY YANG BERFUNGSI) */}
+            {/* RESOURCE CHEST */}
             {textbooks.length > 0 && (
               <div className="pt-8 border-t-4 border-dashed border-slate-200">
                 <h2 className="font-black text-xl mb-6 flex items-center gap-2">📦 Resource Chest</h2>
@@ -237,7 +235,6 @@ export default function StudyPage() {
                   ))}
                 </div>
 
-                {/* Paparan Buku Sebenar Apabila Kategori Diklik */}
                 {activeLibrarySubject && booksBySubject[activeLibrarySubject] && (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }}
@@ -289,7 +286,7 @@ export default function StudyPage() {
                 return (
                   <div key={topic.id} className={`relative z-10 w-full max-w-[280px] my-6 flex flex-col items-center ${zigZagClass}`}>
                     
-                    {/* Morry on Active Node */}
+                    {/* Morry duduk di atas Quest Pertama (Active Node) */}
                     {isFirst && (
                       <div className="absolute -top-24">
                         <MorryAvatar message="Laluan ini mencabar!" size="text-6xl" />
@@ -318,7 +315,6 @@ export default function StudyPage() {
                         className="bg-orange-500 text-white p-3 rounded-xl border-b-4 border-orange-700 active:border-b-0 active:translate-y-1"
                         title="Challenge"
                       >
-                        {/* Gantikan Swords dengan emoji atau icon sedia ada jika lucide-react versi anda tiada Swords */}
                         <span className="text-xl px-0.5">⚔️</span>
                       </Link>
                     </div>
