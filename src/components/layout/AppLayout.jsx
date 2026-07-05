@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Home, BookOpen, Trophy, Wallet, Bell, User, Users, Gift, CheckSquare, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, BookOpen, Trophy, Wallet, Bell, User, Users, Gift, CheckSquare, Menu, X, ChevronLeft } from "lucide-react";
 
 const studentNav = [
   { path: "/dashboard", icon: Home, label: "Home" },
@@ -27,7 +27,7 @@ export default function AppLayout() {
   
   // State UI Navigasi
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); // Kawalan skrin penuh desktop
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); 
   
   // Ref untuk Kesan Bunyi (SFX Bloop)
   const sfxRef = useRef(null);
@@ -64,19 +64,23 @@ export default function AppLayout() {
     }
   }, [user, isParent, location.pathname, navigate]);
 
-  // 4. Kesan Bunyi Butang Global (Bunyi Bloop)
-  useEffect(() => {
-    const handleGlobalClick = (e) => {
-      const isButtonOrLink = e.target.closest('button') || e.target.closest('a');
-      if (isButtonOrLink && sfxRef.current) {
-        sfxRef.current.currentTime = 0;
-        sfxRef.current.volume = 0.7; // Kelantangan bunyi bloop
-        sfxRef.current.play().catch(() => {}); 
+  // 4. Fungsi Mainkan Audio "Bloop" (Lebih Stabil Menggunakan onClickCapture)
+  const playBloop = (e) => {
+    // Kesan butang, pautan (<a>), atau elemen bersikap butang
+    const isClickable = e.target.closest('button') || e.target.closest('a') || e.target.closest('[role="button"]');
+    
+    if (isClickable && sfxRef.current) {
+      sfxRef.current.currentTime = 0; // Mula dari awal
+      sfxRef.current.volume = 0.8; // Kelantangan (0.0 hingga 1.0)
+      
+      const playPromise = sfxRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.log("Bunyi klik dihalang oleh browser:", error);
+        });
       }
-    };
-    document.addEventListener('click', handleGlobalClick);
-    return () => document.removeEventListener('click', handleGlobalClick);
-  }, []);
+    }
+  };
 
   // 5. Avatar Dinamik
   const RenderAvatar = ({ className = "w-10 h-10" }) => (
@@ -92,10 +96,15 @@ export default function AppLayout() {
   );
 
   return (
-    <div className="flex h-screen bg-orange-50/40 overflow-hidden font-sans">
+    // onClickCapture DIGUNAKAN DI SINI UNTUK MENANGKAP SEMUA KLIK BUTANG
+    <div className="flex h-screen bg-orange-50/40 overflow-hidden font-sans" onClickCapture={playBloop}>
       
-      {/* KESAN BUNYI BLOOP (AUDIO TERSEMBUNYI) */}
-      <audio ref={sfxRef} src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_731671239c.mp3" preload="auto" />
+      {/* KESAN BUNYI BLOOP (URL dari Google Sounds yang lebih stabil) */}
+      <audio 
+        ref={sfxRef} 
+        src="https://actions.google.com/sounds/v1/cartoon/pop.ogg" 
+        preload="auto" 
+      />
 
       {/* ==========================================
           SIDEBAR (TAMPILAN DESKTOP)
@@ -106,7 +115,6 @@ export default function AppLayout() {
         }`}
       >
         <div className="p-6 flex-1 overflow-y-auto">
-          {/* Logo & Judul */}
           <div className="flex items-center justify-between mb-10">
             <Link to={isParent ? "/parent" : "/dashboard"} className="flex items-center gap-3 group">
                <div className="text-3xl group-hover:scale-110 transition-transform">🦧</div>
@@ -114,7 +122,6 @@ export default function AppLayout() {
             </Link>
           </div>
 
-          {/* Menu Navigasi Desktop */}
           <nav className="space-y-2">
             {nav.map((item) => {
               const isActive = location.pathname === item.path || (item.path !== "/dashboard" && item.path !== "/parent" && location.pathname.startsWith(item.path));
@@ -132,7 +139,6 @@ export default function AppLayout() {
           </nav>
         </div>
 
-        {/* Profil Bawah Desktop */}
         <div className="p-5 border-t-2 border-orange-100 bg-orange-50/50">
           <div className="flex items-center gap-3 p-2 rounded-2xl">
             <Link to="/profile"><RenderAvatar className="w-12 h-12 hover:opacity-80 transition-opacity" /></Link>
@@ -176,7 +182,7 @@ export default function AppLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                onClick={() => setIsMobileMenuOpen(false)} // INTERAKTIF: Automatik sorok menu sisi selepas dipilih
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${isActive ? "bg-orange-500 text-white shadow-md shadow-orange-500/20" : "text-slate-500 hover:bg-orange-50 hover:text-orange-600"}`}
               >
                 <item.icon className={`w-5 h-5 ${isActive ? "text-white" : "text-slate-400"}`} />
@@ -188,29 +194,24 @@ export default function AppLayout() {
       </aside>
 
       {/* ==========================================
-          KAWASAN KANDUNGAN UTAMA (MENGALAMI FULLSCREEN)
+          KAWASAN KANDUNGAN UTAMA
           ========================================== */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         
-        {/* HEADER ATAS (Desktop & Mobile terintegrasi) */}
         <header className="p-4 bg-white border-b-2 border-orange-100 flex justify-between items-center z-30 shadow-sm relative">
           
           <div className="flex items-center gap-3">
-            {/* Butang Togol Skrin Penuh (Desktop Only) */}
             <button 
               onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)} 
               className="hidden md:flex p-2 text-orange-600 bg-orange-50 rounded-xl hover:bg-orange-100 transition-colors border-2 border-orange-100"
-              title={isDesktopSidebarOpen ? "Tukar ke Skrin Penuh" : "Tampilkan Menu Sisi"}
             >
               {isDesktopSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            {/* Butang Menu Hamburger (Mobile Only) */}
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 text-orange-600 rounded-xl hover:bg-orange-50 transition-colors">
               <Menu className="w-6 h-6" />
             </button>
             
-            {/* Tajuk Logo Pendek jika Sidebar desktop tertutup */}
             {!isDesktopSidebarOpen && (
               <span className="hidden md:inline-block font-black text-xl text-orange-700 tracking-tight animate-in fade-in duration-200">
                 StudyQuest 🦧
@@ -218,10 +219,8 @@ export default function AppLayout() {
             )}
           </div>
           
-          {/* Tajuk Tengah (Mobile Only) */}
           <span className="md:hidden font-black text-xl text-orange-700 tracking-tight">StudyQuest</span>
           
-          {/* Profil & Notifikasi Atas */}
           <div className="flex items-center gap-2">
             {!isParent && (
               <Link to="/notifications" className="relative p-2 rounded-full hover:bg-slate-100 transition-colors">
@@ -244,7 +243,6 @@ export default function AppLayout() {
           </div>
         </header>
 
-        {/* OUTLET UTAMA (Akan mengambil keseluruhan ruangan skrin penuh jika sidebar disorok) */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth transition-all duration-300">
           <div className="max-w-5xl mx-auto">
             <Outlet />
