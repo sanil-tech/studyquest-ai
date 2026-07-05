@@ -4,7 +4,7 @@ import { useParams, Link } from "react-router-dom";
 import { 
   ArrowLeft, ChevronRight, BookOpen, FolderOpen, Sparkles, 
   GraduationCap, Library, Swords, Star, Flame, Heart
-} from "lucide-center"; // Nota: Pastikan lucide-react atau lucide-center mengikut library anda
+} from "lucide-react"; // Nota: Pastikan lucide-react atau lucide-center mengikut library anda
 import { motion } from "framer-motion";
 
 // ============================================================================
