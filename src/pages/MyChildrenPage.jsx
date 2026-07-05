@@ -8,10 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { getDisplayName } from "@/lib/utils";
 
 function DetailedChildCard({ child }) {
-  // 💡 DIKEMASKINI: Menggunakan total_xp dan data skema sebenar
   const currentXP = child.progress?.total_xp || 0;
   const nextLevelXP = 500;
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
@@ -19,17 +17,15 @@ function DetailedChildCard({ child }) {
   const streakDays = child.progress?.streak_days || 0;
   const currentCoins = child.wallet?.balance || 0;
   const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
-  
-  // 💡 DIKEMASKINI: Menggunakan total_study_time mengikut Schema Editor anda
   const totalStudyMinutes = child.progress?.total_study_time || 0;
   
-  // 💡 DIKEMASKINI: Menggunakan last_study_date mengikut Schema Editor anda
   const lastActiveTime = child.progress?.last_study_date 
     ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
 
   const quizScore = child.progress?.quiz_score || null;
   const totalQuizQuestions = child.progress?.quiz_total_questions || 5;
+  const displayName = child.name || child.display_name || "Pelajar";
 
   return (
     <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
@@ -51,7 +47,7 @@ function DetailedChildCard({ child }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <h3 className="text-sm font-black text-slate-800 uppercase truncate">{child.display_name}</h3>
+            <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
             <Badge className="bg-blue-50 text-blue-600 border-0 text-[10px] font-black px-1.5 py-0 h-4 rounded shrink-0">
               Tahap {child.progress?.level || 1}
             </Badge>
@@ -137,8 +133,9 @@ function DetailedChildCard({ child }) {
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
           ⚙️ Kata Laluan
         </Button>
+        {/* 💡 DIKEMASKINI: Menambah pembuka tag < yang tertinggal */}
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
-          ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
+          <ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
         </Button>
       </div>
     </Card>
@@ -167,7 +164,7 @@ export default function MyChildrenPage() {
         return { 
           id, 
           ...childUser, 
-          display_name: getDisplayName(childUser), 
+          display_name: childUser?.name || "Pelajar", 
           progress: progress?.[0] || {}, 
           wallet: wallet?.[0] || { balance: 0 },
         };
