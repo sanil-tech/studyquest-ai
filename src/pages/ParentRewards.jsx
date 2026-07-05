@@ -23,59 +23,53 @@ export default function ParentRewards() {
   const { toast } = useToast();
 
   const loadData = async () => {
-  try {
-    const u = await base44.auth.me();
-    setUser(u);
-    
-    // 1. Fetch rewards assigned to this parent
-    const rws = await base44.entities.Reward.filter({ parent_id: u.id });
-    setRewards(rws);
-    
-    // 2. Fetch the correct structural relationships table (Matches MyChildrenPage)
-    const relationships = await base44.entities.ParentChildRelationship.filter({
-      parent_id: u.id,
-      status: "active",
-    });
+    try {
+      const u = await base44.auth.me();
+      setUser(u);
+      
+      // 1. Fetch rewards assigned to this parent
+      const rws = await base44.entities.Reward.filter({ parent_id: u.id });
+      setRewards(rws);
+      
+      // 2. Fetch structural child relationships
+      const relationships = await base44.entities.ParentChildRelationship.filter({
+        parent_id: u.id,
+        status: "active",
+      });
 
-    // 3. Resolve the actual user profiles for each active child match
-    const childDetails = await Promise.all(
-      relationships.map(async (rel) => {
-        try {
-          const child = await base44.entities.User.get(rel.child_id);
-          
-          return {
-            id: child.id,
-            // Fallback sequence for name rendering strings
-            full_name: child.display_name || child.full_name || child.username || `Profile (${child.email?.split("@")[0]})`,
-            email: child.email || "",
-            username: child.username || ""
-          };
-        } catch (childErr) {
-          console.error(`Failed to load user info for child id ${rel.child_id}:`, childErr);
-          return null;
-        }
-      })
-    );
+      // 3. Resolve actual child user profiles in parallel
+      const childDetails = await Promise.all(
+        relationships.map(async (rel) => {
+          try {
+            const child = await base44.entities.User.get(rel.child_id);
+            return {
+              id: child.id,
+              full_name: child.display_name || child.full_name || child.username || `Profile (${child.email?.split("@")[0]})`,
+              email: child.email || "",
+              username: child.username || ""
+            };
+          } catch (childErr) {
+            console.error(`Failed to load user info for child id ${rel.child_id}:`, childErr);
+            return null;
+          }
+        })
+      );
 
-    // Filter out any broken lookups and sync state
-    const activeChildren = childDetails.filter(Boolean);
-    console.log("Synced Rewards Dropdown List:", activeChildren);
-    
-    setChildren(activeChildren);
+      const activeChildren = childDetails.filter(Boolean);
+      setChildren(activeChildren);
 
-  } catch (err) {
-    console.error("Error loading parent reward data framework:", err);
-    toast({ title: "Sync Failure", description: "Could not link active profiles.", variant: "destructive" });
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      console.error("Error loading parent reward data framework:", err);
+      toast({ title: "Sync Failure", description: "Could not link active profiles.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => { loadData(); }, []);
 
   const openCreate = () => {
     setEditingReward(null);
-    // Default to the first child's ID if available to prevent unselected empty string states
     setForm({ 
       title: "", 
       coin_cost: "", 
@@ -113,7 +107,6 @@ export default function ParentRewards() {
           student_id: form.student_id,
           student_email: selectedChild ? selectedChild.email : "",
           student_username: selectedChild ? selectedChild.username : "",
-          username: selectedChild ? selectedChild.username : "",
           parent_id: user.id,
           parent_email: user.email,
           status: editingReward.status || "active",
@@ -122,7 +115,7 @@ export default function ParentRewards() {
         toast({ title: "Reward updated! ✨" });
       } else {
         if (form.student_id === "all") {
-          // Creates a standalone, tailored reward document for every individual child profile
+          // FIX: Correctly maps variables explicitly to `child` context, avoiding triple-duplication leaks
           await Promise.all(
             children.map(child => {
               return base44.entities.Reward.create({
@@ -132,7 +125,6 @@ export default function ParentRewards() {
                 student_id: child.id,
                 student_email: child.email, 
                 student_username: child.username, 
-                username: child.username, 
                 parent_id: user.id,
                 parent_email: user.email,
                 status: "active",
@@ -142,7 +134,6 @@ export default function ParentRewards() {
           toast({ title: "Reward published to all children! 🎁" });
         } else {
           const selectedChild = children.find(c => c.id === form.student_id);
-          
           await base44.entities.Reward.create({
             title: form.title,
             coin_cost: Number(form.coin_cost),
@@ -150,7 +141,6 @@ export default function ParentRewards() {
             student_id: form.student_id,
             student_email: selectedChild ? selectedChild.email : "",
             student_username: selectedChild ? selectedChild.username : "",
-            username: selectedChild ? selectedChild.username : "", 
             parent_id: user.id,
             parent_email: user.email,
             status: "active",
@@ -159,7 +149,9 @@ export default function ParentRewards() {
         }
       }
       setDialogOpen(false);
-      loadData();
+      
+      // Yield execution space for database write verification
+      setTimeout(() => { loadData(); }, 300);
     } catch (err) {
       console.error(err);
       toast({ title: "Error saving reward", variant: "destructive" });
@@ -187,15 +179,6 @@ export default function ParentRewards() {
       console.error(err);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-sm font-medium text-slate-500 animate-pulse">Loading Reward Vault...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8 pb-12 max-w-5xl mx-auto px-1">
@@ -323,7 +306,13 @@ export default function ParentRewards() {
       )}
 
       {/* CREATE / EDIT DIALOG OVERLAY */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) {
+          setEditingReward(null);
+          setForm({ title: "", coin_cost: "", icon: "🎁", student_id: "" });
+        }
+      }}>
         <DialogContent className="rounded-3xl max-w-md p-6 overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-black font-heading tracking-tight text-slate-800">
@@ -389,7 +378,6 @@ export default function ParentRewards() {
                   <SelectValue placeholder="Choose a child profile" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  {/* "All Children" option is only visible during creation, handling clean item generation splits */}
                   {!editingReward && children.length > 1 && (
                     <SelectItem value="all" className="rounded-lg font-bold text-indigo-600 hover:text-indigo-700">
                       ✨ All Children (Create Individual Copies)
