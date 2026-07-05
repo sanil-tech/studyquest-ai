@@ -1,300 +1,250 @@
-// src/pages/QuizPage.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, CheckCircle2, XCircle, ArrowLeft, Trophy, Star, Clock, Lightbulb } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function QuizPage() {
   const { quizId } = useParams();
   const navigate = useNavigate();
-
-  // States Utama Kuiz
+  const [quiz, setQuiz] = useState(null);
   const [questions, setQuestions] = useState([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [selectedOpt, setSelectedOpt] = useState(null);
-  const [isAnswered, setIsAnswered] = useState(false);
-  const [score, setScore] = useState(0);
-  const [quizMeta, setQuizMeta] = useState(null);
+  const [currentQ, setCurrentQ] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showResult, setShowResult] = useState(false);
 
-  // Rekod Masa
-  const startTimeRef = useRef(Date.now());
-  const [timeTaken, setTimeTaken] = useState("");
-
-  // 1. MEMBACA & MENGURAI DATA KUIZ (DEEP PARSING LOOP)
   useEffect(() => {
-    const fetchQuizData = async () => {
-      try {
-        console.log("Mengambil data Quiz ID:", quizId);
-        const quizData = await base44.entities.Quiz.get(quizId);
-        
-        if (quizData) {
-          setQuizMeta(quizData);
-          
-          // Ambil strings mentah dari lajur questions_json mengikut skema
-          let rawData = quizData.questions_json || "[]";
-          
-          // Kupas lapisan string jika data tersangkut dalam format string berkali-kali
-          while (typeof rawData === "string") {
-            try {
-              rawData = JSON.parse(rawData);
-            } catch (e) {
-              console.error("Gagal melakukan parse JSON:", e);
-              break;
-            }
-          }
-
-          if (Array.isArray(rawData) && rawData.length > 0) {
-            // Selaraskan struktur data supaya serasi dengan bank soalan CSV mahupun Flashcard
-            const normalizedQuestions = rawData.map(q => {
-              const teksSoalan = q.question || q.Question || q.front || "";
-              let jawapanTepat = q.correct_answer || q.Correct_Answer || "";
-              let ulasanCikgu = q.explanation || q.Explanation || "";
-              
-              // Pemulihan jika data dihantar dalam struktur Flashcard literal { front, back }
-              if (q.back && !jawapanTepat) {
-                const parts = q.back.split("\n\n");
-                jawapanTepat = parts[0] || "";
-                ulasanCikgu = parts[1] || "";
-              }
-
-              // Ambil pilihan jawapan, bina pilihan dinamik jika tiada options
-              let pilihanJawapan = q.options || q.Options || [];
-              if ((!pilihanJawapan || pilihanJawapan.length === 0) && jawapanTepat) {
-                pilihanJawapan = [
-                  jawapanTepat, 
-                  "Pilihan Salah A", 
-                  "Pilihan Salah B", 
-                  "Pilihan Salah C"
-                ];
-                // Rawakkan kedudukan jawapan betul
-                pilihanJawapan.sort(() => Math.random() - 0.5);
-              }
-
-              return {
-                question: teksSoalan,
-                options: pilihanJawapan,
-                correct_answer: jawapanTepat,
-                explanation: ulasanCikgu
-              };
-            });
-
-            const validQuestions = normalizedQuestions.filter(q => q.question !== "");
-            setQuestions(validQuestions);
-            console.log("🎯 Kertas soalan berjaya disiarkan:", validQuestions);
-          }
-        }
-      } catch (err) {
-        console.error("Ralat kritikal memuatkan halaman kuiz:", err);
-      } finally {
-        setLoading(false);
-        startTimeRef.current = Date.now();
-      }
-    };
-    
-    fetchQuizData();
+    base44.entities.Quiz.get(quizId).then(q => {
+      setQuiz(q);
+      setQuestions(JSON.parse(q.questions_json));
+      setLoading(false);
+    });
   }, [quizId]);
 
-  // 2. LOGIK PENGESAHAN JAWAPAN KUIZ
-  const handleOptionClick = (option) => {
-    if (isAnswered) return;
-    setSelectedOpt(option);
-    setIsAnswered(true);
-
-    if (option.trim() === questions[currentIdx].correct_answer.trim()) {
-      setScore(p => p + 1);
-    }
+  const handleAnswer = (qIndex, answer) => {
+    if (submitted) return;
+    setAnswers(prev => ({ ...prev, [qIndex]: answer }));
   };
 
-  // 3. LOGIK NAVIGASI SEBELUM / SETERUSNYA
-  const handleNext = () => {
-    setSelectedOpt(null);
-    setIsAnswered(false);
+  const handleSubmit = async () => {
+    setSubmitted(true);
+    const user = await base44.auth.me();
 
-    if (currentIdx < questions.length - 1) {
-      setCurrentIdx(p => p + 1);
-    } else {
-      const durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      const mins = Math.floor(durationSec / 60);
-      const secs = durationSec % 60;
-      setTimeTaken(`${mins} minit ${secs} saat`);
-      setShowResult(true);
+    // Calculate score
+    let correct = 0;
+    questions.forEach((q, i) => {
+      if (answers[i] === q.correct_answer) correct++;
+    });
+    const score = Math.round((correct / questions.length) * 100);
+
+    // Calculate coins — 10 per correct answer, bonus 50 for perfect score
+    let coins = correct * 10;
+    if (score === 100) coins += 50;
+
+    // XP earned — 5 per correct answer
+    const xpEarned = correct * 5;
+
+    // Generate AI feedback
+    const feedbackResult = await base44.integrations.Core.InvokeLLM({
+      prompt: `A student scored ${score}% on a quiz about "${quiz.topic_name}". They got ${correct}/${questions.length} correct.
+
+Their answers: ${JSON.stringify(questions.map((q, i) => ({
+  question: q.question,
+  student_answer: answers[i] || "No answer",
+  correct_answer: q.correct_answer,
+  is_correct: answers[i] === q.correct_answer
+})))}
+
+Provide brief, encouraging feedback:
+1. Score summary
+2. Brief explanation of mistakes (if any)
+3. One improvement tip
+4. Suggested next topic
+
+Keep it short and motivating. Use lots of emojis and celebrate their effort (e.g. "Hebat! ⭐", "Tabik spring! 👏"). Be warm and playful like a friendly teacher cheering on a young learner.`,
+    });
+
+    // Create quiz attempt
+    const attempt = await base44.entities.QuizAttempt.create({
+      student_id: user.id,
+      quiz_id: quizId,
+      topic_name: quiz.topic_name,
+      subject_name: quiz.subject_name,
+      answers_json: JSON.stringify(answers),
+      score,
+      coins_earned: coins,
+      feedback_text: feedbackResult,
+    });
+
+    // Update wallet
+    const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
+    if (wallets.length > 0) {
+      await base44.entities.Wallet.update(wallets[0].id, { balance: wallets[0].balance + coins });
     }
+
+    // Log transaction
+    await base44.entities.Transaction.create({
+      student_id: user.id,
+      type: "earn",
+      amount: coins,
+      reason: `Quiz completed: ${quiz.topic_name} (Score: ${score}%)`,
+      reference_id: attempt.id,
+    });
+
+    // Update progress
+    const progresses = await base44.entities.Progress.filter({ student_id: user.id });
+    if (progresses.length > 0) {
+      const p = progresses[0];
+      const newXP = (p.total_xp || 0) + xpEarned;
+      const newLevel = Math.floor(newXP / 200) + 1;
+      const today = new Date().toISOString().split("T")[0];
+      const isNewDay = p.last_study_date !== today;
+      const isConsecutive = p.last_study_date && 
+        new Date(today) - new Date(p.last_study_date) <= 86400000 * 1.5;
+      
+      await base44.entities.Progress.update(p.id, {
+        total_xp: newXP,
+        level: newLevel,
+        streak_days: isNewDay ? (isConsecutive ? (p.streak_days || 0) + 1 : 1) : p.streak_days,
+        last_study_date: today,
+      });
+    }
+
+    // Create notifications
+    await base44.entities.Notification.create({
+      user_id: user.id,
+      title: "Quiz Complete! 🎉",
+      message: `You scored ${score}% and earned ${coins} coins!`,
+      type: "quiz_complete",
+      reference_id: attempt.id,
+    });
+
+    navigate(`/quiz-result/${attempt.id}`);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 space-y-3">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-bold text-slate-500 animate-pulse">Menyusun helaian kertas ujian kuiz...</p>
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (questions.length === 0) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm max-w-sm space-y-4">
-          <p className="text-slate-600 text-sm font-bold">⚠️ Sesi kuiz tidak dapat dimuatkan buat masa ini.</p>
-          <Button onClick={() => navigate(-1)} className="rounded-xl bg-indigo-600 w-full h-11">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Nota
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const currentQ = questions[currentIdx];
+  const q = questions[currentQ];
+  const selectedAnswer = answers[currentQ];
+  const allAnswered = Object.keys(answers).length === questions.length;
 
   return (
-    <div className="min-h-screen bg-slate-50/60 py-8 px-4 sm:px-6">
-      <div className="max-w-xl mx-auto">
-        
-        {!showResult ? (
-          <div className="space-y-5">
-            {/* BAR KEMAJUAN ATAS */}
-            <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="rounded-xl text-slate-500 h-9">
-                <ArrowLeft className="w-4 h-4 mr-1" /> Keluar
-              </Button>
-              <div className="text-center">
-                <span className="text-[10px] font-black text-indigo-700 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                  Mod {quizMeta?.difficulty || "Medium"}
-                </span>
-                <p className="text-[11px] text-slate-400 font-bold mt-1.5">
-                  Soalan {currentIdx + 1} / {questions.length}
-                </p>
-              </div>
-              <div className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                Markah: {score}
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-heading font-bold">{quiz?.topic_name} Quiz</h1>
+          <p className="text-muted-foreground text-sm">{quiz?.subject_name}</p>
+        </div>
+        <span className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
+          {currentQ + 1} / {questions.length}
+        </span>
+      </div>
 
-            {/* PROGRESS LINE BAR */}
-            <div className="w-full h-2 bg-slate-200/80 rounded-full overflow-hidden shadow-inner">
-              <div 
-                className="h-full bg-indigo-600 transition-all duration-300 rounded-full"
-                style={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }}
-              />
-            </div>
+      {/* Progress bar */}
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <motion.div
+          animate={{ width: `${((currentQ + 1) / questions.length) * 100}%` }}
+          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+          transition={{ duration: 0.3 }}
+        />
+      </div>
 
-            {/* PAPARAN KAD SOALAN UTAMA */}
-            <div className="bg-white rounded-3xl border-2 border-slate-100 p-6 sm:p-8 shadow-sm space-y-6">
-              <h2 className="text-base sm:text-lg font-heading font-extrabold text-slate-800 leading-relaxed text-center sm:text-left">
-                {currentQ.question}
-              </h2>
-
-              {/* LIST UTAMA PILIHAN JAWAPAN (A, B, C, D) */}
-              <div className="grid grid-cols-1 gap-3">
-                {currentQ.options?.map((option, index) => {
-                  const isSelected = selectedOpt === option;
-                  const isCorrect = option.trim() === currentQ.correct_answer.trim();
-                  
-                  let optStyle = "border-slate-200 hover:bg-indigo-50/30 hover:border-indigo-200 text-slate-700 bg-white";
-                  if (isAnswered) {
-                    if (isCorrect) {
-                      optStyle = "border-emerald-500 bg-emerald-50 text-emerald-800 font-black shadow-[0_4px_0_0_#10b981]";
-                    } else if (isSelected && !isCorrect) {
-                      optStyle = "border-rose-500 bg-rose-50 text-rose-800 font-black shadow-[0_4px_0_0_#f43f5e]";
-                    } else {
-                      optStyle = "border-slate-100 bg-slate-50 text-slate-400 opacity-50";
-                    }
-                  }
-
-                  return (
-                    <button
-                      key={index}
-                      disabled={isAnswered}
-                      onClick={() => handleOptionClick(option)}
-                      className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 flex items-center justify-between text-sm font-semibold shadow-sm active:scale-[0.99] ${optStyle}`}
-                    >
-                      <span>{option}</span>
-                      {isAnswered && isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 ml-2 animate-bounce" />}
-                      {isAnswered && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-rose-600 shrink-0 ml-2 animate-shake" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* KOTAK MAKLUM BALAS ULASAN CIKGU AI */}
-            <AnimatePresence>
-              {isAnswered && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 12 }}
-                  className="bg-indigo-50/80 border-2 border-indigo-100 p-5 rounded-2xl space-y-2 shadow-sm"
+      {/* Question */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentQ}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="bg-white rounded-2xl p-6 border border-border/50"
+        >
+          <h2 className="text-base font-semibold mb-4 leading-relaxed">{q.question}</h2>
+          <div className="space-y-2">
+            {q.options.map((option, i) => {
+              const isSelected = selectedAnswer === option;
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleAnswer(currentQ, option)}
+                  disabled={submitted}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all text-sm ${
+                    isSelected
+                      ? "border-primary bg-primary/5 font-medium"
+                      : "border-border/50 hover:border-primary/30 hover:bg-muted/50"
+                  }`}
                 >
-                  <p className="text-[11px] font-black text-indigo-700 tracking-wider uppercase flex items-center gap-1">
-                    <Lightbulb className="w-3.5 h-3.5" /> Ulasan Cikgu AI:
-                  </p>
-                  <p className="text-xs sm:text-sm text-indigo-950 leading-relaxed font-medium bg-white/70 p-3 rounded-xl border border-indigo-100/50">
-                    {currentQ.explanation || "Hebat sekali! Teruskan fokus untuk menjawab baki soalan kuiz seteterusnya. ✨"}
-                  </p>
-                  <div className="flex justify-end pt-1">
-                    <Button onClick={handleNext} className="rounded-xl bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md h-10 px-4">
-                      {currentIdx === questions.length - 1 ? "Lihat Keputusan" : "Seterusnya"} <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-xs font-bold mr-3">
+                    {String.fromCharCode(65 + i)}
+                  </span>
+                  {option}
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          
-          /* ========================================================= */
-          /* SKRIN KEPUTUSAN AKHIR (RESULT SCREEN)                     */
-          /* ========================================================= */
-          <motion.div 
-            initial={{ scale: 0.97, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-3xl border-2 border-slate-100 p-8 text-center shadow-xl space-y-6"
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Navigation */}
+      <div className="flex items-center gap-3">
+        {currentQ > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setCurrentQ(currentQ - 1)}
+            className="flex-1 rounded-xl h-12"
           >
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto border-4 border-amber-200 shadow-inner">
-              <Trophy className="w-8 h-8 animate-bounce" />
-            </div>
-
-            <div className="space-y-1">
-              <h1 className="text-xl font-heading font-black text-slate-800">Ujian Selesai, Syabas! 🏆</h1>
-              <p className="text-xs text-slate-400 font-bold">Topik: {quizMeta?.topic_name}</p>
-            </div>
-
-            <div className="bg-slate-50/80 rounded-2xl p-5 border border-slate-200/60 max-w-xs mx-auto grid grid-cols-2 gap-4 divide-x divide-slate-200">
-              <div>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Markah Anda</p>
-                <p className="text-2xl font-black text-indigo-600 mt-1">{score} / {questions.length}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">Masa Dijawab</p>
-                <p className="text-xs font-black text-slate-700 mt-2.5 flex items-center justify-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" /> {timeTaken}
-                </p>
-              </div>
-            </div>
-
-            {/* BINTANG PENILAIAN PRESTASI */}
-            <div className="flex justify-center gap-1.5 text-amber-400">
-              {[...Array(3)].map((_, i) => {
-                const percent = (score / questions.length) * 100;
-                const active = i === 0 || (i === 1 && percent >= 50) || (i === 2 && percent >= 85);
-                return <Star key={i} className={`w-6 h-6 ${active ? "fill-amber-400" : "text-slate-200"}`} />;
-              })}
-            </div>
-
-            <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
-              <Button onClick={() => navigate(-1)} variant="outline" className="rounded-xl h-11 border-2 font-bold text-xs px-5">
-                Kembali ke Nota
-              </Button>
-              <Button onClick={() => window.location.reload()} className="rounded-xl h-11 bg-indigo-600 hover:bg-indigo-700 font-bold text-xs px-5 shadow-md">
-                Cuba Kuiz Semula
-              </Button>
-            </div>
-          </motion.div>
+            Previous
+          </Button>
         )}
+        {currentQ < questions.length - 1 ? (
+          <Button
+            onClick={() => setCurrentQ(currentQ + 1)}
+            disabled={!selectedAnswer}
+            className="flex-1 rounded-xl h-12"
+          >
+            Next
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSubmit}
+            disabled={!allAnswered || submitted}
+            className="flex-1 rounded-xl h-12 bg-emerald-600 hover:bg-emerald-700"
+          >
+            {submitted ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Grading...
+              </>
+            ) : (
+              "Submit Quiz ✅"
+            )}
+          </Button>
+        )}
+      </div>
 
+      {/* Question dots */}
+      <div className="flex items-center justify-center gap-2">
+        {questions.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrentQ(i)}
+            className={`w-3 h-3 rounded-full transition-all ${
+              i === currentQ
+                ? "bg-primary scale-125"
+                : answers[i]
+                  ? "bg-primary/40"
+                  : "bg-muted"
+            }`}
+          />
+        ))}
       </div>
     </div>
   );

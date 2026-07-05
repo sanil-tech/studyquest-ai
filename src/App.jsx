@@ -100,10 +100,7 @@ const AuthenticatedApp = () => {
                 <Route path="/dashboard" element={<StudentDashboard />} />
                 <Route path="/study" element={<StudyPage />} />
                 <Route path="/study/:subjectId" element={<StudyPage />} />
-                
-                {/* 👇 LALUAN YANG TELAH DIPERBAIKI 👇 */}
-                <Route path="/study/:subjectId/:topicId/lesson" element={<LessonPage />} />
-                
+                <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
                 <Route path="/quiz/:quizId" element={<QuizPage />} />
                 <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
                 <Route path="/wallet" element={<WalletPage />} />

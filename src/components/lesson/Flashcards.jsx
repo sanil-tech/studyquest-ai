@@ -1,3 +1,4 @@
+// src/components/lesson/Flashcards.jsx
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, HelpCircle, Sparkles, CheckCircle2, RotateCcw } from "lucide-react";
@@ -21,6 +22,7 @@ export default function Flashcards({ flashcards = [] }) {
   const handleFlip = () => {
     setFlipped(!flipped);
     if (!flipped) {
+      // Catat kartu yang sudah dibuka oleh anak untuk indikator progres cerdas
       setRevealedCount(prev => new Set([...prev, current]));
     }
   };
@@ -47,7 +49,7 @@ export default function Flashcards({ flashcards = [] }) {
       {/* HEADER GAME BAR */}
       <div className="flex items-center justify-between bg-amber-100/70 p-3 rounded-2xl border border-amber-200">
         <div className="flex items-center gap-2">
-          <div className="bg-amber-400 p-1.5 rounded-xl text-amber-950 shadow-sm">
+          <div className="bg-amber-400 p-1.5 rounded-xl text-amber-950 shadow-sm animate-bounce">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
@@ -60,6 +62,7 @@ export default function Flashcards({ flashcards = [] }) {
           </div>
         </div>
         
+        {/* PROGRES ICON BAR */}
         <div className="flex items-center gap-1.5 bg-white/90 px-3 py-1.5 rounded-xl border border-amber-200/60 shadow-sm">
           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           <span className="text-xs font-bold text-slate-700">
@@ -81,13 +84,15 @@ export default function Flashcards({ flashcards = [] }) {
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
           >
-            {/* MUKA DEPAN KAD */}
+            {/* ========================================== */}
+            {/* MUKA DEPAN KAD (SOALAN YANG MENARIK)     */}
+            {/* ========================================== */}
             <div
               className="absolute inset-0 flex flex-col items-center justify-between bg-white rounded-3xl border-4 border-amber-400 p-6 text-center shadow-[0_10px_20px_rgba(251,191,36,0.15)] bg-[radial-gradient(#fef3c7_1px,transparent_1px)] [background-size:16px_16px]"
               style={{ backfaceVisibility: "hidden" }}
             >
               <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center border-2 border-amber-300 shadow-inner">
-                <span className="text-2xl">❓</span>
+                <span className="text-2xl animate-pulse">❓</span>
               </div>
 
               <div className="space-y-2 px-2 max-y-32 overflow-y-auto no-scrollbar">
@@ -104,28 +109,35 @@ export default function Flashcards({ flashcards = [] }) {
               </div>
             </div>
 
-            {/* MUKA BELAKANG KAD */}
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-between bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl border-4 border-emerald-400 p-5 text-center shadow-[0_10px_25px_rgba(16,185,129,0.25)] text-white"
-              style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-            >
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40 shadow-inner shrink-0">
-                <span className="text-xl">🎉</span>
-              </div>
+{/* ========================================== */}
+{/* MUKA BELAKANG KAD (JAWAPAN & ULASAN CERIA) */}
+{/* ========================================== */}
+<div
+  className="absolute inset-0 flex flex-col items-center justify-between bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl border-4 border-emerald-400 p-5 text-center shadow-[0_10px_25px_rgba(16,185,129,0.25)] text-white"
+  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+>
+  {/* Icon bahagian atas - Dikecilkan sedikit kepada w-10 h-10 untuk jimat ruang */}
+  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40 shadow-inner shrink-0">
+    <span className="text-xl animate-pulse">🎉</span>
+  </div>
 
-              <div className="w-full flex-1 flex flex-col justify-center items-center px-2 my-auto">
-                <span className="text-[10px] font-black tracking-widest text-emerald-100 bg-white/20 px-3 py-1 rounded-full uppercase border border-white/10 mb-2 shrink-0">
-                  JAWAPAN TEPAT
-                </span>
-                
-                <div className="w-full bg-black/15 p-3 sm:p-4 rounded-2xl border border-white/10 shadow-inner">
-                  <p className="text-sm sm:text-base font-heading font-bold text-white text-center leading-relaxed whitespace-pre-line tracking-wide drop-shadow-sm">
-                    {card.back}
-                  </p>
-                </div>
-              </div>
+  {/* KONTENA UTAMA JAWAPAN (SANGAT LUAS & BEBAS SKROL) */}
+  <div className="w-full flex-1 flex flex-col justify-center items-center px-2 my-auto">
+    <span className="text-[10px] font-black tracking-widest text-emerald-100 bg-white/20 px-3 py-1 rounded-full uppercase border border-white/10 mb-2 shrink-0">
+      JAWAPAN TEPAT
+    </span>
+    
+    {/* Kotak latar belakang yang disesuaikan padding (p-3 sm:p-4) */}
+    <div className="w-full bg-black/15 p-3 sm:p-4 rounded-2xl border border-white/10 shadow-inner">
+      {/* Saiz teks dioptimumkan ke text-sm (mobile) dan text-base (desktop) agar muat sepenuhnya tanpa skrol */}
+      <p className="text-sm sm:text-base font-heading font-bold text-white text-center leading-relaxed whitespace-pre-line tracking-wide drop-shadow-sm">
+        {card.back}
+      </p>
+    </div>
+  </div>
 
-              <div className="text-[10px] font-semibold text-emerald-100/90 flex items-center gap-1 bg-black/15 px-3 py-1.5 rounded-full shrink-0 mt-1">
+  {/* Arahan navigasi bawah */}
+              <div className="text-[10px] font-semibold text-emerald-100/90 flex items-center gap-1 bg-black/10 px-3 py-1 rounded-full">
                 Klik kad untuk lihat soalan semula 🔄
               </div>
             </div>
@@ -135,15 +147,17 @@ export default function Flashcards({ flashcards = [] }) {
 
       {/* NAVIGASI KAWALAN BAWAH */}
       <div className="flex items-center justify-between gap-3 pt-2">
+        {/* Butang Sebelum */}
         <Button 
           variant="outline" 
           onClick={prev} 
           disabled={current === 0} 
-          className="rounded-2xl h-11 px-4 text-xs font-bold border-2 border-slate-200"
+          className="rounded-2xl h-11 px-4 text-xs font-bold border-2 border-slate-200 active:scale-95 transition-transform shadow-sm disabled:opacity-50"
         >
           <ChevronLeft className="w-4 h-4 mr-1" /> Sebelum
         </Button>
 
+        {/* Indikator Titik (Dots Progress) */}
         <div className="flex items-center gap-1.5 max-w-[140px] overflow-x-auto no-scrollbar py-1 px-2 bg-slate-100 rounded-full border border-slate-200/60 shadow-inner">
           {flashcards.map((_, i) => (
             <span
@@ -159,10 +173,11 @@ export default function Flashcards({ flashcards = [] }) {
           ))}
         </div>
 
+        {/* Butang Seterusnya / Main Semula */}
         {current === flashcards.length - 1 ? (
           <Button 
             onClick={resetGame} 
-            className="rounded-2xl h-11 px-4 text-xs font-black bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md"
+            className="rounded-2xl h-11 px-4 text-xs font-black bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white active:scale-95 transition-transform shadow-md"
           >
             <RotateCcw className="w-4 h-4 mr-1" /> Main Semula
           </Button>
@@ -170,16 +185,19 @@ export default function Flashcards({ flashcards = [] }) {
           <Button 
             variant="outline" 
             onClick={next} 
-            className="rounded-2xl h-11 px-4 text-xs font-bold border-2 border-slate-200"
+            disabled={current === flashcards.length - 1} 
+            className="rounded-2xl h-11 px-4 text-xs font-bold border-2 border-slate-200 active:scale-95 transition-transform shadow-sm"
           >
             Seterusnya <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         )}
       </div>
 
+      {/* EXTRA INFO FOOTER BANNER */}
       <p className="text-center text-[10px] font-bold text-amber-800/60 flex items-center justify-center gap-1 bg-amber-400/5 py-1.5 rounded-xl border border-dashed border-amber-400/20">
-        <HelpCircle className="w-3 h-3"/> Kad dicabut secara rawak dinamik daripada kolam 50 bank soalan tersedia!
+        <HelpCircle className="w-3 h-3"/>
       </p>
+      
     </div>
   );
 }

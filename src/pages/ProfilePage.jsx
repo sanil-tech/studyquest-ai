@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, ShieldAlert, Sparkles } from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,30 +14,6 @@ import LearningPreferencesSection from "@/components/profile/LearningPreferences
 import SecuritySection from "@/components/profile/SecuritySection";
 import StudentIdSection from "@/components/profile/StudentIdSection";
 
-// ==========================================
-// KOLEKSI AVATAR PERCUMA (DICEBEAR API)
-// Sesuai untuk umur 4-17 tahun
-// ==========================================
-const PRESET_AVATARS = [
-  // Gaya Comel & Haiwan (4-9 tahun)
-  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy&backgroundColor=ffdfbf",
-  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Wink&backgroundColor=b6e3f4",
-  "https://api.dicebear.com/7.x/bottts/svg?seed=Robot1&backgroundColor=c0aede",
-  "https://api.dicebear.com/7.x/bottts/svg?seed=Cody&backgroundColor=ffdfbf",
-  
-  // Gaya Adventurer / Gaming (10-12 tahun)
-  "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix&backgroundColor=ffdfbf",
-  "https://api.dicebear.com/7.x/adventurer/svg?seed=Mia&backgroundColor=b6e3f4",
-  "https://api.dicebear.com/7.x/adventurer/svg?seed=Leo&backgroundColor=c0aede",
-  "https://api.dicebear.com/7.x/adventurer/svg?seed=Zoe&backgroundColor=d1d4f9",
-
-  // Gaya Estetik / Cool Remaja (13-17 tahun)
-  "https://api.dicebear.com/7.x/micah/svg?seed=Alex&backgroundColor=ffdfbf",
-  "https://api.dicebear.com/7.x/micah/svg?seed=Sam&backgroundColor=b6e3f4",
-  "https://api.dicebear.com/7.x/notionists/svg?seed=Ryan&backgroundColor=c0aede",
-  "https://api.dicebear.com/7.x/notionists/svg?seed=Luna&backgroundColor=ffdfbf"
-];
-
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -46,19 +22,30 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [showAvatar, setShowAvatar] = useState(false);
   const [editing, setEditing] = useState(false);
-  
   const [formData, setFormData] = useState({
-    full_name: "", nickname: "", school_year: "", school_name: "",
-    class_name: "", gender: "", date_of_birth: "", country: "Malaysia", state: "",
+    full_name: "",
+    nickname: "",
+    school_year: "",
+    school_name: "",
+    class_name: "",
+    gender: "",
+    date_of_birth: "",
+    country: "Malaysia",
+    state: "",
     notification_preferences: {
-      email_notifications: true, push_notifications: true, quiz_reminders: true,
-      daily_learning_reminder: true, parent_progress_reports: true, weekly_achievement_summary: true,
+      email_notifications: true,
+      push_notifications: true,
+      quiz_reminders: true,
+      daily_learning_reminder: true,
+      parent_progress_reports: true,
+      weekly_achievement_summary: true,
     },
     learning_preferences: {
-      daily_goal_minutes: 20, difficulty_preference: "medium", favorite_subjects: [],
+      daily_goal_minutes: 20,
+      difficulty_preference: "medium",
+      favorite_subjects: [],
     },
   });
-
   const [avatarMode, setAvatarMode] = useState("emoji");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -83,11 +70,28 @@ export default function ProfilePage() {
         }
         
         setFormData({
-          full_name: u.full_name || "", nickname: u.nickname || "", school_year: u.school_year || "",
-          school_name: u.school_name || "", class_name: u.class_name || "", gender: u.gender || "",
-          date_of_birth: u.date_of_birth || "", country: u.country || "Malaysia", state: u.state || "",
-          notification_preferences: u.notification_preferences || formData.notification_preferences,
-          learning_preferences: u.learning_preferences || formData.learning_preferences,
+          full_name: u.full_name || "",
+          nickname: u.nickname || "",
+          school_year: u.school_year || "",
+          school_name: u.school_name || "",
+          class_name: u.class_name || "",
+          gender: u.gender || "",
+          date_of_birth: u.date_of_birth || "",
+          country: u.country || "Malaysia",
+          state: u.state || "",
+          notification_preferences: u.notification_preferences || {
+            email_notifications: true,
+            push_notifications: true,
+            quiz_reminders: true,
+            daily_learning_reminder: true,
+            parent_progress_reports: true,
+            weekly_achievement_summary: true,
+          },
+          learning_preferences: u.learning_preferences || {
+            daily_goal_minutes: 20,
+            difficulty_preference: "medium",
+            favorite_subjects: [],
+          },
         });
       } catch (err) {
         console.error("Failed to load profile:", err);
@@ -98,7 +102,9 @@ export default function ProfilePage() {
     load();
   }, [user?.id]);
 
-  const handleLogout = () => base44.auth.logout("/login");
+  const handleLogout = () => {
+    base44.auth.logout("/login");
+  };
 
   const handleSaveAvatar = async (emoji) => {
     await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
@@ -108,15 +114,24 @@ export default function ProfilePage() {
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
     setUploading(true);
     try {
       const result = await base44.integrations.Core.UploadFile({ file });
       await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
       setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
       setAvatarMode("photo");
-      toast({ title: "Gambar dimuat naik!", description: "Profil anda telah dikemas kini." });
+      toast({
+        title: "Photo uploaded!",
+        description: "Your profile photo has been updated.",
+      });
     } catch (err) {
-      toast({ title: "Gagal", description: "Sila cuba lagi.", variant: "destructive" });
+      console.error("Photo upload failed:", err);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload photo. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
     }
@@ -128,40 +143,64 @@ export default function ProfilePage() {
     setAvatarMode("emoji");
   };
 
-  // FUNGSI BARU: Simpan Avatar Pilihan Preset
-  const handleSelectPresetAvatar = async (url) => {
-    setUploading(true);
-    try {
-      await base44.auth.updateMe({ profile_picture_url: url, avatar_emoji: null });
-      setUser((prev) => ({ ...prev, profile_picture_url: url, avatar_emoji: null }));
-      setAvatarMode("photo");
-      toast({
-        title: "Avatar Ditukar! 🌟",
-        description: "Avatar baru anda kelihatan sangat hebat!",
-      });
-    } catch (err) {
-      toast({ title: "Gagal", description: "Tidak dapat menukar avatar.", variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
       await base44.auth.updateMe(formData);
       const updatedUser = await base44.auth.me();
       setUser(updatedUser);
+      setFormData({
+        full_name: updatedUser.full_name || "",
+        nickname: updatedUser.nickname || "",
+        school_year: updatedUser.school_year || "",
+        school_name: updatedUser.school_name || "",
+        class_name: updatedUser.class_name || "",
+        gender: updatedUser.gender || "",
+        date_of_birth: updatedUser.date_of_birth || "",
+        country: updatedUser.country || "Malaysia",
+        state: updatedUser.state || "",
+        notification_preferences: updatedUser.notification_preferences || formData.notification_preferences,
+        learning_preferences: updatedUser.learning_preferences || formData.learning_preferences,
+      });
       setEditing(false);
-      toast({ title: "Profil disimpan! ✓", description: "Maklumat anda telah dikemas kini." });
+
+      if (updatedUser.app_role === "student") {
+        const linkReqs = await base44.entities.LinkRequest.filter({ 
+          student_email: updatedUser.email, 
+          status: "approved" 
+        });
+        await Promise.all(
+          linkReqs.map(req =>
+            base44.entities.LinkRequest.update(req.id, { 
+              student_name: updatedUser.full_name || updatedUser.email 
+            })
+          )
+        );
+      }
+
+      toast({
+        title: "Profile saved! ✓",
+        description: "Your profile has been updated successfully.",
+      });
     } catch (err) {
-      toast({ title: "Gagal menyimpan", description: err.message, variant: "destructive" });
+      console.error("Failed to save profile:", err);
+      toast({
+        title: "Failed to save",
+        description: err.message || "Something went wrong",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-32"><div className="w-10 h-10 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" /></div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const isStudent = user?.app_role === "student";
   const isParent = user?.app_role === "parent";
@@ -169,118 +208,253 @@ export default function ProfilePage() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       
-      {/* HEADER KAD PROFIL */}
-      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-6 md:p-10 text-white shadow-xl">
-        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 z-10">
+      {/* Profile Header Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-indigo-600 to-violet-700 p-6 md:p-10 text-white shadow-xl shadow-indigo-900/10"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4 blur-lg pointer-events-none" />
+        
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
             <div className="relative group">
-              <div className="w-28 h-28 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/30 shadow-xl">
+              <div className="w-28 h-28 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
                 {user?.profile_picture_url ? (
                   <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-5xl select-none">{user?.avatar_emoji || "🦧"}</span>
+                  <span className="text-5xl select-none">{user?.avatar_emoji || "🎓"}</span>
                 )}
               </div>
+              {isStudent && showAvatar && (
+                <button
+                  onClick={handleRemovePhoto}
+                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
+                  title="Remove photo"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
+
             <div className="space-y-1.5">
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "Pelajar"}</h1>
-              <p className="text-orange-50 font-medium">{user?.email}</p>
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "User"}</h1>
+                <span className="px-3 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-white/20 backdrop-blur-xs text-white/90">
+                  {user?.app_role || "student"}
+                </span>
+              </div>
+              <p className="text-white/75 text-sm md:text-base font-medium">{user?.email}</p>
             </div>
           </div>
-          
+
+          {/* Header Actions Panel */}
           {(isStudent || isParent) && (
-            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/20">
+            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/10 w-full md:w-auto">
               {isStudent && (
-                <Button variant="ghost" size="sm" onClick={() => setShowAvatar(!showAvatar)} className="text-white hover:bg-white/20 hover:text-white rounded-xl text-xs h-9 px-4 font-bold">
-                  {showAvatar ? "Tutup Tetapan" : "Tukar Avatar/Gambar"}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAvatar(!showAvatar)}
+                  className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
+                >
+                  {showAvatar ? "Hide Options" : "Change Avatar/Photo"}
                 </Button>
               )}
-              <Button size="sm" variant={editing ? "secondary" : "default"} disabled={saving} onClick={() => editing ? handleSaveProfile() : setEditing(true)} className={`text-xs h-9 px-4 font-bold rounded-xl transition-all shadow-sm ${editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-orange-600 hover:bg-orange-50"}`}>
-                {saving ? "Menyimpan..." : editing ? "Simpan Profil" : "Kemaskini"}
+              
+              <Button
+                size="sm"
+                variant={editing ? "secondary" : "default"}
+                disabled={saving}
+                onClick={() => editing ? handleSaveProfile() : setEditing(true)}
+                className={`text-xs h-9 px-4 font-semibold rounded-xl transition-all shadow-xs ${
+                  editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-indigo-700 hover:bg-white/90"
+                }`}
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-indigo-700/30 border-t-indigo-700 rounded-full animate-spin mr-1.5" />
+                ) : editing ? (
+                  <Check className="w-3.5 h-3.5 mr-1.5" />
+                ) : (
+                  <Pen className="w-3.5 h-3.5 mr-1.5" />
+                )}
+                {saving ? "Saving..." : editing ? "Save Profile Data" : "Edit Details"}
               </Button>
             </div>
           )}
         </div>
       </motion.div>
 
+      {/* Main Core Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* SIDEBAR KIRI (Metrik & Identiti) */}
+        
+        {/* Left Hand Sidebar Column */}
         <div className="lg:col-span-1 space-y-6">
-          {/* ... Kad Metrik, StudentIdSection & Butang Log Keluar sedia ada ... */}
-           {isStudent && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-3 gap-3">
-              <Card className="border-orange-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xl font-bold">{totalQuizzes}</p><p className="text-[10px] text-slate-500 uppercase font-bold">Kuiz</p></CardContent></Card>
-              <Card className="border-orange-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xl font-bold">Lv {progress?.level || 1}</p><p className="text-[10px] text-slate-500 uppercase font-bold">Tahap</p></CardContent></Card>
-              <Card className="border-orange-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xl font-bold">{wallet?.balance || 0}</p><p className="text-[10px] text-slate-500 uppercase font-bold">Syiling</p></CardContent></Card>
+          {/* Quick Metrics (Only for student views) */}
+          {isStudent && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="grid grid-cols-3 gap-3"
+            >
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">{totalQuizzes}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Quizzes</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                    <Trophy className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">Lv {progress?.level || 1}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Level</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 shadow-xs bg-card">
+                <CardContent className="p-4 text-center space-y-1">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+                    <Coins className="w-4 h-4" />
+                  </div>
+                  <p className="text-xl font-bold tracking-tight mt-1">{wallet?.balance || 0}</p>
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Coins</p>
+                </CardContent>
+              </Card>
             </motion.div>
           )}
-          {isStudent && <div className="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden"><StudentIdSection user={user} /></div>}
-          <Button variant="outline" onClick={handleLogout} className="w-full rounded-2xl h-12 text-red-500 border-red-200 bg-red-50 hover:bg-red-100 font-bold">Log Keluar Akaun</Button>
+
+          {/* Student Identifiers / Security Keys */}
+          {isStudent && (
+            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
+              <StudentIdSection user={user} />
+            </div>
+          )}
+
+          {/* Associated Parent Node Bindings */}
+          {isStudent && (
+            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
+              <ParentConnections user={user} />
+            </div>
+          )}
+
+          {/* Admin Platform Tool Links */}
+          {user?.role === "admin" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-all duration-200">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                  <BookMarked className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground">Textbook Library</p>
+                  <p className="text-xs text-muted-foreground truncate">Upload Malaysian curriculum modules</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </motion.div>
+          )}
+
+          {/* System Sign out Operations Anchor */}
+          <Button
+            variant="outline"
+            onClick={handleLogout}
+            className="w-full rounded-2xl h-12 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors font-medium text-sm"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out of Account
+          </Button>
         </div>
 
-        {/* BAHAGIAN KANAN (Tetapan Avatar & Borang) */}
+        {/* Right Hand / Main Content Columns Content Segment */}
         <div className="lg:col-span-2 space-y-6">
           
+          {/* Avatar Settings Section Dropdown Panel */}
           <AnimatePresence>
             {showAvatar && isStudent && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden bg-white rounded-2xl border border-orange-100 shadow-sm">
-                
-                {/* 1. Komponen Upload Asal Anda */}
-                <div className="p-1 border-b-2 border-orange-50">
-                  <ProfilePhotoSection
-                    user={user} avatarMode={avatarMode} setAvatarMode={setAvatarMode}
-                    uploading={uploading} setUploading={setUploading} fileInputRef={fileInputRef}
-                    handlePhotoUpload={handlePhotoUpload} handleRemovePhoto={handleRemovePhoto}
-                    handleSaveAvatar={handleSaveAvatar} showAvatar={showAvatar} setShowAvatar={setShowAvatar}
-                  />
-                </div>
-
-                {/* 2. TAMBAHAN BARU: Galeri Avatar Preset (DiceBear) */}
-                <div className="p-6 bg-orange-50/30">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="w-5 h-5 text-orange-500" />
-                    <h3 className="text-sm font-bold text-slate-700">Atau pilih dari koleksi percuma ini:</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
-                    {PRESET_AVATARS.map((url, idx) => {
-                      const isSelected = user?.profile_picture_url === url;
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => handleSelectPresetAvatar(url)}
-                          disabled={uploading}
-                          className={`relative aspect-square rounded-2xl border-4 transition-all overflow-hidden ${
-                            isSelected 
-                              ? "border-orange-500 shadow-md scale-105" 
-                              : "border-transparent hover:border-orange-200 hover:scale-105 hover:shadow-sm"
-                          }`}
-                        >
-                          <img src={url} alt={`Avatar ${idx}`} className="w-full h-full object-cover bg-slate-50" />
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
-                              <Check className="w-6 h-6 text-orange-600 drop-shadow-md" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden bg-card rounded-2xl border border-border/60 p-1 shadow-xs"
+              >
+                <ProfilePhotoSection
+                  user={user}
+                  avatarMode={avatarMode}
+                  setAvatarMode={setAvatarMode}
+                  uploading={uploading}
+                  setUploading={setUploading}
+                  fileInputRef={fileInputRef}
+                  handlePhotoUpload={handlePhotoUpload}
+                  handleRemovePhoto={handleRemovePhoto}
+                  handleSaveAvatar={handleSaveAvatar}
+                  showAvatar={showAvatar}
+                  setShowAvatar={setShowAvatar}
+                />
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* ... Borang Profil & Tetapan sedia ada ... */}
+          {/* Core Profile Parameters Forms Layout UI Block */}
           {(isStudent || isParent) && (
-            <Card className="border-orange-100 shadow-sm rounded-2xl overflow-hidden bg-white">
+            <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
               <CardContent className="p-6 md:p-8">
-                <ProfileForm user={user} editing={editing} formData={formData} setFormData={setFormData} isStudent={isStudent} />
+                <ProfileForm
+                  user={user}
+                  editing={editing}
+                  formData={formData}
+                  setFormData={setFormData}
+                  isStudent={isStudent}
+                />
               </CardContent>
             </Card>
           )}
 
+          {/* Notification System Node Hooks */}
+          {editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <NotificationPreferencesSection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+              />
+            </motion.div>
+          )}
+
+          {/* Curriculums Learning Track Preferences */}
+          {isStudent && editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <LearningPreferencesSection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+              />
+            </motion.div>
+          )}
+
+          {/* Cryptography / Account Access Keys Modification Interface */}
+          {editing && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+              <SecuritySection
+                editing={editing}
+                formData={formData}
+                setFormData={setFormData}
+                onSavePassword={async () => {
+                  toast({
+                    title: "Security Request Notice",
+                    description: "Please utilize the native portal forgot password authorization pipeline to handle active updates.",
+                    variant: "destructive",
+                  });
+                }}
+              />
+            </motion.div>
+          )}
         </div>
       </div>
     </div>
