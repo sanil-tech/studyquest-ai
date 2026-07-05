@@ -2,18 +2,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, HelpCircle } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 
-import LessonProgress from "@/components/lesson/LessonProgress";
 import LessonContent from "@/components/lesson/LessonContent";
 import VoicePlayer from "@/components/lesson/VoicePlayer";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 
-const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
+const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts.`;
 
 const FORMAT_CONSTRAINTS = {
   ms: "Tulis SELURUH kandungan dalam Bahasa Melayu sahaja. JANGAN gunakan perkataan Bahasa Inggeris.",
@@ -24,7 +23,7 @@ const LESSON_PROMPT = (topic, subject, level, lang, studentNickname) => `
 ${BASE_SYSTEM_PROMPT}
 ${FORMAT_CONSTRAINTS[lang]}
 Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
-CRITICAL TONE INSTRUCTION: The student's personalized friendly nickname is "${studentNickname}". Tone must be exceptionally warm and encouraging.
+The student's nickname is "${studentNickname}". Tone must be exceptionally warm and encouraging.
 Return JSON schema matching: { "lesson_markdown": "string", "summary": "string", "keywords": ["string"] }
 `;
 
@@ -75,7 +74,7 @@ export default function LessonPage() {
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
 
-  const tentukanPanggilanMesra = (userObj, formLevel) => {
+  const tentukanPanggilanMesra = (userObj) => {
     const customNickname = userObj?.nickname || userObj?.profile?.nickname;
     if (customNickname?.trim()) return customNickname.trim();
     const namaPenuh = userObj?.name || userObj?.display_name || userObj?.profile?.name;
@@ -97,16 +96,16 @@ export default function LessonPage() {
         setSubject(sub);
         setTopic(top);
         setCurrentUserId(user.id);
-        setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
+        setStudentNickname(tentukanPanggilanMesra(user));
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        // 🛠️ PERBAIKAN PADANAN: Cari bank soalan induk secara fleksibel
+        // Cari bank soalan induk secara fleksibel
         const allQuizBanks = await base44.entities.Quiz.filter({});
         if (allQuizBanks && allQuizBanks.length > 0) {
           const namaTopikSemasa = top.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, "").trim();
           
           const foundBank = allQuizBanks.find(bank => {
-            if (bank.session_id) return false; // Abaikan kuiz dinamik pelajar
+            if (bank.session_id) return false; 
             const namaBank = (bank.topic_name || "").toLowerCase().replace(/[^a-zA-Z0-9]/g, "").trim();
             return namaBank.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBank);
           });
@@ -155,7 +154,6 @@ export default function LessonPage() {
   const ensureActiveSession = async () => {
     if (sessionRef.current) return sessionRef.current;
     try {
-      console.log("⚠️ Mengaktifkan Sesi Pembelajaran Segera...");
       const session = await base44.entities.StudySession.create({
         student_id: currentUserId,
         subject_id: subjectId,
@@ -190,12 +188,9 @@ export default function LessonPage() {
   const generateCoreLesson = async () => {
     setStatus(p => ({ ...p, lesson: true }));
     try {
-      const config = await getContextConfiguration();
       const lang = getLanguageMode();
-
       const response = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash", 
-        add_context_from_internet: !!config.useInternet,
         prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, studentNickname),
         response_json_schema: {
           type: "object",
@@ -249,7 +244,6 @@ export default function LessonPage() {
         }));
         setFlashcards(mappedCards);
         if (validSessionId) await base44.entities.StudySession.update(validSessionId, { flashcards_json: JSON.stringify(mappedCards) });
-        setStatus(p => ({ ...p, flashcards: false }));
         return; 
       } 
       
@@ -264,7 +258,9 @@ export default function LessonPage() {
       }
     } catch (err) {
       console.error(err);
-    } finally { setStatus(p => ({ ...p, flashcards: false })); }
+    } finally { 
+      setStatus(p => ({ ...p, flashcards: false })); 
+    }
   };
 
   const runQuizGeneration = async (mode) => {
@@ -272,7 +268,6 @@ export default function LessonPage() {
     setStatus(p => ({ ...p, quiz: true }));
     await recordStudyTime();
 
-    // 🛠️ PERBAIKAN HILANG SESI: Pastikan session_id wujud sebelum mencipta rekod kuiz
     const validSessionId = await ensureActiveSession();
     if (!validSessionId) {
       alert("Gagal memulakan sesi kuiz. Sila muatkan semula halaman.");
@@ -285,7 +280,6 @@ export default function LessonPage() {
     const determinedDifficulty = isBossMode ? "hard" : "medium";
 
     try {
-      // KATEGORI 1: GUNA BANK SOALAN (UTAMA)
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         let filteredPool = [...rawBankQuestions];
 
@@ -321,8 +315,6 @@ export default function LessonPage() {
         navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: validSessionId, studyStartTime: Date.now() } });
         return;
       } 
-      
-      // KATEGORI 2: KOSONG? BARU GUNAKAN AI (BACKUP)
       else {
         const lang = getLanguageMode();
         let aiPrompt = isBossMode 
@@ -372,7 +364,11 @@ export default function LessonPage() {
         setMindMap(res);
         if (sessionId) await base44.entities.StudySession.update(sessionId, { mindmap_json: JSON.stringify(res) });
       }
-    } catch (err) { console.error(err); } finally { setStatus(p => ({ ...p, mindmap: false })); }
+    } catch (err) { 
+      console.error(err); 
+    } finally { 
+      setStatus(p => ({ ...p, mindmap: false })); 
+    }
   };
 
   if (loading) {
