@@ -576,8 +576,9 @@ export default function LessonPage() {
       )}
 
       {/* =========================================================================
-          ORANG UTAN MASCOT (EMOJI FALLBACK)
-          - Terapung di hadapan lapisan utama, klik pada emoji untuk buih!
+          ORANG UTAN MASCOT - Terapung di hadapan lapisan utama
+          - Menggunakan z-50 untuk mengelakkan ditindih
+          - Fixed position supaya kekal sewaktu menatal
       ========================================================================= */}
       <motion.div
         animate={{ y: [0, -15, 0] }}
@@ -586,18 +587,16 @@ export default function LessonPage() {
       >
         <div className="bg-white p-3 md:p-4 rounded-3xl rounded-br-none shadow-xl mb-4 mr-2 border-4 border-orange-300 pointer-events-auto max-w-[160px]">
           <p className="text-xs md:text-sm font-bold text-orange-700 leading-snug">
-            Ayo, jom belajar {studentNickname}! ✨
+            Ayo, jom belajar {studentNickname}! 🦧✨
           </p>
         </div>
-        
-        {/* Avatar Emoji Sedia Ada yang Bulat & Kemas */}
-        <div 
-          className="w-20 h-20 md:w-28 md:h-28 bg-gradient-to-tr from-orange-200 to-orange-100 rounded-full flex items-center justify-center text-5xl md:text-7xl border-4 border-orange-400 shadow-lg pointer-events-auto cursor-pointer hover:scale-110 transition-transform active:scale-95"
+        {/* Pastikan anda menukar path gambar ini kepada lokasi sebenar fail gambar avatar anda */}
+        <img
+          src="/assets/orang-utan.png" 
+          alt="Mascot Orang Utan"
+          className="w-24 h-24 md:w-32 md:h-32 object-contain pointer-events-auto cursor-pointer hover:scale-110 transition-transform active:scale-95"
           onClick={triggerConfetti}
-          title="Klik saya!"
-        >
-          🦧
-        </div>
+        />
       </motion.div>
 
     </div>
