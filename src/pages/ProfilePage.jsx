@@ -197,7 +197,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -208,29 +208,31 @@ export default function ProfilePage() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       
-      {/* Profile Header Card */}
+      {/* ==========================================
+          PROFILE HEADER CARD (Tema Orang Utan)
+          ========================================== */}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-indigo-600 to-violet-700 p-6 md:p-10 text-white shadow-xl shadow-indigo-900/10"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-6 md:p-10 text-white shadow-xl shadow-orange-900/10"
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4 blur-lg pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/3 -translate-x-1/4 blur-lg pointer-events-none" />
         
         <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
             <div className="relative group">
-              <div className="w-28 h-28 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
+              <div className="w-28 h-28 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/30 shadow-xl transition-transform duration-300 group-hover:scale-105">
                 {user?.profile_picture_url ? (
                   <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-5xl select-none">{user?.avatar_emoji || "🎓"}</span>
+                  <span className="text-5xl select-none">{user?.avatar_emoji || "🦧"}</span>
                 )}
               </div>
               {isStudent && showAvatar && (
                 <button
                   onClick={handleRemovePhoto}
-                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
+                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center font-bold text-xs hover:bg-red-600 shadow-md transition-colors"
                   title="Remove photo"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -240,26 +242,26 @@ export default function ProfilePage() {
 
             <div className="space-y-1.5">
               <div className="flex flex-col sm:flex-row items-center gap-2">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "User"}</h1>
-                <span className="px-3 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-white/20 backdrop-blur-xs text-white/90">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "Pelajar"}</h1>
+                <span className="px-3 py-0.5 text-xs font-bold uppercase tracking-wider rounded-full bg-white/30 backdrop-blur-xs text-white">
                   {user?.app_role || "student"}
                 </span>
               </div>
-              <p className="text-white/75 text-sm md:text-base font-medium">{user?.email}</p>
+              <p className="text-orange-50 text-sm md:text-base font-medium">{user?.email}</p>
             </div>
           </div>
 
           {/* Header Actions Panel */}
           {(isStudent || isParent) && (
-            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/10 w-full md:w-auto">
+            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/20 w-full md:w-auto">
               {isStudent && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowAvatar(!showAvatar)}
-                  className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
+                  className="text-white hover:bg-white/20 hover:text-white rounded-xl text-xs h-9 px-4 font-bold"
                 >
-                  {showAvatar ? "Hide Options" : "Change Avatar/Photo"}
+                  {showAvatar ? "Tutup Tetapan" : "Tukar Avatar/Gambar"}
                 </Button>
               )}
               
@@ -268,18 +270,18 @@ export default function ProfilePage() {
                 variant={editing ? "secondary" : "default"}
                 disabled={saving}
                 onClick={() => editing ? handleSaveProfile() : setEditing(true)}
-                className={`text-xs h-9 px-4 font-semibold rounded-xl transition-all shadow-xs ${
-                  editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-indigo-700 hover:bg-white/90"
+                className={`text-xs h-9 px-4 font-bold rounded-xl transition-all shadow-sm ${
+                  editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-orange-600 hover:bg-orange-50"
                 }`}
               >
                 {saving ? (
-                  <div className="w-4 h-4 border-2 border-indigo-700/30 border-t-indigo-700 rounded-full animate-spin mr-1.5" />
+                  <div className="w-4 h-4 border-2 border-orange-600/30 border-t-orange-600 rounded-full animate-spin mr-1.5" />
                 ) : editing ? (
                   <Check className="w-3.5 h-3.5 mr-1.5" />
                 ) : (
                   <Pen className="w-3.5 h-3.5 mr-1.5" />
                 )}
-                {saving ? "Saving..." : editing ? "Save Profile Data" : "Edit Details"}
+                {saving ? "Menyimpan..." : editing ? "Simpan Profil" : "Kemaskini"}
               </Button>
             </div>
           )}
@@ -291,7 +293,6 @@ export default function ProfilePage() {
         
         {/* Left Hand Sidebar Column */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Quick Metrics (Only for student views) */}
           {isStudent && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -299,33 +300,33 @@ export default function ProfilePage() {
               transition={{ delay: 0.05 }}
               className="grid grid-cols-3 gap-3"
             >
-              <Card className="border-border/60 shadow-xs bg-card">
+              <Card className="border-orange-100 shadow-sm bg-white">
                 <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mx-auto">
                     <BookOpen className="w-4 h-4" />
                   </div>
                   <p className="text-xl font-bold tracking-tight mt-1">{totalQuizzes}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Quizzes</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Kuiz</p>
                 </CardContent>
               </Card>
               
-              <Card className="border-border/60 shadow-xs bg-card">
+              <Card className="border-orange-100 shadow-sm bg-white">
                 <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                  <div className="w-8 h-8 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto">
                     <Trophy className="w-4 h-4" />
                   </div>
                   <p className="text-xl font-bold tracking-tight mt-1">Lv {progress?.level || 1}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Level</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Tahap</p>
                 </CardContent>
               </Card>
 
-              <Card className="border-border/60 shadow-xs bg-card">
+              <Card className="border-orange-100 shadow-sm bg-white">
                 <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
+                  <div className="w-8 h-8 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center mx-auto">
                     <Coins className="w-4 h-4" />
                   </div>
                   <p className="text-xl font-bold tracking-tight mt-1">{wallet?.balance || 0}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Coins</p>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Syiling</p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -333,14 +334,14 @@ export default function ProfilePage() {
 
           {/* Student Identifiers / Security Keys */}
           {isStudent && (
-            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden">
               <StudentIdSection user={user} />
             </div>
           )}
 
           {/* Associated Parent Node Bindings */}
           {isStudent && (
-            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
+            <div className="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden p-1">
               <ParentConnections user={user} />
             </div>
           )}
@@ -348,15 +349,15 @@ export default function ProfilePage() {
           {/* Admin Platform Tool Links */}
           {user?.role === "admin" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-all duration-200">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+              <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-orange-50 rounded-2xl p-4 border border-orange-100 hover:bg-orange-100 transition-all duration-200">
+                <div className="w-10 h-10 rounded-xl bg-orange-200 flex items-center justify-center text-orange-700 group-hover:scale-105 transition-transform">
                   <BookMarked className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground">Textbook Library</p>
-                  <p className="text-xs text-muted-foreground truncate">Upload Malaysian curriculum modules</p>
+                  <p className="font-bold text-sm text-slate-800">Perpustakaan Buku</p>
+                  <p className="text-xs text-slate-500 truncate">Muat naik modul silibus</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:translate-x-0.5 transition-transform" />
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </motion.div>
           )}
@@ -365,10 +366,10 @@ export default function ProfilePage() {
           <Button
             variant="outline"
             onClick={handleLogout}
-            className="w-full rounded-2xl h-12 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors font-medium text-sm"
+            className="w-full rounded-2xl h-12 text-red-500 border-red-200 bg-red-50 hover:bg-red-100 transition-colors font-bold text-sm"
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Sign Out of Account
+            Log Keluar Akaun
           </Button>
         </div>
 
@@ -382,7 +383,7 @@ export default function ProfilePage() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden bg-card rounded-2xl border border-border/60 p-1 shadow-xs"
+                className="overflow-hidden bg-white rounded-2xl border border-orange-100 p-1 shadow-sm"
               >
                 <ProfilePhotoSection
                   user={user}
@@ -403,7 +404,7 @@ export default function ProfilePage() {
 
           {/* Core Profile Parameters Forms Layout UI Block */}
           {(isStudent || isParent) && (
-            <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
+            <Card className="border-orange-100 shadow-sm rounded-2xl overflow-hidden bg-white">
               <CardContent className="p-6 md:p-8">
                 <ProfileForm
                   user={user}
@@ -418,7 +419,7 @@ export default function ProfilePage() {
 
           {/* Notification System Node Hooks */}
           {editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6 md:p-8">
               <NotificationPreferencesSection
                 editing={editing}
                 formData={formData}
@@ -429,7 +430,7 @@ export default function ProfilePage() {
 
           {/* Curriculums Learning Track Preferences */}
           {isStudent && editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6 md:p-8">
               <LearningPreferencesSection
                 editing={editing}
                 formData={formData}
@@ -440,15 +441,15 @@ export default function ProfilePage() {
 
           {/* Cryptography / Account Access Keys Modification Interface */}
           {editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6 md:p-8">
               <SecuritySection
                 editing={editing}
                 formData={formData}
                 setFormData={setFormData}
                 onSavePassword={async () => {
                   toast({
-                    title: "Security Request Notice",
-                    description: "Please utilize the native portal forgot password authorization pipeline to handle active updates.",
+                    title: "Notis Keselamatan",
+                    description: "Sila gunakan portal rasmi 'Lupa Kata Laluan' untuk mengemaskini tetapan ini.",
                     variant: "destructive",
                   });
                 }}
