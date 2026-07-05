@@ -228,8 +228,9 @@ export default function LessonPage() {
       triggerConfetti();
     } catch (e) {
       console.error(e);
-    } file_urls
-    finally { setStatus(p => ({ ...p, lesson: false })); }
+    } finally { 
+      setStatus(p => ({ ...p, lesson: false })); 
+    }
   };
 
   const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
@@ -308,13 +309,11 @@ export default function LessonPage() {
         { front: `Jom uji kefahaman tentang ${topic?.name || "topik ini"}!`, back: "Sedia! Tekan butang Kuiz di bawah untuk mula menjawab soalan. 🎯" }
       ];
       setFlashcards(errorFallback);
-    } final_urls
-    finally { 
+    } finally { 
       setStatus(p => ({ ...p, flashcards: false })); 
     }
   };
 
-  // 🛠️ DIKEMAS KINI: Menghantar sessionId bersama navigasi kuiz
   const runQuizGeneration = async (numQ) => {
     setStatus(p => ({ ...p, quiz: true }));
     const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
@@ -344,7 +343,6 @@ export default function LessonPage() {
           num_questions: selectedPool.length,
         });
         
-        // 🚀 Bawa state sessionId ke halaman kuiz
         navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: studyStartRef.current } });
         return;
       } 
@@ -371,7 +369,6 @@ export default function LessonPage() {
             num_questions: finalQuestions.length,
           });
           
-          // 🚀 Bawa state sessionId ke halaman kuiz
           navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: studyStartRef.current } });
         }
       }
