@@ -4,7 +4,6 @@ import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
