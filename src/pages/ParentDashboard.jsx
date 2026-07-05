@@ -10,17 +10,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-// 💡 HELPER: Mengutamakan nickname, kemudian e-mel
+// Helper: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
 };
 
-/**
- * 🎨 LOGIK AVATAR RPG (DICEBEAR ADVENTURER)
- * Kita letakkan di sini kerana tiada fail function baru dibenarkan buat masa ini.
- * Menggunakan "seed" unik gabungan Nama + Level supaya rupa avatar berevolusi.
- */
 function CompactChildCard({ child }) {
   const navigate = useNavigate();
   
@@ -36,8 +31,7 @@ function CompactChildCard({ child }) {
     
   const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
 
-  // 🎯 GENERATE AVATAR URL SECARA DINAMIK
-  // Seed berubah mengikut nama dan level = Wira akan 'membesar' atau bertukar rupa!
+  // Generate URL Avatar RPG secara dinamik berasaskan nama & level
   const avatarSeed = `${displayName}_lvl_${currentLevel}`;
   const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${avatarSeed}&backgroundColor=f8fafc,e0e7ff`;
 
@@ -57,7 +51,7 @@ function CompactChildCard({ child }) {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* 🖼️ VISUAL AVATAR RPG DINAMIK */}
+          {/* Avatar RPG Engine */}
           <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 shadow-inner overflow-hidden shrink-0 group-hover:scale-110 transition-transform">
             <img 
               src={avatarUrl} 
@@ -190,5 +184,3 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
     </button>
   );
 }
-
-Dek pembentangan di atas menerangkan konsep dan logik di sebalik kemaskini ini. Sila tepek kod di atas ke dalam fail anda untuk melihat "Wira" anak anda mula berevolusi mengikut Level! Adakah anda mahu saya tambah lebih banyak elemen RPG seperti lencana (badge) mengikut pencapaian?
