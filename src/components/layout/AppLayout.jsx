@@ -32,12 +32,10 @@ export default function AppLayout() {
   // Ref untuk Kesan Bunyi (SFX Bloop)
   const sfxRef = useRef(null);
 
-  // 1. Ambil Data Profil
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => setUser(null));
   }, []);
 
-  // 2. Ambil Jumlah Notifikasi
   useEffect(() => {
     if (!user) return;
     base44.entities.Notification.filter({ user_id: user.id, read: false })
@@ -48,7 +46,6 @@ export default function AppLayout() {
   const isParent = user?.app_role === "parent";
   const nav = isParent ? parentNav : studentNav;
 
-  // 3. Logik Halaan Semula (Redirect)
   useEffect(() => {
     if (!user) return;
     const studentPaths = ["/dashboard", "/study", "/quiz", "/wallet", "/rewards"];
@@ -64,25 +61,24 @@ export default function AppLayout() {
     }
   }, [user, isParent, location.pathname, navigate]);
 
-  // 4. Fungsi Mainkan Audio "Bloop" (Lebih Stabil Menggunakan onClickCapture)
+  // Fungsi Mainkan Audio "Bloop" (Bunyi Comel & Lembut)
   const playBloop = (e) => {
-    // Kesan butang, pautan (<a>), atau elemen bersikap butang
     const isClickable = e.target.closest('button') || e.target.closest('a') || e.target.closest('[role="button"]');
     
     if (isClickable && sfxRef.current) {
-      sfxRef.current.currentTime = 0; // Mula dari awal
-      sfxRef.current.volume = 0.8; // Kelantangan (0.0 hingga 1.0)
+      sfxRef.current.currentTime = 0; 
+      // KELANTANGAN DIRENDAHKAN KE 0.4 SUPAYA LEBIH SEDAP DIDENGAR KANAK-KANAK
+      sfxRef.current.volume = 0.4; 
       
       const playPromise = sfxRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch(error => {
-          console.log("Bunyi klik dihalang oleh browser:", error);
+          console.log("Bunyi bloop dihalang:", error);
         });
       }
     }
   };
 
-  // 5. Avatar Dinamik
   const RenderAvatar = ({ className = "w-10 h-10" }) => (
     <div className={`${className} rounded-full overflow-hidden border-2 border-orange-400 bg-orange-100 flex items-center justify-center shadow-sm shrink-0`}>
       {user?.profile_picture_url ? (
@@ -96,19 +92,15 @@ export default function AppLayout() {
   );
 
   return (
-    // onClickCapture DIGUNAKAN DI SINI UNTUK MENANGKAP SEMUA KLIK BUTANG
     <div className="flex h-screen bg-orange-50/40 overflow-hidden font-sans" onClickCapture={playBloop}>
       
-      {/* KESAN BUNYI BLOOP (URL dari Google Sounds yang lebih stabil) */}
+      {/* KESAN BUNYI BUIH (BUBBLE/BLOOP) YANG LEMBUT */}
       <audio 
         ref={sfxRef} 
-        src="https://actions.google.com/sounds/v1/cartoon/pop.ogg" 
+        src="https://cdn.pixabay.com/download/audio/2022/02/22/audio_c3619582ed.mp3" 
         preload="auto" 
       />
 
-      {/* ==========================================
-          SIDEBAR (TAMPILAN DESKTOP)
-          ========================================== */}
       <aside 
         className={`hidden md:flex bg-white border-r-4 border-orange-100 flex-col justify-between shadow-xl z-20 transition-all duration-300 ease-in-out ${
           isDesktopSidebarOpen ? "w-72" : "w-0 -translate-x-full border-r-0"
@@ -160,9 +152,6 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* ==========================================
-          SIDEBAR (TAMPILAN MOBILE - DENGAN AUTO-HIDE SELESAI PILIH)
-          ========================================== */}
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
@@ -193,11 +182,7 @@ export default function AppLayout() {
         </nav>
       </aside>
 
-      {/* ==========================================
-          KAWASAN KANDUNGAN UTAMA
-          ========================================== */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        
         <header className="p-4 bg-white border-b-2 border-orange-100 flex justify-between items-center z-30 shadow-sm relative">
           
           <div className="flex items-center gap-3">
