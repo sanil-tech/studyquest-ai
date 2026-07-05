@@ -10,13 +10,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
+// 💡 FUNGSI SOKONGAN UNTUK NAMA PAPARAN
+const getDisplayName = (user) => {
+  if (!user) return "Pelajar";
+  return user.name || user.username || user.email || "Pelajar";
+};
+
 function CompactChildCard({ child }) {
   const navigate = useNavigate();
   
   const currentXP = child.progress?.total_xp || 0;
   const nextLevelXP = 500; 
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
-  const displayName = child.name || child.display_name || "Pelajar";
+  const displayName = getDisplayName(child); // 💡 Digunakan di sini
   
   const lastActiveTime = child.progress?.last_study_date 
     ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
@@ -84,14 +90,13 @@ export default function ParentDashboard() {
         return { 
           id, 
           ...childUser, 
-          display_name: childUser?.name || "Pelajar", 
           progress: progress?.[0] || {}, 
         };
       }));
       setChildren(kids);
     } catch (err) {
       console.error(err);
-    } finally { // 💡 DIKEMASKINI: Membetulkan 'file' kepada 'finally'
+    } finally { 
       setLoading(false);
     }
   };
