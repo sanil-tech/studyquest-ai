@@ -29,9 +29,10 @@ export default function RewardsPage() {
         const activeParentId = relationships[0]?.parent_id || null;
 
         // 2. Fetch data pools in parallel
+        // FIX: Added student_id filter so children only see rewards specifically created for them!
         const [fetchedRewards, wallets, reqs] = await Promise.all([
           activeParentId 
-            ? base44.entities.Reward.filter({ parent_id: activeParentId }) 
+            ? base44.entities.Reward.filter({ parent_id: activeParentId, student_id: studentUser.id }) 
             : Promise.resolve([]),
           base44.entities.Wallet.filter({ student_id: studentUser.id }),
           base44.entities.RewardRequest.filter({ student_id: studentUser.id }, "-created_date", 20),
