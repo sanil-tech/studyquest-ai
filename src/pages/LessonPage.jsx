@@ -75,7 +75,10 @@ export default function LessonPage() {
   const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
-  const [rawBankQuestions, setRawBankQuestions] = useState([]);
+  
+  // State Pengurusan Soalan Terasing (Untuk elak pertindihan)
+  const [quizPoolQuestions, setQuizPoolQuestions] = useState([]); 
+  const [flashcardPoolQuestions, setFlashcardPoolQuestions] = useState([]);
 
   const [activeTab, setActiveTab] = useState("lesson");
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
@@ -123,7 +126,17 @@ export default function LessonPage() {
 
           if (foundBank) {
             const parsedQs = JSON.parse(foundBank.questions_json || "[]");
-            setRawBankQuestions(parsedQs);
+            const shuffledAll = shuffleArray(parsedQs);
+            
+            // 🌟 STRATEGI PENGASINGAN: Ambil 10 soalan pertama untuk flashcard, bakinya untuk kuiz
+            if (shuffledAll.length >= 15) {
+              setFlashcardPoolQuestions(shuffledAll.slice(0, 10));
+              setQuizPoolQuestions(shuffledAll.slice(10));
+            } else {
+              // Jika soalan dalam bank terlalu sikit, kongsi separuh-separuh atau utamakan kuiz
+              setFlashcardPoolQuestions(shuffledAll.slice(0, Math.min(5, shuffledAll.length)));
+              setQuizPoolQuestions(shuffledAll);
+            }
           }
         }
 
@@ -170,7 +183,6 @@ export default function LessonPage() {
     }
   };
 
-  // Safe tracking session update on unmount
   useEffect(() => { 
     return () => { recordStudyTime(); }; 
   }, []);
@@ -262,9 +274,9 @@ export default function LessonPage() {
     setStatus(p => ({ ...p, flashcards: true }));
     
     try {
-      if (rawBankQuestions && rawBankQuestions.length > 0) {
-        const shuffled = shuffleArray(rawBankQuestions);
-        const mappedCards = shuffled.slice(0, 8).map(q => ({
+      // 🌟 Ditambah kepada 10 soalan menggunakan pool terasing khusus untuk Flashcard
+      if (flashcardPoolQuestions && flashcardPoolQuestions.length >= 10) {
+        const mappedCards = flashcardPoolQuestions.map(q => ({
           front: q.question,
           back: `${q.correct_answer}\n\n${q.explanation || ""}`
         }));
@@ -280,22 +292,22 @@ export default function LessonPage() {
       const konteksRujukan = metaData?.summary || explanation?.slice(0, 200) || topic?.name || "Silibus Sekolah";
       const lang = getLanguageMode();
 
+      // 🌟 LLM Prompt diubah suai untuk menjana TEPAT 10 Flashcards berasingan
       const res = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
-        prompt: `Based on the topic/summary: "${konteksRujukan}", generate exactly 5 educational flashcards for a school student. The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}. High energy tone. Return JSON schema matching: [{ "front": "string", "back": "string" }]`,
+        prompt: `Based on the topic/summary: "${konteksRujukan}", generate exactly 10 educational flashcards for a school student. Ensure high variety. The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}. Return JSON schema matching: [{ "front": "string", "back": "string" }]`,
       });
 
       if (res && Array.isArray(res) && res.length > 0) {
         if (sessionId) await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(res) });
-        setFlashcards(res);
+        setFlashcards(res.slice(0, 10));
       } else {
         throw new Error("Empty AI response fallback triggered");
       }
     } catch (err) {
       console.error("Critical error in loadFlashcardsOnDemand:", err);
       setFlashcards([
-        { front: `Mari teroka topik ${topic?.name || "ini"} bersama-sama!`, back: "Hebat! Klik kad memori untuk jawapan. ✨" },
-        { front: "Adakah anda bersedia untuk kuiz di bawah?", back: "Sedia! Tekan Cabaran Pantas untuk uji kehebatan anda! 🏆" }
+        { front: `Mari teroka topik ${topic?.name || "ini"} bersama-sama!`, back: "Hebat! Klik kad memori untuk jawapan. ✨" }
       ]);
     } finally {
       setStatus(p => ({ ...p, flashcards: false }));
@@ -333,11 +345,12 @@ export default function LessonPage() {
     const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
 
     try {
-      if (rawBankQuestions && rawBankQuestions.length > 0) {
-        let filteredPool = [...rawBankQuestions];
+      // 🌟 Menggunakan quizPoolQuestions yang tidak mengandungi soalan Flashcards
+      if (quizPoolQuestions && quizPoolQuestions.length > 0) {
+        let filteredPool = [...quizPoolQuestions];
 
         if (determinedDifficulty === "hard") {
-          const hardQuestions = rawBankQuestions.filter(q =>
+          const hardQuestions = quizPoolQuestions.filter(q =>
             ["hard", "medium"].includes(q.difficulty?.toLowerCase())
           );
           if (hardQuestions.length >= numQ) filteredPool = hardQuestions;
@@ -357,10 +370,13 @@ export default function LessonPage() {
         return;
       } else {
         const lang = getLanguageMode();
+        
+        // 🌟 Mengarahkan AI menjana soalan secara dinamik (Bagi kes tiada bank soalan fizikal)
         const res = await base44.integrations.Core.InvokeLLM({
           model: "gemini_3_flash",
-          prompt: `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary || explanation.slice(0,200)}", generate exactly ${numQ} multiple-choice questions for students.
-          Difficulty level must be "${determinedDifficulty}". Include KBAT elements. Language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
+          prompt: `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary || explanation.slice(0,200)}", generate exactly ${numQ} multiple-choice exam questions for students.
+          CRITICAL: Ensure these questions are unique, testing diverse sub-concepts to prevent any overlap with standard definition flashcards.
+          Difficulty level: "${determinedDifficulty}". Include KBAT. Language: ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
           Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
         });
         
@@ -441,7 +457,7 @@ export default function LessonPage() {
       ) : (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
           
-          {/* Unlocked Navigation Pill Tabs */}
+          {/* Tabs */}
           <div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
             <Button size="sm" variant={activeTab === "lesson" ? "default" : "ghost"} onClick={() => setActiveTab("lesson")} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "lesson" ? "shadow-md bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
               <BookOpen className="w-5 h-5"/> Nota Pintar 📖
@@ -454,7 +470,7 @@ export default function LessonPage() {
             </Button>
           </div>
 
-          {/* Tab Viewport Windows */}
+          {/* Viewports */}
           {activeTab === "lesson" && (
             <div className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
@@ -479,7 +495,7 @@ export default function LessonPage() {
             <div className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100">
               {status.flashcards ? (
                 <div className="flex flex-col items-center justify-center py-16 text-sm text-purple-600 font-medium">
-                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-500" /> 🎮 Menyusun kad ajaib...
+                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-500" /> 🎮 Menyusun 10 kad ajaib...
                 </div>
               ) : <Flashcards flashcards={flashcards || []} />}
             </div>
@@ -504,7 +520,7 @@ export default function LessonPage() {
                 Uji Minda, {studentNickname}! 🎯
               </h3>
               <p className="text-sm sm:text-base text-orange-700 mb-6 font-medium">
-                Kumpul Syiling 🪙, naik level, dan jadi juara kelas! Jom sahut cabaran!
+                Kumpul Syiling 🪙, naik level, dan jadi juara kelas! Jom sahut cabaran! (Soalan kuiz berbeza dari Kad Memori!)
               </p>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
