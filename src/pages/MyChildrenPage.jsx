@@ -8,9 +8,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+// ⚙️ Dipastikan import Dialog lengkap mengikut spesifikasi standard shadcn/ui
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-// 💡 Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
@@ -24,7 +24,7 @@ function DetailedChildCard({ child, onOpenReport }) {
   const streakDays = child.progress?.streak_days || 0;
   const currentCoins = child.wallet?.balance || 0;
   const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
-  const totalStudyMinutes = child.progress?.total_study_time || 0; // 🔥 Membaca minit sebenar
+  const totalStudyMinutes = child.progress?.total_study_time || 0;
   
   const lastActiveTime = child.progress?.last_study_date 
     ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
@@ -36,17 +36,15 @@ function DetailedChildCard({ child, onOpenReport }) {
   return (
     <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
       
-      {/* Header Kad */}
       <div className="flex items-center justify-between border-b border-slate-50 pb-2 text-[10px] text-slate-400 font-bold">
         <span className="flex items-center gap-1 text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full uppercase text-[9px]">
           <Clock className="w-3 h-3" /> {lastActiveTime}
         </span>
         <Badge className="bg-slate-100 text-slate-700 font-bold text-[9px] border-0">
-          ID: {child.id.substring(0, 6)}...
+          ID: {child.id ? child.id.substring(0, 6) : "------"}...
         </Badge>
       </div>
 
-      {/* Profil Mini */}
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 text-xl shrink-0">
           🦖
@@ -58,11 +56,10 @@ function DetailedChildCard({ child, onOpenReport }) {
               Tahap {child.progress?.level || 1}
             </Badge>
           </div>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{child.email}</p>
+          <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{child.email || "Tiada E-mel"}</p>
         </div>
       </div>
 
-      {/* Kemajuan XP */}
       <div className="space-y-1 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
         <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
           <span>XP TERKUMPUL</span>
@@ -71,7 +68,6 @@ function DetailedChildCard({ child, onOpenReport }) {
         <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
       </div>
 
-      {/* Grid Status Ringkas */}
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="bg-orange-50/60 border border-orange-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
           <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
@@ -92,7 +88,6 @@ function DetailedChildCard({ child, onOpenReport }) {
         </div>
       </div>
 
-      {/* Masa Belajar Terkumpul */}
       <div className="bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-400" />
@@ -104,7 +99,6 @@ function DetailedChildCard({ child, onOpenReport }) {
         <Badge className="bg-emerald-500/20 text-emerald-400 font-bold border-0 text-[9px]">Sesi Aktif</Badge>
       </div>
 
-      {/* Prestasi Aktiviti Bab */}
       <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5 text-xs">
         <div className="flex items-center gap-1.5 font-bold text-slate-700 border-b border-slate-200/60 pb-1.5">
           <Award className="w-3.5 h-3.5 text-indigo-600" />
@@ -114,7 +108,7 @@ function DetailedChildCard({ child, onOpenReport }) {
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-[11px]">
             <span className="text-slate-500 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Status Nota Bacaan</span>
-            {child.progress?.lesson ? ( // 🔥 Menggunakan key 'lesson' yang sepadan dengan LessonProgress
+            {child.progress?.lesson ? ( 
               <span className="text-emerald-600 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Selesai</span>
             ) : (
               <span className="text-slate-400 font-medium">Belum Dibaca</span>
@@ -134,7 +128,6 @@ function DetailedChildCard({ child, onOpenReport }) {
         </div>
       </div>
 
-      {/* Butang Lihat Laporan Penuh */}
       <Button 
         onClick={() => onOpenReport(child)}
         className="w-full h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5"
@@ -142,7 +135,6 @@ function DetailedChildCard({ child, onOpenReport }) {
         <BarChart3 className="w-4 h-4" /> Lihat Laporan Penuh Topik
       </Button>
 
-      {/* Butang Tindakan Pengurusan Ibu Bapa */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
           ⚙️ Kata Laluan
@@ -166,7 +158,7 @@ export default function MyChildrenPage() {
       setLoading(true);
       const u = await base44.auth.me();
       const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
-      if (!rel.length) {
+      if (!rel?.length) {
         setChildren([]);
         return setLoading(false);
       }
@@ -180,23 +172,22 @@ export default function MyChildrenPage() {
           base44.entities.User.get(id).catch(() => null),
         ]);
 
-        // 1. Ambil data Progress global & susun mengikut aktiviti belajar terakhir
+        // 🛠️ ISU 2 DIBAIKI: Gunakan teknik shallow copy `[...array]` sebelum .sort()
         let activeProgress = {};
         let sortedProgressList = [];
         if (progressRes && progressRes.length > 0) {
-          sortedProgressList = progressRes.sort((a, b) => 
+          sortedProgressList = [...progressRes].sort((a, b) => 
             new Date(b.last_study_date || b.updated_at || 0) - new Date(a.last_study_date || a.updated_at || 0)
           );
           activeProgress = sortedProgressList[0];
         }
 
-        // 2. Ambil markah & nama topik daripada QuizAttempt yang paling terkini
         let latestQuizScore = null;
         let latestTopic = activeProgress?.current_topic || "Misi Belum Mula";
         let allAttempts = [];
 
         if (attemptsRes && attemptsRes.length > 0) {
-          allAttempts = attemptsRes.sort((a, b) => 
+          allAttempts = [...attemptsRes].sort((a, b) => 
             new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
           );
           latestQuizScore = allAttempts[0].score;
@@ -212,7 +203,7 @@ export default function MyChildrenPage() {
           username: childUser?.username || "",
           wallet: activeWallet,
           allAttempts, 
-          allProgress: sortedProgressList, // Memasukkan senarai penuh progress lesson untuk modal
+          allProgress: sortedProgressList, 
           progress: {
             ...activeProgress,
             quiz_score: latestQuizScore, 
@@ -249,19 +240,19 @@ export default function MyChildrenPage() {
         ))}
       </div>
 
-      {/* MODAL POPUP: LAPORAN PENUH */}
+      {/* MODAL POPUP */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
           <DialogHeader className="border-b pb-3">
+            {/* 🛠️ ISU 3 DIBAIKI: Elak ralat undefined dengan meletakkan teks sandaran awal */}
             <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
-              📊 Laporan Pembelajaran: {selectedChild && getDisplayName(selectedChild)}
+              📊 Laporan Pembelajaran: {selectedChild ? getDisplayName(selectedChild) : "Memuatkan..."}
             </DialogTitle>
           </DialogHeader>
 
           {selectedChild && (
             <div className="space-y-6 mt-4">
               
-              {/* Seksyen 1: Status Pembacaan Nota / Lesson */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
@@ -289,7 +280,6 @@ export default function MyChildrenPage() {
                 )}
               </div>
 
-              {/* Seksyen 2: Sejarah Kuiz */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
