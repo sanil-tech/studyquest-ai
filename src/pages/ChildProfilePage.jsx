@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, Bot, Sparkles } from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, Bot, Sparkles, Wand2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,43 +13,61 @@ import LearningPreferencesSection from "@/components/profile/LearningPreferences
 import SecuritySection from "@/components/profile/SecuritySection";
 import StudentIdSection from "@/components/profile/StudentIdSection";
 
-// ==========================================
-// DATA AVATAR 3D BERTEMA (SIMPAN TERUS DI SINI)
-// ==========================================
+// ============================================================
+// DATA AVATAR 2D ANIME BERTEMA & DINAMIK (GEMPAK)
+// Nota: Pautan ini menggunakan pautan dummy/static untuk demo.
+// Untuk animasi penuh, gunakan fail .gif atau .webp beranimasi sendiri.
+// ============================================================
 const AVATAR_THEMES = {
-  robot: {
-    label: "🤖 Cyber-Bots",
+  mecha: {
+    label: "🤖 Mecha Pilot",
     items: [
-      { id: "rob_01", name: "Alpha Mech", url: "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Alpha" },
-      { id: "rob_02", name: "Neon Spark", url: "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Spark" },
-      { id: "rob_03", name: "Cyber Node", url: "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Node" },
+      { id: "mec_01", name: "Gundam Wing", url: "https://i.ibb.co/qY7v66n/2d-mecha-gundam.webp" },
+      { id: "mec_02", name: "Zero Two", url: "https://i.ibb.co/6y4b005/2d-anime-zerotwo.webp" },
+      { id: "mec_03", name: "Neon Eva", url: "https://i.ibb.co/rMVZ3bV/2d-mecha-evangelion.webp" },
     ]
   },
-  haiwan: {
-    label: "🦁 Wild 3D",
+  beast: {
+    label: "🦊 Beast Tamer",
     items: [
-      { id: "ani_01", name: "Shadow Tiger", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Tiger" },
-      { id: "ani_02", name: "Sonic Falcon", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Falcon" },
-      { id: "ani_03", name: "Mystic Fox", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Fox" },
+      { id: "bst_01", name: "Ryu Spirit", url: "https://i.ibb.co/m0L98m8/2d-beast-dragon-spirit.webp" },
+      { id: "bst_02", name: "Kyubi NineTails", url: "https://i.ibb.co/89v4M3D/2d-beast-kyubi.webp" },
+      { id: "bst_03", name: "Wolf Ranger", url: "https://i.ibb.co/kHnLw3V/2d-beast-wolf.webp" },
     ]
   },
-  dragon: {
-    label: "🐉 Dragon Clan",
+  warrior: {
+    label: "⚔️ Dragon Warrior",
     items: [
-      { id: "drg_01", name: "Inferno Drake", url: "https://api.dicebear.com/7.x/identicon/svg?seed=Inferno" },
-      { id: "drg_02", name: "Frost Wyrm", url: "https://api.dicebear.com/7.x/identicon/svg?seed=Frost" },
-      { id: "drg_03", name: "Abyss Dragon", url: "https://api.dicebear.com/7.x/identicon/svg?seed=Abyss" },
+      { id: "war_01", name: "Saiyan Goku", url: "https://i.ibb.co/S3m7jM3/2d-anime-goku-dynamic.webp" },
+      { id: "war_02", name: "Samurai Kenshin", url: "https://i.ibb.co/D8G3w5n/2d-anime-samurai.webp" },
+      { id: "war_03", name: "Flame Ace", url: "https://i.ibb.co/7XwM95V/2d-anime-ace.webp" },
     ]
   },
   mystic: {
-    label: "🔮 Mystic Roleplay",
+    label: "🔮 Mystic Mage",
     items: [
-      { id: "mys_01", name: "Astral Mage", url: "https://api.dicebear.com/7.x/adventurer/svg?seed=Mage" },
-      { id: "mys_02", name: "Void Rogue", url: "https://api.dicebear.com/7.x/adventurer/svg?seed=Rogue" },
-      { id: "mys_03", name: "Solar Knight", url: "https://api.dicebear.com/7.x/adventurer/svg?seed=Knight" },
+      { id: "mys_01", name: "Wizard Arcana", url: "https://i.ibb.co/rK5XN00/2d-mystic-wizard.webp" },
+      { id: "mys_02", name: "Necro Rogue", url: "https://i.ibb.co/mXYV5vT/2d-mystic-rogue.webp" },
+      { id: "mys_03", name: "Luminous Mage", url: "https://i.ibb.co/qRkP275/2d-mystic-mage-dynamic.webp" },
     ]
   }
 };
+
+// ============================================================
+// ANIMASI CSS UNTUK MENJADIKAN AVATAR "HIDUP" (BREATHE PULSE)
+// Masukkan ini ke dalam fail CSS utama anda atau gunakan gaya sebaris (inline styles).
+// Kita gunakan gaya sebaris untuk memudahkan demo ini.
+// ============================================================
+const livelyAvatarStyle = `
+  @keyframes breathePulse {
+    0% { transform: scale(1); opacity: 0.95; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.95; }
+  }
+  .lively-avatar {
+    animation: breathePulse 3s ease-in-out infinite;
+  }
+`;
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -58,7 +76,7 @@ export default function ProfilePage() {
   const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showAvatar, setShowAvatar] = useState(false);
-  const [activeTab, setActiveTab] = useState("robot"); // Mengawal tab tema avatar yang aktif
+  const [activeTab, setActiveTab] = useState("warrior"); // Default tab warrior
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -119,6 +137,12 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
+    // Suntik gaya breathePulse ke dalam head
+    const styleSheet = document.createElement("style");
+    styleSheet.type = "text/css";
+    styleSheet.innerText = livelyAvatarStyle;
+    document.head.appendChild(styleSheet);
+
     const load = async () => {
       try {
         const u = await base44.auth.me();
@@ -143,19 +167,23 @@ export default function ProfilePage() {
       }
     };
     load();
+
+    return () => {
+      // Bersihkan gaya sheet pada penyahtempatan
+      document.head.removeChild(styleSheet);
+    };
   }, []);
 
   const handleLogout = () => {
     base44.auth.logout("/login");
   };
 
-  // Fungsi menyimpan avatar bertema 3D yang dipilih oleh anak
   const handleSelectThemeAvatar = async (avatarUrl) => {
     try {
       await base44.auth.updateMe({ profile_picture_url: avatarUrl, avatar_emoji: null });
       setUser((prev) => ({ ...prev, profile_picture_url: avatarUrl, avatar_emoji: null }));
       toast({
-        title: "Avatar Dikemaskini! 🎉",
+        title: "Avatar Dinamik Diaktifkan! ⚡",
         description: "Penampilan avatar baharu anda berjaya disimpan.",
       });
     } catch (err) {
@@ -169,6 +197,7 @@ export default function ProfilePage() {
   };
 
   const handleRemovePhoto = async () => {
+    // Tetapkan semula kepada emoji default jika imej dinamik dikeluarkan
     await base44.auth.updateMe({ profile_picture_url: null, avatar_emoji: "🎓" });
     setUser((prev) => ({ ...prev, profile_picture_url: null, avatar_emoji: "🎓" }));
   };
@@ -238,18 +267,19 @@ export default function ProfilePage() {
         <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
             <div className="relative group">
+              {/* UTAMA AVATAR DISPLAY WITH LIVELY ANIMATION */}
               <div className="w-28 h-28 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
                 {user?.profile_picture_url ? (
-                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover lively-avatar" />
                 ) : (
-                  <span className="text-5xl select-none">{user?.avatar_emoji || "🎓"}</span>
+                  <span className="text-5xl select-none lively-avatar">{user?.avatar_emoji || "🎓"}</span>
                 )}
               </div>
               {isStudent && (user?.profile_picture_url || user?.avatar_emoji !== "🎓") && (
                 <button
                   onClick={handleRemovePhoto}
                   className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
-                  title="Reset Avatar"
+                  title="Tetapkan Semula Avatar"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -277,7 +307,7 @@ export default function ProfilePage() {
                   onClick={() => setShowAvatar(!showAvatar)}
                   className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
                 >
-                  {showAvatar ? "Tutup Pilihan" : "Pilih Avatar Roleplay 3D"}
+                  {showAvatar ? "Tutup Pilihan" : "Aktifkan Mode Avatar Dinamik"}
                 </Button>
               )}
               
@@ -317,7 +347,7 @@ export default function ProfilePage() {
               transition={{ delay: 0.05 }}
               className="grid grid-cols-3 gap-3"
             >
-              <Card className="border-border/60 shadow-xs bg-card">
+              <Card className="border-border/60 shadow-xs bg-card hover:border-primary transition-colors">
                 <CardContent className="p-4 text-center space-y-1">
                   <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
                     <BookOpen className="w-4 h-4" />
@@ -327,7 +357,7 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
               
-              <Card className="border-border/60 shadow-xs bg-card">
+              <Card className="border-border/60 shadow-xs bg-card hover:border-amber-500 transition-colors">
                 <CardContent className="p-4 text-center space-y-1">
                   <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
                     <Trophy className="w-4 h-4" />
@@ -337,7 +367,7 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-border/60 shadow-xs bg-card">
+              <Card className="border-border/60 shadow-xs bg-card hover:border-emerald-500 transition-colors">
                 <CardContent className="p-4 text-center space-y-1">
                   <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
                     <Coins className="w-4 h-4" />
@@ -393,61 +423,64 @@ export default function ProfilePage() {
         {/* Right Hand / Main Content Column */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* SECRESY SELECTION: INTEGRATED TEMA AVATAR BARU */}
+          {/* SELECTION AVATAR DINAMIK GEMPAK */}
           <AnimatePresence>
             {showAvatar && isStudent && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="bg-card rounded-2xl border border-border/60 p-6 shadow-md overflow-hidden space-y-4"
+                className="bg-card rounded-2xl border border-border/60 p-6 shadow-xl overflow-hidden space-y-4"
               >
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500 animate-pulse" />
-                  <h3 className="font-bold text-lg tracking-tight text-foreground">Pilih Tema Avatar Lively 3D</h3>
+                  <Wand2 className="w-5 h-5 text-amber-500 animate-pulse" />
+                  <h3 className="font-bold text-lg tracking-tight text-foreground">Pilih Avatar Dinamik 2D Gempak</h3>
                 </div>
 
-                {/* Butang Navigasi Kategori / Tema Tab */}
+                {/* Butang Navigasi Kategori Tab Dinamik */}
                 <div className="flex flex-wrap gap-2 p-1 bg-secondary/40 rounded-xl">
                   {Object.entries(AVATAR_THEMES).map(([key, theme]) => (
                     <button
                       key={key}
                       onClick={() => setActiveTab(key)}
-                      className={`flex-1 min-w-[80px] py-2 px-3 text-xs font-semibold rounded-lg transition-all capitalize ${
+                      className={`flex-1 min-w-[90px] py-2 px-3 text-xs font-bold rounded-lg transition-all capitalize whitespace-nowrap ${
                         activeTab === key
-                          ? "bg-primary text-white shadow-xs"
+                          ? "bg-primary text-white shadow-md"
                           : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
                       }`}
                     >
-                      {theme.label.split(" ")[1] || theme.label} 
+                      {theme.label.split(" ")[1] || theme.label}
                     </button>
                   ))}
                 </div>
 
-                {/* Paparan Grid Item Avatar Mengikut Kategori Pilihan */}
+                {/* Paparan Grid Item Avatar Dinamik Mengikut Kategori Pilihan */}
                 <div className="grid grid-cols-3 gap-4 pt-2">
                   {AVATAR_THEMES[activeTab].items.map((avatar) => {
                     const isSelected = user?.profile_picture_url === avatar.url;
                     return (
-                      <div
+                      <motion.div
                         key={avatar.id}
                         onClick={() => handleSelectThemeAvatar(avatar.url)}
                         className={`group relative cursor-pointer border-2 rounded-2xl p-3 text-center transition-all bg-secondary/10 hover:bg-secondary/30 ${
-                          isSelected ? "border-primary bg-primary/5 shadow-md scale-102" : "border-transparent"
+                          isSelected ? "border-primary bg-primary/5 shadow-md scale-102" : "border-transparent hover:border-border"
                         }`}
+                        whileHover={{ scale: isSelected ? 1.02 : 1.05 }}
+                        whileTap={{ scale: 0.98 }}
                       >
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 bg-primary text-white p-0.5 rounded-full z-10">
                             <Check className="w-3 h-3" />
                           </div>
                         )}
+                        {/* Imej Avatar Dinamik Gempak 2D */}
                         <img
                           src={avatar.url}
                           alt={avatar.name}
-                          className="w-16 h-16 sm:w-20 sm:h-20 mx-auto object-contain transition-transform duration-200 group-hover:scale-110"
+                          className="w-16 h-16 sm:w-20 sm:h-20 mx-auto object-contain lively-avatar"
                         />
                         <p className="text-[11px] font-bold mt-2 text-foreground truncate">{avatar.name}</p>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
