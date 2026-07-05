@@ -68,14 +68,14 @@ function SmartParentingTips() {
     <Card className="border-0 shadow-lg rounded-2xl bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 text-white overflow-hidden relative">
       <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
       
-      <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-center relative z-10">
-        <div className="hidden md:flex w-20 h-20 rounded-full bg-white/10 backdrop-blur-md items-center justify-center shrink-0 border border-white/20">
-          <Lightbulb className="w-10 h-10 text-amber-300" />
+      <div className="p-6 md:p-8 flex flex-col sm:flex-row gap-4 sm:gap-6 items-center relative z-10">
+        <div className="flex w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-full bg-white/10 backdrop-blur-md items-center justify-center shrink-0 border border-white/20">
+          <Lightbulb className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 text-amber-300" />
         </div>
 
         <div className="flex-1 space-y-3 w-full">
           <div className="flex justify-between items-center w-full">
-            <Badge className="bg-purple-500/30 text-purple-100 hover:bg-purple-500/40 border border-purple-400/30">
+            <Badge className="bg-purple-500/30 text-purple-100 hover:bg-purple-500/40 border border-purple-400/30 text-[10px] sm:text-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-2"></span>
               Live Feed: {currentTip.category}
             </Badge>
@@ -98,14 +98,14 @@ function SmartParentingTips() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+              <h3 className="text-base sm:text-lg md:text-xl font-bold text-white mb-2 flex items-center gap-2">
                 {currentTip.title}
               </h3>
-              <p className="text-indigo-100 text-sm md:text-base leading-relaxed pl-4 border-l-2 border-indigo-400/50">
+              <p className="text-indigo-100 text-xs sm:text-sm md:text-base leading-relaxed pl-4 border-l-2 border-indigo-400/50">
                 <Quote className="w-3 h-3 inline-block -mt-2 mr-1 text-indigo-300 opacity-50" />
                 {currentTip.content}
               </p>
-              <p className="text-[10px] text-indigo-300/70 uppercase tracking-widest mt-4 font-semibold">
+              <p className="text-[9px] sm:text-[10px] text-indigo-300/70 uppercase tracking-widest mt-4 font-semibold">
                 Sumber: {currentTip.source}
               </p>
             </motion.div>
@@ -279,15 +279,15 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
       onClick={onClick}
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.97 }}
-      className={`flex-1 bg-gradient-to-br ${gradient} p-3 sm:p-4 rounded-2xl shadow-md flex items-center gap-3 text-white justify-start relative overflow-hidden border border-white/10 w-full`}
+      className={`bg-gradient-to-br ${gradient} p-4 rounded-2xl shadow-md flex items-center gap-3 text-white justify-start relative overflow-hidden border border-white/10 w-full h-full`}
     >
       <div className="absolute -right-4 -top-4 bg-white/10 w-16 h-16 rounded-full blur-xl"></div>
-      <div className="bg-white/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-md shrink-0">
+      <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-md shrink-0">
         <Icon className="w-5 h-5" />
       </div>
       <div className="text-left flex-1 min-w-0">
         <p className="text-xs sm:text-sm font-bold truncate">{title}</p>
-        <p className="text-[9px] sm:text-[10px] text-white/80 truncate mt-0.5">{desc}</p>
+        <p className="text-[10px] text-white/80 truncate mt-0.5">{desc}</p>
       </div>
     </motion.button>
   );
@@ -412,7 +412,7 @@ function ChildCard({ child, onRefresh }) {
 
               <div className="flex-grow min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <h3 className="text-base font-bold text-slate-800 truncate max-w-[120px] group-hover:text-indigo-600 transition-colors">{displayName}</h3>
+                  <h3 className="text-base font-bold text-slate-800 truncate max-w-[150px] group-hover:text-indigo-600 transition-colors">{displayName}</h3>
                   <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[9px] font-black px-1.5 h-4 rounded-md shrink-0">Tahap {currentLevel}</Badge>
                 </div>
                 
@@ -426,30 +426,30 @@ function ChildCard({ child, onRefresh }) {
               </div>
             </div>
 
-            {/* Grid Statistik - Diubah suai agar seimbang pada telefon dan desktop */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
-              <div className="bg-orange-50 p-2 rounded-lg border border-orange-100/50 flex sm:flex-col items-center justify-between sm:justify-center text-center hover:bg-orange-100 transition-colors">
-                <div className="flex items-center gap-1.5 sm:flex-col sm:gap-0">
-                  <Flame className="w-4 h-4 text-orange-500 sm:mb-0.5 shrink-0" />
-                  <p className="text-[10px] sm:text-[8px] font-bold text-slate-500 sm:text-slate-400 uppercase tracking-wide">Hari Streak</p>
+            {/* Grid Statistik - Dioptimumkan: horizontal (md-cols-3) di tablet/komputer & vertical di telefon bimbit */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2">
+              <div className="bg-orange-50 p-2.5 rounded-lg border border-orange-100/50 flex md:flex-col items-center justify-between md:justify-center text-center hover:bg-orange-100 transition-colors">
+                <div className="flex items-center gap-1.5 md:flex-col md:gap-0">
+                  <Flame className="w-4 h-4 text-orange-500 md:mb-1 shrink-0" />
+                  <p className="text-[10px] md:text-[9px] font-bold text-slate-500 uppercase tracking-wide">Hari Streak</p>
                 </div>
-                <p className="text-sm font-black text-slate-700 leading-none">{streakDays}</p>
+                <p className="text-sm font-black text-slate-700 leading-none md:mt-1">{streakDays}</p>
               </div>
 
-              <div className="bg-amber-50 p-2 rounded-lg border border-amber-100/50 flex sm:flex-col items-center justify-between sm:justify-center text-center hover:bg-amber-100 transition-colors">
-                <div className="flex items-center gap-1.5 sm:flex-col sm:gap-0">
-                  <span className="text-sm sm:mb-0.5">🪙</span>
-                  <p className="text-[10px] sm:text-[8px] font-bold text-slate-500 sm:text-slate-400 uppercase tracking-wide">Baki Koin</p>
+              <div className="bg-amber-50 p-2.5 rounded-lg border border-amber-100/50 flex md:flex-col items-center justify-between md:justify-center text-center hover:bg-amber-100 transition-colors">
+                <div className="flex items-center gap-1.5 md:flex-col md:gap-0">
+                  <span className="text-sm md:mb-1">🪙</span>
+                  <p className="text-[10px] md:text-[9px] font-bold text-slate-500 uppercase tracking-wide">Baki Koin</p>
                 </div>
-                <p className="text-sm font-black text-slate-700 leading-none">{currentCoins}</p>
+                <p className="text-sm font-black text-slate-700 leading-none md:mt-1">{currentCoins}</p>
               </div>
 
-              <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex sm:flex-col items-center justify-between sm:justify-center text-center hover:bg-slate-100 transition-colors min-w-0">
-                <div className="flex items-center gap-1.5 sm:flex-col sm:gap-0 min-w-0 flex-1 sm:flex-initial">
-                  <Target className="w-4 h-4 text-indigo-500 sm:mb-0.5 shrink-0" />
-                  <p className="text-[10px] sm:text-[8px] font-bold text-slate-500 sm:text-slate-400 uppercase tracking-wide truncate w-full">Topik Semasa</p>
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex md:flex-col items-center justify-between md:justify-center text-center hover:bg-slate-100 transition-colors min-w-0">
+                <div className="flex items-center gap-1.5 md:flex-col md:gap-0 min-w-0">
+                  <Target className="w-4 h-4 text-indigo-500 md:mb-1 shrink-0" />
+                  <p className="text-[10px] md:text-[9px] font-bold text-slate-500 uppercase tracking-wide truncate w-full">Topik Semasa</p>
                 </div>
-                <p className="text-xs sm:text-[10px] font-black text-slate-700 leading-tight truncate max-w-[120px] sm:max-w-full px-1" title={currentTopic}>
+                <p className="text-xs md:text-[10px] font-black text-slate-700 leading-tight truncate max-w-[140px] md:max-w-full px-1 md:mt-1" title={currentTopic}>
                   {currentTopic}
                 </p>
               </div>
@@ -554,30 +554,30 @@ export default function ParentDashboard() {
   if (loading) return <div className="flex justify-center min-h-[50vh] items-center"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>;
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto bg-slate-50/50 min-h-screen">
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto bg-slate-50/50 min-h-screen">
       
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-800 flex items-center gap-2.5">
             Pusat Kawalan Ibu Bapa 🛡️
           </h1>
-          <p className="text-muted-foreground text-sm font-medium">
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">
             Pantau kemajuan, berikan sokongan, dan jana semangat wira kecil anda.
           </p>
         </div>
-        <Link to="/parent/children" className="w-full md:w-auto">
-          <Button className="w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md rounded-xl px-5 h-11">
+        <Link to="/parent/children" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md rounded-xl px-5 h-11 font-bold">
             <Plus className="w-4 h-4" /> Tambah Anak
           </Button>
         </Link>
       </div>
 
-      {/* PINTASAN PANTAS */}
+      {/* PINTASAN PANTAS - Dioptimumkan: Grid sekata pada tablet & laptop (md:grid-cols-4) */}
       <motion.div 
         initial={{ opacity: 0, y: 10 }} 
         animate={{ opacity: 1, y: 0 }} 
-        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-2"
+        className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-2"
       >
         <ShortcutCard icon={Gift} title="Ganjaran" desc="Urus hadiah anak" gradient="from-pink-500 to-rose-400" onClick={() => navigate("/parent/rewards")} />
         <ShortcutCard icon={BarChart2} title="Analitik" desc="Prestasi akademik" gradient="from-blue-500 to-cyan-500" onClick={() => toast({ title: "Akan Datang! 🚧", description: "Modul Analitik masih dalam fasa pembangunan." })} />
@@ -611,11 +611,11 @@ export default function ParentDashboard() {
         </motion.div>
       )}
 
-      {/* STRUKTUR GRID UTAMA */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* STRUKTUR GRID UTAMA - Dioptimumkan: Membuka susun atur 12 kolum skrin besar untuk komputer dan tablet */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* SEKSYEN KIRI (KAD PROFIL ANAK) */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* SEKSYEN KIRI - PROFIL ANAK (Mengambil ruang 8/12 di skrin besar) */}
+        <div className="lg:col-span-8 space-y-4">
           <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2.5 px-1 relative z-10">
             <Users className="w-5 h-5 text-indigo-600" /> Profil & Kemajuan Anak
           </h2>
@@ -630,7 +630,8 @@ export default function ParentDashboard() {
               </Link>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            // Menggunakan md:grid-cols-2 untuk tablet dan xl:grid-cols-3 untuk resolusi komputer besar
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {children.map((child) => (
                 <ChildCard key={child.id} child={child} onRefresh={loadData} />
               ))}
@@ -638,12 +639,13 @@ export default function ParentDashboard() {
           )}
         </div>
 
-        {/* SEKSYEN KANAN (INFO UTILITY & TIPS) */}
-        <div className="space-y-4">
+        {/* SEKSYEN KANAN - UTILITY & TIPS (Mengambil ruang 4/12 di skrin besar) */}
+        <div className="lg:col-span-4 space-y-4">
           <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2.5 px-1 relative z-10">
             <Sun className="w-5 h-5 text-amber-500" /> Info & Utiliti Hari Ini
           </h2>
-          <div className="grid grid-cols-1 gap-4">
+          {/* Di tablet biasa, cuaca dan tips tersusun sebelah-menyebelah (md:grid-cols-2) untuk elak terlalu tinggi memanjang */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
             <WeatherCard />
             <SmartParentingTips />
           </div>
