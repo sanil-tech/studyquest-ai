@@ -1,32 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import moment from "moment";
 import { 
-  Users, Plus, Target, Sun, Gift, Coins, Settings, BarChart2, CloudRain, MapPin, Clock, ArrowRight, Activity
+  Users, Plus, Target, Gift, BarChart2, CloudRain, MapPin, Clock, ArrowRight, Settings
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { getDisplayName } from "@/lib/utils"; 
 
 function CompactChildCard({ child }) {
   const navigate = useNavigate();
   
-  const currentXP = child.progress?.xp_score || 0;
-  const nextLevelXP = child.progress?.next_level_xp || 500;
+  // 💡 DIKEMASKINI: Menggunakan total_xp daripada skema baharu
+  const currentXP = child.progress?.total_xp || 0;
+  const nextLevelXP = 500; // Sila laras formula keperluan tahap anda di sini
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   const displayName = child.display_name || "Pelajar";
   
-  // Ambil data masa sebenar (updated_at dari DB)
-  const lastActiveTime = child.last_active 
-    ? `Aktif ${moment(child.last_active).fromNow()}` 
+  // 💡 DIKEMASKINI: Menggunakan last_study_date daripada skema baharu
+  const lastActiveTime = child.progress?.last_study_date 
+    ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
     
-  const currentLesson = child.progress?.current_topic || "Misi Belum Mula";
+  const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
 
   return (
     <Card 
@@ -50,7 +49,7 @@ function CompactChildCard({ child }) {
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
             <p className="text-[11px] text-slate-500 font-bold truncate mt-0.5">
-              📚 {currentLesson}
+              📚 {currentTopic}
             </p>
           </div>
         </div>
@@ -85,20 +84,17 @@ export default function ParentDashboard() {
         const progress = await base44.entities.Progress.filter({ student_id: id });
         const childUser = await base44.entities.User.get(id).catch(() => null);
         
-        const childProgress = progress?.[0] || {};
         return { 
           id, 
           ...childUser, 
           display_name: getDisplayName(childUser), 
-          progress: childProgress,
-          // 💡 DATA SEBENAR: Menggunakan updated_at yang dicetuskan oleh timer peranti anak
-          last_active: childProgress.updated_at || childUser?.last_active || null
+          progress: progress?.[0] || {}, 
         };
       }));
       setChildren(kids);
     } catch (err) {
       console.error(err);
-    } finally {
+    } file {
       setLoading(false);
     }
   };
