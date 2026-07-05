@@ -3,11 +3,14 @@ import { base44 } from "@/api/base44Client";
 import { useParams, Link } from "react-router-dom";
 import { 
   ArrowLeft, ChevronRight, BookOpen, FolderOpen, Sparkles, 
-  GraduationCap, Library, Swords, Star 
+  GraduationCap, Library, Swords, Star, Flame, Heart
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function StudyPage() {
+  // =========================================================================
+  // ⚠️ LOGIK ASAL - TIDAK DIUBAH SAMA SEKALI
+  // =========================================================================
   const { subjectId } = useParams();
   const [subjects, setSubjects] = useState([]);
   const [topics, setTopics] = useState([]);
@@ -17,7 +20,6 @@ export default function StudyPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // State to track which subject's textbooks are being viewed in the library drawer
   const [activeLibrarySubject, setActiveLibrarySubject] = useState(null);
 
   useEffect(() => {
@@ -67,346 +69,308 @@ export default function StudyPage() {
     setLoading(false);
   };
 
-  // Group books by subject name for a simplified visual display
   const booksBySubject = textbooks.reduce((acc, book) => {
     if (!acc[book.subject_name]) acc[book.subject_name] = [];
     acc[book.subject_name].push(book);
     return acc;
   }, {});
 
-  // Extract the student's first name, or fallback if not available
   const studentFirstName = user?.name ? user.name.split(" ")[0] : "Explorer";
+
+  // =========================================================================
+  // ✨ HELPER UI - UNTUK SUSUNAN ZIG-ZAG DUOLINGO
+  // =========================================================================
+  const getZigZagClass = (index) => {
+    const positions = [
+      "translate-x-0",
+      "translate-x-[40px] sm:translate-x-[60px]",
+      "translate-x-[60px] sm:translate-x-[100px]",
+      "translate-x-[40px] sm:translate-x-[60px]",
+      "translate-x-0",
+      "-translate-x-[40px] sm:-translate-x-[60px]",
+      "-translate-x-[60px] sm:-translate-x-[100px]",
+      "-translate-x-[40px] sm:-translate-x-[60px]"
+    ];
+    return positions[index % positions.length];
+  };
+
+  // =========================================================================
+  // 🎮 PAPARAN UI BERMULA DI SINI
+  // =========================================================================
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
-        <p className="text-sm font-bold text-slate-500 tracking-wide animate-pulse">Loading your learning adventure... 🚀</p>
+      <div className="min-h-screen bg-[#F7F9F2] flex flex-col items-center justify-center space-y-4">
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }} 
+          transition={{ repeat: Infinity, duration: 1.5 }}
+          className="w-16 h-16 border-[6px] border-green-200 border-t-green-500 rounded-full" 
+        />
+        <p className="text-lg font-extrabold text-green-600 tracking-wide">Loading Mission... 🚀</p>
       </div>
     );
   }
 
-  // --- VIEW 1: MAIN DASHBOARD (SUBJECTS & SIMPLIFIED LIBRARY) ---
-  if (!selectedSubject) {
-    return (
-      <div className="space-y-8 max-w-5xl mx-auto px-2 pb-12">
-        
-        {/* Deeply Personalized Greeting Header with Mascot */}
-        <div className="bg-gradient-to-br from-amber-400/10 via-orange-400/5 to-amber-500/10 rounded-3xl p-6 sm:p-8 border-2 border-amber-100/50 relative overflow-hidden shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="relative z-10 flex-1 text-center sm:text-left">
-            <div className="flex items-center justify-center sm:justify-start gap-1.5 text-amber-600 font-bold text-xs uppercase tracking-wider bg-amber-400/15 px-3 py-1 rounded-full w-max mx-auto sm:mx-0 mb-3">
-              <Sparkles className="w-3.5 h-3.5 fill-current" /> Personalized Learning Quest
+  return (
+    <div className="min-h-screen bg-[#F7F9F2] font-sans text-slate-800 pb-32">
+      
+      {/* 🎯 GAMIFIED HEADER DUOLINGO STYLE */}
+      <div className="sticky top-0 z-50 bg-white border-b-2 border-slate-200 shadow-sm px-4 py-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="text-xl sm:text-2xl font-black text-green-500 tracking-tight">StudyQuest</span>
+          </div>
+          <div className="flex items-center space-x-3 sm:space-x-6 font-bold text-slate-600 text-sm sm:text-base">
+            <div className="flex items-center text-orange-500">
+              <Flame className="w-5 h-5 mr-1 fill-orange-500" /> 5
             </div>
-            <h1 className="text-2xl sm:text-3xl font-heading font-black tracking-tight text-slate-800">
-              Ready to study, {studentFirstName}? ✨
-            </h1>
-            <p className="text-slate-500 text-sm mt-2 max-w-sm mx-auto sm:mx-0">
-              Pick a mission below to tackle your goals for <span className="font-bold text-amber-600">{user?.education_level || user?.school_year || "your grade"}</span> today!
-            </p>
-            
-            {(user?.education_level || user?.school_year) && (
-              <div className="flex items-center justify-center sm:justify-start gap-2 bg-white px-4 py-2 rounded-2xl border-2 border-amber-100 shadow-sm mt-4 w-max mx-auto sm:mx-0">
-                <GraduationCap className="w-5 h-5 text-amber-500" />
-                <span className="text-xs font-bold text-slate-700">{user.education_level || user.school_year}</span>
-              </div>
-            )}
+            <div className="flex items-center text-blue-500">
+              <Star className="w-5 h-5 mr-1 fill-blue-500" /> 120
+            </div>
+            <div className="flex items-center text-red-500">
+              <Heart className="w-5 h-5 mr-1 fill-red-500" /> 3
+            </div>
           </div>
-
-          <div className="relative z-10 shrink-0 mt-8 sm:mt-0">
-            <motion.div
-              animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -top-6 -left-4 sm:-left-8 bg-white text-[10px] font-black px-3 py-1.5 rounded-2xl border-2 border-orange-200 text-orange-600 shadow-md whitespace-nowrap uppercase tracking-wider z-20"
-            >
-              Let's Go! 📚
-              <div className="absolute -bottom-1.5 right-4 transform border-4 border-transparent border-t-white" />
-            </motion.div>
-
-            <motion.div 
-              animate={{ y: [0, -8, 0], rotate: [-2, 4, -2], scale: [1, 1.02, 1] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-              className="text-7xl sm:text-8xl filter drop-shadow-[0_12px_15px_rgba(245,158,11,0.25)]"
-            >
-              🦧
-            </motion.div>
-          </div>
-          
-          <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-amber-400/20 rounded-full blur-3xl" />
         </div>
+      </div>
 
-        {/* Dynamic Cards Grid */}
-        <div>
-          <h2 className="text-lg font-heading font-black text-slate-700 mb-4 flex items-center gap-2">
-            <span>Your Missions</span>
-            <span className="h-1.5 w-10 bg-orange-400 rounded-full" />
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {subjects.map((sub, i) => {
-              const themeColor = sub.color || "#F59E0B";
-              return (
-                <motion.button
+      <main className="max-w-4xl mx-auto px-4 pt-8">
+        
+        {/* --- VIEW 1: MAIN DASHBOARD (MISSIONS) --- */}
+        {!selectedSubject ? (
+          <>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              className="mb-8 text-center sm:text-left"
+            >
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">
+                Good Evening, {studentFirstName} 👋
+              </h1>
+              <p className="text-slate-500 mt-1 font-medium">
+                Ready for today's learning adventure? Complete challenges to gain XP and level up!
+              </p>
+            </motion.div>
+
+            {/* MISSION CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12">
+              {subjects.map((sub, i) => (
+                <motion.div
                   key={sub.id}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 120, delay: i * 0.03 }}
-                  whileHover={{ y: -6, scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
+                  transition={{ delay: i * 0.1, type: "spring", stiffness: 200 }}
                   onClick={() => handleSelectSubject(sub)}
-                  className="group relative p-5 rounded-2xl bg-white border-2 border-slate-100 hover:border-orange-200 transition-all text-center flex flex-col items-center justify-center shadow-sm hover:shadow-md"
+                  className="bg-white rounded-3xl border-2 border-slate-200 border-b-[8px] p-6 cursor-pointer flex flex-col justify-between hover:border-slate-300 hover:-translate-y-1 transition-all active:border-b-2 active:translate-y-2"
                 >
-                  <div
-                    className="w-16 h-16 rounded-2xl mb-3 flex items-center justify-center text-4xl shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
-                    style={{ backgroundColor: `${themeColor}15` }}
-                  >
-                    {sub.icon || "🗺️"}
-                  </div>
-                  <h3 className="font-heading font-bold text-sm sm:text-base text-slate-800 tracking-tight leading-snug">{sub.name}</h3>
-                  <div className="mt-3 px-3 py-1 bg-slate-50 rounded-full text-[11px] font-bold text-slate-500 group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                    Start Campaign ➜
-                  </div>
-                </motion.button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Simplified Library */}
-        {textbooks.length > 0 && (
-          <div className="bg-slate-50 rounded-3xl border-2 border-slate-100 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white shadow-sm">
-                <Library className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="font-heading font-black text-slate-800 text-lg">Your Textbook Cabinets</h2>
-                <p className="text-xs text-slate-500">Pick a subject to look inside your digital school books.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {Object.keys(booksBySubject).map((subjectName) => (
-                <button
-                  key={subjectName}
-                  onClick={() => setActiveLibrarySubject(activeLibrarySubject === subjectName ? null : subjectName)}
-                  className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left ${
-                    activeLibrarySubject === subjectName 
-                      ? "bg-orange-50 border-orange-200 shadow-sm" 
-                      : "bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FolderOpen className={`w-5 h-5 shrink-0 ${activeLibrarySubject === subjectName ? 'text-orange-600' : 'text-amber-500'}`} />
-                    <div className="min-w-0">
-                      <p className="font-bold text-xs sm:text-sm text-slate-800 truncate">{subjectName}</p>
-                      <p className="text-[11px] text-slate-400 font-medium">{booksBySubject[subjectName].length} Books inside</p>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl shadow-inner bg-green-100/50">
+                      {sub.icon || "🗺️"}
+                    </div>
+                    <div className="bg-yellow-100 text-yellow-600 font-bold px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                      <Star className="w-4 h-4 fill-yellow-600" /> +50 XP
                     </div>
                   </div>
-                  <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${activeLibrarySubject === subjectName ? "rotate-90 text-orange-600" : ""}`} />
-                </button>
+                  
+                  <h3 className="text-xl font-black mb-2 text-slate-800">{sub.name} Mission</h3>
+                  
+                  {/* DUMMY PROGRESS BAR */}
+                  <div className="w-full bg-slate-100 rounded-full h-4 mb-3 overflow-hidden border border-slate-200">
+                    <div className="bg-green-400 h-full rounded-full w-1/3" />
+                  </div>
+                  
+                  <p className="text-slate-400 font-bold text-xs mb-6 uppercase tracking-wider">
+                    Next: Level 3 Challenge
+                  </p>
+
+                  <button className="w-full bg-green-500 text-white font-black py-3 rounded-2xl uppercase tracking-wider border-b-4 border-green-700 shadow-sm">
+                    Start Mission
+                  </button>
+                </motion.div>
               ))}
             </div>
 
-            {activeLibrarySubject && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 p-4 bg-white rounded-2xl border-2 border-orange-100/70 grid grid-cols-1 sm:grid-cols-2 gap-2"
-              >
-                {booksBySubject[activeLibrarySubject].map((book) => (
-                  <a
-                    key={book.id}
-                    href={book.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 hover:bg-orange-50/50 hover:text-orange-700 transition-colors group"
-                  >
-                    <div className="min-w-0 pr-2">
-                      <p className="font-bold text-xs text-slate-800 truncate group-hover:text-orange-700">{book.title}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold">{book.form_level || "General Level"}</p>
-                    </div>
-                    <span className="text-[11px] font-bold bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 group-hover:border-orange-200 group-hover:text-orange-600 shrink-0">
-                      Open Book 📖
-                    </span>
-                  </a>
-                ))}
-              </motion.div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // --- VIEW 2: MISSION CAMPAIGN MAP (TOPICS) ---
-  const subjectBooks = textbooks.filter(b => b.subject_id === selectedSubject.id);
-
-  return (
-    <div className="min-h-screen font-sans pb-24 bg-slate-50 -mx-4 px-4 sm:mx-0 sm:px-0">
-      
-      {/* 🚀 Mission Header */}
-      <div className="bg-white border-b-2 border-slate-200 sticky top-0 z-40 shadow-sm -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="max-w-3xl mx-auto py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link 
-              to="/study" 
-              onClick={() => setSelectedSubject(null)}
-              className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors active:scale-95"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl">{selectedSubject.icon || "🗺️"}</span>
-                <h1 className="text-lg font-heading font-black text-slate-800 uppercase tracking-tight truncate max-w-[200px] sm:max-w-xs">
-                  {selectedSubject.name}
-                </h1>
-              </div>
-              <p className="text-slate-400 text-[11px] font-bold tracking-wider uppercase">
-                Active Campaign
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 bg-amber-100 border-2 border-amber-200 px-3 py-1.5 rounded-xl shrink-0">
-            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span className="text-sm font-black text-amber-700">{filteredTopics.length} Stages</span>
-          </div>
-        </div>
-      </div>
-
-      {filteredTopics.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-3xl border-2 border-slate-100 max-w-md mx-auto mt-12">
-          <span className="text-4xl block mb-3">🚧</span>
-          <h3 className="font-heading font-black text-slate-800">Campaign Under Construction</h3>
-          <p className="text-slate-400 text-xs max-w-xs mx-auto mt-1 px-4">
-            Our educators are still mapping out this territory. Check back soon, {studentFirstName}!
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* 🦧 Mascot Encouragement Area */}
-          <div className="max-w-3xl mx-auto pt-8 pb-4 relative z-10 flex flex-col items-center">
-            <motion.div
-              animate={{ y: [0, -4, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="bg-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-2xl border-2 border-slate-200 text-slate-600 shadow-sm mb-3 text-center max-w-sm relative z-20 mx-4 sm:mx-0"
-            >
-              Welcome to the {selectedSubject.name} campaign! Read the briefing, then beat the challenge! 🍌
-              <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white" />
-            </motion.div>
-            
-            <motion.div 
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-              className="text-6xl sm:text-7xl drop-shadow-xl"
-            >
-              🦧
-            </motion.div>
-
-            {/* Quick Textbook Reference */}
-            {subjectBooks.length > 0 && (
-              <div className="mt-6 bg-amber-400/10 rounded-2xl border border-amber-400/20 p-3 flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">📕</span>
-                  <p className="text-xs font-bold text-amber-800">Textbook Reference:</p>
+            {/* RESOURCE CHEST (LIBRARY) */}
+            {textbooks.length > 0 && (
+              <div className="pt-8 border-t-4 border-dashed border-slate-200">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500 border-b-4 border-blue-700 flex items-center justify-center text-white text-2xl shadow-sm">
+                    📦
+                  </div>
+                  <div>
+                    <h2 className="font-black text-xl text-slate-800">Resource Chest</h2>
+                    <p className="text-sm text-slate-500 font-medium">Unlock items to aid your quest!</p>
+                  </div>
                 </div>
-                <div className="flex flex-wrap justify-center gap-1.5">
-                  {subjectBooks.map(book => (
-                    <a
-                      key={book.id}
-                      href={book.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] font-bold bg-white text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg hover:bg-amber-50 shadow-sm whitespace-nowrap"
-                    >
-                      {book.form_level || "View"} ➜
-                    </a>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {Object.keys(booksBySubject).map((subjectName) => (
+                    <div key={subjectName} className="flex flex-col">
+                      <button
+                        onClick={() => setActiveLibrarySubject(activeLibrarySubject === subjectName ? null : subjectName)}
+                        className={`p-4 rounded-2xl border-2 border-b-[6px] transition-all flex items-center justify-between font-black ${
+                          activeLibrarySubject === subjectName 
+                            ? "bg-blue-50 border-blue-300 text-blue-700 translate-y-1 border-b-2" 
+                            : "bg-white border-slate-200 text-slate-700 hover:border-slate-300 active:translate-y-1 active:border-b-2"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <FolderOpen className="w-6 h-6 text-blue-500" />
+                          <span className="truncate">{subjectName}</span>
+                        </div>
+                        <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-lg text-xs">
+                          {booksBySubject[subjectName].length}
+                        </span>
+                      </button>
+
+                      {/* ITEMS INSIDE CHEST */}
+                      {activeLibrarySubject === subjectName && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="mt-3 flex flex-col gap-2 pl-4 border-l-4 border-blue-100"
+                        >
+                          {booksBySubject[subjectName].map((book) => (
+                            <a
+                              key={book.id}
+                              href={book.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-white border-2 border-slate-200 rounded-xl p-3 flex items-center justify-between hover:border-blue-300 hover:bg-blue-50 transition-colors group"
+                            >
+                              <div className="min-w-0 pr-2">
+                                <p className="font-bold text-sm text-slate-700 truncate group-hover:text-blue-700">{book.title}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">{book.form_level || "General"}</p>
+                              </div>
+                              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xl group-hover:bg-blue-200">
+                                📚
+                              </div>
+                            </a>
+                          ))}
+                        </motion.div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
             )}
-          </div>
-
-          {/* 🗺️ The Path / Roadmap */}
-          <div className="max-w-2xl mx-auto mt-8 space-y-6 relative px-2 sm:px-0">
+          </>
+        ) : (
+          
+          /* --- VIEW 2: MISSION CAMPAIGN MAP (TOPICS AS ZIG-ZAG NODES) --- */
+          <div className="relative">
             
-            {/* Visual Line connecting the stages */}
-            <div className="absolute left-[38px] sm:left-6 top-8 bottom-12 w-1.5 bg-slate-200 rounded-full z-0" />
+            {/* BACK BUTTON & HEADER */}
+            <div className="flex items-center justify-between mb-8">
+              <button 
+                onClick={() => setSelectedSubject(null)}
+                className="bg-white border-2 border-slate-200 border-b-4 rounded-xl px-4 py-2 font-black text-slate-500 flex items-center gap-2 hover:bg-slate-50 active:border-b-2 active:translate-y-[2px]"
+              >
+                <ArrowLeft className="w-5 h-5" /> Back to Map
+              </button>
+              <div className="bg-amber-100 border-2 border-amber-300 text-amber-700 font-black px-4 py-2 rounded-xl flex items-center gap-2">
+                <Star className="w-5 h-5 fill-amber-500" />
+                {filteredTopics.length} Quests
+              </div>
+            </div>
 
-            {filteredTopics.map((topic, index) => {
-              // Since we don't have user progress from the DB yet, we set all to visually 'unlocked'
-              // so students can click any chapter they want to study.
-              const isUnlocked = true; 
+            <div className="text-center mb-12">
+              <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tight flex items-center justify-center gap-3">
+                <span className="text-4xl">{selectedSubject.icon || "🗺️"}</span>
+                {selectedSubject.name} Expedition
+              </h1>
+              <p className="text-slate-500 font-bold mt-2">Follow the path and conquer each learning node!</p>
+            </div>
 
-              return (
-                <div key={topic.id} className="relative z-10 flex gap-4 sm:gap-6 w-full">
-                  
-                  {/* Path Node Indicator */}
-                  <div className="shrink-0 flex flex-col items-center mt-2 pl-2 sm:pl-0">
-                    <div className="w-10 h-10 rounded-full border-4 flex items-center justify-center bg-white z-10 shadow-sm border-amber-500 text-amber-500 ring-4 ring-amber-100">
-                      <span className="font-black text-sm">{index + 1}</span>
-                    </div>
-                  </div>
+            {filteredTopics.length === 0 ? (
+              <div className="bg-white border-2 border-slate-200 border-b-8 rounded-3xl p-8 text-center max-w-md mx-auto">
+                <div className="text-6xl mb-4">🚧</div>
+                <h3 className="text-xl font-black text-slate-800">Map In Progress!</h3>
+                <p className="text-slate-500 font-medium mt-2">Check back soon for new quests.</p>
+              </div>
+            ) : (
+              
+              /* SUPER MARIO / DUOLINGO PATH */
+              <div className="relative py-10 flex flex-col items-center">
+                
+                {/* Central Path Line (Garisan Belakang) */}
+                <div className="absolute top-0 bottom-0 left-1/2 transform -translate-x-1/2 w-6 bg-slate-200 rounded-full z-0" />
 
-                  {/* Stage Card */}
-                  <motion.div 
-                    whileHover={{ scale: 1.02 }}
-                    className="flex-1 rounded-3xl border-2 p-4 sm:p-5 transition-all bg-white border-amber-300 shadow-md"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="min-w-0 pr-2">
-                        <h3 className="font-heading font-black text-base sm:text-lg text-slate-800 truncate">
-                          {topic.name}
-                        </h3>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                          Stage {index + 1} {topic.form_level && `• ${topic.form_level}`}
-                        </p>
-                      </div>
-                      <span className="flex h-3 w-3 relative shrink-0 mt-1">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-                      </span>
-                    </div>
-
-                    {/* Two-Step Mission Actions */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                      
-                      {/* Step 1: The Lesson */}
-                      <Link 
-                        to={`/study/${selectedSubject.id}/${topic.id}/lesson`}
-                        className="flex items-center gap-3 p-3 rounded-2xl border-2 transition-all group bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300 cursor-pointer text-blue-700"
-                      >
-                        <div className="p-2 rounded-xl bg-blue-200/50 group-hover:scale-110 transition-transform">
-                          <BookOpen className="w-5 h-5" />
-                        </div>
-                        <div className="text-left min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Step 1</p>
-                          <p className="font-black text-sm truncate">Briefing</p>
-                        </div>
-                      </Link>
-
-                      {/* Step 2: The Quiz/Challenge */}
-                      <Link 
-                        to={`/study/${selectedSubject.id}/${topic.id}/quiz`}
-                        className="flex items-center gap-3 p-3 rounded-2xl border-2 transition-all group bg-orange-50 border-orange-200 hover:bg-orange-100 hover:border-orange-300 cursor-pointer text-orange-700"
-                      >
-                        <div className="p-2 rounded-xl bg-orange-200/50 group-hover:scale-110 transition-transform">
-                          <Swords className="w-5 h-5" />
-                        </div>
-                        <div className="text-left min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">Step 2</p>
-                          <p className="font-black text-sm truncate">Challenge</p>
-                        </div>
-                      </Link>
-
-                    </div>
-                  </motion.div>
+                {/* START NODE */}
+                <div className="relative z-10 bg-yellow-400 text-yellow-900 font-black px-8 py-3 rounded-full border-b-[6px] border-yellow-600 mb-8 uppercase tracking-widest shadow-md">
+                  Mission Start
                 </div>
-              );
-            })}
+
+                {filteredTopics.map((topic, index) => {
+                  const zigZagClass = getZigZagClass(index);
+                  const isCurrent = index === 0; // Simulasi: Node pertama adalah aktif
+
+                  return (
+                    <div key={topic.id} className={`relative z-10 w-full max-w-[280px] my-6 flex flex-col items-center ${zigZagClass}`}>
+                      
+                      {/* TOOLTIP / NAMA CABARAN */}
+                      <div className="bg-white px-4 py-2 rounded-2xl border-2 border-slate-200 shadow-sm mb-3 text-center w-full relative">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Challenge {index + 1}</p>
+                        <p className="font-bold text-slate-800 truncate">{topic.name}</p>
+                        {/* Segitiga kecil ke bawah */}
+                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white" />
+                      </div>
+
+                      {/* MAIN NODE CIRCLE */}
+                      <div className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl border-b-[8px] transition-all relative
+                        ${isCurrent 
+                          ? 'bg-blue-400 border-blue-600 ring-8 ring-blue-100 shadow-xl' 
+                          : 'bg-green-500 border-green-700 shadow-md'}
+                      `}>
+                        {isCurrent ? '🚀' : '⭐'}
+
+                        {/* Floating Crown/Indicator for active node */}
+                        {isCurrent && (
+                          <motion.div 
+                            animate={{ y: [0, -10, 0] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="absolute -top-8 text-3xl drop-shadow-md"
+                          >
+                            👑
+                          </motion.div>
+                        )}
+                      </div>
+
+                      {/* ACTION BUTTONS (Briefing & Quiz) Dikekalkan dari logik asal */}
+                      <div className="flex gap-2 mt-4 bg-white/80 p-2 rounded-2xl backdrop-blur-sm border-2 border-slate-100">
+                        {/* Step 1: Lesson/Briefing */}
+                        <Link 
+                          to={`/study/${selectedSubject.id}/${topic.id}/lesson`}
+                          className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold p-3 rounded-xl border-b-4 border-blue-300 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center group"
+                          title="Read Briefing"
+                        >
+                          <BookOpen className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                        </Link>
+                        
+                        {/* Step 2: Quiz/Challenge */}
+                        <Link 
+                          to={`/study/${selectedSubject.id}/${topic.id}/quiz`}
+                          className="bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold p-3 rounded-xl border-b-4 border-orange-300 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center group"
+                          title="Start Challenge"
+                        >
+                          <Swords className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                        </Link>
+                      </div>
+
+                    </div>
+                  );
+                })}
+
+                {/* FINAL NODE */}
+                <div className="relative z-10 bg-orange-500 text-white font-black px-8 py-4 rounded-3xl border-b-[8px] border-orange-700 mt-8 uppercase tracking-widest text-lg shadow-xl flex items-center gap-2">
+                  🏆 Final Boss
+                </div>
+
+              </div>
+            )}
           </div>
-        </>
-      )}
+        )}
+      </main>
     </div>
   );
 }
