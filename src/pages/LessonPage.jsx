@@ -144,7 +144,7 @@ export default function LessonPage() {
         }
       } catch (err) {
         console.error("Initialization failed", err);
-      } final {
+      } finally {
         studyStartRef.current = Date.now();
         setLoading(false);
       }
