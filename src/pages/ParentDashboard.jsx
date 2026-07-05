@@ -5,33 +5,17 @@ import { motion } from "framer-motion";
 import moment from "moment";
 import { 
   TrendingUp, Users, Bell, Plus, BookOpen, 
-  Target, ShieldAlert, Download, Clock, Sun 
+  Target, ShieldAlert, Download, Flame, Sun, Coins
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { getDisplayName } from "@/lib/utils"; 
 
-const calculateAge = (birthDate) => {
-  if (!birthDate) return "N/A";
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
-};
-
-// HELPER: Logik penentuan nama anak
-const getChildDisplayName = (child) => {
-  return child?.nick_name || child?.full_name || child?.username || "Unnamed Student";
-};
-
-// ---------------- KOMPONEN KAD CUACA (BARU) ----------------
+// ---------------- KOMPONEN KAD CUACA ----------------
 function WeatherCard() {
-  // Nota: Anda boleh menyambungkan komponen ini dengan API cuaca sebenar (seperti OpenWeatherMap) pada masa akan datang.
-  // Buat masa ini, ia menggunakan data statik untuk tujuan paparan UI.
   return (
     <Card className="p-5 rounded-2xl shadow-sm border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 relative overflow-hidden">
       <div className="absolute -top-6 -right-6 opacity-20">
@@ -41,7 +25,7 @@ function WeatherCard() {
         <div>
           <p className="text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-1">Cuaca Semasa</p>
           <div className="flex items-end gap-2">
-            <h3 className="text-3xl font-black text-slate-800 leading-none">**32°C**</h3>
+            <h3 className="text-3xl font-black text-slate-800 leading-none">32°C</h3>
           </div>
           <p className="text-xs font-bold text-slate-600 mt-1.5">Cerah & Panas</p>
         </div>
@@ -58,10 +42,15 @@ function WeatherCard() {
   );
 }
 
-// ---------------- INDIVIDUAL CHILD CARD ----------------
+// ---------------- INDIVIDUAL CHILD CARD (DIKEMAS KINI DENGAN DATA SEBENAR) ----------------
 function ChildCard({ child }) {
+  // Mengambil metrik sebenar dari database
   const currentXP = child.progress?.xp_score || child.progress?.total_xp || 0;
   const currentLevel = child.progress?.level || 1;
+  const streakDays = child.progress?.streak_days || 0;
+  const currentCoins = child.wallet?.balance || 0;
+  const currentTopic = child.progress?.current_topic || child.progress?.last_lesson_name || "Misi Belum Mula";
+  
   const nextLevelXP = child.progress?.next_level_xp || (currentLevel * 500);
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   const lastActive = child.last_active ? moment(child.last_active).fromNow() : "Baru aktif";
@@ -73,7 +62,7 @@ function ChildCard({ child }) {
   };
 
   const milestone = getDragonMilestone(currentXP, currentLevel);
-  const displayName = getChildDisplayName(child);
+  const displayName = child.display_name || "Pelajar";
 
   return (
     <Card className="p-5 space-y-4 bg-white hover:shadow-xl transition-all border-slate-200 relative overflow-hidden group rounded-2xl">
@@ -111,15 +100,24 @@ function ChildCard({ child }) {
         </div>
       </div>
 
-      {/* ANALISIS PINTAR */}
-      <div className="grid grid-cols-2 gap-2 pt-1">
-        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-          <p className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> Purata Belajar</p>
-          <p className="text-xs font-black text-slate-700 mt-0.5">45 Min <span className="text-[9px] text-emerald-500 font-bold">↑ 10%</span></p>
+      {/* ANALISIS PINTAR (MENGGUNAKAN DATA SEBENAR) */}
+      <div className="grid grid-cols-3 gap-2 pt-1">
+        <div className="bg-orange-50 p-2 rounded-lg border border-orange-100/50 flex flex-col items-center justify-center text-center">
+          <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
+          <p className="text-sm font-black text-slate-700 leading-none">{streakDays}</p>
+          <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Hari Streak</p>
         </div>
-        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
-          <p className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1"><Target className="w-3 h-3" /> Topik Semasa</p>
-          <p className="text-xs font-black text-indigo-600 mt-0.5 truncate">{child.progress?.current_topic || "Pecahan (Math)"}</p>
+        <div className="bg-amber-50 p-2 rounded-lg border border-amber-100/50 flex flex-col items-center justify-center text-center">
+          <span className="text-sm font-bold mb-0.5">🪙</span>
+          <p className="text-sm font-black text-slate-700 leading-none">{currentCoins}</p>
+          <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Baki Koin</p>
+        </div>
+        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center">
+          <Target className="w-4 h-4 text-indigo-500 mb-0.5" />
+          <p className="text-[9px] font-black text-slate-700 leading-tight line-clamp-1 w-full truncate px-1" title={currentTopic}>
+            {currentTopic}
+          </p>
+          <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Topik Semasa</p>
         </div>
       </div>
 
@@ -169,6 +167,7 @@ export default function ParentDashboard() {
         parent_id: u.id, 
         status: ["active", "pending"] 
       });
+      
       if (!rel.length) return setLoading(false);
 
       const childIds = rel.map(r => r.child_id);
@@ -178,15 +177,13 @@ export default function ParentDashboard() {
             base44.entities.Progress.filter({ student_id: id }),
             base44.entities.Wallet.filter({ student_id: id }),
           ]);
+          
           const childUser = await base44.entities.User.get(id).catch(() => null);
           
           return { 
             id, 
-            nick_name: childUser?.nick_name || "",
-            full_name: childUser?.full_name || "", 
-            username: childUser?.username || "", 
-            date_of_birth: childUser?.date_of_birth || "", 
-            last_active: childUser?.last_active || "", 
+            ...childUser, 
+            display_name: getDisplayName(childUser),
             progress: progress?.[0] || {}, 
             wallet: wallet?.[0] || { balance: 0 } 
           };
@@ -198,6 +195,7 @@ export default function ParentDashboard() {
       setPendingRequests(pending);
     } catch (err) {
       console.error(err);
+      toast({ title: "Ralat", description: "Gagal memuatkan data.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -234,7 +232,7 @@ export default function ParentDashboard() {
           <div>
             <h4 className="text-sm font-bold text-orange-800">Perhatian Pintar StudyQuest</h4>
             <p className="text-xs text-orange-600/80 font-medium mt-1">
-              🔥 <strong>{getChildDisplayName(children[0])}</strong> belum mendaftar masuk hari ini. Tinggal beberapa jam sahaja lagi sebelum pencapaian *streak* harian tamat!
+              🔥 <strong>{children[0]?.display_name}</strong> belum mendaftar masuk hari ini. Tinggal beberapa jam sahaja lagi sebelum pencapaian *streak* harian tamat!
             </p>
           </div>
           <Button size="sm" className="ml-auto bg-orange-500 hover:bg-orange-600 text-[10px] h-7 rounded-lg">Kirim Peringatan</Button>
@@ -267,10 +265,8 @@ export default function ParentDashboard() {
         {/* SEKSYEN SISI (KANAN) */}
         <div className="space-y-6">
           
-          {/* KAD CUACA (BARU) */}
           <WeatherCard />
           
-          {/* Tuntutan Ganjaran */}
           <Card className="p-5 rounded-2xl shadow-sm border-slate-200">
             <h2 className="font-bold text-sm text-slate-800 mb-4 flex items-center gap-2">
               <Bell className="w-4 h-4 text-amber-500" /> Tuntutan Ganjaran Belum Semak
@@ -293,16 +289,15 @@ export default function ParentDashboard() {
             )}
           </Card>
 
-          {/* SUDUT RESOURCE IBU BAPA */}
           <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-gradient-to-b from-white to-indigo-50/30">
             <h2 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-indigo-500" /> Sudut Bantuan Ibu Bapa
             </h2>
             <div className="space-y-3">
               <div className="bg-white p-3 rounded-xl border border-indigo-50 shadow-sm">
-                <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Tips Topik Semasa: Pecahan</p>
+                <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Tips Topik Semasa</p>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Gunakan kaedah potongan makanan fizikal (seperti pizza/kek) semasa makan malam untuk mempercepatkan pemahaman anak secara visual.
+                  Cuba kaitkan pembelajaran terkini anak anda dengan persekitaran harian (seperti ketika memasak atau membeli-belah) untuk menguatkan memori praktikal mereka.
                 </p>
               </div>
               <Button variant="outline" className="w-full text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50 gap-2 h-9">
