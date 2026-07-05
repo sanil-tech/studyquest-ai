@@ -300,22 +300,14 @@ export default function StudyPage() {
                       ⭐
                     </div>
 
-                    <div className="flex gap-2 mt-4">
+                    {/* 🎯 BUTANG MODUL/LESSON YANG TELAH DIKEMAS KINI */}
+                    <div className="mt-4 w-full px-2">
                       <Link 
                         to={`/study/${selectedSubject.id}/${topic.id}/lesson`}
-                        className="bg-blue-500 text-white p-3 rounded-xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1"
-                        title="Briefing"
+                        className="bg-blue-500 hover:bg-blue-400 text-white py-3 px-4 rounded-xl border-b-4 border-blue-700 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider shadow-md transition-all"
+                        title="Start Lesson & Quiz"
                       >
-                        <BookOpen className="w-6 h-6" />
-                      </Link>
-                      
-                      {/* ⚔️ BUTANG CHALLENGE: Ditukar ke kuiz 30 soalan menggunakan query param `?limit=30` */}
-                      <Link 
-                        to={`/study/${selectedSubject.id}/${topic.id}/quiz?limit=30`}
-                        className="bg-orange-500 text-white p-3 rounded-xl border-b-4 border-orange-700 active:border-b-0 active:translate-y-1"
-                        title="Challenge (30 Questions)"
-                      >
-                        <span className="text-xl px-0.5">⚔️</span>
+                        <BookOpen className="w-4 h-4" /> Start Quest
                       </Link>
                     </div>
                   </div>
