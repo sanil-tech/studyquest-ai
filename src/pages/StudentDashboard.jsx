@@ -16,8 +16,8 @@ export default function DuolingoStudentPath() {
   const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
 
-  // 1. Define the levels from Unit 1 to Unit 8
-  const baseUnits = useMemo(() => [
+  // 1. Define the game track milestones (Level 1 to Level 8)
+  const baseLevels = useMemo(() => [
     { id: 1, title: "Basics of Learning", description: "Kickstart your brain", minXp: 0 },
     { id: 2, title: "Daily Habits", description: "Building routines", minXp: 200 },
     { id: 3, title: "Deep Focus", description: "Concentration block", minXp: 400 },
@@ -28,8 +28,8 @@ export default function DuolingoStudentPath() {
     { id: 8, title: "Grandmaster", description: "Ultimate final challenge", minXp: 1400 },
   ], []);
 
-  // 2. Reverse them for rendering so Unit 1 is at the BOTTOM of the code/screen layout
-  const upwardUnits = useMemo(() => [...baseUnits].reverse(), [baseUnits]);
+  // 2. Reverse them so Level 1 sits at the very BOTTOM of the tree map
+  const upwardLevels = useMemo(() => [...baseLevels].reverse(), [baseLevels]);
 
   const loadDashboardData = useCallback(async () => {
     try {
@@ -74,16 +74,15 @@ export default function DuolingoStudentPath() {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Handle clicking on a level node
-  const handleLevelClick = (unitId) => {
+  // Handle clicking on a level node to study
+  const handleLevelClick = (levelId) => {
     toast({
-      title: `Launching Unit ${unitId}! 🚀`,
-      description: "Loading your study module setup now...",
+      title: `Entering Level ${levelId}! 🚀`,
+      description: "Let's learn and level up your brain!",
     });
     
-    // Smooth transition delay to navigate to the study route
     setTimeout(() => {
-      window.location.href = `/study?unit=${unitId}`;
+      window.location.href = `/study?level=${levelId}`;
     }, 800);
   };
 
@@ -105,7 +104,7 @@ export default function DuolingoStudentPath() {
     }
   };
 
-  // Keep the dynamic zig-zag offset intact based on the actual unit ID sequence
+  // Zig-zag pattern alignment based on ID sequence
   const getAlternatingClass = (id) => {
     const position = id % 4;
     if (position === 1) return "md:translate-x-16 sm:translate-x-12";
@@ -117,7 +116,7 @@ export default function DuolingoStudentPath() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 space-y-4">
         <div className="w-14 h-14 border-5 border-emerald-200 border-t-emerald-500 rounded-full animate-spin" />
-        <p className="text-sm font-black text-emerald-600 animate-pulse tracking-wide uppercase">Generating Learning Path...</p>
+        <p className="text-sm font-black text-emerald-600 animate-pulse tracking-wide uppercase">Building Your Level Track...</p>
       </div>
     );
   }
@@ -135,9 +134,9 @@ export default function DuolingoStudentPath() {
               {user?.avatar_emoji || "🦉"}
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Level {currentLevel}</p>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Current Progress</p>
               <h2 className="text-sm font-black text-slate-700 tracking-tight leading-none">
-                {user?.nickname || "Explorer"}
+                {user?.nickname || "Explorer"} • Level {currentLevel}
               </h2>
             </div>
           </div>
@@ -145,7 +144,7 @@ export default function DuolingoStudentPath() {
           <div className="flex items-center gap-4 sm:gap-6">
             <div className="flex items-center gap-1.5 font-black text-orange-500 text-sm sm:text-base">
               <Flame className="w-5 h-5 fill-orange-500" />
-              <span>{progress?.streak_days || 0}</span>
+              <span>{progress?.streak_days || 0} Days</span>
             </div>
             <div className="flex items-center gap-1.5 font-black text-amber-500 text-sm sm:text-base">
               <Coins className="w-5 h-5 fill-amber-500" />
@@ -196,35 +195,33 @@ export default function DuolingoStudentPath() {
         {/* --- VERTICAL TREE PATH (CLIMBING UPWARD) --- */}
         <div className="relative flex flex-col items-center py-10">
           
-          {/* Main vertical track path vine line backbone */}
+          {/* Main vertical track line backbone */}
           <div className="absolute top-0 bottom-0 w-3 bg-slate-200 rounded-full z-0" />
 
-          {/* Nodes list mapping from high ID to low ID */}
+          {/* Map from top to bottom (visually climbing up) */}
           <div className="relative w-full flex flex-col items-center space-y-14 z-10">
-            {upwardUnits.map((unit) => {
-              const isCompleted = unit.id < currentLevel;
-              const isActive = unit.id === currentLevel;
-              const isLocked = unit.id > currentLevel;
+            {upwardLevels.map((lvl) => {
+              const isCompleted = lvl.id < currentLevel;
+              const isActive = lvl.id === currentLevel;
+              const isLocked = lvl.id > currentLevel;
 
               return (
                 <div 
-                  key={unit.id} 
-                  className={`flex flex-col items-center transition-all duration-300 ${getAlternatingClass(unit.id)}`}
+                  key={lvl.id} 
+                  className={`flex flex-col items-center transition-all duration-300 ${getAlternatingClass(lvl.id)}`}
                 >
                   <div className="relative group">
                     
-                    {/* CUTE AVATAR FLOATING OVER ACTIVE LEVEL */}
+                    {/* AVATAR FLOATING OVER THE STUDENT'S CURRENT ACTIVE LEVEL */}
                     {isActive && (
                       <motion.div 
                         animate={{ y: [0, -8, 0] }}
                         transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                         className="absolute -top-16 left-1/2 transform -translate-x-1/2 z-30 flex flex-col items-center pointer-events-none drop-shadow-md"
                       >
-                        {/* Custom Speech Bubble Accent */}
                         <div className="bg-white text-[10px] font-black px-2 py-0.5 rounded-md border border-slate-200 text-emerald-600 shadow-xs mb-1 whitespace-nowrap uppercase tracking-wider animate-pulse">
-                          Tap Me!
+                          Play Level {lvl.id}!
                         </div>
-                        {/* Animated Owl Space Avatar Character */}
                         <div className="text-4xl bg-white p-1 rounded-full ring-4 ring-emerald-400 shadow-sm">
                           🦉
                         </div>
@@ -237,7 +234,7 @@ export default function DuolingoStudentPath() {
 
                     <button
                       disabled={isLocked}
-                      onClick={() => handleLevelClick(unit.id)}
+                      onClick={() => handleLevelClick(lvl.id)}
                       className={`
                         relative w-20 h-20 sm:w-24 sm:h-24 rounded-full flex flex-col items-center justify-center 
                         transition-all active:translate-y-1 shadow-lg border-b-6 font-black text-xl select-none
@@ -250,16 +247,17 @@ export default function DuolingoStudentPath() {
                       {isActive && <Star className="w-8 h-8 fill-white stroke-[2]" />}
                       {isLocked && <Lock className="w-7 h-7 stroke-[2.5]" />}
                       
-                      <span className={`absolute -bottom-7 font-black text-xs uppercase tracking-widest ${isActive ? "text-emerald-500 scale-105" : "text-slate-400"}`}>
-                        Unit {unit.id}
+                      {/* Under-node text updated from Unit to Level */}
+                      <span className={`absolute -bottom-7 font-black text-xs uppercase tracking-widestSubtle text-center min-w-[80px] ${isActive ? "text-emerald-500 scale-105" : "text-slate-400"}`}>
+                        Level {lvl.id}
                       </span>
                     </button>
 
                     {/* Popover Bubble Card */}
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-30 w-44 bg-slate-800 text-white text-center p-2.5 rounded-xl text-xs shadow-xl">
-                      <div className="font-extrabold text-amber-400 mb-0.5">{unit.title}</div>
-                      <div className="text-slate-200 text-[11px] leading-tight">{unit.description}</div>
-                      {isLocked && <div className="text-[10px] text-slate-400 font-bold mt-1">Locked (Need Level {unit.id})</div>}
+                      <div className="font-extrabold text-amber-400 mb-0.5">{lvl.title}</div>
+                      <div className="text-slate-200 text-[11px] leading-tight">{lvl.description}</div>
+                      {isLocked && <div className="text-[10px] text-slate-400 font-bold mt-1">Locked (Clear previous levels)</div>}
                       <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
                     </div>
 
@@ -271,14 +269,14 @@ export default function DuolingoStudentPath() {
 
         </div>
 
-        {/* PERSISTENT FLOATING ACTION FOOTER FOR CONTINUOUS PLAY */}
+        {/* FLOATING ACTION BOTTOM BUTTON */}
         <div className="fixed bottom-4 left-0 right-0 px-4 z-40 max-w-md mx-auto">
           <Button 
             onClick={() => handleLevelClick(currentLevel)}
             className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-6 rounded-2xl text-base uppercase tracking-wider shadow-lg border-b-4 border-emerald-700 active:border-b-0 transform active:translate-y-[4px] transition-all"
           >
             <Play className="w-5 h-5 mr-2 fill-current" />
-            Resume Unit {currentLevel}
+            Start Level {currentLevel}
           </Button>
         </div>
 
