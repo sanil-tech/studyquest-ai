@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle 
+  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, X, Calendar 
 } from "lucide-react";
 import moment from "moment";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // 💡 Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
@@ -15,7 +16,7 @@ const getDisplayName = (user) => {
   return user.nickname || user.username || user.email || "Pelajar";
 };
 
-function DetailedChildCard({ child }) {
+function DetailedChildCard({ child, onOpenReport }) {
   const currentXP = child.progress?.total_xp || 0;
   const nextLevelXP = 500;
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
@@ -133,6 +134,14 @@ function DetailedChildCard({ child }) {
         </div>
       </div>
 
+      {/* 📊 🔥 BUTANG DIKEMASKINI: Lihat Laporan Penuh */}
+      <Button 
+        onClick={() => onOpenReport(child)}
+        className="w-full h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5"
+      >
+        <BarChart3 className="w-4 h-4" /> Lihat Laporan Penuh Topik
+      </Button>
+
       {/* Butang Tindakan Pengurusan Ibu Bapa */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
@@ -149,6 +158,10 @@ function DetailedChildCard({ child }) {
 export default function MyChildrenPage() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // State untuk modal laporan
+  const [selectedChild, setSelectedChild] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadData = async () => {
     try {
@@ -162,7 +175,6 @@ export default function MyChildrenPage() {
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        // 🛠️ Tarik data dari QuizAttempt bersama entiti yang lain secara serentak
         const [progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
           base44.entities.Progress.filter({ student_id: id }),
           base44.entities.Wallet.filter({ student_id: id }),
@@ -170,7 +182,6 @@ export default function MyChildrenPage() {
           base44.entities.User.get(id).catch(() => null),
         ]);
 
-        // 1. Susun dan ambil data Progress global yang paling terkini
         let activeProgress = {};
         if (progressRes && progressRes.length > 0) {
           activeProgress = progressRes.sort((a, b) => 
@@ -178,17 +189,18 @@ export default function MyChildrenPage() {
           )[0];
         }
 
-        // 2. Susun dan ambil markah & nama topik daripada QuizAttempt yang paling terkini
         let latestQuizScore = null;
         let latestTopic = activeProgress?.current_topic || "Misi Belum Mula";
+        let allAttempts = [];
 
         if (attemptsRes && attemptsRes.length > 0) {
-          const latestAttempt = attemptsRes.sort((a, b) => 
+          // Susun semua percubaan kuiz daripada baru ke lama
+          allAttempts = attemptsRes.sort((a, b) => 
             new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
-          )[0];
+          );
           
-          latestQuizScore = latestAttempt.score; // Mengambil peratusan sebenar (cth: 100)
-          latestTopic = latestAttempt.topic_name || latestTopic;
+          latestQuizScore = allAttempts[0].score;
+          latestTopic = allAttempts[0].topic_name || latestTopic;
         }
 
         const activeWallet = walletRes && walletRes.length > 0 ? walletRes[0] : { balance: 0 };
@@ -199,7 +211,8 @@ export default function MyChildrenPage() {
           nickname: childUser?.nickname || "",
           username: childUser?.username || "",
           wallet: activeWallet,
-          // Gabungkan data progress asas dan timpa dengan markah kuiz sebenar terkini
+          allAttempts, // Simpan semua rekod kuiz untuk modal laporan
+          allProgress: progressRes || [], // Simpan semua progress bab/lesson
           progress: {
             ...activeProgress,
             quiz_score: latestQuizScore, 
@@ -217,6 +230,11 @@ export default function MyChildrenPage() {
 
   useEffect(() => { loadData(); }, []);
 
+  const handleOpenReport = (child) => {
+    setSelectedChild(child);
+    setIsModalOpen(true);
+  };
+
   if (loading) return <div className="p-8 text-center text-xs text-slate-400">Memuatkan laporan anak...</div>;
 
   return (
@@ -230,9 +248,94 @@ export default function MyChildrenPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {children.map((child) => (
-          <DetailedChildCard key={child.id} child={child} />
+          <DetailedChildCard 
+            key={child.id} 
+            child={child} 
+            onOpenReport={handleOpenReport} 
+          />
         ))}
       </div>
+
+      {/* 📊 POPUP MODAL: LAPORAN PENUH TOPIK DAN KUIZ */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
+          <DialogHeader className="border-b pb-3">
+            <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
+              📊 Laporan Pembelajaran: {selectedChild && getDisplayName(selectedChild)}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedChild && (
+            <div className="space-y-6 mt-4">
+              
+              {/* Seksyen 1: Rekod Nota / Lesson yang Diambil */}
+              <div>
+                <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
+                  <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
+                </h4>
+                {selectedChild.allProgress.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum ada topik pelajaran yang dimulakan.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedChild.allProgress.map((prog, idx) => (
+                      <div key={idx} className="bg-slate-50 border border-slate-100 p-3 rounded-xl flex items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-700 truncate">{prog.current_topic || "Topik Am"}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> {prog.total_study_time || 0} Minit Belajar
+                          </p>
+                        </div>
+                        {prog.step_lesson_done ? (
+                          <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold">Nota Selesai</Badge>
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-400 border border-slate-200 text-[10px] font-normal">Membaca</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Seksyen 2: Rekod Markah Semua Kuiz */}
+              <div>
+                <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
+                  <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
+                </h4>
+                {selectedChild.allAttempts.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum menduduki sebarang kuiz.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedChild.allAttempts.map((attempt, idx) => (
+                      <div key={idx} className="border border-slate-100 bg-white p-3 rounded-xl flex items-center justify-between shadow-sm">
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-black text-slate-800">{attempt.topic_name || "Kuiz Tanpa Nama"}</p>
+                          <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
+                            <span className="flex items-center gap-0.5"><Calendar className="w-3 h-3" /> {moment(attempt.created_at).format("DD MMM YYYY, h:mm a")}</span>
+                            <span className="flex items-center gap-0.5 text-amber-600 font-bold"><Coins className="w-3 h-3" /> +{attempt.coins_earned || 0} Koin</span>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          <Badge className={`text-xs font-black px-2 py-0.5 rounded-lg ${
+                            attempt.score >= 80 
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                              : attempt.score >= 50 
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                          }`}>
+                            {attempt.score}% Markah
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
