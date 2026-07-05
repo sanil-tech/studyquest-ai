@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Plus, Eye, Key, User, RefreshCw, Trash2, 
-  GraduationCap, Award, Flame, ShieldAlert, Sparkles, 
-  TrendingUp, Calendar, ArrowRight, Settings, BookOpen,
+  Users, Plus, Key, User, RefreshCw, Trash2, 
+  GraduationCap, Award, Flame, BookOpen,
   CheckCircle2, Clock, BrainCircuit, Lock, Zap, BarChart3,
-  HelpCircle, FileSpreadsheet
+  HelpCircle
 } from "lucide-react";
 import { getDisplayName } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,7 +19,8 @@ import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
 
 // ---------------- KOMPONEN KECIL: LESSON CARD ----------------
 function ChildLessonCard({ lesson }) {
-  const isCompleted = lesson.status === "completed";
+  // Memastikan status disemak dengan betul (kecil/besar huruf)
+  const isCompleted = lesson.status?.toLowerCase() === "completed" || lesson.is_completed === true;
   
   return (
     <div className="min-w-[220px] max-w-[220px] bg-white border border-border/60 rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex-shrink-0">
@@ -29,17 +29,19 @@ function ChildLessonCard({ lesson }) {
           <BookOpen className="w-4 h-4" />
         </div>
         {isCompleted ? (
-          <Badge className="bg-emerald-500/10 text-emerald-600 border-none hover:bg-emerald-500/20 text-[9px] font-bold py-0 h-4 rounded-md">Selesai</Badge>
+          <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">Selesai</Badge>
         ) : (
-          <Badge className="bg-blue-500/10 text-blue-600 border-none hover:bg-blue-500/20 text-[9px] font-bold py-0 h-4 rounded-md">Proses</Badge>
+          <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">Proses</Badge>
         )}
       </div>
-      <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={lesson.title}>{lesson.title || "Pelajaran Tanpa Tajuk"}</h4>
+      <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={lesson.title || lesson.lesson_name}>
+        {lesson.title || lesson.lesson_name || "Pelajaran Tanpa Tajuk"}
+      </h4>
       <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
         <Clock className="w-3 h-3" />
-        <span>{lesson.duration || "15 min"}</span>
+        <span>{lesson.duration || lesson.time_spent || "15 min"}</span>
         <span>•</span>
-        <span className="font-semibold text-slate-700">{lesson.subject || "Umum"}</span>
+        <span className="font-semibold text-slate-700">{lesson.subject || lesson.category || "Umum"}</span>
       </div>
     </div>
   );
@@ -47,7 +49,9 @@ function ChildLessonCard({ lesson }) {
 
 // ---------------- KOMPONEN KECIL: QUIZ CARD ----------------
 function ChildQuizCard({ quiz }) {
-  const scoreColor = quiz.score >= 80 ? "text-emerald-600 bg-emerald-50 border-emerald-100" : quiz.score >= 50 ? "text-amber-600 bg-amber-50 border-amber-100" : "text-rose-600 bg-rose-50 border-rose-100";
+  // Mengesan markah sama ada daripada `score`, `marks`, atau `percentage`
+  const actualScore = quiz.score !== undefined ? quiz.score : (quiz.marks || quiz.percentage || 0);
+  const scoreColor = actualScore >= 80 ? "text-emerald-600 bg-emerald-50 border-emerald-100" : actualScore >= 50 ? "text-amber-600 bg-amber-50 border-amber-100" : "text-rose-600 bg-rose-50 border-rose-100";
 
   return (
     <div className="min-w-[220px] max-w-[220px] bg-white border border-border/60 rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex-shrink-0">
@@ -56,13 +60,15 @@ function ChildQuizCard({ quiz }) {
           <HelpCircle className="w-4 h-4" />
         </div>
         <div className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${scoreColor}`}>
-          Skor: {quiz.score}%
+          Skor: {actualScore}%
         </div>
       </div>
-      <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={quiz.title}>{quiz.title || "Kuiz Tanpa Tajuk"}</h4>
+      <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={quiz.title || quiz.quiz_name}>
+        {quiz.title || quiz.quiz_name || "Kuiz Tanpa Tajuk"}
+      </h4>
       <div className="flex items-center justify-between text-[10px] text-slate-500 mt-2">
         <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{quiz.subject || "Subjek"}</span>
-        <span>{quiz.completed_at || "Baru selesai"}</span>
+        <span>{quiz.completed_at ? new Date(quiz.completed_at).toLocaleDateString('ms-MY') : "Selesai"}</span>
       </div>
     </div>
   );
@@ -85,7 +91,6 @@ function AiAnalyticPanel({ child, isPremium }) {
             <Zap className="w-3.5 h-3.5 fill-current" /> Naik Taraf Premium
           </Button>
         </div>
-
         <div className="opacity-20 select-none">
           <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
           <div className="grid grid-cols-2 gap-4">
@@ -111,7 +116,6 @@ function AiAnalyticPanel({ child, isPremium }) {
         </div>
         <Badge className="bg-indigo-600 text-white border-none text-[10px]">PREMIUM</Badge>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
           <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Kekuatan Kognitif</p>
@@ -126,7 +130,7 @@ function AiAnalyticPanel({ child, isPremium }) {
         <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
           <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Rumusan AI</p>
           <p className="text-xs text-slate-700 leading-relaxed">
-            {child.display_name} menunjukkan minat tinggi dalam subjek <strong>Sains</strong>. Fokus 15 minit pertama adalah yang paling optimum.
+            {child.display_name} menunjukkan minat tinggi berdasarkan data masa nyata. Fokus pembelajaran adalah optimum.
           </p>
         </div>
       </div>
@@ -134,6 +138,7 @@ function AiAnalyticPanel({ child, isPremium }) {
   );
 }
 
+// ---------------- INDIVIDU UTAMA ----------------
 export default function MyChildrenPage() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
@@ -141,10 +146,7 @@ export default function MyChildrenPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCredentialManager, setShowCredentialManager] = useState(false);
   const [selectedChild, setSelectedChild] = useState(null);
-  
-  // State untuk menukar tab pengajian aktif bagi setiap anak
   const [activeTabs, setActiveTabs] = useState({}); 
-
   const { toast } = useToast();
 
   const calculateAge = (birthDate) => {
@@ -178,18 +180,19 @@ export default function MyChildrenPage() {
             let quizzes = [];
 
             try {
+              // DATA SEBENAR: Ditapis secara spesifik mengikut `student_id: child.id`
               const [p, w, l, q] = await Promise.all([
                 base44.entities.Progress.filter({ student_id: child.id }).then((r) => r[0] || null),
                 base44.entities.Wallet.filter({ student_id: child.id }).then((r) => r[0] || null),
-                base44.entities.Lesson.filter({ student_id: child.id, _limit: 5 }),
-                base44.entities.QuizResult.filter({ student_id: child.id, _limit: 5 }).catch(() => []), 
+                base44.entities.Lesson.filter({ student_id: child.id, _sort: "id:DESC", _limit: 5 }).catch(() => []),
+                base44.entities.QuizResult.filter({ student_id: child.id, _sort: "id:DESC", _limit: 5 }).catch(() => []), 
               ]);
               progress = p;
               wallet = w;
               lessons = l;
               quizzes = q;
             } catch (metaErr) {
-              console.error(`Metadata error for ${child.id}:`, metaErr);
+              console.error(`Gagal mendapatkan data metadata untuk anak ${child.id}:`, metaErr);
             }
 
             return {
@@ -197,18 +200,10 @@ export default function MyChildrenPage() {
               display_name: getDisplayName(child),
               progress,
               wallet,
-              // Fallback Mock Data jika tiada rekod dalam pangkalan data
-              lessons: lessons.length > 0 ? lessons : [
-                { id: 1, title: "Asas Nombor & Operasi Tambah", status: "completed", subject: "Matematik", duration: "10 min" },
-                { id: 2, title: "Mengenal Haiwan Mamalia & Amfibia", status: "in_progress", subject: "Sains", duration: "15 min" },
-                { id: 3, title: "Kata Nama Khas & Kata Nama Am", status: "completed", subject: "B. Melayu", duration: "12 min" }
-              ],
-              quizzes: quizzes.length > 0 ? quizzes : [
-                { id: 1, title: "Kuiz Kepantasan Sifir 2 & 3", score: 90, subject: "Matematik", completed_at: "Semalam" },
-                { id: 2, title: "Ujian Topik Habitat Haiwan", score: 45, subject: "Sains", completed_at: "2 hari lepas" }
-              ],
+              lessons: lessons || [], // Menggunakan array kosong jika database tiada rekod, tiada mock-data lagi
+              quizzes: quizzes || [],
               relationshipId: rel.id,
-              is_premium: false 
+              is_premium: child.is_premium || false 
             };
           } catch (childErr) {
             return null;
@@ -216,11 +211,11 @@ export default function MyChildrenPage() {
         })
       );
 
-      setChildren(childDetails.filter(Boolean));
+      const validChildren = childDetails.filter(Boolean);
+      setChildren(validChildren);
       
-      // Sediakan tab lalai ("lessons") untuk setiap anak
       const initialTabs = {};
-      childDetails.filter(Boolean).forEach(c => {
+      validChildren.forEach(c => {
         initialTabs[c.id] = "lessons";
       });
       setActiveTabs(initialTabs);
@@ -268,12 +263,12 @@ export default function MyChildrenPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-slate-800">Urusan Keluarga</h1>
-            <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 border-none font-bold">
+            <Badge className="bg-indigo-100 text-indigo-700 border-none font-bold">
               {children.length} Aktif
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            Pantau perkembangan pelajaran, urus akaun, dan lihat analisis AI.
+            Pantau perkembangan pelajaran, urus akaun, dan lihat analisis AI secara langsung.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -355,7 +350,7 @@ export default function MyChildrenPage() {
 
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 border-t border-slate-100">
                         
-                        {/* Kiri: Lesson & Quiz Progress (DENGAN NAVIGASI TAB) */}
+                        {/* Kiri: Real Lesson & Quiz Progress */}
                         <div className="lg:col-span-7 space-y-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
                             <div className="flex gap-2">
@@ -363,13 +358,13 @@ export default function MyChildrenPage() {
                                 onClick={() => setTabForChild(child.id, "lessons")}
                                 className={`text-xs font-black px-3 py-1.5 rounded-lg transition-colors ${currentTab === "lessons" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                               >
-                                📚 Pelajaran ({child.lessons.length})
+                                📚 Pelajaran ({child.lessons?.length || 0})
                               </button>
                               <button 
                                 onClick={() => setTabForChild(child.id, "quizzes")}
                                 className={`text-xs font-black px-3 py-1.5 rounded-lg transition-colors ${currentTab === "quizzes" ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                               >
-                                📝 Rekod Kuiz ({child.quizzes.length})
+                                📝 Rekod Kuiz ({child.quizzes?.length || 0})
                               </button>
                             </div>
                             <Link to={`/parent/children/${child.id}`} className="text-[10px] font-bold text-indigo-600 hover:underline self-end sm:self-auto">LIHAT LAPORAN PENUH →</Link>
@@ -377,20 +372,20 @@ export default function MyChildrenPage() {
 
                           <div className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-hide min-h-[105px]">
                             {currentTab === "lessons" ? (
-                              child.lessons.length > 0 ? (
+                              child.lessons && child.lessons.length > 0 ? (
                                 child.lessons.map((lesson) => (
                                   <ChildLessonCard key={lesson.id} lesson={lesson} />
                                 ))
                               ) : (
-                                <p className="text-xs text-slate-400 italic py-4">Tiada rekod pelajaran dijumpai.</p>
+                                <p className="text-xs text-slate-400 font-medium italic py-6">Anak anda belum memulakan sebarang pelajaran lagi.</p>
                               )
                             ) : (
-                              child.quizzes.length > 0 ? (
+                              child.quizzes && child.quizzes.length > 0 ? (
                                 child.quizzes.map((quiz) => (
                                   <ChildQuizCard key={quiz.id} quiz={quiz} />
                                 ))
                               ) : (
-                                <p className="text-xs text-slate-400 italic py-4">Belum menduduki sebarang kuiz.</p>
+                                <p className="text-xs text-slate-400 font-medium italic py-6">Belum ada rekod kuiz yang diselesaikan.</p>
                               )
                             )}
                           </div>
@@ -402,7 +397,6 @@ export default function MyChildrenPage() {
                             <BarChart3 className="w-4 h-4 text-purple-600" /> Analitik & Kawalan
                           </h3>
                           
-                          {/* Ciri Premium AI Analytic */}
                           <AiAnalyticPanel child={child} isPremium={child.is_premium} />
 
                           <div className="flex items-center gap-2 pt-2">
@@ -438,7 +432,6 @@ export default function MyChildrenPage() {
         </div>
       )}
 
-      {/* Modals */}
       <AddChildModal 
         open={showAddModal} 
         onOpenChange={setShowAddModal} 
