@@ -23,18 +23,37 @@ export default function QuizPage() {
   const startTimeRef = useRef(Date.now());
   const [timeTaken, setTimeTaken] = useState("");
 
-  // 1. Ambil Data Kuiz dari Database base44
+  // 1. Ambil Data Kuiz dari Database base44 dengan Penormalan Lajur CSV
   useEffect(() => {
     const fetchQuizData = async () => {
       try {
         const quizData = await base44.entities.Quiz.get(quizId);
         if (quizData) {
           setQuizMeta(quizData);
-          const parsedQuestions = JSON.parse(quizData.questions_json || "[]");
-          setQuestions(parsedQuestions);
+          
+          // Ambil strings JSON
+          let rawData = quizData.questions_json || "[]";
+          
+          // Jika data tersangkut dalam double encoded string, kita parse sekali lagi
+          if (typeof rawData === "string") {
+            rawData = JSON.parse(rawData);
+          }
+          
+          if (Array.isArray(rawData)) {
+            // 🛠️ LOGIK PINTAR: Tukar kunci Huruf Besar CSV kepada huruf kecil jika perlu
+            const normalizedQuestions = rawData.map(q => ({
+              question: q.question || q.Question || q.soalan || "",
+              options: Array.isArray(q.options) ? q.options : (q.Options || q.pilihan || []),
+              correct_answer: q.correct_answer || q.Correct_Answer || q.jawapan || "",
+              explanation: q.explanation || q.Explanation || q.ulasan || ""
+            }));
+            
+            setQuestions(normalizedQuestions);
+            console.log("🎯 Soalan berjaya dinormalisasikan & dimuatkan:", normalizedQuestions);
+          }
         }
       } catch (err) {
-        console.error("Gagal memuatkan data kuiz:", err);
+        console.error("Gagal memuatkan atau mem-parse data kuiz:", err);
       } finally {
         setLoading(false);
         startTimeRef.current = Date.now();
