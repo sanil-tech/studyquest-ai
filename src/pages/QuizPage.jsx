@@ -23,41 +23,63 @@ export default function QuizPage() {
   const startTimeRef = useRef(Date.now());
   const [timeTaken, setTimeTaken] = useState("");
 
-  // 1. Ambil Data Kuiz & Selaraskan Format Sumber Sama Seperti Flashcard
+// 1. Ambil Data Kuiz & Paksa Nyah-Stringify Mengikut Rujukan Fungsi LessonPage
   useEffect(() => {
     const fetchQuizData = async () => {
       try {
+        console.log("Memulakan capaian data untuk Quiz ID:", quizId);
         const quizData = await base44.entities.Quiz.get(quizId);
+        
         if (quizData) {
           setQuizMeta(quizData);
           
-          let rawData = quizData.questions_json || "[]";
-          if (typeof rawData === "string") {
-            rawData = JSON.parse(rawData);
+          // Ambil data mentah questions_json dari database
+          let rawData = quizData.questions_json;
+          
+          // LOGIK DEEP PARSING: Jika data masih dalam bentuk String, teruskan parsing sehingga menjadi Array/Objek
+          while (typeof rawData === "string") {
+            try {
+              rawData = JSON.parse(rawData);
+            } catch (e) {
+              console.error("Gagal melakukan parse pada lapisan string:", e);
+              break; // Keluar jika tersangkut ralat sintaksis
+            }
           }
           
-          if (Array.isArray(rawData)) {
-            // 🛠️ LOGIK PENYELARASAN SUMBER KAD IMBAS/CSV
+          // Jika selepas digeledah ia adalah Objek biasa (bukan array) tapi mempunyai kunci soalan di dalamnya
+          if (rawData && !Array.isArray(rawData) && typeof rawData === "object") {
+            if (rawData.questions) rawData = rawData.questions;
+            else if (rawData.questions_json) rawData = rawData.questions_json;
+          }
+
+          if (Array.isArray(rawData) && rawData.length > 0) {
+            // Penormalan lajur sepadan dengan struktur rawBankQuestions / Flashcard dari LessonPage
             const normalizedQuestions = rawData.map(q => {
-              // A. Ekstrak teks soalan
+              // Sesuai dengan format hantaran .map(q => q.question) atau .map(q => q.front) dalam Lesson
               const teksSoalan = q.question || q.Question || q.front || "";
               
-              // B. Ekstrak jawapan betul dan ulasan (Pecahkan dari teks \n\n jika format dari back)
               let jawapanTepat = q.correct_answer || q.Correct_Answer || "";
               let ulasanCikgu = q.explanation || q.Explanation || "";
               
+              // Jika ia datang dari data berformat flashcard literal { front, back }
               if (q.back && !jawapanTepat) {
-                // Jika data berformat flashcard { front, back }, pecahkan mengikut baris baru
                 const parts = q.back.split("\n\n");
                 jawapanTepat = parts[0] || "";
                 ulasanCikgu = parts[1] || "";
               }
 
-              // C. Ambil pilihan jawapan sedia ada, atau bina pilihan automatik jika tiada
+              // Ambil pilihan jawapan, jika tiada (seperti kes flashcard mentah), kita bina pilihan dinamik
               let pilihanJawapan = q.options || q.Options || [];
-              if (pilihanJawapan.length === 0 && jawapanTepat) {
-                // Fail-safe jika tiada pilihan: Bina pilihan jawapan rawak/strik
-                pilihanJawapan = [jawapanTepat, "Tambahan 1", "Tambahan 2", "Tambahan 3"];
+              if ((!pilihanJawapan || pilihanJawapan.length === 0) && jawapanTepat) {
+                // Bina pilihan jawapan rawak supaya anak-anak boleh klik A, B, C atau D
+                pilihanJawapan = [
+                  jawapanTepat, 
+                  "Pilihan Salah A", 
+                  "Pilihan Salah B", 
+                  "Pilihan Salah C"
+                ];
+                // Rawakkan pilihan jawapan pilihan supaya jawapan betul tidak sentiasa di kedudukan pertama
+                pilihanJawapan.sort(() => Math.random() - 0.5);
               }
 
               return {
@@ -67,20 +89,26 @@ export default function QuizPage() {
                 explanation: ulasanCikgu
               };
             });
-            
-            // Tapis keluar jika ada baris kosong
+
+            // Tapis soalan yang sah sahaja
             const validQuestions = normalizedQuestions.filter(q => q.question !== "");
+            
             setQuestions(validQuestions);
-            console.log("🎯 Sumber berjaya diselaraskan dengan Flashcard:", validQuestions);
+            console.log("🎯 Berjaya memaparkan kertas soalan! Jumlah:", validQuestions.length);
+          } else {
+            console.error("Format rawData bukan sejenis Array yang sah:", rawData);
           }
+        } else {
+          console.error("Data kuiz tidak wujud langsung di dalam pangkalan data.");
         }
       } catch (err) {
-        console.error("Gagal menyelaraskan sumber data kuiz:", err);
+        console.error("Ralat kritikal semasa merujuk struktur LessonPage:", err);
       } finally {
         setLoading(false);
         startTimeRef.current = Date.now();
       }
     };
+    
     fetchQuizData();
   }, [quizId]);
 
