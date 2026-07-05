@@ -10,7 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-// 💡 DIKEMASKINI: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
@@ -51,8 +50,7 @@ function CompactChildCard({ child }) {
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
-            {/* Paparkan e-mel di bawah nickname sebagai rujukan tambahan ibu bapa */}
-            <p className="text-[10px] text-slate-400 truncate leading-none">{child.email}</p>
+            <p className="text-[10px] text-slate-400 truncate leading-none">{child.email || "Tiada E-mel"}</p>
             <p className="text-[11px] text-slate-500 font-bold truncate mt-1.5">
               📚 {currentTopic}
             </p>
@@ -82,12 +80,17 @@ export default function ParentDashboard() {
       setLoading(true);
       const u = await base44.auth.me();
       const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
-      if (!rel.length) return setLoading(false);
+      
+      if (!rel || !rel.length) {
+        setChildren([]);
+        return;
+      }
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        const progress = await base44.entities.Progress.filter({ student_id: id });
-        const childUser = await base44.entities.User.get(id).catch(() => null);
+        // Selamatkan jika request gagal dengan fallback objek kosong `{}` bukan `null`
+        const progress = await base44.entities.Progress.filter({ student_id: id }).catch(() => []);
+        const childUser = await base44.entities.User.get(id).catch(() => ({}));
         
         return { 
           id, 
@@ -95,9 +98,16 @@ export default function ParentDashboard() {
           progress: progress?.[0] || {}, 
         };
       }));
-      setChildren(kids);
+
+      // Menapis keluar rekod yang tidak valid sekiranya user tidak wujud langsung
+      setChildren(kids.filter(k => k.id));
     } catch (err) {
-      console.error(err);
+      console.error("Gagal memuatkan data dashboard:", err);
+      toast({
+        title: "Ralat Sistem",
+        description: "Gagal mengambil data anak-anak. Sila cuba lagi.",
+        variant: "destructive"
+      });
     } finally { 
       setLoading(false);
     }
@@ -123,7 +133,7 @@ export default function ParentDashboard() {
         <ShortcutCard icon={Gift} title="Ganjaran" desc="Urus kedai hadiah" gradient="from-pink-500 to-rose-400" onClick={() => navigate("/parent/rewards")} />
         <ShortcutCard icon={BarChart2} title="Analitik" desc="Prestasi penuh anak" gradient="from-blue-500 to-cyan-500" onClick={() => navigate("/parent/children")} />
         <ShortcutCard icon={Target} title="Misi Baru" desc="Beri tugasan khas" gradient="from-emerald-500 to-teal-400" onClick={() => navigate("/parent/children")} />
-        <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan" })} />
+        <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan dalam pembinaan" })} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -137,18 +147,27 @@ export default function ParentDashboard() {
                 Lihat Laporan Penuh &rarr;
               </Link>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              {children.map((child) => (
-                <CompactChildCard key={child.id} child={child} />
-              ))}
-            </div>
+            
+            {children.length === 0 ? (
+              <div className="text-center p-8 bg-white border border-dashed rounded-2xl text-slate-400 text-xs">
+                Belum ada anak yang dipautkan. Klik "Urus Anak" untuk bermula.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {children.map((child) => (
+                  <CompactChildCard key={child.id} child={child} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         <div className="lg:col-span-4 space-y-4">
           <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 flex justify-between items-center">
             <div>
-              <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5"><MapPin className="w-3 h-3" /> Kota Kinabalu</div>
+              <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                <MapPin className="w-3 h-3" /> Kota Kinabalu
+              </div>
               <h3 className="text-2xl font-black text-slate-800">30°c <span className="text-xs font-bold text-blue-500 ml-1">Hujan</span></h3>
             </div>
             <CloudRain className="w-6 h-6 text-blue-500" />
@@ -161,8 +180,8 @@ export default function ParentDashboard() {
 
 function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
-    <button onClick={onClick} className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5`}>
-      <div className="bg-white/20 p-2 rounded-lg"><Icon className="w-4 h-4" /></div>
+    <button onClick={onClick} className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 transition-transform active:scale-95`}>
+      <div className="bg-white/20 p-2 rounded-lg shrink-0"><Icon className="w-4 h-4" /></div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-bold truncate">{title}</p>
         <p className="text-[9px] text-white/80 truncate">{desc}</p>
