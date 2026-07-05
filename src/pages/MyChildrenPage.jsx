@@ -1,341 +1,87 @@
-import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { 
-  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, X, Calendar 
-} from "lucide-react";
-import moment from "moment";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useState, useEffect, useRef } from "react";
+import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Circle } from "lucide-react";
+import { motion } from "framer-motion";
 
-// 💡 Mengutamakan nickname, kemudian e-mel
-const getDisplayName = (user) => {
-  if (!user) return "Pelajar";
-  return user.nickname || user.username || user.email || "Pelajar";
-};
+const STEPS = [
+  { key: "lesson", label: "Lesson Read", icon: BookOpen },
+  { key: "flashcards", label: "Flashcards", icon: Layers },
+  { key: "mindmap", label: "Mind Map", icon: Network },
+  { key: "activity", label: "Activity", icon: Gamepad2 },
+];
 
-function DetailedChildCard({ child, onOpenReport }) {
-  const currentXP = child.progress?.total_xp || 0;
-  const nextLevelXP = 500;
-  const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
-  
-  const streakDays = child.progress?.streak_days || 0;
-  const currentCoins = child.wallet?.balance || 0;
-  const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
-  const totalStudyMinutes = child.progress?.total_study_time || 0;
-  
-  const lastActiveTime = child.progress?.last_study_date 
-    ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
-    : "Tiada rekod aktif";
+export default function LessonProgress({ steps, onStepClick }) {
+  // 🔥 TAMBAHAN: State untuk menjejak masa belajar (dalam saat)
+  const [secondsSpent, setSecondsSpent] = useState(0);
+  const timerRef = useRef(null);
 
-  const quizScore = child.progress?.quiz_score || null;
-  const displayName = getDisplayName(child); 
+  // Mula mengira masa sebaik sahaja halaman dimuatkan
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setSecondsSpent((prev) => prev + 1);
+    }, 1000);
+
+    // Bersihkan timer apabila anak keluar dari halaman
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const completed = STEPS.filter((s) => steps[s.key]).length;
+  const percent = Math.round((completed / STEPS.length) * 100);
+
+  // 🔥 TAMBAHAN: Fungsi pengendali klik yang menyertakan data masa
+  const handleStepClick = (stepKey) => {
+    // Tukarkan saat kepada minit (minima 1 minit jika anak belajar kurang seminit)
+    const minutesEarned = Math.max(Math.round(secondsSpent / 60), 1);
+    
+    // Hantar key langkah bersama dengan jumlah minit belajar yang terkumpul ke fungsi asal
+    onStepClick?.(stepKey, minutesEarned);
+  };
 
   return (
-    <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
-      
-      {/* Header Kad */}
-      <div className="flex items-center justify-between border-b border-slate-50 pb-2 text-[10px] text-slate-400 font-bold">
-        <span className="flex items-center gap-1 text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full uppercase text-[9px]">
-          <Clock className="w-3 h-3" /> {lastActiveTime}
-        </span>
-        <Badge className="bg-slate-100 text-slate-700 font-bold text-[9px] border-0">
-          ID: {child.id.substring(0, 6)}...
-        </Badge>
+    <div className="bg-white rounded-2xl p-4 border border-border/50">
+      {/* Progress bar */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-foreground">Learning Progress</span>
+        <span className="text-xs font-bold text-primary">{percent}%</span>
+      </div>
+      <div className="h-2.5 bg-muted rounded-full overflow-hidden mb-4">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${percent}%` }}
+          transition={{ duration: 0.5 }}
+          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+        />
       </div>
 
-      {/* Profil Mini */}
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 text-xl shrink-0">
-          🦖
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1">
-            <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
-            <Badge className="bg-blue-50 text-blue-600 border-0 text-[10px] font-black px-1.5 py-0 h-4 rounded shrink-0">
-              Tahap {child.progress?.level || 1}
-            </Badge>
-          </div>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{child.email}</p>
-        </div>
-      </div>
-
-      {/* Kemajuan XP */}
-      <div className="space-y-1 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
-        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-          <span>XP TERKUMPUL</span>
-          <span>{currentXP}/{nextLevelXP}</span>
-        </div>
-        <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
-      </div>
-
-      {/* Grid Status Ringkas */}
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-orange-50/60 border border-orange-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
-          <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
-          <span className="text-[8px] font-bold text-slate-400 uppercase">Hari Streak</span>
-          <span className="text-xs font-black text-slate-700 mt-0.5">{streakDays}</span>
-        </div>
-
-        <div className="bg-amber-50/60 border border-amber-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
-          <Coins className="w-4 h-4 text-amber-500 mb-0.5" />
-          <span className="text-[8px] font-bold text-slate-400 uppercase">Baki Koin</span>
-          <span className="text-xs font-black text-slate-700 mt-0.5">{currentCoins}</span>
-        </div>
-
-        <div className="bg-indigo-50/50 border border-indigo-100/40 p-2 rounded-xl flex flex-col items-center justify-center min-w-0">
-          <Target className="w-4 h-4 text-indigo-500 mb-0.5" />
-          <span className="text-[8px] font-bold text-slate-400 uppercase truncate w-full">Topik Semasa</span>
-          <span className="text-[10px] font-black text-slate-700 mt-0.5 truncate w-full px-0.5">{currentTopic}</span>
-        </div>
-      </div>
-
-      {/* Masa Belajar Terkumpul */}
-      <div className="bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-indigo-400" />
-          <div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Jumlah Masa Belajar</p>
-            <p className="text-sm font-black mt-1 leading-none">{totalStudyMinutes} <span className="text-[11px] font-normal text-slate-400">Minit</span></p>
-          </div>
-        </div>
-        <Badge className="bg-emerald-500/20 text-emerald-400 font-bold border-0 text-[9px]">Sesi Aktif</Badge>
-      </div>
-
-      {/* Prestasi Aktiviti Bab */}
-      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5 text-xs">
-        <div className="flex items-center gap-1.5 font-bold text-slate-700 border-b border-slate-200/60 pb-1.5">
-          <Award className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Prestasi Aktiviti Bab</span>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="text-slate-500 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Status Nota Bacaan</span>
-            {child.progress?.step_lesson_done ? (
-              <span className="text-emerald-600 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Selesai</span>
-            ) : (
-              <span className="text-slate-400 font-medium">Belum Dibaca</span>
-            )}
-          </div>
-
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="text-slate-500 flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Markah Kuiz Terkini</span>
-            {quizScore !== null ? (
-              <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black px-1.5 py-0">
-                {quizScore}% Betul
-              </Badge>
-            ) : (
-              <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0 rounded text-[10px]">Belum Ambil</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 📊 🔥 BUTANG DIKEMASKINI: Lihat Laporan Penuh */}
-      <Button 
-        onClick={() => onOpenReport(child)}
-        className="w-full h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5"
-      >
-        <BarChart3 className="w-4 h-4" /> Lihat Laporan Penuh Topik
-      </Button>
-
-      {/* Butang Tindakan Pengurusan Ibu Bapa */}
-      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
-          ⚙️ Kata Laluan
-        </Button>
-        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
-          <ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-export default function MyChildrenPage() {
-  const [children, setChildren] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // State untuk modal laporan
-  const [selectedChild, setSelectedChild] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const u = await base44.auth.me();
-      const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
-      if (!rel.length) {
-        setChildren([]);
-        return setLoading(false);
-      }
-      
-      const childIds = rel.map(r => r.child_id);
-      const kids = await Promise.all(childIds.map(async (id) => {
-        const [progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
-          base44.entities.Progress.filter({ student_id: id }),
-          base44.entities.Wallet.filter({ student_id: id }),
-          base44.entities.QuizAttempt.filter({ student_id: id }),
-          base44.entities.User.get(id).catch(() => null),
-        ]);
-
-        let activeProgress = {};
-        if (progressRes && progressRes.length > 0) {
-          activeProgress = progressRes.sort((a, b) => 
-            new Date(b.last_study_date || b.updated_at || 0) - new Date(a.last_study_date || a.updated_at || 0)
-          )[0];
-        }
-
-        let latestQuizScore = null;
-        let latestTopic = activeProgress?.current_topic || "Misi Belum Mula";
-        let allAttempts = [];
-
-        if (attemptsRes && attemptsRes.length > 0) {
-          // Susun semua percubaan kuiz daripada baru ke lama
-          allAttempts = attemptsRes.sort((a, b) => 
-            new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
+      {/* Step list */}
+      <div className="grid grid-cols-2 gap-2">
+        {STEPS.map((step) => {
+          const done = steps[step.key];
+          const Icon = step.icon;
+          return (
+            <button
+              key={step.key}
+              onClick={() => handleStepClick(step.key)} // 🔥 Ditukar ke fungsi handle baharu
+              className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                done
+                  ? "border-emerald-200 bg-emerald-50"
+                  : "border-border/50 bg-muted/30 hover:bg-muted/60"
+              }`}
+            >
+              {done ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              ) : (
+                <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
+              )}
+              <Icon className={`w-4 h-4 shrink-0 ${done ? "text-emerald-600" : "text-muted-foreground"}`} />
+              <span className={`text-xs font-medium truncate ${done ? "text-emerald-700" : "text-muted-foreground"}`}>
+                {step.label}
+              </span>
+            </button>
           );
-          
-          latestQuizScore = allAttempts[0].score;
-          latestTopic = allAttempts[0].topic_name || latestTopic;
-        }
-
-        const activeWallet = walletRes && walletRes.length > 0 ? walletRes[0] : { balance: 0 };
-
-        return { 
-          id, 
-          email: childUser?.email || "Tiada E-mel",
-          nickname: childUser?.nickname || "",
-          username: childUser?.username || "",
-          wallet: activeWallet,
-          allAttempts, // Simpan semua rekod kuiz untuk modal laporan
-          allProgress: progressRes || [], // Simpan semua progress bab/lesson
-          progress: {
-            ...activeProgress,
-            quiz_score: latestQuizScore, 
-            current_topic: latestTopic
-          }
-        };
-      }));
-      setChildren(kids);
-    } catch (err) {
-      console.error("Ralat memuatkan data pengurusan anak:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadData(); }, []);
-
-  const handleOpenReport = (child) => {
-    setSelectedChild(child);
-    setIsModalOpen(true);
-  };
-
-  if (loading) return <div className="p-8 text-center text-xs text-slate-400">Memuatkan laporan anak...</div>;
-
-  return (
-    <div className="p-4 sm:p-6 space-y-4 max-w-7xl mx-auto bg-slate-50/30 min-h-screen">
-      <div>
-        <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
-          <Users className="w-5 h-5 text-indigo-600" /> Profil Pengurusan Anak-Anak
-        </h1>
-        <p className="text-xs text-slate-500 mt-0.5">Analisis kemajuan penuh, baki koin, kuiz, dan masa pembelajaran nyata.</p>
+        })}
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {children.map((child) => (
-          <DetailedChildCard 
-            key={child.id} 
-            child={child} 
-            onOpenReport={handleOpenReport} 
-          />
-        ))}
-      </div>
-
-      {/* 📊 POPUP MODAL: LAPORAN PENUH TOPIK DAN KUIZ */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
-          <DialogHeader className="border-b pb-3">
-            <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
-              📊 Laporan Pembelajaran: {selectedChild && getDisplayName(selectedChild)}
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedChild && (
-            <div className="space-y-6 mt-4">
-              
-              {/* Seksyen 1: Rekod Nota / Lesson yang Diambil */}
-              <div>
-                <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
-                  <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
-                </h4>
-                {selectedChild.allProgress.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum ada topik pelajaran yang dimulakan.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedChild.allProgress.map((prog, idx) => (
-                      <div key={idx} className="bg-slate-50 border border-slate-100 p-3 rounded-xl flex items-center justify-between">
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-700 truncate">{prog.current_topic || "Topik Am"}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {prog.total_study_time || 0} Minit Belajar
-                          </p>
-                        </div>
-                        {prog.step_lesson_done ? (
-                          <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold">Nota Selesai</Badge>
-                        ) : (
-                          <Badge className="bg-slate-100 text-slate-400 border border-slate-200 text-[10px] font-normal">Membaca</Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Seksyen 2: Rekod Markah Semua Kuiz */}
-              <div>
-                <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
-                  <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
-                </h4>
-                {selectedChild.allAttempts.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum menduduki sebarang kuiz.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedChild.allAttempts.map((attempt, idx) => (
-                      <div key={idx} className="border border-slate-100 bg-white p-3 rounded-xl flex items-center justify-between shadow-sm">
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-black text-slate-800">{attempt.topic_name || "Kuiz Tanpa Nama"}</p>
-                          <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
-                            <span className="flex items-center gap-0.5"><Calendar className="w-3 h-3" /> {moment(attempt.created_at).format("DD MMM YYYY, h:mm a")}</span>
-                            <span className="flex items-center gap-0.5 text-amber-600 font-bold"><Coins className="w-3 h-3" /> +{attempt.coins_earned || 0} Koin</span>
-                          </div>
-                        </div>
-                        
-                        <div className="text-right">
-                          <Badge className={`text-xs font-black px-2 py-0.5 rounded-lg ${
-                            attempt.score >= 80 
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
-                              : attempt.score >= 50 
-                                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                : "bg-rose-50 text-rose-700 border border-rose-200"
-                          }`}>
-                            {attempt.score}% Markah
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
