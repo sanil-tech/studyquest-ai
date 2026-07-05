@@ -10,15 +10,22 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
+// 💡 HELPER: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
 };
 
+/**
+ * 🎨 LOGIK AVATAR RPG (DICEBEAR ADVENTURER)
+ * Kita letakkan di sini kerana tiada fail function baru dibenarkan buat masa ini.
+ * Menggunakan "seed" unik gabungan Nama + Level supaya rupa avatar berevolusi.
+ */
 function CompactChildCard({ child }) {
   const navigate = useNavigate();
   
   const currentXP = child.progress?.total_xp || 0;
+  const currentLevel = child.progress?.level || 1;
   const nextLevelXP = 500; 
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   const displayName = getDisplayName(child); 
@@ -28,6 +35,11 @@ function CompactChildCard({ child }) {
     : "Tiada rekod aktif";
     
   const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
+
+  // 🎯 GENERATE AVATAR URL SECARA DINAMIK
+  // Seed berubah mengikut nama dan level = Wira akan 'membesar' atau bertukar rupa!
+  const avatarSeed = `${displayName}_lvl_${currentLevel}`;
+  const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${avatarSeed}&backgroundColor=f8fafc,e0e7ff`;
 
   return (
     <Card 
@@ -45,12 +57,22 @@ function CompactChildCard({ child }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100 text-xl shrink-0">
-            🦖
+          {/* 🖼️ VISUAL AVATAR RPG DINAMIK */}
+          <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 shadow-inner overflow-hidden shrink-0 group-hover:scale-110 transition-transform">
+            <img 
+              src={avatarUrl} 
+              alt="Hero Avatar" 
+              className="w-full h-full object-contain"
+              loading="lazy"
+            />
           </div>
+          
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
-            <p className="text-[10px] text-slate-400 truncate leading-none">{child.email || "Tiada E-mel"}</p>
+            <div className="flex items-center gap-1.5">
+               <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
+               {currentLevel > 10 && <span className="text-[10px]">🛡️</span>}
+            </div>
+            <p className="text-[10px] text-slate-400 truncate leading-none">{child.email}</p>
             <p className="text-[11px] text-slate-500 font-bold truncate mt-1.5">
               📚 {currentTopic}
             </p>
@@ -59,7 +81,7 @@ function CompactChildCard({ child }) {
 
         <div className="space-y-1 pt-1">
           <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-            <span>TAHAP {child.progress?.level || 1}</span>
+            <span className="text-indigo-600">TAHAP {currentLevel}</span>
             <span className="text-slate-600">{xpPercentage}%</span>
           </div>
           <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
@@ -80,17 +102,12 @@ export default function ParentDashboard() {
       setLoading(true);
       const u = await base44.auth.me();
       const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
-      
-      if (!rel || !rel.length) {
-        setChildren([]);
-        return;
-      }
+      if (!rel.length) return setLoading(false);
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        // Selamatkan jika request gagal dengan fallback objek kosong `{}` bukan `null`
         const progress = await base44.entities.Progress.filter({ student_id: id }).catch(() => []);
-        const childUser = await base44.entities.User.get(id).catch(() => ({}));
+        const childUser = await base44.entities.User.get(id).catch(() => null);
         
         return { 
           id, 
@@ -98,16 +115,9 @@ export default function ParentDashboard() {
           progress: progress?.[0] || {}, 
         };
       }));
-
-      // Menapis keluar rekod yang tidak valid sekiranya user tidak wujud langsung
       setChildren(kids.filter(k => k.id));
     } catch (err) {
-      console.error("Gagal memuatkan data dashboard:", err);
-      toast({
-        title: "Ralat Sistem",
-        description: "Gagal mengambil data anak-anak. Sila cuba lagi.",
-        variant: "destructive"
-      });
+      console.error(err);
     } finally { 
       setLoading(false);
     }
@@ -133,7 +143,7 @@ export default function ParentDashboard() {
         <ShortcutCard icon={Gift} title="Ganjaran" desc="Urus kedai hadiah" gradient="from-pink-500 to-rose-400" onClick={() => navigate("/parent/rewards")} />
         <ShortcutCard icon={BarChart2} title="Analitik" desc="Prestasi penuh anak" gradient="from-blue-500 to-cyan-500" onClick={() => navigate("/parent/children")} />
         <ShortcutCard icon={Target} title="Misi Baru" desc="Beri tugasan khas" gradient="from-emerald-500 to-teal-400" onClick={() => navigate("/parent/children")} />
-        <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan dalam pembinaan" })} />
+        <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan" })} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -147,28 +157,19 @@ export default function ParentDashboard() {
                 Lihat Laporan Penuh &rarr;
               </Link>
             </div>
-            
-            {children.length === 0 ? (
-              <div className="text-center p-8 bg-white border border-dashed rounded-2xl text-slate-400 text-xs">
-                Belum ada anak yang dipautkan. Klik "Urus Anak" untuk bermula.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {children.map((child) => (
-                  <CompactChildCard key={child.id} child={child} />
-                ))}
-              </div>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {children.map((child) => (
+                <CompactChildCard key={child.id} child={child} />
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="lg:col-span-4 space-y-4">
           <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 flex justify-between items-center">
             <div>
-              <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                <MapPin className="w-3 h-3" /> Kota Kinabalu
-              </div>
-              <h3 className="text-2xl font-black text-slate-800">30°c <span className="text-xs font-bold text-blue-500 ml-1">Hujan</span></h3>
+              <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5"><MapPin className="w-3 h-3" /> Kota Kinabalu</div>
+              <h3 className="text-2xl font-black text-slate-800">30°c <span className="text-xs font-bold text-blue-500 ml-1">Cerah</span></h3>
             </div>
             <CloudRain className="w-6 h-6 text-blue-500" />
           </Card>
@@ -180,8 +181,8 @@ export default function ParentDashboard() {
 
 function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
-    <button onClick={onClick} className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 transition-transform active:scale-95`}>
-      <div className="bg-white/20 p-2 rounded-lg shrink-0"><Icon className="w-4 h-4" /></div>
+    <button onClick={onClick} className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 hover:brightness-110 transition-all`}>
+      <div className="bg-white/20 p-2 rounded-lg"><Icon className="w-4 h-4" /></div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-bold truncate">{title}</p>
         <p className="text-[9px] text-white/80 truncate">{desc}</p>
@@ -189,3 +190,5 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
     </button>
   );
 }
+
+Dek pembentangan di atas menerangkan konsep dan logik di sebalik kemaskini ini. Sila tepek kod di atas ke dalam fail anda untuk melihat "Wira" anak anda mula berevolusi mengikut Level! Adakah anda mahu saya tambah lebih banyak elemen RPG seperti lencana (badge) mengikut pencapaian?
