@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { getDisplayName } from "@/lib/utils"; 
 
-// ---------------- KOMPONEN TIPS KEIBUBAPAAN (LIVE SIMULATION) ----------------
+// ---------------- 1. KOMPONEN TIPS KEIBUBAPAAN (LIVE SIMULATION) ----------------
 function SmartParentingTips() {
   const [tipIndex, setTipIndex] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -65,7 +65,7 @@ function SmartParentingTips() {
   const currentTip = tipsFeed[tipIndex];
 
   return (
-    <Card className="mt-6 border-0 shadow-lg rounded-2xl bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 text-white overflow-hidden relative">
+    <Card className="border-0 shadow-lg rounded-2xl bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 text-white overflow-hidden relative">
       <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
       
       <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-center relative z-10">
@@ -116,7 +116,7 @@ function SmartParentingTips() {
   );
 }
 
-// ---------------- KOMPONEN KAD CUACA (LIVE & BAHASA DIBAIKI) ----------------
+// ---------------- 2. KOMPONEN KAD CUACA (LIVE & TEXT-SAFE) ----------------
 function WeatherCard() {
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
@@ -139,7 +139,6 @@ function WeatherCard() {
       setErrorMsg("");
       let finalLocationName = locName;
 
-      // Diubah ke localityLanguage=en untuk mengelakkan ralat fonetik Arab
       if (!finalLocationName) {
         const locRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
         const locData = await locRes.json();
@@ -184,7 +183,7 @@ function WeatherCard() {
         },
         (err) => {
           console.warn("Kebenaran lokasi ditolak.", err);
-          setErrorMsg("GPS disekat/tidak aktif. Memaparkan cuaca Kuala Lumpur.");
+          setErrorMsg("GPS disekat. Memaparkan cuaca Kuala Lumpur.");
           fetchWeatherData(3.1390, 101.6869, "Kuala Lumpur"); 
         },
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
@@ -197,7 +196,6 @@ function WeatherCard() {
 
   useEffect(() => {
     requestLocation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
@@ -226,44 +224,44 @@ function WeatherCard() {
   const MainIcon = currentDetails.Icon;
 
   return (
-    <Card className="p-5 rounded-2xl shadow-sm border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 relative overflow-hidden">
+    <Card className="p-5 rounded-2xl shadow-sm border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 relative overflow-hidden h-full">
       <div className="absolute -top-6 -right-6 opacity-10">
         <MainIcon className="w-28 h-28 text-sky-900" />
       </div>
       
-      <div className="flex justify-between items-start relative z-10">
-        <div>
-          <div className="flex items-center gap-1 mb-1.5 text-sky-600">
-            <MapPin className="w-3 h-3" />
-            <p className="text-[10px] font-bold uppercase tracking-wider line-clamp-1">{location}</p>
+      <div className="flex justify-between items-start gap-4 relative z-10">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-1 mb-1.5 text-sky-600">
+            <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <p className="text-[10px] font-bold uppercase tracking-wider text-wrap break-words">{location}</p>
           </div>
           <div className="flex items-end gap-2">
-            <h3 className="text-4xl font-black text-slate-800 leading-none">{weather.temp}°<span className="text-xl">C</span></h3>
+            <h3 className="text-3xl md:text-4xl font-black text-slate-800 leading-none">{weather.temp}°<span className="text-xl">C</span></h3>
           </div>
           <p className={`text-xs font-bold mt-1.5 ${currentDetails.color}`}>{currentDetails.label}</p>
         </div>
-        <div className="w-14 h-14 bg-white/60 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm border border-white flex-col">
-          <MainIcon className={`w-7 h-7 ${currentDetails.color}`} />
+        <div className="w-12 h-12 md:w-14 md:h-14 bg-white/60 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm border border-white shrink-0">
+          <MainIcon className={`w-6 h-6 md:w-7 md:h-7 ${currentDetails.color}`} />
         </div>
       </div>
 
-      <p className="text-[10px] text-sky-800/80 font-medium leading-relaxed mt-3 relative z-10 italic border-l-2 border-sky-300 pl-2">
-        "{currentDetails.advice}"
+      <p className="text-[11px] text-sky-800 font-medium leading-relaxed mt-4 relative z-10 border-l-2 border-sky-300 pl-2">
+        {currentDetails.advice}
       </p>
 
       {/* RAMALAN 5 JAM AKAN DATANG */}
       <div className="mt-4 pt-4 border-t border-sky-200/60 relative z-10">
         <p className="text-[9px] font-bold text-sky-600 uppercase tracking-wider mb-3">Ramalan Seterusnya</p>
-        <div className="flex justify-between items-center gap-1">
+        <div className="grid grid-cols-5 gap-1 text-center">
           {forecast.map((f, i) => {
              const hourlyDetail = getWeatherDetails(f.code);
              const HourIcon = hourlyDetail.Icon;
              const timeStr = new Date(f.time).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
              
              return (
-               <div key={i} className="flex flex-col items-center text-center">
-                 <span className="text-[9px] text-slate-500 font-bold mb-1.5">{timeStr}</span>
-                 <HourIcon className={`w-4 h-4 ${hourlyDetail.color} mb-1.5`} />
+               <div key={i} className="flex flex-col items-center min-w-0">
+                 <span className="text-[9px] text-slate-500 font-bold mb-1 truncate w-full">{timeStr}</span>
+                 <HourIcon className={`w-4 h-4 ${hourlyDetail.color} mb-1 shrink-0`} />
                  <span className="text-[11px] font-black text-slate-700">{f.temp}°</span>
                </div>
              )
@@ -274,7 +272,7 @@ function WeatherCard() {
   );
 }
 
-// ---------------- KOMPONEN PINTASAN PANTAS ----------------
+// ---------------- 3. KOMPONEN PINTASAN PANTAS ----------------
 function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
     <motion.button
@@ -295,7 +293,7 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   );
 }
 
-// ---------------- INDIVIDUAL CHILD CARD (AVATAR HIDUP GOOGLE) ----------------
+// ---------------- 4. INDIVIDUAL CHILD CARD (RESPONSIVE GRID TEXT-SAFE) ----------------
 function ChildCard({ child, onRefresh }) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -317,23 +315,20 @@ function ChildCard({ child, onRefresh }) {
     if (xp >= 5000 || lvl >= 15) return { 
       stageTitle: "Ancient Inferno", 
       gradient: "from-rose-500 via-red-500 to-amber-300", 
-      glow: "rgba(239, 68, 68, 0.4)", 
-      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f409/512.gif", 
-      glowColor: "#ef4444"
+      glowColor: "#ef4444", 
+      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f409/512.gif"
     };
     if (xp >= 1500 || lvl >= 6) return { 
       stageTitle: "Emerald Drake", 
       gradient: "from-emerald-400 via-teal-400 to-cyan-300", 
-      glow: "rgba(16, 185, 129, 0.3)", 
-      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f432/512.gif", 
-      glowColor: "#10b981"
+      glowColor: "#10b981", 
+      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f432/512.gif"
     };
     return { 
       stageTitle: "Ruby Hatchling", 
       gradient: "from-purple-400 via-pink-400 to-rose-300", 
-      glow: "rgba(219, 39, 119, 0.2)", 
-      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f996/512.gif", 
-      glowColor: "#db2677"
+      glowColor: "#db2677", 
+      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f996/512.gif"
     };
   };
   const milestone = getDragonMilestone(currentXP, currentLevel);
@@ -380,88 +375,94 @@ function ChildCard({ child, onRefresh }) {
 
   return (
     <>
-      <Card className="p-5 space-y-4 bg-white hover:shadow-xl transition-all border-slate-200 relative overflow-hidden group rounded-2xl cursor-default shadow-sm border-slate-100">
-        <div className="absolute top-3 right-3 flex items-center gap-1.5 relative z-20">
-          <div className={`w-2 h-2 rounded-full ${child.last_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{lastActive}</span>
+      <Card className="p-5 bg-white hover:shadow-xl transition-all border-slate-200 relative overflow-hidden group rounded-2xl cursor-default shadow-sm border-slate-100 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center justify-end gap-1.5 mb-3">
+            <div className={`w-2 h-2 rounded-full ${child.last_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{lastActive}</span>
+          </div>
+
+          <Link to={`/parent/children/${child.id}`} className="block space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="relative flex flex-col items-center justify-center select-none shrink-0 z-10">
+                <div style={{ perspective: "1000px" }} className="relative w-16 h-16 flex items-center justify-center">
+                  <motion.div 
+                    animate={{ 
+                      scale: [1, 1.1, 1],
+                      rotate: 360,
+                      filter: [`blur(15px) opacity(0.3)`,`blur(20px) opacity(0.5)`, `blur(15px) opacity(0.3)`]
+                    }} 
+                    transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} 
+                    style={{ boxShadow: `0 0 25px ${milestone.glowColor}` }} 
+                    className="absolute inset-0 rounded-full opacity-30 blur-2xl" 
+                  />
+                  
+                  <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white/60 shadow-lg flex items-center justify-center relative z-10 overflow-hidden`}>
+                    <motion.img 
+                      src={milestone.imgUrl} 
+                      alt={displayName} 
+                      animate={{ y: [-2, 2, -2] }} 
+                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} 
+                      className="w-9 h-9 object-contain drop-shadow-md" 
+                    />
+                  </div>
+                </div>
+                <span className="text-[9px] font-black text-slate-700 mt-1 text-center leading-none">{milestone.stageTitle}</span>
+              </div>
+
+              <div className="flex-grow min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <h3 className="text-base font-bold text-slate-800 truncate max-w-[120px] group-hover:text-indigo-600 transition-colors">{displayName}</h3>
+                  <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[9px] font-black px-1.5 h-4 rounded-md shrink-0">Tahap {currentLevel}</Badge>
+                </div>
+                
+                <div className="pt-1 space-y-1">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="font-bold text-slate-500">XP Terkumpul</span>
+                    <span className="font-extrabold text-slate-700">{currentXP}/{nextLevelXP}</span>
+                  </div>
+                  <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
+                </div>
+              </div>
+            </div>
+
+            {/* Grid Statistik - Diubah suai agar seimbang pada telefon dan desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+              <div className="bg-orange-50 p-2 rounded-lg border border-orange-100/50 flex sm:flex-col items-center justify-between sm:justify-center text-center hover:bg-orange-100 transition-colors">
+                <div className="flex items-center gap-1.5 sm:flex-col sm:gap-0">
+                  <Flame className="w-4 h-4 text-orange-500 sm:mb-0.5 shrink-0" />
+                  <p className="text-[10px] sm:text-[8px] font-bold text-slate-500 sm:text-slate-400 uppercase tracking-wide">Hari Streak</p>
+                </div>
+                <p className="text-sm font-black text-slate-700 leading-none">{streakDays}</p>
+              </div>
+
+              <div className="bg-amber-50 p-2 rounded-lg border border-amber-100/50 flex sm:flex-col items-center justify-between sm:justify-center text-center hover:bg-amber-100 transition-colors">
+                <div className="flex items-center gap-1.5 sm:flex-col sm:gap-0">
+                  <span className="text-sm sm:mb-0.5">🪙</span>
+                  <p className="text-[10px] sm:text-[8px] font-bold text-slate-500 sm:text-slate-400 uppercase tracking-wide">Baki Koin</p>
+                </div>
+                <p className="text-sm font-black text-slate-700 leading-none">{currentCoins}</p>
+              </div>
+
+              <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex sm:flex-col items-center justify-between sm:justify-center text-center hover:bg-slate-100 transition-colors min-w-0">
+                <div className="flex items-center gap-1.5 sm:flex-col sm:gap-0 min-w-0 flex-1 sm:flex-initial">
+                  <Target className="w-4 h-4 text-indigo-500 sm:mb-0.5 shrink-0" />
+                  <p className="text-[10px] sm:text-[8px] font-bold text-slate-500 sm:text-slate-400 uppercase tracking-wide truncate w-full">Topik Semasa</p>
+                </div>
+                <p className="text-xs sm:text-[10px] font-black text-slate-700 leading-tight truncate max-w-[120px] sm:max-w-full px-1" title={currentTopic}>
+                  {currentTopic}
+                </p>
+              </div>
+            </div>
+          </Link>
         </div>
 
-        <Link to={`/parent/children/${child.id}`} className="block">
-          <div className="flex items-start gap-4">
-            <div className="relative flex flex-col items-center justify-center p-1 select-none flex-shrink-0 relative z-10">
-              <div style={{ perspective: "1000px" }} className="relative w-18 h-18 flex items-center justify-center">
-                <motion.div 
-                  animate={{ 
-                    scale: [1, 1.1, 1],
-                    rotate: 360,
-                    filter: [`blur(15px) opacity(0.3)`,`blur(20px) opacity(0.5)`, `blur(15px) opacity(0.3)`]
-                  }} 
-                  transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} 
-                  style={{ boxShadow: `0 0 25px ${milestone.glowColor}` }} 
-                  className="absolute inset-0 rounded-full opacity-30 blur-2xl" 
-                />
-                
-                <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white/60 shadow-lg flex items-center justify-center relative z-10 overflow-hidden`}>
-                  <div className="absolute inset-0 bg-white/10 blur-md rounded-full"></div>
-                  
-                  <motion.img 
-                    src={milestone.imgUrl} 
-                    alt={displayName} 
-                    animate={{ 
-                      y: [-3, 3, -3], 
-                      rotate: [-2, 2, -2] 
-                    }} 
-                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} 
-                    className="w-10 h-10 object-contain drop-shadow-2xl relative z-10" 
-                  />
-                </div>
-              </div>
-              <span className="text-[9px] font-black text-slate-700 mt-1 tracking-tight">{milestone.stageTitle}</span>
-            </div>
-
-            <div className="flex-grow space-y-1">
-              <div className="flex items-center gap-2 mt-1">
-                <h3 className="text-lg font-bold text-slate-800 leading-none group-hover:text-indigo-600 transition-colors">{displayName}</h3>
-                <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0 h-4 rounded-md">Tahap {currentLevel}</Badge>
-              </div>
-              
-              <div className="pt-2 space-y-1 relative z-10">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="font-bold text-slate-500">XP Terkumpul</span>
-                  <span className="font-extrabold text-slate-700">{currentXP} / {nextLevelXP}</span>
-                </div>
-                <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 pt-4 relative z-10">
-            <div className="bg-orange-50 p-2 rounded-lg border border-orange-100/50 flex flex-col items-center justify-center text-center hover:bg-orange-100 transition-colors">
-              <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
-              <p className="text-sm font-black text-slate-700 leading-none">{streakDays}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-wide">Hari Streak</p>
-            </div>
-            <div className="bg-amber-50 p-2 rounded-lg border border-amber-100/50 flex flex-col items-center justify-center text-center hover:bg-amber-100 transition-colors">
-              <span className="text-sm font-bold mb-0.5">🪙</span>
-              <p className="text-sm font-black text-slate-700 leading-none">{currentCoins}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-wide">Baki Koin</p>
-            </div>
-            <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center hover:bg-slate-100 transition-colors">
-              <Target className="w-4 h-4 text-indigo-500 mb-0.5" />
-              <p className="text-[9px] font-black text-slate-700 leading-tight line-clamp-1 w-full truncate px-1" title={currentTopic}>
-                {currentTopic}
-              </p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-wide">Topik Semasa</p>
-            </div>
-          </div>
-        </Link>
-
-        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 relative z-20">
-          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50 rounded-full" onClick={handleBonusKoin} disabled={isSubmitting}>
-            🪙 Beri Bonus Koin
+        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 mt-4">
+          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50 rounded-full truncate" onClick={handleBonusKoin} disabled={isSubmitting}>
+            🪙 Bonus Koin
           </Button>
-          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-full" onClick={() => setShowMissionModal(true)}>
-            🎯 Cipta Misi Khas
+          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-full truncate" onClick={() => setShowMissionModal(true)}>
+            🎯 Misi Khas
           </Button>
         </div>
       </Card>
@@ -498,7 +499,7 @@ function ChildCard({ child, onRefresh }) {
   );
 }
 
-// ================= MAIN DASHBOARD =================
+// ---------------- 5. MAIN DASHBOARD COMPONENT ----------------
 export default function ParentDashboard() {
   const { toast } = useToast();
   const navigate = useNavigate(); 
@@ -534,13 +535,6 @@ export default function ParentDashboard() {
 
   useEffect(() => { loadData(); }, []);
 
-  const handleSendReminder = () => {
-    toast({
-      title: "Ping Dihantar! 🔔",
-      description: "Peringatan pantas telah berbunyi di peranti anak anda.",
-    });
-  };
-
   const handleApproveReward = (id, title) => {
     toast({
       title: "Ganjaran Diluluskan! 🎉",
@@ -572,8 +566,8 @@ export default function ParentDashboard() {
             Pantau kemajuan, berikan sokongan, dan jana semangat wira kecil anda.
           </p>
         </div>
-        <Link to="/parent/children">
-          <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md rounded-xl px-5 h-11">
+        <Link to="/parent/children" className="w-full md:w-auto">
+          <Button className="w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md rounded-xl px-5 h-11">
             <Plus className="w-4 h-4" /> Tambah Anak
           </Button>
         </Link>
@@ -585,40 +579,10 @@ export default function ParentDashboard() {
         animate={{ opacity: 1, y: 0 }} 
         className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-2"
       >
-        <ShortcutCard 
-          icon={Gift} 
-          title="Ganjaran" 
-          desc="Urus hadiah anak" 
-          gradient="from-pink-500 to-rose-400" 
-          onClick={() => navigate("/parent/rewards")} 
-        />
-        <ShortcutCard 
-          icon={BarChart2} 
-          title="Analitik" 
-          desc="Prestasi akademik" 
-          gradient="from-blue-500 to-cyan-500" 
-          onClick={() => toast({
-            title: "Akan Datang! 🚧",
-            description: "Modul Analitik masih dalam fasa pembangunan dan laluan belum wujud.",
-          })} 
-        />
-        <ShortcutCard 
-          icon={Target} 
-          title="Misi Baru" 
-          desc="Beri tugasan khas" 
-          gradient="from-emerald-500 to-teal-400" 
-          onClick={handleNewMissionShortcut} 
-        />
-        <ShortcutCard 
-          icon={Settings} 
-          title="Tetapan" 
-          desc="Profil & Kawalan" 
-          gradient="from-slate-700 to-slate-500" 
-          onClick={() => toast({
-            title: "Akan Datang! 🚧",
-            description: "Halaman Tetapan masih dalam fasa pembangunan dan laluan belum wujud.",
-          })} 
-        />
+        <ShortcutCard icon={Gift} title="Ganjaran" desc="Urus hadiah anak" gradient="from-pink-500 to-rose-400" onClick={() => navigate("/parent/rewards")} />
+        <ShortcutCard icon={BarChart2} title="Analitik" desc="Prestasi akademik" gradient="from-blue-500 to-cyan-500" onClick={() => toast({ title: "Akan Datang! 🚧", description: "Modul Analitik masih dalam fasa pembangunan." })} />
+        <ShortcutCard icon={Target} title="Misi Baru" desc="Beri tugasan khas" gradient="from-emerald-500 to-teal-400" onClick={handleNewMissionShortcut} />
+        <ShortcutCard icon={Settings} title="Tetapan" desc="Profil & Kawalan" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Akan Datang! 🚧", description: "Halaman Tetapan masih dalam fasa pembangunan." })} />
       </motion.div>
 
       {/* TUNTUTAN GANJARAN */}
@@ -627,117 +591,65 @@ export default function ParentDashboard() {
           <div className="flex items-center gap-2 mb-3 px-1">
             <Gift className="w-5 h-5 text-amber-500" />
             <h2 className="text-sm font-bold text-slate-800">Tuntutan Menunggu Kelulusan</h2>
-            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-1.5 py-0 h-5 text-[10px] ml-1 rounded-md tracking-tight font-bold">
-              {pendingRequests.length}
-            </Badge>
+            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-1.5 py-0 h-5 text-[10px] ml-1 rounded-md font-bold">{pendingRequests.length}</Badge>
           </div>
           
           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
             {pendingRequests.map(r => (
-              <div key={r.id} className="min-w-[290px] bg-white border border-amber-200/60 rounded-xl p-3 flex items-center justify-between shadow-sm hover:shadow-md hover:border-amber-300 transition-all flex-shrink-0">
+              <div key={r.id} className="min-w-[290px] bg-white border border-amber-200/60 rounded-xl p-3 flex items-center justify-between shadow-sm hover:shadow-md transition-all shrink-0">
                 <div className="flex items-center gap-3 overflow-hidden pr-2">
-                  <div className="bg-amber-50 p-2 rounded-lg shrink-0">
-                    <Gift className="w-5 h-5 text-amber-500" />
-                  </div>
+                  <div className="bg-amber-50 p-2 rounded-lg shrink-0"><Gift className="w-5 h-5 text-amber-500" /></div>
                   <div className="truncate">
                     <p className="text-xs font-bold text-slate-800 truncate leading-snug">{r.reward_title}</p>
-                    <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1 mt-0.5">
-                      <Coins className="w-3 h-3" /> {r.coin_cost} 🪙
-                    </p>
+                    <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1 mt-0.5"><Coins className="w-3 h-3" /> {r.coin_cost} 🪙</p>
                   </div>
                 </div>
-                <Button 
-                  size="sm" 
-                  className="h-8 px-3 text-[10px] bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white font-bold shadow-sm shrink-0 flex items-center gap-1.5"
-                  onClick={() => handleApproveReward(r.id, r.reward_title)}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Lulus
-                </Button>
+                <Button size="sm" className="h-8 px-3 text-[10px] bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white font-bold shrink-0 flex items-center gap-1.5" onClick={() => handleApproveReward(r.id, r.reward_title)}><CheckCircle2 className="w-3.5 h-3.5" /> Lulus</Button>
               </div>
             ))}
           </div>
         </motion.div>
       )}
 
+      {/* STRUKTUR GRID UTAMA */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* SEKSYEN KIRI (PERINGATAN & KAD ANAK) */}
+        {/* SEKSYEN KIRI (KAD PROFIL ANAK) */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2.5 px-1 relative z-10">
-            Anak-anak Saya
+            <Users className="w-5 h-5 text-indigo-600" /> Profil & Kemajuan Anak
           </h2>
 
-          {/* PERINGATAN PINTAR */}
-          {children.length > 0 && (
-            <motion.div 
-              initial={{ y: -10, opacity: 0 }} 
-              animate={{ y: 0, opacity: 1 }} 
-              className="bg-white border border-orange-200 p-3 sm:p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden shadow-sm"
-            >
-              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-500 rounded-l-2xl"></div>
-              <div className="flex items-center gap-3 pl-2 relative z-10">
-                <div className="p-2 bg-orange-50 rounded-full shrink-0 text-orange-500 border border-orange-100">
-                  <ShieldAlert className="w-5 h-5 animate-pulse" />
-                </div>
-                <div>
-                  <p className="text-[13px] text-slate-700 font-medium leading-snug">
-                    <strong className="text-orange-700">{children[0]?.display_name}</strong> belum log masuk hari ini. Jangan biarkan <i>streak</i> terputus!
-                  </p>
-                </div>
-              </div>
-              <Button 
-                size="sm" 
-                className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white text-[11px] h-8 rounded-full font-bold shrink-0 shadow-sm transition-transform hover:scale-105 active:scale-95 px-5" 
-                onClick={handleSendReminder}
-              >
-                🔔 Ping Sekarang
-              </Button>
-            </motion.div>
+          {children.length === 0 ? (
+            <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white">
+              <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-600">Tiada profil anak dihubungkan</p>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">Mula tambah profil anak anda untuk memantau kemajuan aktiviti mereka.</p>
+              <Link to="/parent/children">
+                <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">Tambah Sekarang</Button>
+              </Link>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {children.map((child) => (
+                <ChildCard key={child.id} child={child} onRefresh={loadData} />
+              ))}
+            </div>
           )}
+        </div>
 
-          <div className="grid gap-4 md:grid-cols-2 pt-1 relative z-10">
-            {children.length === 0 ? (
-              <Card className="p-10 text-center text-slate-400 col-span-2 rounded-2xl border-dashed border-2 border-slate-200 bg-white shadow-inner">
-                <Users className="w-12 h-12 mx-auto mb-4 opacity-40 text-slate-400" />
-                <p className="text-base font-bold text-slate-500">Belum ada profil pelajar</p>
-                <p className="text-sm text-slate-400 mt-1">Sambungkan akaun StudyQuest anak anda.</p>
-              </Card>
-            ) : (
-              children.map(c => (
-                <ChildCard key={c.id} child={c} onRefresh={loadData} />
-              ))
-            )}
+        {/* SEKSYEN KANAN (INFO UTILITY & TIPS) */}
+        <div className="space-y-4">
+          <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2.5 px-1 relative z-10">
+            <Sun className="w-5 h-5 text-amber-500" /> Info & Utiliti Hari Ini
+          </h2>
+          <div className="grid grid-cols-1 gap-4">
+            <WeatherCard />
+            <SmartParentingTips />
           </div>
         </div>
 
-        {/* SEKSYEN SISI (KANAN) */}
-        <div className="space-y-6 relative z-10">
-          <WeatherCard />
-          
-          <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-white">
-            <h2 className="font-bold text-sm text-indigo-900 mb-4 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-indigo-500" /> Ringkasan Mingguan
-            </h2>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 shadow-inner">
-                <span className="text-xs font-bold text-slate-600 tracking-tight">XP Terkumpul</span>
-                <span className="text-sm font-black text-indigo-600 tracking-tight">+1,250 XP</span>
-              </div>
-              <div className="flex justify-between items-center p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 shadow-inner">
-                <span className="text-xs font-bold text-slate-600 tracking-tight">Misi Selesai</span>
-                <span className="text-sm font-black text-emerald-600 tracking-tight">8 Misi</span>
-              </div>
-              <div className="flex justify-between items-center p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 shadow-inner">
-                <span className="text-xs font-bold text-slate-600 tracking-tight">Hari Aktif</span>
-                <span className="text-sm font-black text-orange-500 tracking-tight">5 Hari</span>
-              </div>
-            </div>
-          </Card>
-        </div>
       </div>
-
-      <SmartParentingTips />
-      
     </div>
   );
 }
