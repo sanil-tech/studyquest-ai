@@ -155,7 +155,8 @@ export default function LessonPage() {
         }
       } catch (err) {
         console.error("Cache initialization failed", err);
-      } finaly {
+      } finally {
+        // DIKEMASKINI: Ejaan 'finally' telah dibetulkan di sini
         studyStartRef.current = Date.now();
         setLoading(false);
       }
@@ -164,7 +165,7 @@ export default function LessonPage() {
     initializeLesson();
   }, [subjectId, topicId]);
 
-  // Fungsi rekod masa utama - kini diselaraskan pembundaran ke atas
+  // Fungsi rekod masa utama - diselaraskan pembundaran ke atas
   const recordStudyTime = async () => {
     if (!sessionRef.current || !studyStartRef.current) return;
     const minutes = Math.max(1, Math.ceil((Date.now() - studyStartRef.current) / 60000));
@@ -531,4 +532,11 @@ export default function LessonPage() {
       {/* Mascot Orang Utan Floating Area */}
       <motion.div animate={{ y: [0, -15, 0] }} transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }} className="fixed bottom-4 right-4 z-50 flex items-end drop-shadow-2xl pointer-events-none">
         <div className="bg-white p-3 rounded-3xl rounded-br-none shadow-xl mb-4 mr-2 border-4 border-orange-300 pointer-events-auto max-w-[160px]">
-          <p className="text
+          <p className="text-xs font-bold text-orange-700 leading-snug">Ayo, jom belajar {studentNickname}! 🦧✨</p>
+        </div>
+        <img src="/assets/orang-utan.png" alt="Mascot" className="w-24 h-24 md:w-32 md:h-32 object-contain pointer-events-auto cursor-pointer" onClick={triggerConfetti} />
+      </motion.div>
+
+    </div>
+  );
+}
