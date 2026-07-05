@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, ShieldAlert } from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,6 +22,10 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [showAvatar, setShowAvatar] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [avatarMode, setAvatarMode] = useState("emoji");
+  const [uploading, setUploading] = useState(false);
+  
   const [formData, setFormData] = useState({
     full_name: "",
     nickname: "",
@@ -46,17 +50,44 @@ export default function ProfilePage() {
       favorite_subjects: [],
     },
   });
-  const [avatarMode, setAvatarMode] = useState("emoji");
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
+
   const fileInputRef = useRef(null);
   const { toast } = useToast();
+
+  // Helper to map user object data cleanly into form state fields
+  const syncFormData = (userData) => {
+    setFormData({
+      full_name: userData.full_name || "",
+      nickname: userData.nickname || "",
+      school_year: userData.school_year || "",
+      school_name: userData.school_name || "",
+      class_name: userData.class_name || "",
+      gender: userData.gender || "",
+      date_of_birth: userData.date_of_birth || "",
+      country: userData.country || "Malaysia",
+      state: userData.state || "",
+      notification_preferences: userData.notification_preferences || {
+        email_notifications: true,
+        push_notifications: true,
+        quiz_reminders: true,
+        daily_learning_reminder: true,
+        parent_progress_reports: true,
+        weekly_achievement_summary: true,
+      },
+      learning_preferences: userData.learning_preferences || {
+        daily_goal_minutes: 20,
+        difficulty_preference: "medium",
+        favorite_subjects: [],
+      },
+    });
+  };
 
   useEffect(() => {
     const load = async () => {
       try {
         const u = await base44.auth.me();
         setUser(u);
+        syncFormData(u);
         
         if (u.app_role === "student") {
           const [progs, wallets, attempts] = await Promise.all([
@@ -64,35 +95,11 @@ export default function ProfilePage() {
             base44.entities.Wallet.filter({ student_id: u.id }),
             base44.entities.QuizAttempt.filter({ student_id: u.id }),
           ]);
-          setProgress(progs[0]);
-          setWallet(wallets[0]);
-          totalQuizzes && setTotalQuizzes(attempts.length);
+          
+          if (progs?.[0]) setProgress(progs[0]);
+          if (wallets?.[0]) setWallet(wallets[0]);
+          if (attempts) setTotalQuizzes(attempts.length); // Fixed short-circuit bug evaluation
         }
-        
-        setFormData({
-          full_name: u.full_name || "",
-          nickname: u.nickname || "",
-          school_year: u.school_year || "",
-          school_name: u.school_name || "",
-          class_name: u.class_name || "",
-          gender: u.gender || "",
-          date_of_birth: u.date_of_birth || "",
-          country: u.country || "Malaysia",
-          state: u.state || "",
-          notification_preferences: u.notification_preferences || {
-            email_notifications: true,
-            push_notifications: true,
-            quiz_reminders: true,
-            daily_learning_reminder: true,
-            parent_progress_reports: true,
-            weekly_achievement_summary: true,
-          },
-          learning_preferences: u.learning_preferences || {
-            daily_goal_minutes: 20,
-            difficulty_preference: "medium",
-            favorite_subjects: [],
-          },
-        });
       } catch (err) {
         console.error("Failed to load profile:", err);
       } finally {
@@ -100,7 +107,7 @@ export default function ProfilePage() {
       }
     };
     load();
-  }, [user?.id]);
+  }, []); // Fixed empty array dependency prevents an immediate infinite duplicate request loop
 
   const handleLogout = () => {
     base44.auth.logout("/login");
@@ -149,19 +156,7 @@ export default function ProfilePage() {
       await base44.auth.updateMe(formData);
       const updatedUser = await base44.auth.me();
       setUser(updatedUser);
-      setFormData({
-        full_name: updatedUser.full_name || "",
-        nickname: updatedUser.nickname || "",
-        school_year: updatedUser.school_year || "",
-        school_name: updatedUser.school_name || "",
-        class_name: updatedUser.class_name || "",
-        gender: updatedUser.gender || "",
-        date_of_birth: updatedUser.date_of_birth || "",
-        country: updatedUser.country || "Malaysia",
-        state: updatedUser.state || "",
-        notification_preferences: updatedUser.notification_preferences || formData.notification_preferences,
-        learning_preferences: updatedUser.learning_preferences || formData.learning_preferences,
-      });
+      syncFormData(updatedUser);
       setEditing(false);
 
       if (updatedUser.app_role === "student") {
@@ -291,7 +286,7 @@ export default function ProfilePage() {
         
         {/* Left Hand Sidebar Column */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Quick Metrics (Only for student views) */}
+          {/* Quick Metrics */}
           {isStudent && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -331,21 +326,21 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Student Identifiers / Security Keys */}
+          {/* Student Identifiers */}
           {isStudent && (
             <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
               <StudentIdSection user={user} />
             </div>
           )}
 
-          {/* Associated Parent Node Bindings */}
+          {/* Connected Parents Links */}
           {isStudent && (
             <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
               <ParentConnections user={user} />
             </div>
           )}
 
-          {/* Admin Platform Tool Links */}
+          {/* Admin Tools Links */}
           {user?.role === "admin" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-all duration-200">
@@ -361,7 +356,7 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* System Sign out Operations Anchor */}
+          {/* Sign Out Action Button */}
           <Button
             variant="outline"
             onClick={handleLogout}
@@ -375,7 +370,7 @@ export default function ProfilePage() {
         {/* Right Hand / Main Content Columns Content Segment */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Avatar Settings Section Dropdown Panel */}
+          {/* Avatar Options Panel Toggle */}
           <AnimatePresence>
             {showAvatar && isStudent && (
               <motion.div
@@ -401,7 +396,7 @@ export default function ProfilePage() {
             )}
           </AnimatePresence>
 
-          {/* Core Profile Parameters Forms Layout UI Block */}
+          {/* Main Core Form Inputs */}
           {(isStudent || isParent) && (
             <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
               <CardContent className="p-6 md:p-8">
@@ -416,7 +411,7 @@ export default function ProfilePage() {
             </Card>
           )}
 
-          {/* Notification System Node Hooks */}
+          {/* Notifications Form Blocks */}
           {editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
               <NotificationPreferencesSection
@@ -427,7 +422,7 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Curriculums Learning Track Preferences */}
+          {/* Learning Sub-settings Track */}
           {isStudent && editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
               <LearningPreferencesSection
@@ -438,7 +433,7 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Cryptography / Account Access Keys Modification Interface */}
+          {/* Password Security Actions Module */}
           {editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
               <SecuritySection
