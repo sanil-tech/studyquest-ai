@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // <-- Tambah useNavigate di sini
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import { 
@@ -144,12 +144,14 @@ function WeatherCard() {
 }
 
 // ---------------- KOMPONEN PINTASAN PANTAS ----------------
-function ShortcutCard({ icon: Icon, title, desc, gradient }) {
+// Ditambah prop `onClick` supaya butang ini berfungsi
+function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
     <motion.button
+      onClick={onClick}
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.97 }}
-      className={`flex-1 bg-gradient-to-br ${gradient} p-3 sm:p-4 rounded-2xl shadow-md flex items-center gap-3 text-white justify-start relative overflow-hidden border border-white/10`}
+      className={`flex-1 bg-gradient-to-br ${gradient} p-3 sm:p-4 rounded-2xl shadow-md flex items-center gap-3 text-white justify-start relative overflow-hidden border border-white/10 w-full`}
     >
       <div className="absolute -right-4 -top-4 bg-white/10 w-16 h-16 rounded-full blur-xl"></div>
       <div className="bg-white/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-md shrink-0">
@@ -330,6 +332,7 @@ function ChildCard({ child, onRefresh }) {
 // ================= MAIN DASHBOARD =================
 export default function ParentDashboard() {
   const { toast } = useToast();
+  const navigate = useNavigate(); // <-- Hook navigasi
   const [children, setChildren] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -377,6 +380,16 @@ export default function ParentDashboard() {
     setPendingRequests(prev => prev.filter(r => r.id !== id));
   };
 
+  // Fungsi untuk kad pintasan "Misi Baru"
+  const handleNewMissionShortcut = () => {
+    toast({
+      title: "Pilih Anak",
+      description: "Sila klik butang 'Cipta Misi Khas' pada kad profil anak di bawah.",
+    });
+    // Menatal (scroll) ke bahagian anak-anak secara automatik
+    window.scrollTo({ top: 300, behavior: "smooth" });
+  };
+
   if (loading) return <div className="flex justify-center min-h-[50vh] items-center"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>;
 
   return (
@@ -399,7 +412,7 @@ export default function ParentDashboard() {
         </Link>
       </div>
 
-      {/* PINTASAN PANTAS (LOKASI BARU) */}
+      {/* PINTASAN PANTAS (KINI BERFUNGSI DENGAN ONCLICK) */}
       <motion.div 
         initial={{ opacity: 0, y: 10 }} 
         animate={{ opacity: 1, y: 0 }} 
@@ -410,24 +423,28 @@ export default function ParentDashboard() {
           title="Ganjaran" 
           desc="Urus hadiah anak" 
           gradient="from-pink-500 to-rose-400" 
+          onClick={() => navigate("/parent/rewards")} // Contoh route ke halaman ganjaran
         />
         <ShortcutCard 
           icon={BarChart2} 
           title="Analitik" 
           desc="Prestasi akademik" 
           gradient="from-blue-500 to-cyan-500" 
+          onClick={() => navigate("/parent/analytics")} // Contoh route ke halaman analitik
         />
         <ShortcutCard 
           icon={Target} 
           title="Misi Baru" 
           desc="Beri tugasan khas" 
           gradient="from-emerald-500 to-teal-400" 
+          onClick={handleNewMissionShortcut} // Guna fungsi custom untuk beritahu pengguna
         />
         <ShortcutCard 
           icon={Settings} 
           title="Tetapan" 
           desc="Profil & Kawalan" 
           gradient="from-slate-700 to-slate-500" 
+          onClick={() => navigate("/settings")} // Contoh route ke halaman tetapan
         />
       </motion.div>
 
