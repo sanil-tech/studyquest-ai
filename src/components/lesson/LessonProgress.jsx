@@ -1,24 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Circle, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 
 const STEPS = [
-  { key: "lesson", label: "Lesson Read", icon: BookOpen },
-  { key: "flashcards", label: "Flashcards", icon: Layers },
-  { key: "mindmap", label: "Mind Map", icon: Network },
-  { key: "activity", label: "Activity", icon: Gamepad2 },
+  { key: "lesson", label: "Nota Pintar", icon: BookOpen },
+  { key: "flashcards", label: "Kad Memori", icon: Layers },
+  { key: "mindmap", label: "Peta Minda", icon: Network },
+  { key: "quiz", label: "Kuiz/Aktiviti", icon: Gamepad2 },
 ];
 
-export default function LessonProgress({ steps, onStepClick, progressId }) {
+export default function LessonProgress({ steps = {}, onStepClick, sessionId }) {
   // Mengira peratusan kemajuan pembelajaran berdasarkan tugasan yang selesai
   const completed = STEPS.filter((s) => steps[s.key]).length;
   const percent = Math.round((completed / STEPS.length) * 100);
 
   // State untuk menjejak masa aktif pembelajaran dalam unit saat
   const [secondsActive, setSecondsActive] = useState(0);
+  
+  // Menggunakan useRef untuk mengelakkan perangkap 'stale closure' sewaktu unmount
+  const secondsActiveRef = useRef(0);
+  const sessionIdRef = useRef(sessionId);
 
-  // 1. Fungsi 'Timer' harian berjalan setiap saat di latar belakang
+  useEffect(() => { 
+    secondsActiveRef.current = secondsActive; 
+  }, [secondsActive]);
+
+  useEffect(() => { 
+    sessionIdRef.current = sessionId; 
+  }, [sessionId]);
+
+  // 1. Fungsi 'Timer' berjalan setiap saat di latar belakang
   useEffect(() => {
     const timer = setInterval(() => {
       setSecondsActive((prev) => prev + 1);
@@ -27,35 +39,40 @@ export default function LessonProgress({ steps, onStepClick, progressId }) {
     return () => clearInterval(timer);
   }, []);
 
-  // 2. Fungsi 'Cleanup' untuk sinkronisasi masa belajar ke database apabila menukar halaman
+  // 2. Fungsi 'Cleanup' untuk sinkronisasi masa belajar ke StudySession apabila menukar halaman
   useEffect(() => {
     return () => {
-      // Hanya rekodkan jika anak aktif belajar melebihi 5 saat untuk mengelakkan spam data kosong
-      if (progressId && secondsActive > 5) {
-        const minutesEarned = Math.round(secondsActive / 60) || 1;
+      const currentSeconds = secondsActiveRef.current;
+      const currentSessionId = sessionIdRef.current;
 
-        base44.entities.Progress.get(progressId)
-          .then((currentProgress) => {
-            const oldTime = currentProgress?.study_time || 0;
+      // Hanya rekodkan jika anak aktif belajar melebihi 5 saat untuk mengelakkan spam data kosong
+      if (currentSessionId && currentSeconds > 5) {
+        // Menggunakan Math.ceil supaya sebarang saat aktif dibundarkan ke 1 minit ke atas (menghargai masa belajar anak)
+        const minutesEarned = Math.ceil(currentSeconds / 60);
+
+        base44.entities.StudySession.get(currentSessionId)
+          .then((currentSession) => {
+            const oldDuration = currentSession?.duration_minutes || 0;
             
-            // Kemas kini jumlah minit belajar terkumpul dan tarikh aktif terakhir (updated_at)
-            base44.entities.Progress.update(progressId, {
-              study_time: oldTime + minutesEarned,
+            // Kemas kini jumlah minit belajar terkumpul di entiti StudySession yang boleh dipantau ibu bapa
+            base44.entities.StudySession.update(currentSessionId, {
+              duration_minutes: oldDuration + minutesEarned,
               updated_at: new Date().toISOString()
             });
+            console.log(`⏱️ [Progress Cleanup] Berjaya menambah ${minutesEarned} minit ke StudySession.`);
           })
           .catch((err) => {
-            console.error("Gagal mengemas kini masa pembelajaran ke server:", err);
+            console.warn("Gagal mengemas kini masa pembelajaran ke server melalui progress:", err);
           });
       }
     };
-  }, [secondsActive, progressId]);
+  }, []); // Array kosong memastikan ia hanya berjalan SEKALI ketika unmount
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-border/50 shadow-xs">
+    <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
       {/* Bahagian Atas: Bar Kemajuan */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-bold text-slate-800">Learning Progress</span>
+        <span className="text-sm font-bold text-slate-800">Kemajuan Pembelajaran</span>
         <span className="text-xs font-black text-indigo-600">{percent}%</span>
       </div>
       <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-3">
@@ -63,17 +80,17 @@ export default function LessonProgress({ steps, onStepClick, progressId }) {
           initial={{ width: 0 }}
           animate={{ width: `${percent}%` }}
           transition={{ duration: 0.5 }}
-          className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+          className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full"
         />
       </div>
 
-      {/* Maklumat Penunjuk Masa Aktif Semasa */}
+      {/* Maklumat Penunjuk Masa Aktif Sesi Semasa */}
       <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 mb-4 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 w-fit">
-        <Clock className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
-        Sesi Seterusnya: {Math.floor(secondsActive / 60)}m {secondsActive % 60}s
+        <Clock className="w-3.5 h-3.5 text-cyan-500 animate-pulse" />
+        Sesi Ini: {Math.floor(secondsActive / 60)}m {secondsActive % 60}s
       </div>
 
-      {/* Bahajaran Senarai Langkah Pembelajaran */}
+      {/* Bahagian Senarai Langkah Pembelajaran */}
       <div className="grid grid-cols-2 gap-2">
         {STEPS.map((step) => {
           const done = steps[step.key];
