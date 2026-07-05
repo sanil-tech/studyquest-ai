@@ -164,7 +164,7 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   );
 }
 
-// ---------------- INDIVIDUAL CHILD CARD (DIKEMAS KINI DENGAN AVATAR HIDUP) ----------------
+// ---------------- INDIVIDUAL CHILD CARD (DIKEMAS KINI DENGAN AVATAR HIDUP GOOGLE) ----------------
 function ChildCard({ child, onRefresh }) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -182,34 +182,33 @@ function ChildCard({ child, onRefresh }) {
   const lastActive = child.last_active ? moment(child.last_active).fromNow() : "Baru aktif";
   const displayName = child.display_name || "Pelajar";
 
-  // LOGIK BARU UNTUK AVATAR NAGA YANG REALISTIK DAN HIDUP
+  // LOGIK BARU UNTUK AVATAR NAGA BERANIMASI (MENGGUNAKAN GOOGLE CDN)
   const getDragonMilestone = (xp, lvl) => {
     // Ancient Inferno - Naga dewasa yang megah
     if (xp >= 5000 || lvl >= 15) return { 
       stageTitle: "Ancient Inferno", 
-      // Kecerunan yang lebih kaya dan berapi
       gradient: "from-rose-500 via-red-500 to-amber-300", 
       glow: "rgba(239, 68, 68, 0.4)", 
-      // Ganti emoji dengan URL render naga 3D (pastikan URL ini sah)
-      imgUrl: "https://i.ibb.co/37jH6xS/ancient-inferno-render.webp", 
+      // GIF Naga (Dragon) Animasi dari Google
+      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f409/512.gif", 
       glowColor: "#ef4444"
     };
-    // Emerald Drake - Naga remaja dengan sayap
+    // Emerald Drake - Naga remaja
     if (xp >= 1500 || lvl >= 6) return { 
       stageTitle: "Emerald Drake", 
-      // Kecerunan zamrud yang dinamik
       gradient: "from-emerald-400 via-teal-400 to-cyan-300", 
       glow: "rgba(16, 185, 129, 0.3)", 
-      imgUrl: "https://i.ibb.co/L5k6R2T/emerald-drake-render.webp", 
+      // GIF Muka Naga (Dragon Face) Animasi dari Google
+      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f432/512.gif", 
       glowColor: "#10b981"
     };
-    // Ruby Hatchling - Naga kecil yang baru menetas
+    // Ruby Hatchling - Naga kecil (T-Rex sebagai proksi naga comel)
     return { 
       stageTitle: "Ruby Hatchling", 
-      // Kecerunan ungu-merah jambu yang lembut
       gradient: "from-purple-400 via-pink-400 to-rose-300", 
       glow: "rgba(219, 39, 119, 0.2)", 
-      imgUrl: "https://i.ibb.co/wCt3K5Z/ruby-hatchling-render.webp", 
+      // GIF T-Rex Animasi dari Google (sangat comel untuk hatchling!)
+      imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f996/512.gif", 
       glowColor: "#db2677"
     };
   };
@@ -290,11 +289,11 @@ function ChildCard({ child, onRefresh }) {
                     src={milestone.imgUrl} 
                     alt={displayName} 
                     animate={{ 
-                      y: [-5, 5, -5], // Gerakan terapung lebih organik
+                      y: [-3, 3, -3], // Gerakan terapung lebih organik (dikurangkan sikit sebab GIF dah ada animasi)
                       rotate: [-2, 2, -2] // Sedikit putaran lembut
                     }} 
                     transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} 
-                    className="w-14 h-14 object-contain drop-shadow-2xl relative z-10" 
+                    className="w-10 h-10 object-contain drop-shadow-2xl relative z-10" 
                   />
                 </div>
               </div>
