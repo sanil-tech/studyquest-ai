@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Flame, Target, Clock, Coins, ShieldAlert, 
-  CheckCircle2, Award, BookOpen, HelpCircle 
+  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle 
 } from "lucide-react";
 import moment from "moment";
 import { Card } from "@/components/ui/card";
@@ -12,22 +11,25 @@ import { Button } from "@/components/ui/button";
 import { getDisplayName } from "@/lib/utils";
 
 function DetailedChildCard({ child }) {
-  const currentXP = child.progress?.xp_score || 0;
-  const nextLevelXP = child.progress?.next_level_xp || 500;
+  // 💡 DIKEMASKINI: Menggunakan total_xp dan data skema sebenar
+  const currentXP = child.progress?.total_xp || 0;
+  const nextLevelXP = 500;
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   
   const streakDays = child.progress?.streak_days || 0;
   const currentCoins = child.wallet?.balance || 0;
   const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
-  const totalStudyMinutes = child.progress?.study_time || 0;
   
-  const lastActiveTime = child.last_active 
-    ? `Aktif ${moment(child.last_active).fromNow()}` 
+  // 💡 DIKEMASKINI: Menggunakan total_study_time mengikut Schema Editor anda
+  const totalStudyMinutes = child.progress?.total_study_time || 0;
+  
+  // 💡 DIKEMASKINI: Menggunakan last_study_date mengikut Schema Editor anda
+  const lastActiveTime = child.progress?.last_study_date 
+    ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
 
-  // Ambil rekod senarai modul & kuiz yang anak dah siapkan
-  const quizScore = child.progress?.quiz_score || child.quiz_data?.score || null;
-  const totalQuizQuestions = child.progress?.quiz_total_questions || child.quiz_data?.total || 5;
+  const quizScore = child.progress?.quiz_score || null;
+  const totalQuizQuestions = child.progress?.quiz_total_questions || 5;
 
   return (
     <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
@@ -88,26 +90,25 @@ function DetailedChildCard({ child }) {
         </div>
       </div>
 
-      {/* Masa Belajar Real-Time */}
+      {/* Masa Belajar Terkumpul */}
       <div className="bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-400" />
           <div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Masa Belajar Hari Ini</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Jumlah Masa Belajar</p>
             <p className="text-sm font-black mt-1 leading-none">{totalStudyMinutes} <span className="text-[11px] font-normal text-slate-400">Minit</span></p>
           </div>
         </div>
         <Badge className="bg-emerald-500/20 text-emerald-400 font-bold border-0 text-[9px]">Sesi Aktif</Badge>
       </div>
 
-      {/* 💡 BAHAGIAN BARU: REKOD LESSON & MARKAH QUIZ */}
+      {/* Prestasi Aktiviti Bab */}
       <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5 text-xs">
         <div className="flex items-center gap-1.5 font-bold text-slate-700 border-b border-slate-200/60 pb-1.5">
           <Award className="w-3.5 h-3.5 text-indigo-600" />
           <span>Prestasi Aktiviti Bab</span>
         </div>
 
-        {/* Status Tugasan Mikro Silibus */}
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-[11px]">
             <span className="text-slate-500 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Status Nota Bacaan</span>
@@ -137,7 +138,7 @@ function DetailedChildCard({ child }) {
           ⚙️ Kata Laluan
         </Button>
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
-          <ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
+          ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
         </Button>
       </div>
     </Card>
@@ -160,21 +161,15 @@ export default function MyChildrenPage() {
         const [progress, wallet] = await Promise.all([
           base44.entities.Progress.filter({ student_id: id }),
           base44.entities.Wallet.filter({ student_id: id }),
-          // Jika sistem anda menyimpan rekod kuiz dalam entiti berasingan, anda boleh panggil di sini:
-          // base44.entities.QuizResult.filter({ student_id: id }) 
         ]);
         const childUser = await base44.entities.User.get(id).catch(() => null);
         
-        const childProgress = progress?.[0] || {};
         return { 
           id, 
           ...childUser, 
           display_name: getDisplayName(childUser), 
-          progress: childProgress, 
+          progress: progress?.[0] || {}, 
           wallet: wallet?.[0] || { balance: 0 },
-          // Gabungkan fallback sekiranya kuiz diletakkan dalam sub-objek tersendir
-          quiz_data: { score: childProgress.quiz_score, total: childProgress.quiz_total }, 
-          last_active: childProgress.updated_at || childUser?.last_active || null
         };
       }));
       setChildren(kids);
