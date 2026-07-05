@@ -57,9 +57,8 @@ const shuffleArray = (array) => {
 
 // Helper untuk mendapatkan String ISO mengikut zon masa Malaysia (waktu tempatan)
 const getMalaysianISOString = () => {
-  const tzoffset = (new Date()).getTimezoneOffset() * 60000; // Beza minit ke milisaat
-  const localISOTime = (new Date(Date.now() - tzoffset)).toISOString();
-  return localISOTime;
+  const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+  return (new Date(Date.now() - tzoffset)).toISOString();
 };
 
 // ============================================================================
@@ -118,19 +117,26 @@ export default function LessonPage() {
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
+        // Memuatkan seluruh Quiz Bank
         const allQuizBanks = await base44.entities.Quiz.filter({});
 
         if (allQuizBanks && allQuizBanks.length > 0) {
           const namaTopikSemasa = top.name.toLowerCase().trim();
+          
           const foundBank = allQuizBanks.find(bank => {
             const namaBankCsv = (bank.topic_name || "").toLowerCase().trim();
-            return namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv);
+            return !bank.session_id && (namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv));
           });
 
           if (foundBank) {
-            const parsedQs = JSON.parse(foundBank.questions_json || "[]");
+            let parsedQs = [];
+            if (typeof foundBank.questions_json === "string") {
+              parsedQs = JSON.parse(foundBank.questions_json || "[]");
+            } else if (Array.isArray(foundBank.questions_json)) {
+              parsedQs = foundBank.questions_json;
+            }
             setRawBankQuestions(parsedQs);
-            console.log(`🎯 Bank soalan dijumpai untuk topik ini! Sedia dengan ${parsedQs.length} soalan.`);
+            console.log(`🎯 Bank soalan induk dijumpai! Sedia dengan ${parsedQs.length} soalan.`);
           }
         }
 
@@ -150,6 +156,7 @@ export default function LessonPage() {
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
             
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
+            if (session.flashcards_json) setFlashcards(JSON.parse(session.flashcards_json));
           }
         }
       } catch (err) {
@@ -162,13 +169,11 @@ export default function LessonPage() {
     initializeLesson();
   }, [subjectId, topicId]);
 
-  // Fungsi mengira & merekod durasi pelajaran ke database
   const recordStudyTime = async () => {
     if (!sessionRef.current || !studyStartRef.current) return;
     const minutes = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
     try { 
       await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); 
-      console.log(`⏱️ Berjaya kemas kini durasi: ${minutes} minit.`);
     } catch (err) { 
       console.warn("Failed to record study time", err); 
     }
@@ -188,12 +193,7 @@ export default function LessonPage() {
   };
 
   const triggerConfetti = () => {
-    confetti({
-      particleCount: 150,
-      spread: 80,
-      origin: { y: 0.6 },
-      colors: ['#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981']
-    });
+    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
   };
 
   const generateCoreLesson = async () => {
@@ -219,7 +219,6 @@ export default function LessonPage() {
         }
       });
 
-      // 🛠️ DIKEMAS KINI: Menggunakan waktu tempatan Malaysia untuk cipta sesi baru
       const session = await base44.entities.StudySession.create({
         student_id: user.id,
         subject_id: subjectId,
@@ -232,7 +231,7 @@ export default function LessonPage() {
       });
 
       setSessionId(session.id);
-      studyStartRef.current = Date.now(); // Reset balik jangka masa mula
+      studyStartRef.current = Date.now(); 
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
@@ -264,133 +263,136 @@ export default function LessonPage() {
   const loadFlashcardsOnDemand = async () => {
     if (flashcards && flashcards.length > 0) return;
     if (status.flashcards) return;
-    
     setStatus(p => ({ ...p, flashcards: true }));
     
     try {
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         const shuffled = shuffleArray(rawBankQuestions);
         const selectedQuestions = shuffled.slice(0, 8);
-
         const mappedCards = selectedQuestions.map(q => ({
-          front: q.question,
-          back: `${q.correct_answer}\n\n${q.explanation || ""}`
+          front: q.question || "Sila jawab soalan ini:",
+          back: `${q.correct_answer || "Tiada jawapan"}\n\n${q.explanation || ""}`
         }));
-
-        if (sessionId) {
-          try {
-            await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(mappedCards) });
-          } catch (dbErr) {
-            console.error("Gagal mengemas kini StudySession:", dbErr);
-          }
-        }
-        
         setFlashcards(mappedCards);
+        if (sessionId) await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(mappedCards) });
         setStatus(p => ({ ...p, flashcards: false }));
         return; 
       } 
       
-      const konteksRujukan = metaData?.summary || topic?.name || "Matematik Tahun 1";
+      const konteksRujukan = metaData?.summary || topic?.name || "Kandungan pelajaran";
       const lang = getLanguageMode();
 
       const res = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
-        prompt: `Based on the topic/summary: "${konteksRujukan}", generate exactly 5 educational flashcards for a primary school student. The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}. Ensure high engagement. Return JSON schema matching: [{ "front": "string", "back": "string" }]`,
+        prompt: `Based on the topic/summary: "${konteksRujukan}", generate exactly 5 educational flashcards for a primary school student. The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}. Return JSON schema matching: [{ "front": "string", "back": "string" }]`,
       });
 
       if (res && Array.isArray(res) && res.length > 0) {
-        if (sessionId) {
-          try {
-            await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(res) });
-          } catch (dbErr) {
-            console.error("Gagal mengemas kini StudySession:", dbErr);
-          }
-        }
         setFlashcards(res);
-      } else {
-        const fallbackCards = [
-          { front: `Mari teroka topik ${topic?.name || "ini"} bersama-sama!`, back: "Hebat! Klik butang 'Seterusnya' untuk kad lain. ✨" },
-          { front: "Berapakah hasil 1 + 1?", back: "2\n\nBijak! 1 digabung dengan 1 menjadi dua. 🌟" },
-          { front: "Kumpulan yang mempunyai objek yang banyak dipanggil?", back: "Kumpulan Banyak\n\nSyabas! Anda memang pemenang. 🏆" }
-        ];
-        setFlashcards(fallbackCards);
+        if (sessionId) await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(res) });
       }
     } catch (err) {
-      console.error("Ralat kritikal dalam loadFlashcardsOnDemand:", err);
-      const errorFallback = [
-        { front: `Jom uji kefahaman tentang ${topic?.name || "topik ini"}!`, back: "Sedia! Tekan butang Kuiz di bawah untuk mula menjawab soalan. 🎯" }
-      ];
-      setFlashcards(errorFallback);
-    } finally { 
-      setStatus(p => ({ ...p, flashcards: false })); 
-    }
+      console.error(err);
+    } { setStatus(p => ({ ...p, flashcards: false })); }
   };
 
-  const runQuizGeneration = async (numQ) => {
+  // 🛠️ LOGIK BARU: DIASINGKAN MENGIKUT JENIS KUIZ DAN DIOPTIMASIKAN UNTUK PANGGILAN AI
+  const runQuizGeneration = async (mode) => {
+    if (status.quiz) return;
     setStatus(p => ({ ...p, quiz: true }));
-    const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
-
-    // 🛠️ Kemas kini masa nota serta merta sebelum melompat ke kuiz
     await recordStudyTime();
 
+    // Tentukan bilangan & kesukaran berdasarkan jenis butang
+    const isBossMode = mode === "boss";
+    const targetNumQuestions = isBossMode ? 20 : 10;
+    const determinedDifficulty = isBossMode ? "hard" : "medium";
+
     try {
+      // SENARIO A: JIKA BANK SOALAN WUJUD (UTAMAKAN DATA SEDIA ADA)
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         let filteredPool = [...rawBankQuestions];
 
-        if (determinedDifficulty === "hard") {
+        if (isBossMode) {
+          // Tapis soalan Aras Tinggi (KBAT/Hard/Medium) untuk Ujian Boss
           const hardQuestions = rawBankQuestions.filter(q => 
-            q.difficulty?.toLowerCase() === "hard" || q.difficulty?.toLowerCase() === "medium"
+            q.difficulty?.toLowerCase() === "hard" || 
+            q.difficulty?.toLowerCase() === "medium" || 
+            q.difficulty?.toLowerCase() === "kbat"
           );
-          if (hardQuestions.length >= numQ) {
+          if (hardQuestions.length > 0) {
             filteredPool = hardQuestions;
           }
         }
 
         const shuffledQuestions = shuffleArray(filteredPool);
-        const selectedPool = shuffledQuestions.slice(0, Math.min(numQ, shuffledQuestions.length));
+        const selectedPool = shuffledQuestions.slice(0, Math.min(targetNumQuestions, shuffledQuestions.length));
+
+        const validatedQuestions = selectedPool.map(q => ({
+          question: q.question,
+          options: Array.isArray(q.options) ? q.options : [q.option_a, q.option_b, q.option_c, q.option_d].filter(Boolean),
+          correct_answer: q.correct_answer,
+          explanation: q.explanation || ""
+        }));
 
         const quiz = await base44.entities.Quiz.create({
           session_id: sessionId,
           topic_name: topic.name,
-          subject_name: subject?.name || "Matematik",
-          questions_json: JSON.stringify(selectedPool),
+          subject_name: subject?.name || "Subjek",
+          questions_json: JSON.stringify(validatedQuestions),
           difficulty: determinedDifficulty,
-          num_questions: selectedPool.length,
-          created_date: getMalaysianISOString() // Ikut Waktu Malaysia
+          num_questions: validatedQuestions.length,
+          created_date: getMalaysianISOString()
         });
         
-        navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: studyStartRef.current } });
+        navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: Date.now() } });
         return;
       } 
+      
+      // SENARIO B: JIKA BANK SOALAN KOSONG (DIJANA PANTAS OLEH AI SECARA BERASINGAN)
       else {
         const lang = getLanguageMode();
+        let aiPrompt = "";
+
+        if (isBossMode) {
+          // PROMPT KHAS UJIAN BOSS: Supaya AI tidak timeout, kita minta 10 soalan Aras Tinggi KBAT super berkualiti tinggi
+          aiPrompt = `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary}", generate exactly 10 premium High-Order Thinking Skills (KBAT) multiple-choice questions for Malaysian primary school students. 
+          This is an EPIC BOSS BATTLE quiz, so the difficulty level must be strictly "HARD/CHALLENGING". Make scenarios tricky but fully grounded in the Malaysian school context.
+          The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
+          Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`;
+        } else {
+          // PROMPT KHAS CABARAN PANTAS: JANA 10 soalan asas/menengah yang ceria
+          aiPrompt = `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary}", generate exactly 10 standard, interactive multiple-choice questions for Malaysian primary school students. 
+          The difficulty level must be "EASY/MEDIUM" for regular revision. Ensure friendly Malaysian school contexts.
+          The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
+          Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`;
+        }
         
         const res = await base44.integrations.Core.InvokeLLM({
           model: "gemini_3_flash",
-          prompt: `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary}", generate exactly ${numQ} multiple-choice questions for primary school students. 
-          Since this is an EXAM mode, the difficulty level must be "${determinedDifficulty}". Include higher-order thinking (KBAT) questions suitable for this level. 
-          The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
-          Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
+          prompt: aiPrompt,
         });
         
         if (res && Array.isArray(res) && res.length > 0) {
-          const finalQuestions = res.slice(0, numQ);
+          const finalQuestions = res.slice(0, 10);
 
           const quiz = await base44.entities.Quiz.create({
             session_id: sessionId,
-            topic_name: topic.name,
-            subject_name: subject?.name || "Matematik",
+            topic_name: isBossMode ? `${topic.name} [UJIAN BOSS 👑]` : topic.name,
+            subject_name: subject?.name || "Subjek",
             questions_json: JSON.stringify(finalQuestions),
             difficulty: determinedDifficulty,
             num_questions: finalQuestions.length,
-            created_date: getMalaysianISOString() // Ikut Waktu Malaysia
+            created_date: getMalaysianISOString()
           });
           
-          navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: studyStartRef.current } });
+          navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: Date.now() } });
+        } else {
+          alert("Sistem AI sedang sibuk. Sila klik butang sekali lagi ya! ✨");
         }
       }
     } catch (err) {
-      console.error("Gagal menjana kuiz exam:", err);
+      console.error("Gagal menjana/menavigasi kuiz:", err);
+      alert("Alamak, ada masalah jaringan kecil. Jom cuba klik sekali lagi!");
     } finally {
       setStatus(p => ({ ...p, quiz: false }));
     }
@@ -399,33 +401,18 @@ export default function LessonPage() {
   const loadMindMapOnDemand = async () => {
     if (mindMap && mindMap.length > 0) return;
     if (status.mindmap) return;
-
     setStatus(p => ({ ...p, mindmap: true }));
     try {
       const lang = getLanguageMode();
-      const summary = metaData?.summary || topic?.name || "";
-      const keywords = metaData?.keywords || [];
-
       const res = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
-        prompt: MINDMAP_PROMPT(summary, keywords, lang),
+        prompt: MINDMAP_PROMPT(metaData?.summary || topic?.name || "", metaData?.keywords || [], lang),
       });
-
       if (res && Array.isArray(res)) {
-        if (sessionId) {
-          try {
-            await base44.entities.StudySession.update(sessionId, { mindmap_json: JSON.stringify(res) });
-          } catch (dbErr) {
-            console.error("Gagal mengemas kini StudySession untuk mindmap:", dbErr);
-          }
-        }
         setMindMap(res);
+        if (sessionId) await base44.entities.StudySession.update(sessionId, { mindmap_json: JSON.stringify(res) });
       }
-    } catch (err) {
-      console.error("Ralat dalam loadMindMapOnDemand:", err);
-    } finally {
-      setStatus(p => ({ ...p, mindmap: false }));
-    }
+    } catch (err) { console.error(err); } { setStatus(p => ({ ...p, mindmap: false })); }
   };
 
   const handlePremiumRedirect = () => {
@@ -443,45 +430,26 @@ export default function LessonPage() {
   return (
     <div className="px-3 sm:px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-8 pb-24 font-sans bg-slate-50/50 min-h-screen">
       
-      <motion.div 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="flex items-center gap-4 bg-gradient-to-r from-cyan-100 to-blue-100 p-4 sm:p-5 rounded-3xl border-2 border-cyan-200 shadow-sm"
-      >
+      <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex items-center gap-4 bg-gradient-to-r from-cyan-100 to-blue-100 p-4 sm:p-5 rounded-3xl border-2 border-cyan-200 shadow-sm">
         <Link to={`/study/${subjectId}`} className="p-3 bg-white rounded-2xl shadow-sm hover:shadow-md hover:bg-cyan-50 active:scale-90 transition-all">
           <ArrowLeft className="w-6 h-6 text-cyan-600" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold truncate text-slate-800 tracking-tight">
-            {topic?.name} 🌟
-          </h1>
-          <p className="text-cyan-700 font-medium text-xs sm:text-sm truncate">
-            {subject?.icon} {subject?.name} • {topic?.form_level}
-          </p>
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold truncate text-slate-800 tracking-tight">{topic?.name} 🌟</h1>
+          <p className="text-cyan-700 font-medium text-xs sm:text-sm truncate">{subject?.icon} {subject?.name} • {topic?.form_level}</p>
         </div>
       </motion.div>
 
       {!explanation ? (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }} 
-          animate={{ opacity: 1, scale: 1 }} 
-          transition={{ type: "spring", bounce: 0.5 }}
-          className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto"
-        >
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto">
           <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6 shadow-inner">
             <Sparkles className="w-10 h-10 text-primary animate-pulse" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800">
-            Hai {studentNickname}! 👋<br/>Sedia untuk belajar? 🚀
-          </h2>
-          <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">
-            Jom kita teroka ilmu baru hari ini dengan nota yang super seronok!
-          </p>
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 rounded-full text-base font-bold shadow-lg shadow-primary/30 bg-primary hover:bg-primary/90">
-              {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Tunggu sekejap ya... 🪄</> : <><Sparkles className="w-5 h-5 mr-2"/> Mula Pengembaraan!</>}
-            </Button>
-          </motion.div>
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800">Hai {studentNickname}! 👋<br/>Sedia untuk belajar? 🚀</h2>
+          <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">Jom kita teroka ilmu baru hari ini dengan nota yang super seronok!</p>
+          <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 rounded-full text-base font-bold shadow-lg shadow-primary/30 bg-primary hover:bg-primary/90">
+            {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Tunggu sekejap ya... 🪄</> : <><Sparkles className="w-5 h-5 mr-2"/> Mula Pengembaraan!</>}
+          </Button>
         </motion.div>
       ) : (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
@@ -538,27 +506,28 @@ export default function LessonPage() {
             </motion.div>
           )}
 
+          {/* ============================================================================
+              BAHAGIAN KUY / UJI MINDA (BERASINGAN DAN CEPAT)
+             ============================================================================ */}
           <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
             <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/50 rotate-12" />
             
             <div className="relative z-10">
-              <h3 className="font-bold text-xl sm:text-2xl text-orange-900 mb-2">
-                Uji Minda, {studentNickname}! 🎯
-              </h3>
-              <p className="text-sm sm:text-base text-orange-700 mb-6 font-medium">
-                Kumpul Syiling 🪙, naik level, dan jadi juara kelas! Jom sahut cabaran!
-              </p>
+              <h3 className="font-bold text-xl sm:text-2xl text-orange-900 mb-2">Uji Minda, {studentNickname}! 🎯</h3>
+              <p className="text-sm sm:text-base text-orange-700 mb-6 font-medium">Kumpul Syiling 🪙, naik level, dan jadi juara kelas! Jom sahut cabaran!</p>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
-                  <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-orange-500 hover:bg-orange-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all">
+                  {/* PANGGILAN MOD: 'quick' */}
+                  <Button onClick={() => runQuizGeneration("quick")} disabled={status.quiz} size="lg" className="bg-orange-500 hover:bg-orange-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all">
                     {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2 fill-current" />} Cabaran Pantas (10 Soalan)
                   </Button>
                 </motion.div>
 
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
-                  <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-red-500 hover:bg-red-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all">
-                    {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />} Ujian Boss (20 Soalan)
+                  {/* PANGGILAN MOD: 'boss' */}
+                  <Button onClick={() => runQuizGeneration("boss")} disabled={status.quiz} size="lg" className="bg-red-500 hover:bg-red-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all">
+                    {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />} Ujian Boss (Aras Tinggi 🔥)
                   </Button>
                 </motion.div>
               </div>
