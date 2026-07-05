@@ -5,40 +5,63 @@ import { Button } from "@/components/ui/button";
 import { Upload, Image as ImageIcon, Sparkles, Check } from "lucide-react";
 
 // ============================================================
-// DATA ENGINE AVATAR 3D LIVE CODES (100% UNBROKEN)
-// Membina kesan kad holografik 3D dengan pencahayaan neon
+// DATA UTAMA: 30 PILIHAN AVATAR 2D PREMIUM (100% KALIS PECAH)
+// Disusun kepada 5 Kategori Strategik (6 avatar setiap kategori)
 // ============================================================
 const AVATAR_THEMES = {
   warrior: {
-    label: "⚔️ Warrior",
+    label: "⚔️ Warriors",
     items: [
-      { id: "war_01", name: "Cyber Ninja", emoji: "🥷", baseColor: "#ef4444", bg: "from-slate-900 via-red-950 to-red-900", glow: "rgba(239, 68, 68, 0.6)" },
-      { id: "war_02", name: "Pixel Knight", emoji: "🛡️", baseColor: "#3b82f6", bg: "from-slate-900 via-blue-950 to-indigo-900", glow: "rgba(59, 130, 246, 0.6)" },
-      { id: "war_03", name: "Neon Samurai", emoji: "⚔️", baseColor: "#ec4899", bg: "from-slate-900 via-pink-950 to-purple-900", glow: "rgba(236, 72, 153, 0.6)" }
+      { id: "war_01", name: "Cyber Ninja", emoji: "🥷", bg: "from-red-500 via-orange-500 to-amber-500" },
+      { id: "war_02", name: "Pixel Knight", emoji: "🛡️", bg: "from-blue-600 via-indigo-600 to-cyan-500" },
+      { id: "war_03", name: "Neon Samurai", emoji: "⚔️", bg: "from-rose-500 via-purple-600 to-indigo-600" },
+      { id: "war_04", name: "Viking Chief", emoji: "🪓", bg: "from-amber-600 via-amber-700 to-amber-900" },
+      { id: "war_05", name: "Royal Archer", emoji: "🏹", bg: "from-emerald-600 via-teal-600 to-cyan-600" },
+      { id: "war_06", name: "Gladiator", emoji: "🔱", bg: "from-orange-600 via-red-600 to-stone-700" }
     ]
   },
-  mecha: {
-    label: "🤖 Mecha Pilot",
+  heroes: {
+    label: "🦸 Heroes",
     items: [
-      { id: "mec_01", name: "Iron Core", emoji: "🤖", baseColor: "#64748b", bg: "from-slate-900 via-slate-800 to-zinc-900", glow: "rgba(100, 116, 138, 0.6)" },
-      { id: "mec_02", name: "Glitch Robot", emoji: "👾", baseColor: "#10b981", bg: "from-slate-900 via-emerald-950 to-teal-900", glow: "rgba(16, 185, 129, 0.6)" },
-      { id: "mec_03", name: "Gundam Wing", emoji: "🚀", baseColor: "#f59e0b", bg: "from-slate-900 via-amber-950 to-orange-900", glow: "rgba(245, 158, 11, 0.6)" }
+      { id: "her_01", name: "Super Kid", emoji: "🦸", bg: "from-blue-500 via-red-500 to-yellow-400" },
+      { id: "her_02", name: "Speedster", emoji: "⚡", bg: "from-yellow-400 via-orange-500 to-red-500" },
+      { id: "her_03", name: "Spy Agent", emoji: "🕶️", bg: "from-zinc-700 via-slate-800 to-zinc-900" },
+      { id: "her_04", name: "Aqua Hero", emoji: "🧜‍♂️", bg: "from-cyan-500 via-blue-500 to-indigo-600" },
+      { id: "her_05", name: "Bio Mutant", emoji: "🧬", bg: "from-lime-400 via-emerald-500 to-teal-700" },
+      { id: "her_06", name: "Star Captain", emoji: "🛡️", bg: "from-indigo-600 via-purple-600 to-pink-500" }
+    ]
+  },
+  cyber: {
+    label: "🌐 Cyberpunk",
+    items: [
+      { id: "cyb_01", name: "Mecha Core", emoji: "🤖", bg: "from-slate-700 via-zinc-800 to-gray-600" },
+      { id: "cyb_02", name: "Glitch Ghost", emoji: "👾", bg: "from-emerald-500 via-teal-600 to-cyan-500" },
+      { id: "cyb_03", name: "Rocket Pilot", emoji: "🚀", bg: "from-amber-400 via-orange-500 to-red-600" },
+      { id: "cyb_04", name: "Net Runner", emoji: "💻", bg: "from-fuchsia-500 via-purple-600 to-indigo-700" },
+      { id: "cyb_05", name: "DJ Neon", emoji: "🎧", bg: "from-pink-500 via-rose-500 to-violet-600" },
+      { id: "cyb_06", name: "Android X", emoji: "🦾", bg: "from-cyan-600 via-slate-700 to-blue-900" }
     ]
   },
   beast: {
-    label: "🦊 Beast",
+    label: "🦊 Chibi Animals",
     items: [
-      { id: "bst_01", name: "Nine-Tails Fox", emoji: "🦊", baseColor: "#f97316", bg: "from-slate-900 via-orange-950 to-red-900", glow: "rgba(249, 115, 22, 0.6)" },
-      { id: "bst_02", name: "Azure Dragon", emoji: "🐉", baseColor: "#06b6d4", bg: "from-slate-900 via-cyan-950 to-emerald-900", glow: "rgba(6, 182, 212, 0.6)" },
-      { id: "bst_03", name: "Shadow Tiger", emoji: "🐯", baseColor: "#eab308", bg: "from-slate-900 via-yellow-950 to-amber-950", glow: "rgba(234, 179, 8, 0.6)" }
+      { id: "bst_01", name: "Kyubi Fox", emoji: "🦊", bg: "from-orange-500 via-red-500 to-yellow-400" },
+      { id: "bst_02", name: "Ryu Dragon", emoji: "🐉", bg: "from-cyan-400 via-blue-500 to-emerald-500" },
+      { id: "bst_03", name: "Tora Tiger", emoji: "🐯", bg: "from-amber-500 via-yellow-600 to-zinc-800" },
+      { id: "bst_04", name: "Panda Monk", emoji: "🐼", bg: "from-stone-300 via-stone-500 to-stone-700" },
+      { id: "bst_05", name: "Shiba Inu", emoji: "🐶", bg: "from-amber-400 via-orange-400 to-amber-600" },
+      { id: "bst_06", name: "Neko Thief", emoji: "🐱", bg: "from-purple-400 via-pink-400 to-indigo-500" }
     ]
   },
   mystic: {
-    label: "🔮 Mystic Mage",
+    label: "🔮 Mystics",
     items: [
-      { id: "mys_01", name: "Cosmic Orb", emoji: "🔮", baseColor: "#d946ef", bg: "from-slate-900 via-fuchsia-950 to-violet-900", glow: "rgba(217, 70, 239, 0.6)" },
-      { id: "mys_02", name: "Magic Flame", emoji: "🔥", baseColor: "#f43f5e", bg: "from-slate-900 via-rose-950 to-amber-900", glow: "rgba(244, 63, 94, 0.6)" },
-      { id: "mys_03", name: "Void Mage", emoji: "✨", baseColor: "#6366f1", bg: "from-slate-950 via-indigo-950 to-slate-900", glow: "rgba(99, 102, 241, 0.6)" }
+      { id: "mys_01", name: "Cosmic Orb", emoji: "🔮", bg: "from-purple-600 via-fuchsia-600 to-pink-500" },
+      { id: "mys_02", name: "Flame Mage", emoji: "🔥", bg: "from-red-600 via-rose-500 to-amber-400" },
+      { id: "mys_03", name: "Void Oracle", emoji: "✨", bg: "from-indigo-900 via-purple-800 to-slate-900" },
+      { id: "mys_04", name: "Phoenix", emoji: "🦅", bg: "from-amber-500 via-red-500 to-rose-600" },
+      { id: "mys_05", name: "Ice Wizard", emoji: "❄️", bg: "from-sky-400 via-blue-500 to-teal-400" },
+      { id: "mys_06", name: "Time Scholar", emoji: "⏳", bg: "from-emerald-600 via-teal-700 to-slate-800" }
     ]
   }
 };
@@ -46,80 +69,53 @@ const AVATAR_THEMES = {
 export default function ProfilePhotoSection({ user, avatarMode, setAvatarMode, uploading, fileInputRef, handlePhotoUpload, handleSaveAvatar }) {
   const [activeTab, setActiveTab] = useState("warrior");
 
-  // State untuk menyimpan koordinat tilt mouse bagi kesan 3D Real-time
-  const [rotateX, setRotateX] = useState({});
-  const [rotateY, setRotateY] = useState({});
-
   const checkIsSelected = (avatar) => {
     return user?.profile_picture_url === `css-avatar:${avatar.id}`;
   };
 
-  // Fungsi mengira pergerakan 3D Live mengikut tetikus pelajar
-  const handleMouseMove = (id, e) => {
-    const card = e.currentTarget;
-    const box = card.getBoundingClientRect();
-    const x = e.clientX - box.left - box.width / 2;
-    const y = e.clientY - box.top - box.height / 2;
-    
-    // Formula sudut kecondongan 3D
-    setRotateX(prev => ({ ...prev, [id]: -y / 3 }));
-    setRotateY(prev => ({ ...prev, [id]: x / 3 }));
-  };
-
-  const handleMouseLeave = (id) => {
-    setRotateX(prev => ({ ...prev, [id]: 0 }));
-    setRotateY(prev => ({ ...prev, [id]: 0 }));
-  };
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
-    >
-      <Card className="border-border/60 shadow-2xl overflow-hidden bg-card">
-        <CardHeader className="pb-4">
-          <CardTitle className="font-heading font-bold text-foreground flex items-center gap-2">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      <Card className="border shadow-lg bg-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-heading font-bold flex items-center gap-2 text-base md:text-lg">
             <Sparkles className="w-5 h-5 text-amber-500 animate-pulse" />
-            Arena Avatar 3D Live & Interaktif
+            Pilih Karakter Avatar Anda ({Object.values(AVATAR_THEMES).reduce((acc, curr) => acc + curr.items.length, 0)} Pilihan)
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-4">
           
-          {/* Pilihan Mod Utama Toggle */}
-          <div className="flex gap-2.5 p-1 bg-secondary/30 rounded-xl border border-border/20">
+          {/* Toggle Tab Utama (Avatar vs Upload) */}
+          <div className="flex gap-2 p-1 bg-secondary/30 rounded-xl border">
             <Button
               variant={avatarMode === "emoji" ? "default" : "ghost"}
               size="sm"
               onClick={() => setAvatarMode("emoji")}
-              className={`flex-1 font-bold rounded-lg transition-all ${avatarMode === "emoji" ? "shadow-md text-white bg-primary" : "text-muted-foreground"}`}
+              className="flex-1 font-bold text-xs sm:text-sm"
             >
-              🚀 Avatar 3D Live
+              ⚡ Galeri Avatar 2D
             </Button>
             <Button
               variant={avatarMode === "photo" ? "default" : "ghost"}
               size="sm"
               onClick={() => setAvatarMode("photo")}
-              className={`flex-1 font-bold rounded-lg transition-all ${avatarMode === "photo" ? "shadow-md text-white bg-primary" : "text-muted-foreground"}`}
+              className="flex-1 font-bold text-xs sm:text-sm"
             >
-              📷 Gambar Manual
+              📷 Muat Naik Manual
             </Button>
           </div>
 
-          {/* BLOK MODE 1: PILIHAN GRID AVATAR 3D INTERAKTIF */}
+          {/* MODE GALERI AVATAR */}
           {avatarMode === "emoji" && (
             <div className="space-y-4">
-              {/* Tab Tema Kategori */}
-              <div className="flex flex-wrap gap-1.5 p-1 bg-muted/60 rounded-lg">
+              {/* Kategori Tab Menu */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1 p-1 bg-muted rounded-xl">
                 {Object.entries(AVATAR_THEMES).map(([key, theme]) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => setActiveTab(key)}
-                    className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-md transition-all whitespace-nowrap capitalize ${
-                      activeTab === key
-                        ? "bg-card text-foreground shadow-xs border border-border/30"
-                        : "text-muted-foreground hover:text-foreground"
+                    className={`flex-1 py-2 px-2 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap ${
+                      activeTab === key ? "bg-card text-foreground border shadow-xs" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {theme.label}
@@ -127,104 +123,45 @@ export default function ProfilePhotoSection({ user, avatarMode, setAvatarMode, u
                 ))}
               </div>
 
-              {/* Grid Arena 3D */}
-              <div className="grid grid-cols-3 gap-4 pt-1" style={{ perspective: "1000px" }}>
+              {/* Grid Paparan Avatar (6 Pilihan Per Kategori) */}
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                 {AVATAR_THEMES[activeTab].items.map((avatar) => {
                   const isSelected = checkIsSelected(avatar);
-                  const rX = rotateX[avatar.id] || 0;
-                  const rY = rotateY[avatar.id] || 0;
-
                   return (
-                    <div
+                    <motion.div
                       key={avatar.id}
-                      onMouseMove={(e) => handleMouseMove(avatar.id, e)}
-                      onMouseLeave={() => handleMouseLeave(avatar.id)}
                       onClick={() => handleSaveAvatar(`css-avatar:${avatar.id}`)}
-                      className="relative group cursor-pointer"
-                      style={{ perspective: "600px" }}
+                      className={`relative cursor-pointer border rounded-xl p-2.5 text-center transition-all bg-secondary/10 flex flex-col items-center justify-center ${
+                        isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border/60 hover:border-border"
+                      }`}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      {/* KAD MATRIKS 3D YANG BERTINDAK BALAS DENGAN MOUSE */}
-                      <motion.div
-                        animate={{ rotateX: rX, rotateY: rY }}
-                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                        style={{ transformStyle: "preserve-3d" }}
-                        className={`relative rounded-2xl p-4 text-center border-2 bg-gradient-to-br ${avatar.bg} flex flex-col items-center justify-center min-h-[140px] transition-all duration-150 ${
-                          isSelected 
-                            ? "border-white shadow-2xl" 
-                            : "border-border/40 hover:border-white/50"
-                        }`}
-                        style={{
-                          boxShadow: isSelected ? `0 20px 30px -5px ${avatar.glow}` : "none",
-                        }}
-                      >
-                        {isSelected && (
-                          <div className="absolute top-2 right-2 bg-white text-slate-900 p-0.5 rounded-full z-20 shadow-lg" style={{ transform: "translateZ(30px)" }}>
-                            <Check className="w-3 h-3 stroke-[3]" />
-                          </div>
-                        )}
-                        
-                        {/* EFEK PUSAT BULATAN TENGAH (3D LAYER 1) */}
-                        <div 
-                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-4xl sm:text-5xl transition-all bg-white/5 border border-white/10 backdrop-blur-xs shadow-inner"
-                          style={{ 
-                            transform: "translateZ(40px)",
-                            boxShadow: `0 10px 20px ${avatar.glow.replace('0.6', '0.3')}`
-                          }}
-                        >
-                          {/* KARAKTER UTAMA (3D LAYER 2 - TERAPUNG KELUAR) */}
-                          <span className="block drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform duration-300">
-                            {avatar.emoji}
-                          </span>
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 bg-primary text-white p-0.5 rounded-full z-10 shadow-xs">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-
-                        {/* TEKS TEPAT (3D LAYER 1) */}
-                        <p 
-                          className="text-[10px] sm:text-xs font-black mt-3 text-white/90 uppercase tracking-wider truncate w-full"
-                          style={{ transform: "translateZ(25px)" }}
-                        >
-                          {avatar.name}
-                        </p>
-
-                        {/* Lapisan Kilatan Cahaya (Hologram Specular Layer) */}
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                      </motion.div>
-                    </div>
+                      )}
+                      <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${avatar.bg} flex items-center justify-center text-2xl sm:text-3xl shadow-md transition-transform group-hover:scale-105`}>
+                        <span className="select-none drop-shadow-md">{avatar.emoji}</span>
+                      </div>
+                      <p className="text-[9px] font-bold mt-2 truncate w-full text-muted-foreground text-center">{avatar.name}</p>
+                    </motion.div>
                   );
                 })}
               </div>
             </div>
           )}
 
-          {/* BLOK MODE 2: GAMBAR MANUAL */}
+          {/* MODE UNGGAH FOTO */}
           {avatarMode === "photo" && (
-            <div className="text-center py-4 space-y-4">
-              {user?.profile_picture_url && !user.profile_picture_url.includes("css-avatar:") ? (
-                <div className="relative w-24 h-24 mx-auto group">
-                  <img
-                    src={user.profile_picture_url}
-                    alt="Your photo"
-                    className="w-24 h-24 rounded-full object-cover border-4 border-primary/20 shadow-md"
-                  />
-                </div>
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-muted border border-dashed border-border/80 flex items-center justify-center mx-auto shadow-inner">
-                  <ImageIcon className="w-8 h-8 text-muted-foreground/60" />
-                </div>
-              )}
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                className="hidden"
-              />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full rounded-xl h-10 font-semibold shadow-xs"
-              >
-                {uploading ? "Memuat naik..." : "Muat Naik Gambar Manual"}
+            <div className="text-center py-6 space-y-4">
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+              <div className="w-20 h-20 rounded-full bg-muted border border-dashed flex items-center justify-center mx-auto shadow-inner">
+                <ImageIcon className="w-6 h-6 text-muted-foreground/60" />
+              </div>
+              <Button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="w-full max-w-xs mx-auto rounded-xl">
+                {uploading ? "Mengunggah..." : "Pilih Fail Imej"}
               </Button>
             </div>
           )}
