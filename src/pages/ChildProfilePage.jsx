@@ -1,533 +1,337 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { getDisplayName } from "@/lib/utils";
-import {
-  ArrowLeft, Edit2, Save, X, AlertTriangle, User,
-  Calendar, School, MapPin, GraduationCap, Image as ImageIcon,
-  TrendingUp, Award, Coins, BookOpen
-} from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, ShieldAlert, Sparkles, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { motion, AnimatePresence } from "framer-motion";
+import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
+import ProfileForm from "@/components/profile/ProfileForm";
+import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
+import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
+import SecuritySection from "@/components/profile/SecuritySection";
+import StudentIdSection from "@/components/profile/StudentIdSection";
 
-const MALAYSIAN_STATES = [
-  "Johor", "Kedah", "Kelantan", "Kuala Lumpur", "Labuan", "Melaka",
-  "Negeri Sembilan", "Pahang", "Penang", "Perak", "Perlis", "Putrajaya",
-  "Sabah", "Sarawak", "Selangor", "Terengganu"
+// ==========================================
+// KOLEKSI AVATAR PERCUMA (DICEBEAR API)
+// ==========================================
+const FREE_AVATARS = [
+  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Wink&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Robot1&backgroundColor=c0aede",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Cody&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/adventurer/svg?seed=Mia&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/micah/svg?seed=Alex&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/notionists/svg?seed=Luna&backgroundColor=ffdfbf"
 ];
 
-const EDUCATION_LEVELS = [
-  "Standard 1", "Standard 2", "Standard 3", "Standard 4",
-  "Standard 5", "Standard 6", "Form 1", "Form 2", "Form 3",
-  "Form 4", "Form 5"
+// ==========================================
+// KOLEKSI AVATAR PREMIUM (TAYANGAN SAHAJA - AKAN DATANG)
+// ==========================================
+const PREMIUM_AVATARS = [
+  { id: "prem1", url: "https://api.dicebear.com/7.x/pixel-art/svg?seed=King&backgroundColor=ffd700", cost: 100, label: "Raja Pixel" },
+  { id: "prem2", url: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Queen&backgroundColor=ff69b4", cost: 100, label: "Ratu Pixel" },
+  { id: "prem3", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Magic&backgroundColor=87ceeb", cost: 250, label: "Magik Ais" },
+  { id: "prem4", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Fire&backgroundColor=ff7f50", cost: 250, label: "Wira Api" },
+  { id: "prem5", url: "https://api.dicebear.com/7.x/shapes/svg?seed=Pro&backgroundColor=98fb98", cost: 500, label: "Pro Master" },
+  { id: "prem6", url: "https://api.dicebear.com/7.x/rings/svg?seed=Legend&backgroundColor=dda0dd", cost: 1000, label: "Legend" },
 ];
 
-export default function ChildProfilePage() {
-  const { childId } = useParams();
-  const navigate = useNavigate();
-  const { toast } = useToast();
- 
-  const [child, setChild] = useState(null);
+export default function ProfilePage() {
+  const [user, setUser] = useState(null);
   const [progress, setProgress] = useState(null);
   const [wallet, setWallet] = useState(null);
+  const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showAvatar, setShowAvatar] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [showDobWarning, setShowDobWarning] = useState(false);
- 
+  
   const [formData, setFormData] = useState({
-    full_name: "",
-    nickname: "",
-    date_of_birth: "",
-    school_name: "",
-    education_level: "",
-    grade_year: "",
-    class_name: "",
-    state: "",
-    country: "Malaysia",
-    profile_picture_url: ""
+    full_name: "", nickname: "", school_year: "", school_name: "",
+    class_name: "", gender: "", date_of_birth: "", country: "Malaysia", state: "",
+    notification_preferences: {
+      email_notifications: true, push_notifications: true, quiz_reminders: true,
+      daily_learning_reminder: true, parent_progress_reports: true, weekly_achievement_summary: true,
+    },
+    learning_preferences: {
+      daily_goal_minutes: 20, difficulty_preference: "medium", favorite_subjects: [],
+    },
   });
 
-  const calculateAge = (birthDate) => {
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
-  };
+  const [avatarMode, setAvatarMode] = useState("emoji");
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    loadChildData();
-  }, [childId]);
+    const load = async () => {
+      try {
+        const u = await base44.auth.me();
+        setUser(u);
+        
+        if (u.app_role === "student") {
+          const [progs, wallets, attempts] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: u.id }),
+            base44.entities.Wallet.filter({ student_id: u.id }),
+            base44.entities.QuizAttempt.filter({ student_id: u.id }),
+          ]);
+          setProgress(progs[0]);
+          setWallet(wallets[0]);
+          setTotalQuizzes(attempts.length);
+        }
+        
+        setFormData({
+          full_name: u.full_name || "", nickname: u.nickname || "", school_year: u.school_year || "",
+          school_name: u.school_name || "", class_name: u.class_name || "", gender: u.gender || "",
+          date_of_birth: u.date_of_birth || "", country: u.country || "Malaysia", state: u.state || "",
+          notification_preferences: u.notification_preferences || formData.notification_preferences,
+          learning_preferences: u.learning_preferences || formData.learning_preferences,
+        });
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [user?.id]);
 
-  const loadChildData = async () => {
+  const handleLogout = () => base44.auth.logout("/login");
+
+  const handleSaveAvatar = async (emoji) => {
+    await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
+    setUser((prev) => ({ ...prev, avatar_emoji: emoji, profile_picture_url: null }));
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
     try {
-      const childData = await base44.entities.User.get(childId);
-      const [progressData, walletData] = await Promise.all([
-        base44.entities.Progress.filter({ student_id: childId }).then(r => r[0]),
-        base44.entities.Wallet.filter({ student_id: childId }).then(r => r[0])
-      ]);
+      const result = await base44.integrations.Core.UploadFile({ file });
+      await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
+      setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
+      setAvatarMode("photo");
+      toast({ title: "Gambar dimuat naik!", description: "Profil anda telah dikemas kini." });
+    } catch (err) {
+      toast({ title: "Gagal", description: "Sila cuba lagi.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
-      // Set fallback display name if not present
-      childData.display_name = childData.nickname || childData.full_name || childData.student_id;
-      
-      console.log(`Child ${childId} loaded:`, {
-        full_name: childData.full_name,
-        nickname: childData.nickname,
-        username: childData.username,
-        student_id: childData.student_id,
-        display_name: childData.display_name
-      });
-      
-      setChild(childData);
-      setProgress(progressData || { level: 1, streak_days: 0, total_xp: 0 });
-      setWallet(walletData || { balance: 0 });
-      
-      setFormData({
-        full_name: childData.full_name || "",
-        nickname: childData.nickname || "",
-        date_of_birth: childData.date_of_birth || "",
-        school_name: childData.school_name || "",
-        education_level: childData.education_level || "",
-        grade_year: childData.grade_year || "",
-        class_name: childData.class_name || "",
-        state: childData.state || "",
-        country: childData.country || "Malaysia",
-        profile_picture_url: childData.profile_picture_url || ""
+  const handleRemovePhoto = async () => {
+    await base44.auth.updateMe({ profile_picture_url: null });
+    setUser((prev) => ({ ...prev, profile_picture_url: null }));
+    setAvatarMode("emoji");
+  };
+
+  const handleSelectPresetAvatar = async (url) => {
+    setUploading(true);
+    try {
+      await base44.auth.updateMe({ profile_picture_url: url, avatar_emoji: null });
+      setUser((prev) => ({ ...prev, profile_picture_url: url, avatar_emoji: null }));
+      setAvatarMode("photo");
+      toast({
+        title: "Avatar Ditukar! 🌟",
+        description: "Avatar baru anda kelihatan sangat hebat!",
       });
     } catch (err) {
-      console.error("Failed to load child data:", err);
-      toast({
-        title: "Error",
-        description: "Failed to load child profile",
-        variant: "destructive",
-      });
-      navigate("/parent/children");
+      toast({ title: "Gagal", description: "Tidak dapat menukar avatar.", variant: "destructive" });
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
-  const handleSave = async () => {
-    if (formData.date_of_birth !== child.date_of_birth) {
-      setShowDobWarning(true);
-      return;
-    }
-    await submitUpdate();
+  // LOGIK PEMBELIAN AVATAR PREMIUM DITANGGUHKAN
+  const handlePurchaseAvatar = () => {
+    toast({
+      title: "Fungsi Akan Datang! 🚀",
+      description: "Pembelian avatar premium sedang dibina. Teruskan kumpul syiling anda!",
+    });
   };
 
-  const submitUpdate = async () => {
+  const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const response = await base44.functions.invoke('updateChildProfile', {
-        childId,
-        updates: formData
-      });
-
-      if (response.data.success) {
-        toast({
-          title: "Profile Updated",
-          description: response.data.message,
-        });
-        await loadChildData();
-        setEditing(false);
-        setShowDobWarning(false);
-      }
+      await base44.auth.updateMe(formData);
+      const updatedUser = await base44.auth.me();
+      setUser(updatedUser);
+      setEditing(false);
+      toast({ title: "Profil disimpan! ✓", description: "Maklumat anda telah dikemas kini." });
     } catch (err) {
-      toast({
-        title: "Update Failed",
-        description: err.message || "Failed to update profile",
-        variant: "destructive",
-      });
+      toast({ title: "Gagal menyimpan", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleConfirmDobChange = () => {
-    setShowDobWarning(false);
-    submitUpdate();
-  };
+  if (loading) return <div className="flex items-center justify-center py-32"><div className="w-10 h-10 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" /></div>;
 
-  const handleCancelEdit = () => {
-    setEditing(false);
-    setFormData({
-      full_name: child.full_name || "",
-      nickname: child.nickname || "",
-      date_of_birth: child.date_of_birth || "",
-      school_name: child.school_name || "",
-      education_level: child.education_level || "",
-      grade_year: child.grade_year || "",
-      class_name: child.class_name || "",
-      state: child.state || "",
-      country: child.country || "Malaysia",
-      profile_picture_url: child.profile_picture_url || ""
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!child) {
-    return (
-      <div className="text-center py-20 px-4">
-        <h2 className="text-xl font-bold mb-2">Child not found</h2>
-        <Button onClick={() => navigate("/parent/children")}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Children
-        </Button>
-      </div>
-    );
-  }
-
-  const age = child.date_of_birth ? calculateAge(child.date_of_birth) : "N/A";
-  
-  // Logika string nama utama yang konsisten (Nickname -> Full Name -> Student ID)
-  const childDisplayName = child.nickname || child.full_name || child.student_id || "Student";
+  const isStudent = user?.app_role === "student";
+  const isParent = user?.app_role === "parent";
 
   return (
-    <div className="space-y-6 pb-8 px-4 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/parent/children")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl sm:text-2xl font-heading font-bold text-foreground truncate max-w-[250px] sm:max-w-md">
-              {childDisplayName}
-            </h1>
-            <p className="text-sm text-muted-foreground">Student Profile</p>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      
+      {/* HEADER KAD PROFIL */}
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-6 md:p-10 text-white shadow-xl">
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 z-10">
+          <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+            <div className="relative group">
+              <div className="w-28 h-28 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/30 shadow-xl">
+                {user?.profile_picture_url ? (
+                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-5xl select-none">{user?.avatar_emoji || "🦧"}</span>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "Pelajar"}</h1>
+              <p className="text-orange-50 font-medium">{user?.email}</p>
+            </div>
           </div>
-        </div>
-        
-        <div className="w-full sm:w-auto flex justify-end">
-          {!editing ? (
-            <Button className="w-full sm:w-auto" onClick={() => setEditing(true)}>
-              <Edit2 className="w-4 h-4 mr-2" />
-              Edit Profile
-            </Button>
-          ) : (
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" className="flex-1 sm:flex-initial" onClick={handleCancelEdit}>
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-              <Button className="flex-1 sm:flex-initial" onClick={handleSave} disabled={saving}>
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? "Saving..." : "Save"}
+          
+          {(isStudent || isParent) && (
+            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/20">
+              {isStudent && (
+                <Button variant="ghost" size="sm" onClick={() => setShowAvatar(!showAvatar)} className="text-white hover:bg-white/20 hover:text-white rounded-xl text-xs h-9 px-4 font-bold">
+                  {showAvatar ? "Tutup Tetapan" : "Tukar Avatar/Gambar"}
+                </Button>
+              )}
+              <Button size="sm" variant={editing ? "secondary" : "default"} disabled={saving} onClick={() => editing ? handleSaveProfile() : setEditing(true)} className={`text-xs h-9 px-4 font-bold rounded-xl transition-all shadow-sm ${editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-orange-600 hover:bg-orange-50"}`}>
+                {saving ? "Menyimpan..." : editing ? "Simpan Profil" : "Kemaskini"}
               </Button>
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Profile Overview Card */}
-      <Card className="border-border/50">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
-            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-              {child.profile_picture_url ? (
-                <img
-                  src={child.profile_picture_url}
-                  alt={childDisplayName}
-                  className="w-full h-full object-cover rounded-full"
-                />
-              ) : (
-                <User className="w-12 h-12 text-primary" />
-              )}
-            </div>
-            
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-              <div className="bg-muted/30 p-3 sm:p-0 sm:bg-transparent rounded-lg">
-                <p className="text-xs text-muted-foreground">Student ID</p>
-                <p className="font-bold text-primary truncate">{child.student_id}</p>
-              </div>
-              <div className="bg-muted/30 p-3 sm:p-0 sm:bg-transparent rounded-lg">
-                <p className="text-xs text-muted-foreground">Age</p>
-                <p className="font-bold">{age} years</p>
-              </div>
-              <div className="bg-muted/30 p-3 sm:p-0 sm:bg-transparent rounded-lg">
-                <p className="text-xs text-muted-foreground">Grade</p>
-                <p className="font-bold truncate">{child.education_level || "Not set"}</p>
-              </div>
-              <div className="bg-muted/30 p-3 sm:p-0 sm:bg-transparent rounded-lg">
-                <p className="text-xs text-muted-foreground">School</p>
-                <p className="font-bold truncate">{child.school_name || "Not set"}</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="profile">Profile Information</TabsTrigger>
-          <TabsTrigger value="progress">Learning Progress</TabsTrigger>
-        </TabsList>
-
-        {/* Profile Information Tab */}
-        <TabsContent value="profile" className="space-y-4">
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                <User className="w-5 h-5" />
-                Personal Information
-              </CardTitle>
-              <CardDescription>Manage your child's profile details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Full Name *</Label>
-                  <Input
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    disabled={!editing}
-                    placeholder="Enter full name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nickname</Label>
-                  <Input
-                    value={formData.nickname}
-                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
-                    disabled={!editing}
-                    placeholder="Preferred name"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Date of Birth *</Label>
-                  <Input
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                    disabled={!editing}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Country</Label>
-                  <Input
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    disabled={!editing}
-                    placeholder="Country"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>State</Label>
-                <Select
-                  value={formData.state}
-                  onValueChange={(value) => setFormData({ ...formData, state: value })}
-                  disabled={!editing}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select state" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MALAYSIAN_STATES.map((state) => (
-                      <SelectItem key={state} value={state}>
-                        {state}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                <School className="w-5 h-5" />
-                Education Information
-              </CardTitle>
-              <CardDescription>School and grade details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>School Name</Label>
-                <Input
-                  value={formData.school_name}
-                  onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
-                  disabled={!editing}
-                  placeholder="School name"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Education Level</Label>
-                  <Select
-                    value={formData.education_level}
-                    onValueChange={(value) => setFormData({ ...formData, education_level: value })}
-                    disabled={!editing}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EDUCATION_LEVELS.map((level) => (
-                        <SelectItem key={level} value={level}>
-                          {level}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Grade/Year</Label>
-                  <Input
-                    value={formData.grade_year}
-                    onChange={(e) => setFormData({ ...formData, grade_year: e.target.value })}
-                    disabled={!editing}
-                    placeholder="e.g., Year 3"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Class Name</Label>
-                <Input
-                  value={formData.class_name}
-                  onChange={(e) => setFormData({ ...formData, class_name: e.target.value })}
-                  disabled={!editing}
-                  placeholder="e.g., 3A"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Learning Progress Tab */}
-        <TabsContent value="progress" className="space-y-4">
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                <TrendingUp className="w-5 h-5" />
-                Progress Overview
-              </CardTitle>
-              <CardDescription>Learning metrics and achievements</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Dioptimalkan untuk Mobile (1 kolom), Tablet (2 kolom), Computer (4 kolom) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-primary/5 rounded-lg p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Award className="w-5 h-5 text-primary" />
-                    <p className="text-2xl font-bold text-primary">{progress?.level || 1}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Learning Level</p>
-                </div>
-                <div className="bg-amber-50 rounded-lg p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Coins className="w-5 h-5 text-amber-600" />
-                    <p className="text-2xl font-bold text-amber-600">{wallet?.balance || 0}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Coins Earned</p>
-                </div>
-                <div className="bg-accent/5 rounded-lg p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <TrendingUp className="w-5 h-5 text-accent" />
-                    <p className="text-2xl font-bold text-accent">{progress?.streak_days || 0}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Day Streak</p>
-                </div>
-                <div className="bg-blue-50 rounded-lg p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <BookOpen className="w-5 h-5 text-blue-600" />
-                    <p className="text-2xl font-bold text-blue-600">{progress?.total_xp || 0}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Total XP</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Protected Learning Data</CardTitle>
-              <CardDescription>
-                These metrics are automatically tracked and cannot be manually edited
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm sm:text-base">
-                <span>Quiz Attempts</span>
-                <span className="font-bold text-xs sm:text-sm bg-background px-2 py-1 rounded border">System Tracked</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm sm:text-base">
-                <span>Lesson Completions</span>
-                <span className="font-bold text-xs sm:text-sm bg-background px-2 py-1 rounded border">System Tracked</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm sm:text-base">
-                <span>Achievements</span>
-                <span className="font-bold text-xs sm:text-sm bg-background px-2 py-1 rounded border">System Tracked</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm sm:text-base">
-                <span>Study Time</span>
-                <span className="font-bold text-xs sm:text-sm bg-background px-2 py-1 rounded border">System Tracked</span>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* DOB Change Warning Dialog */}
-      {showDobWarning && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <Card className="max-w-md w-full shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-amber-600">
-                <AlertTriangle className="w-5 h-5" />
-                Date of Birth Change
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert variant="destructive">
-                <AlertDescription>
-                  Changing date of birth will update your child's learning level and lesson recommendations.
-                  This may affect their current progress tracking.
-                </AlertDescription>
-              </Alert>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDobWarning(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleConfirmDobChange}
-                  className="flex-1"
-                >
-                  Confirm Change
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        {/* SIDEBAR KIRI (Metrik & Identiti) */}
+        <div className="lg:col-span-1 space-y-6">
+           {isStudent && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-3 gap-3">
+              <Card className="border-orange-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xl font-bold">{totalQuizzes}</p><p className="text-[10px] text-slate-500 uppercase font-bold">Kuiz</p></CardContent></Card>
+              <Card className="border-orange-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xl font-bold">Lv {progress?.level || 1}</p><p className="text-[10px] text-slate-500 uppercase font-bold">Tahap</p></CardContent></Card>
+              <Card className="border-orange-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xl font-bold text-amber-500">{wallet?.balance || 0}</p><p className="text-[10px] text-slate-500 uppercase font-bold">Syiling</p></CardContent></Card>
+            </motion.div>
+          )}
+          {isStudent && <div className="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden"><StudentIdSection user={user} /></div>}
+          <Button variant="outline" onClick={handleLogout} className="w-full rounded-2xl h-12 text-red-500 border-red-200 bg-red-50 hover:bg-red-100 font-bold">Log Keluar Akaun</Button>
         </div>
-      )}
+
+        {/* BAHAGIAN KANAN (Tetapan Avatar & Borang) */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          <AnimatePresence>
+            {showAvatar && isStudent && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden bg-white rounded-2xl border border-orange-100 shadow-sm">
+                
+                {/* 1. Komponen Upload Asal */}
+                <div className="p-1 border-b-2 border-orange-50">
+                  <ProfilePhotoSection
+                    user={user} avatarMode={avatarMode} setAvatarMode={setAvatarMode}
+                    uploading={uploading} setUploading={setUploading} fileInputRef={fileInputRef}
+                    handlePhotoUpload={handlePhotoUpload} handleRemovePhoto={handleRemovePhoto}
+                    handleSaveAvatar={handleSaveAvatar} showAvatar={showAvatar} setShowAvatar={setShowAvatar}
+                  />
+                </div>
+
+                {/* 2. Galeri Avatar Percuma */}
+                <div className="p-6 bg-slate-50/50">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5 text-blue-500" />
+                    <h3 className="text-sm font-bold text-slate-700">Koleksi Avatar Percuma</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
+                    {FREE_AVATARS.map((url, idx) => {
+                      const isSelected = user?.profile_picture_url === url;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleSelectPresetAvatar(url)}
+                          disabled={uploading}
+                          className={`relative aspect-square rounded-2xl border-4 transition-all overflow-hidden ${
+                            isSelected 
+                              ? "border-blue-500 shadow-md scale-105" 
+                              : "border-transparent hover:border-blue-200 hover:scale-105 hover:shadow-sm"
+                          }`}
+                        >
+                          <img src={url} alt={`Avatar Percuma ${idx}`} className="w-full h-full object-cover bg-white" />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                              <Check className="w-6 h-6 text-blue-600 drop-shadow-md" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Galeri Avatar Premium (Kunci & Akan Datang) */}
+                <div className="p-6 bg-amber-50/50 border-t border-amber-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-amber-500" />
+                      <h3 className="text-sm font-bold text-amber-700">Avatar Premium (Akan Datang)</h3>
+                    </div>
+                    <div className="flex items-center gap-1 bg-amber-100 px-3 py-1 rounded-full">
+                      <Coins className="w-4 h-4 text-amber-600" />
+                      <span className="text-sm font-bold text-amber-700">{wallet?.balance || 0}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {PREMIUM_AVATARS.map((avatar) => {
+                      return (
+                        <button
+                          key={avatar.id}
+                          onClick={handlePurchaseAvatar}
+                          className="relative flex flex-col items-center p-2 rounded-2xl border-4 border-transparent bg-white hover:border-amber-200 hover:scale-105 hover:shadow-sm transition-all overflow-hidden"
+                        >
+                          <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-2">
+                            <img src={avatar.url} alt={avatar.label} className="w-full h-full object-cover bg-white" />
+                            {/* Overlay Kunci */}
+                            <div className="absolute inset-0 bg-slate-900/30 flex items-center justify-center backdrop-blur-[1px]">
+                              <Lock className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+                          
+                          <div className="text-center w-full">
+                            <p className="text-xs font-bold text-slate-700 truncate">{avatar.label}</p>
+                            <div className="flex items-center justify-center gap-1 mt-1 text-xs font-bold text-slate-500">
+                              <Coins className="w-3 h-3" />
+                              {avatar.cost}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {(isStudent || isParent) && (
+            <Card className="border-orange-100 shadow-sm rounded-2xl overflow-hidden bg-white">
+              <CardContent className="p-6 md:p-8">
+                <ProfileForm user={user} editing={editing} formData={formData} setFormData={setFormData} isStudent={isStudent} />
+              </CardContent>
+            </Card>
+          )}
+
+        </div>
+      </div>
     </div>
   );
 }
