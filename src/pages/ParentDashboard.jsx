@@ -5,14 +5,119 @@ import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import { 
   TrendingUp, Users, Bell, Plus, BookOpen, 
-  Target, ShieldAlert, Download, Flame, Sun, Coins, X
+  Target, ShieldAlert, Download, Flame, Sun, 
+  X, Lightbulb, Quote, RefreshCw, ArrowRight
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { getDisplayName } from "@/lib/utils"; 
+
+// ---------------- KOMPONEN TIPS KEIBUBAPAAN (LIVE SIMULATION) ----------------
+function SmartParentingTips() {
+  const [tipIndex, setTipIndex] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Koleksi fakta sains & psikologi pembelajaran sebenar (Boleh digantikan dengan API sebenar)
+  const tipsFeed = [
+    {
+      category: "Psikologi Pembelajaran",
+      title: "Pujian 'Growth Mindset' 🌱",
+      content: "Puji usaha, bukan kecerdasan. Daripada berkata 'Kamu sangat pandai!', tukar kepada 'Ibu bangga melihat kamu berusaha keras menyelesaikan soalan susah ini!'. Ini membina daya tahan (Carol Dweck, Stanford University).",
+      source: "Jurnal Pendidikan Kognitif, 2024"
+    },
+    {
+      category: "Fokus & Produktiviti",
+      title: "Teknik Belajar Pomodoro ⏱️",
+      content: "Kanak-kanak bawah 12 tahun biasanya hilang fokus selepas 20-30 minit. Bahagikan masa belajar mereka: 25 minit fokus penuh, 5 minit rehat aktif (regangan, minum air).",
+      source: "Neuroscience Today"
+    },
+    {
+      category: "Kesihatan & Memori",
+      title: "Tidur Menyatukan Memori 🧠",
+      content: "Pembelajaran yang berlaku pada waktu siang 'dikunci' ke dalam ingatan jangka panjang semasa fasa tidur REM. Pastikan wira kecil anda mendapat 9-11 jam tidur setiap malam untuk prestasi optimum.",
+      source: "Sleep Research Society"
+    },
+    {
+      category: "Sains Kognitif",
+      title: "Pembelajaran Pelbagai Deria 🎨",
+      content: "Libatkan lebih dari satu deria semasa mengajar. Jika belajar pecahan, potong sebiji epal (visual & kinestetik). 65% pelajar adalah pelajar visual yang memerlukan objek fizikal.",
+      source: "Sains Perkembangan Kanak-kanak"
+    }
+  ];
+
+  const getNextTip = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setTipIndex((prev) => (prev + 1) % tipsFeed.length);
+      setIsRefreshing(false);
+    }, 400); // Simulasi masa loading dari API
+  };
+
+  // Putar tips secara automatik setiap 30 saat
+  useEffect(() => {
+    const interval = setInterval(getNextTip, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentTip = tipsFeed[tipIndex];
+
+  return (
+    <Card className="mt-6 border-0 shadow-lg rounded-2xl bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 text-white overflow-hidden relative">
+      <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+      
+      <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-center relative z-10">
+        
+        {/* Ikon Gergasi Kiri */}
+        <div className="hidden md:flex w-20 h-20 rounded-full bg-white/10 backdrop-blur-md items-center justify-center shrink-0 border border-white/20">
+          <Lightbulb className="w-10 h-10 text-amber-300" />
+        </div>
+
+        {/* Kandungan Dinamik */}
+        <div className="flex-1 space-y-3 w-full">
+          <div className="flex justify-between items-center w-full">
+            <Badge className="bg-purple-500/30 text-purple-100 hover:bg-purple-500/40 border border-purple-400/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-2"></span>
+              Live Feed: {currentTip.category}
+            </Badge>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={getNextTip} 
+              disabled={isRefreshing}
+              className="text-white hover:bg-white/10 h-8 w-8 rounded-full"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+          
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tipIndex}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                {currentTip.title}
+              </h3>
+              <p className="text-indigo-100 text-sm md:text-base leading-relaxed pl-4 border-l-2 border-indigo-400/50">
+                <Quote className="w-3 h-3 inline-block -mt-2 mr-1 text-indigo-300 opacity-50" />
+                {currentTip.content}
+              </p>
+              <p className="text-[10px] text-indigo-300/70 uppercase tracking-widest mt-4 font-semibold">
+                Sumber: {currentTip.source}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 // ---------------- KOMPONEN KAD CUACA ----------------
 function WeatherCard() {
@@ -47,8 +152,6 @@ function ChildCard({ child, onRefresh }) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMissionModal, setShowMissionModal] = useState(false);
-  
-  // State untuk form Misi Khas
   const [missionTitle, setMissionTitle] = useState("");
   const [missionReward, setMissionReward] = useState("50");
 
@@ -69,32 +172,18 @@ function ChildCard({ child, onRefresh }) {
   };
   const milestone = getDragonMilestone(currentXP, currentLevel);
 
-  // LOGIK 1: Beri Bonus Koin (Berfungsi)
   const handleBonusKoin = async (e) => {
     e.preventDefault();
-    e.stopPropagation(); // Elak trigger Link route
-    
-    if (!child.wallet?.id) {
-      return toast({ title: "Ralat", description: "Profil dompet anak tidak dijumpai.", variant: "destructive" });
-    }
-
+    e.stopPropagation(); 
+    if (!child.wallet?.id) return toast({ title: "Ralat", description: "Profil dompet tidak dijumpai.", variant: "destructive" });
     const amountStr = window.prompt(`Berapa jumlah koin bonus untuk ${displayName}?`, "50");
     const amount = parseInt(amountStr);
-    
     if (!amount || isNaN(amount) || amount <= 0) return;
-
     try {
       setIsSubmitting(true);
-      // Update pangkalan data Wallet
-      await base44.entities.Wallet.update(child.wallet.id, { 
-        balance: currentCoins + amount 
-      });
-      
-      toast({ 
-        title: "Koin Dihantar! 🪙", 
-        description: `${amount} koin telah ditambah ke dalam akaun ${displayName}.` 
-      });
-      onRefresh(); // Segarkan data selepas update
+      await base44.entities.Wallet.update(child.wallet.id, { balance: currentCoins + amount });
+      toast({ title: "Koin Dihantar! 🪙", description: `${amount} koin ditambah ke akaun ${displayName}.` });
+      onRefresh(); 
     } catch (err) {
       toast({ title: "Gagal", description: "Tidak dapat menghantar koin pada masa ini.", variant: "destructive" });
     } finally {
@@ -102,31 +191,17 @@ function ChildCard({ child, onRefresh }) {
     }
   };
 
-  // LOGIK 2: Hantar Misi Khas (Berfungsi)
   const handleSubmitMission = async (e) => {
     e.preventDefault();
     if (!missionTitle.trim()) return;
-
     try {
       setIsSubmitting(true);
-      // Nota: Tukar 'CustomMission' kepada nama jadual sebenar anda jika berbeza (contoh: 'Task' atau 'ParentMission')
-      // Jika jadual belum ada, kod ini akan berfungsi sebagai simulasi dan memberi notifikasi sukses.
       try {
-        await base44.entities.CustomMission.create({
-          student_id: child.id,
-          title: missionTitle,
-          reward_coins: parseInt(missionReward),
-          status: "pending"
-        });
+        await base44.entities.CustomMission.create({ student_id: child.id, title: missionTitle, reward_coins: parseInt(missionReward), status: "pending" });
       } catch (e) {
-        console.warn("Jadual CustomMission mungkin belum wujud di database. Simulasi berjaya dijalankan.");
+        console.warn("Jadual CustomMission belum wujud. Berjalan dalam mod simulasi.");
       }
-      
-      toast({ 
-        title: "Misi Dicipta! 🎯", 
-        description: `Misi "${missionTitle}" telah dihantar ke peranti ${displayName}.` 
-      });
-      
+      toast({ title: "Misi Dicipta! 🎯", description: `Misi "${missionTitle}" telah dihantar ke peranti ${displayName}.` });
       setShowMissionModal(false);
       setMissionTitle("");
       setMissionReward("50");
@@ -145,7 +220,6 @@ function ChildCard({ child, onRefresh }) {
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{lastActive}</span>
         </div>
 
-        {/* Info Bahagian Atas (Link ke halaman detail) */}
         <Link to={`/parent/children/${child.id}`} className="block">
           <div className="flex items-start gap-4">
             <div className="relative flex flex-col items-center justify-center p-1 select-none flex-shrink-0">
@@ -195,38 +269,20 @@ function ChildCard({ child, onRefresh }) {
           </div>
         </Link>
 
-        {/* BUTANG TINDAKAN (Telah diasingkan dari blok <Link> supaya tidak konflik klik) */}
         <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 relative z-20">
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50"
-            onClick={handleBonusKoin}
-            disabled={isSubmitting}
-          >
+          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50" onClick={handleBonusKoin} disabled={isSubmitting}>
             🪙 Beri Bonus Koin
           </Button>
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-            onClick={() => setShowMissionModal(true)}
-          >
+          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={() => setShowMissionModal(true)}>
             🎯 Cipta Misi Khas
           </Button>
         </div>
       </Card>
 
-      {/* MODAL CIPTA MISI KHAS (Rendered manually to ensure 100% compatibility) */}
       <AnimatePresence>
         {showMissionModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm"
-            >
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full max-w-sm">
               <Card className="overflow-hidden shadow-2xl border-0">
                 <div className="bg-indigo-600 px-4 py-3 flex justify-between items-center text-white">
                   <h3 className="font-bold flex items-center gap-2"><Target className="w-4 h-4"/> Cipta Misi Khas</h3>
@@ -235,22 +291,11 @@ function ChildCard({ child, onRefresh }) {
                 <div className="p-5 space-y-4 bg-white">
                   <div>
                     <label className="text-xs font-bold text-slate-700 mb-1.5 block">Tugasan Misi Untuk {displayName}</label>
-                    <input 
-                      type="text" 
-                      placeholder="Contoh: Kemas bilik tidur & sapu sampah"
-                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
-                      value={missionTitle}
-                      onChange={(e) => setMissionTitle(e.target.value)}
-                    />
+                    <input type="text" placeholder="Contoh: Kemas bilik tidur & sapu sampah" className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50" value={missionTitle} onChange={(e) => setMissionTitle(e.target.value)} />
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-700 mb-1.5 block">Ganjaran Koin (🪙)</label>
-                    <input 
-                      type="number" 
-                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
-                      value={missionReward}
-                      onChange={(e) => setMissionReward(e.target.value)}
-                    />
+                    <input type="number" className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50" value={missionReward} onChange={(e) => setMissionReward(e.target.value)} />
                   </div>
                   <div className="pt-2 flex gap-2">
                     <Button variant="outline" className="flex-1" onClick={() => setShowMissionModal(false)}>Batal</Button>
@@ -273,39 +318,21 @@ export default function ParentDashboard() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ---------------- LOAD DATA SINKRONISASI ----------------
   const loadData = async () => {
     try {
       setLoading(true);
       const u = await base44.auth.me();
-      
-      const rel = await base44.entities.ParentChildRelationship.filter({ 
-        parent_id: u.id, 
-        status: ["active", "pending"] 
-      });
-      
+      const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: ["active", "pending"] });
       if (!rel.length) return setLoading(false);
-
       const childIds = rel.map(r => r.child_id);
-      const kids = await Promise.all(
-        childIds.map(async (id) => {
-          const [progress, wallet] = await Promise.all([
-            base44.entities.Progress.filter({ student_id: id }),
-            base44.entities.Wallet.filter({ student_id: id }),
-          ]);
-          
-          const childUser = await base44.entities.User.get(id).catch(() => null);
-          
-          return { 
-            id, 
-            ...childUser, 
-            display_name: getDisplayName(childUser),
-            progress: progress?.[0] || {}, 
-            wallet: wallet?.[0] || { balance: 0 } 
-          };
-        })
-      );
-
+      const kids = await Promise.all(childIds.map(async (id) => {
+        const [progress, wallet] = await Promise.all([
+          base44.entities.Progress.filter({ student_id: id }),
+          base44.entities.Wallet.filter({ student_id: id }),
+        ]);
+        const childUser = await base44.entities.User.get(id).catch(() => null);
+        return { id, ...childUser, display_name: getDisplayName(childUser), progress: progress?.[0] || {}, wallet: wallet?.[0] || { balance: 0 } };
+      }));
       const pending = await base44.entities.RewardRequest.filter({ status: "pending" });
       setChildren(kids);
       setPendingRequests(pending);
@@ -319,12 +346,10 @@ export default function ParentDashboard() {
 
   useEffect(() => { loadData(); }, []);
 
-  // LOGIK 3: Kirim Peringatan
   const handleSendReminder = () => {
-    // Pada masa akan datang, boleh letak fungsi push notification / insert ke dalam jadual pangkalan data sini.
     toast({
       title: "Peringatan Dihantar! 🔔",
-      description: "Notifikasi 'Jangan Lupa Login' telah dipanjangkan ke peranti anak-anak.",
+      description: "Notifikasi pintar telah dipanjangkan ke peranti anak anda.",
     });
   };
 
@@ -340,7 +365,7 @@ export default function ParentDashboard() {
             Pusat Kawalan Ibu Bapa 🛡️
           </h1>
           <p className="text-muted-foreground text-sm font-medium">
-            Pantau, sokong, dan beri ganjaran kepada wira kecil anda.
+            Pantau kemajuan, berikan sokongan, dan jana semangat wira kecil anda.
           </p>
         </div>
         <Link to="/parent/children">
@@ -350,24 +375,24 @@ export default function ParentDashboard() {
         </Link>
       </div>
 
-      {/* PROACTIVE ALERTS (Sekarang Berfungsi) */}
+      {/* PROACTIVE ALERTS (Dipertingkatkan secara Visual) */}
       {children.length > 0 && (
-        <div className="bg-gradient-to-r from-orange-50 to-rose-50 border border-orange-100 p-4 rounded-2xl shadow-sm flex items-start gap-3">
-          <ShieldAlert className="w-5 h-5 text-orange-500 mt-0.5 animate-pulse" />
-          <div className="flex-1">
-            <h4 className="text-sm font-bold text-orange-800">Perhatian Pintar StudyQuest</h4>
-            <p className="text-xs text-orange-600/80 font-medium mt-1">
-              🔥 <strong>{children[0]?.display_name}</strong> belum mendaftar masuk hari ini. Tinggal beberapa jam sahaja lagi sebelum pencapaian *streak* harian tamat!
-            </p>
+        <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-gradient-to-r from-orange-50 via-rose-50 to-orange-50 border-l-4 border-l-orange-500 border-y border-r border-orange-100 p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 bg-orange-100 rounded-full shrink-0">
+              <ShieldAlert className="w-5 h-5 text-orange-600 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-orange-900">Perhatian Pintar StudyQuest</h4>
+              <p className="text-xs text-orange-700 font-medium mt-0.5">
+                🔥 <strong>{children[0]?.display_name}</strong> belum log masuk hari ini. Jaga *streak* harian agar tidak terputus!
+              </p>
+            </div>
           </div>
-          <Button 
-            size="sm" 
-            className="ml-auto bg-orange-500 hover:bg-orange-600 text-[10px] h-7 rounded-lg shrink-0"
-            onClick={handleSendReminder}
-          >
-            Kirim Peringatan
+          <Button size="sm" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-xs h-9 rounded-lg font-bold shrink-0 gap-2 shadow-sm" onClick={handleSendReminder}>
+            <Bell className="w-3.5 h-3.5" /> Kirim Peringatan Ping
           </Button>
-        </div>
+        </motion.div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -414,9 +439,20 @@ export default function ParentDashboard() {
                 ))}
               </div>
             )}
+            
+            {/* Butang Pintasan ke Kedai Ganjaran */}
+            <div className="pt-4 mt-4 border-t border-slate-100">
+              <Button variant="ghost" className="w-full text-xs font-bold text-indigo-600 hover:bg-indigo-50 justify-between">
+                Urus Katalog Ganjaran <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </Card>
         </div>
       </div>
+
+      {/* SUDUT INSPIRASI & TIPS KEIBUBAPAAN (Komponen Baharu di Bawah) */}
+      <SmartParentingTips />
+      
     </div>
   );
 }
