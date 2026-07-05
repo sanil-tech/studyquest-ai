@@ -8,7 +8,7 @@ import {
 import { motion } from "framer-motion";
 
 // ============================================================================
-// 🐵 MORRY AVATAR COMPONENT (INLINE) - TELAH DIKEMBALIKAN
+// 🐵 MORRY AVATAR COMPONENT (INLINE)
 // ============================================================================
 const MorryAvatar = ({ message, isThinking = false, className = "", size = "text-6xl sm:text-7xl" }) => {
   const bobbingDuration = isThinking ? 0.8 : 2.5; 
@@ -141,7 +141,6 @@ export default function StudyPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F7F9F2] flex flex-col items-center justify-center space-y-4">
-        {/* Morry kembali menemani skrin loading */}
         <MorryAvatar message="Morry tengah cari map..." isThinking={true} />
         <p className="text-lg font-extrabold text-green-600 tracking-wide mt-4">Loading Expedition... 🚀</p>
       </div>
@@ -177,7 +176,6 @@ export default function StudyPage() {
         {!selectedSubject ? (
           <>
             <div className="flex flex-col sm:flex-row items-center gap-6 mb-12 bg-white p-8 rounded-[2rem] border-2 border-b-8 border-slate-200">
-              {/* Morry menyambut di Dashboard */}
               <MorryAvatar message="Jom pilih misi!" size="text-7xl sm:text-8xl" />
               <div className="text-center sm:text-left">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800">
@@ -286,7 +284,7 @@ export default function StudyPage() {
                 return (
                   <div key={topic.id} className={`relative z-10 w-full max-w-[280px] my-6 flex flex-col items-center ${zigZagClass}`}>
                     
-                    {/* Morry duduk di atas Quest Pertama (Active Node) */}
+                    {/* Morry on Active Node */}
                     {isFirst && (
                       <div className="absolute -top-24">
                         <MorryAvatar message="Laluan ini mencabar!" size="text-6xl" />
@@ -310,10 +308,12 @@ export default function StudyPage() {
                       >
                         <BookOpen className="w-6 h-6" />
                       </Link>
+                      
+                      {/* ⚔️ BUTANG CHALLENGE: Ditukar ke kuiz 30 soalan menggunakan query param `?limit=30` */}
                       <Link 
-                        to={`/study/${selectedSubject.id}/${topic.id}/quiz`}
+                        to={`/study/${selectedSubject.id}/${topic.id}/quiz?limit=30`}
                         className="bg-orange-500 text-white p-3 rounded-xl border-b-4 border-orange-700 active:border-b-0 active:translate-y-1"
-                        title="Challenge"
+                        title="Challenge (30 Questions)"
                       >
                         <span className="text-xl px-0.5">⚔️</span>
                       </Link>
