@@ -8,7 +8,7 @@ import {
 import { motion } from "framer-motion";
 
 // ============================================================================
-// 🐵 MORRY AVATAR COMPONENT (PREMIUM & ORGANIC ANIMATION)
+// 🐵 MORRY AVATAR COMPONENT
 // ============================================================================
 const MorryAvatar = ({ message, isThinking = false, className = "", size = "text-6xl sm:text-7xl" }) => {
   const bobbingDuration = isThinking ? 0.8 : 2.5; 
@@ -122,7 +122,6 @@ export default function StudyPage() {
 
   const studentFirstName = user?.name ? user.name.split(" ")[0] : "Explorer";
 
-  // Penyelarasan Posisi Zig-Zag (Lebih Smooth untuk Kad Kompak)
   const getZigZagClass = (index) => {
     const positions = [
       "translate-x-0",
@@ -257,7 +256,7 @@ export default function StudyPage() {
           </>
         ) : (
           
-          /* --- VIEW 2: MISSION MAP (PREMIUM DIALED-IN DESIGN) --- */
+          /* --- VIEW 2: MISSION MAP --- */
           <div className="relative">
             <div className="flex items-center justify-between mb-16 bg-white p-4 rounded-2xl border-2 border-b-4 border-slate-200">
               <button 
@@ -291,7 +290,7 @@ export default function StudyPage() {
                       </div>
                     )}
 
-                    {/* 🎯 UNIFIED MAP NODE (KAD 3D INTERAKTIF SEPENUHNYA) */}
+                    {/* 🎯 KAD INTERAKTIF DENGAN LINK ABSOLUTE (MENGGUNAKAN TANDA SLUSH '/' DI AWAL) */}
                     <Link 
                       to={`/study/${selectedSubject.id}/${topic.id}/lesson`}
                       className={`group w-full bg-white p-4 rounded-2xl border-2 border-b-[6px] transition-all flex items-center gap-4 active:translate-y-[4px] active:border-b-2 shadow-sm ${
