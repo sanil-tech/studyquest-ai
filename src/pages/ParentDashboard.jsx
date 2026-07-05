@@ -164,7 +164,7 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   );
 }
 
-// ---------------- INDIVIDUAL CHILD CARD ----------------
+// ---------------- INDIVIDUAL CHILD CARD (DIKEMAS KINI DENGAN AVATAR HIDUP) ----------------
 function ChildCard({ child, onRefresh }) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -182,10 +182,36 @@ function ChildCard({ child, onRefresh }) {
   const lastActive = child.last_active ? moment(child.last_active).fromNow() : "Baru aktif";
   const displayName = child.display_name || "Pelajar";
 
+  // LOGIK BARU UNTUK AVATAR NAGA YANG REALISTIK DAN HIDUP
   const getDragonMilestone = (xp, lvl) => {
-    if (xp >= 5000 || lvl >= 15) return { stageTitle: "Ancient Inferno", gradient: "from-rose-600 via-red-500 to-amber-400", glow: "rgba(239, 68, 68, 0.4)", icon: "🐉" };
-    if (xp >= 1500 || lvl >= 6) return { stageTitle: "Emerald Drake", gradient: "from-emerald-500 via-teal-500 to-cyan-500", glow: "rgba(16, 185, 129, 0.3)", icon: "🐲" };
-    return { stageTitle: "Ruby Hatchling", gradient: "from-purple-500 via-pink-500 to-rose-400", glow: "rgba(219, 39, 119, 0.2)", icon: "🦖" };
+    // Ancient Inferno - Naga dewasa yang megah
+    if (xp >= 5000 || lvl >= 15) return { 
+      stageTitle: "Ancient Inferno", 
+      // Kecerunan yang lebih kaya dan berapi
+      gradient: "from-rose-500 via-red-500 to-amber-300", 
+      glow: "rgba(239, 68, 68, 0.4)", 
+      // Ganti emoji dengan URL render naga 3D (pastikan URL ini sah)
+      imgUrl: "https://i.ibb.co/37jH6xS/ancient-inferno-render.webp", 
+      glowColor: "#ef4444"
+    };
+    // Emerald Drake - Naga remaja dengan sayap
+    if (xp >= 1500 || lvl >= 6) return { 
+      stageTitle: "Emerald Drake", 
+      // Kecerunan zamrud yang dinamik
+      gradient: "from-emerald-400 via-teal-400 to-cyan-300", 
+      glow: "rgba(16, 185, 129, 0.3)", 
+      imgUrl: "https://i.ibb.co/L5k6R2T/emerald-drake-render.webp", 
+      glowColor: "#10b981"
+    };
+    // Ruby Hatchling - Naga kecil yang baru menetas
+    return { 
+      stageTitle: "Ruby Hatchling", 
+      // Kecerunan ungu-merah jambu yang lembut
+      gradient: "from-purple-400 via-pink-400 to-rose-300", 
+      glow: "rgba(219, 39, 119, 0.2)", 
+      imgUrl: "https://i.ibb.co/wCt3K5Z/ruby-hatchling-render.webp", 
+      glowColor: "#db2677"
+    };
   };
   const milestone = getDragonMilestone(currentXP, currentLevel);
 
@@ -231,66 +257,92 @@ function ChildCard({ child, onRefresh }) {
 
   return (
     <>
-      <Card className="p-5 space-y-4 bg-white hover:shadow-xl transition-all border-slate-200 relative overflow-hidden group rounded-2xl cursor-default">
-        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+      <Card className="p-5 space-y-4 bg-white hover:shadow-xl transition-all border-slate-200 relative overflow-hidden group rounded-2xl cursor-default shadow-sm border-slate-100">
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 relative z-20">
           <div className={`w-2 h-2 rounded-full ${child.last_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{lastActive}</span>
         </div>
 
         <Link to={`/parent/children/${child.id}`} className="block">
           <div className="flex items-start gap-4">
-            <div className="relative flex flex-col items-center justify-center p-1 select-none flex-shrink-0">
-              <div style={{ perspective: "1000px" }} className="relative w-16 h-16 flex items-center justify-center">
-                <motion.div animate={{ scale: [0.95, 1.15, 0.95], rotate: 360 }} transition={{ duration: 10, repeat: Infinity }} style={{ boxShadow: `0 0 20px ${milestone.glow}` }} className="absolute inset-0 rounded-full border border-dashed border-white/20 opacity-50" />
-                <motion.div animate={{ y: [-4, 4, -4], rotateY: [-5, 5, -5] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className={`w-12 h-12 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white shadow-md flex items-center justify-center relative z-10`}>
-                  <span className="text-2xl drop-shadow-lg">{milestone.icon}</span>
-                </motion.div>
+            {/* AVATAR NAGA YANG HIDUP DAN REALISTIK */}
+            <div className="relative flex flex-col items-center justify-center p-1 select-none flex-shrink-0 relative z-10">
+              <div style={{ perspective: "1000px" }} className="relative w-18 h-18 flex items-center justify-center">
+                {/* Cahaya Latar Belakang yang Berdenyut (Pulsing Glow) */}
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    rotate: 360,
+                    filter: [`blur(15px) opacity(0.3)`,`blur(20px) opacity(0.5)`, `blur(15px) opacity(0.3)`]
+                  }} 
+                  transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }} 
+                  style={{ boxShadow: `0 0 25px ${milestone.glowColor}` }} 
+                  className="absolute inset-0 rounded-full opacity-30 blur-2xl" 
+                />
+                
+                {/* Bulatan Naga Utama */}
+                <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white/60 shadow-lg flex items-center justify-center relative z-10 overflow-hidden`}>
+                  {/* Cahaya Dalaman (Inner Glow) */}
+                  <div className="absolute inset-0 bg-white/10 blur-md rounded-full"></div>
+                  
+                  {/* Imej Naga 3D dengan Animasi Terapung yang Dipertingkatkan */}
+                  <motion.img 
+                    src={milestone.imgUrl} 
+                    alt={displayName} 
+                    animate={{ 
+                      y: [-5, 5, -5], // Gerakan terapung lebih organik
+                      rotate: [-2, 2, -2] // Sedikit putaran lembut
+                    }} 
+                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} 
+                    className="w-14 h-14 object-contain drop-shadow-2xl relative z-10" 
+                  />
+                </div>
               </div>
-              <span className="text-[9px] font-black text-slate-700 mt-1">{milestone.stageTitle}</span>
+              <span className="text-[9px] font-black text-slate-700 mt-1 tracking-tight">{milestone.stageTitle}</span>
             </div>
 
             <div className="flex-grow space-y-1">
               <div className="flex items-center gap-2 mt-1">
                 <h3 className="text-lg font-bold text-slate-800 leading-none group-hover:text-indigo-600 transition-colors">{displayName}</h3>
-                <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0 h-4">Tahap {currentLevel}</Badge>
+                <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0 h-4 rounded-md">Tahap {currentLevel}</Badge>
               </div>
               
-              <div className="pt-2 space-y-1">
+              <div className="pt-2 space-y-1 relative z-10">
                 <div className="flex justify-between items-center text-[10px]">
                   <span className="font-bold text-slate-500">XP Terkumpul</span>
                   <span className="font-extrabold text-slate-700">{currentXP} / {nextLevelXP}</span>
                 </div>
-                <Progress value={xpPercentage} className="h-1.5 bg-slate-100" />
+                <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 pt-4">
+          <div className="grid grid-cols-3 gap-2 pt-4 relative z-10">
             <div className="bg-orange-50 p-2 rounded-lg border border-orange-100/50 flex flex-col items-center justify-center text-center hover:bg-orange-100 transition-colors">
               <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
               <p className="text-sm font-black text-slate-700 leading-none">{streakDays}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Hari Streak</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-wide">Hari Streak</p>
             </div>
             <div className="bg-amber-50 p-2 rounded-lg border border-amber-100/50 flex flex-col items-center justify-center text-center hover:bg-amber-100 transition-colors">
               <span className="text-sm font-bold mb-0.5">🪙</span>
               <p className="text-sm font-black text-slate-700 leading-none">{currentCoins}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Baki Koin</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-wide">Baki Koin</p>
             </div>
             <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center text-center hover:bg-slate-100 transition-colors">
               <Target className="w-4 h-4 text-indigo-500 mb-0.5" />
               <p className="text-[9px] font-black text-slate-700 leading-tight line-clamp-1 w-full truncate px-1" title={currentTopic}>
                 {currentTopic}
               </p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Topik Semasa</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-wide">Topik Semasa</p>
             </div>
           </div>
         </Link>
 
         <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 relative z-20">
-          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50" onClick={handleBonusKoin} disabled={isSubmitting}>
+          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50 rounded-full" onClick={handleBonusKoin} disabled={isSubmitting}>
             🪙 Beri Bonus Koin
           </Button>
-          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50" onClick={() => setShowMissionModal(true)}>
+          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-full" onClick={() => setShowMissionModal(true)}>
             🎯 Cipta Misi Khas
           </Button>
         </div>
@@ -300,10 +352,10 @@ function ChildCard({ child, onRefresh }) {
         {showMissionModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full max-w-sm">
-              <Card className="overflow-hidden shadow-2xl border-0">
+              <Card className="overflow-hidden shadow-2xl border-0 rounded-2xl">
                 <div className="bg-indigo-600 px-4 py-3 flex justify-between items-center text-white">
-                  <h3 className="font-bold flex items-center gap-2"><Target className="w-4 h-4"/> Cipta Misi Khas</h3>
-                  <button onClick={() => setShowMissionModal(false)} className="hover:bg-white/20 p-1 rounded-md transition-colors"><X className="w-4 h-4"/></button>
+                  <h3 className="font-bold flex items-center gap-2 text-sm"><Target className="w-4 h-4"/> Cipta Misi Khas</h3>
+                  <button onClick={() => setShowMissionModal(false)} className="hover:bg-white/20 p-1 rounded-full transition-colors"><X className="w-4 h-4"/></button>
                 </div>
                 <div className="p-5 space-y-4 bg-white">
                   <div>
@@ -315,8 +367,8 @@ function ChildCard({ child, onRefresh }) {
                     <input type="number" className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50" value={missionReward} onChange={(e) => setMissionReward(e.target.value)} />
                   </div>
                   <div className="pt-2 flex gap-2">
-                    <Button variant="outline" className="flex-1" onClick={() => setShowMissionModal(false)}>Batal</Button>
-                    <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={handleSubmitMission} disabled={isSubmitting || !missionTitle}>Hantar Misi</Button>
+                    <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowMissionModal(false)}>Batal</Button>
+                    <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 rounded-full" onClick={handleSubmitMission} disabled={isSubmitting || !missionTitle}>Hantar Misi</Button>
                   </div>
                 </div>
               </Card>
@@ -384,18 +436,18 @@ export default function ParentDashboard() {
       title: "Pilih Anak",
       description: "Sila klik butang 'Cipta Misi Khas' pada kad profil anak di bawah.",
     });
-    window.scrollTo({ top: 300, behavior: "smooth" });
+    window.scrollTo({ top: 400, behavior: "smooth" });
   };
 
   if (loading) return <div className="flex justify-center min-h-[50vh] items-center"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>;
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto bg-slate-50/50 min-h-screen">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto bg-slate-50/50 min-h-screen">
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-black text-slate-800 flex items-center gap-2.5">
             Pusat Kawalan Ibu Bapa 🛡️
           </h1>
           <p className="text-muted-foreground text-sm font-medium">
@@ -403,13 +455,13 @@ export default function ParentDashboard() {
           </p>
         </div>
         <Link to="/parent/children">
-          <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md rounded-xl">
+          <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md rounded-xl px-5 h-11">
             <Plus className="w-4 h-4" /> Tambah Anak
           </Button>
         </Link>
       </div>
 
-      {/* PINTASAN PANTAS - DIKEMAS KINI MENGELAKKAN ROUTING ERROR */}
+      {/* PINTASAN PANTAS */}
       <motion.div 
         initial={{ opacity: 0, y: 10 }} 
         animate={{ opacity: 1, y: 0 }} 
@@ -422,7 +474,6 @@ export default function ParentDashboard() {
           gradient="from-pink-500 to-rose-400" 
           onClick={() => navigate("/parent/rewards")} 
         />
-        {/* BUTANG ANALITIK DITUKAR KEPADA TOAST SEMENTARA */}
         <ShortcutCard 
           icon={BarChart2} 
           title="Analitik" 
@@ -440,7 +491,6 @@ export default function ParentDashboard() {
           gradient="from-emerald-500 to-teal-400" 
           onClick={handleNewMissionShortcut} 
         />
-        {/* BUTANG TETAPAN DITUKAR KEPADA TOAST SEMENTARA */}
         <ShortcutCard 
           icon={Settings} 
           title="Tetapan" 
@@ -459,20 +509,20 @@ export default function ParentDashboard() {
           <div className="flex items-center gap-2 mb-3 px-1">
             <Gift className="w-5 h-5 text-amber-500" />
             <h2 className="text-sm font-bold text-slate-800">Tuntutan Menunggu Kelulusan</h2>
-            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-1.5 py-0 h-5 text-[10px] ml-1">
+            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-1.5 py-0 h-5 text-[10px] ml-1 rounded-md tracking-tight font-bold">
               {pendingRequests.length}
             </Badge>
           </div>
           
           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
             {pendingRequests.map(r => (
-              <div key={r.id} className="min-w-[280px] bg-white border border-amber-200/60 rounded-xl p-3 flex items-center justify-between shadow-sm hover:shadow-md hover:border-amber-300 transition-all flex-shrink-0">
+              <div key={r.id} className="min-w-[290px] bg-white border border-amber-200/60 rounded-xl p-3 flex items-center justify-between shadow-sm hover:shadow-md hover:border-amber-300 transition-all flex-shrink-0">
                 <div className="flex items-center gap-3 overflow-hidden pr-2">
                   <div className="bg-amber-50 p-2 rounded-lg shrink-0">
                     <Gift className="w-5 h-5 text-amber-500" />
                   </div>
                   <div className="truncate">
-                    <p className="text-xs font-bold text-slate-800 truncate">{r.reward_title}</p>
+                    <p className="text-xs font-bold text-slate-800 truncate leading-snug">{r.reward_title}</p>
                     <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1 mt-0.5">
                       <Coins className="w-3 h-3" /> {r.coin_cost} 🪙
                     </p>
@@ -495,7 +545,7 @@ export default function ParentDashboard() {
         
         {/* SEKSYEN KIRI (PERINGATAN & KAD ANAK) */}
         <div className="lg:col-span-2 space-y-4">
-          <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2 px-1">
+          <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2.5 px-1 relative z-10">
             Anak-anak Saya
           </h2>
 
@@ -504,15 +554,15 @@ export default function ParentDashboard() {
             <motion.div 
               initial={{ y: -10, opacity: 0 }} 
               animate={{ y: 0, opacity: 1 }} 
-              className="bg-white border border-orange-200 p-3 sm:p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden"
+              className="bg-white border border-orange-200 p-3 sm:p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden shadow-sm"
             >
               <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-500 rounded-l-2xl"></div>
-              <div className="flex items-center gap-3 pl-2">
-                <div className="p-2 bg-orange-50 rounded-full shrink-0 text-orange-500">
+              <div className="flex items-center gap-3 pl-2 relative z-10">
+                <div className="p-2 bg-orange-50 rounded-full shrink-0 text-orange-500 border border-orange-100">
                   <ShieldAlert className="w-5 h-5 animate-pulse" />
                 </div>
                 <div>
-                  <p className="text-[13px] text-slate-700 font-medium leading-tight">
+                  <p className="text-[13px] text-slate-700 font-medium leading-snug">
                     <strong className="text-orange-700">{children[0]?.display_name}</strong> belum log masuk hari ini. Jangan biarkan <i>streak</i> terputus!
                   </p>
                 </div>
@@ -527,11 +577,12 @@ export default function ParentDashboard() {
             </motion.div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2 pt-1">
+          <div className="grid gap-4 md:grid-cols-2 pt-1 relative z-10">
             {children.length === 0 ? (
-              <Card className="p-8 text-center text-slate-400 col-span-2 rounded-2xl border-dashed">
-                <Users className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p className="text-sm font-medium">Belum ada profil pelajar yang disambungkan.</p>
+              <Card className="p-10 text-center text-slate-400 col-span-2 rounded-2xl border-dashed border-2 border-slate-200 bg-white shadow-inner">
+                <Users className="w-12 h-12 mx-auto mb-4 opacity-40 text-slate-400" />
+                <p className="text-base font-bold text-slate-500">Belum ada profil pelajar</p>
+                <p className="text-sm text-slate-400 mt-1">Sambungkan akaun StudyQuest anak anda.</p>
               </Card>
             ) : (
               children.map(c => (
@@ -542,7 +593,7 @@ export default function ParentDashboard() {
         </div>
 
         {/* SEKSYEN SISI (KANAN) */}
-        <div className="space-y-6">
+        <div className="space-y-6 relative z-10">
           <WeatherCard />
           
           <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-white">
@@ -550,17 +601,17 @@ export default function ParentDashboard() {
               <TrendingUp className="w-4 h-4 text-indigo-500" /> Ringkasan Mingguan
             </h2>
             <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-slate-50/80 rounded-xl border border-slate-100">
-                <span className="text-xs font-bold text-slate-600">XP Terkumpul</span>
-                <span className="text-sm font-black text-indigo-600">+1,250 XP</span>
+              <div className="flex justify-between items-center p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 shadow-inner">
+                <span className="text-xs font-bold text-slate-600 tracking-tight">XP Terkumpul</span>
+                <span className="text-sm font-black text-indigo-600 tracking-tight">+1,250 XP</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-slate-50/80 rounded-xl border border-slate-100">
-                <span className="text-xs font-bold text-slate-600">Misi Selesai</span>
-                <span className="text-sm font-black text-emerald-600">8 Misi</span>
+              <div className="flex justify-between items-center p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 shadow-inner">
+                <span className="text-xs font-bold text-slate-600 tracking-tight">Misi Selesai</span>
+                <span className="text-sm font-black text-emerald-600 tracking-tight">8 Misi</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-slate-50/80 rounded-xl border border-slate-100">
-                <span className="text-xs font-bold text-slate-600">Hari Aktif</span>
-                <span className="text-sm font-black text-orange-500">5 Hari</span>
+              <div className="flex justify-between items-center p-3.5 bg-slate-50/80 rounded-xl border border-slate-100 shadow-inner">
+                <span className="text-xs font-bold text-slate-600 tracking-tight">Hari Aktif</span>
+                <span className="text-sm font-black text-orange-500 tracking-tight">5 Hari</span>
               </div>
             </div>
           </Card>
