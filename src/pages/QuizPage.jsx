@@ -23,7 +23,7 @@ export default function QuizPage() {
   const startTimeRef = useRef(Date.now());
   const [timeTaken, setTimeTaken] = useState("");
 
-  // 1. Ambil Data Kuiz dari Database base44 dengan Penormalan Lajur CSV
+  // 1. Ambil Data Kuiz & Selaraskan Format Sumber Sama Seperti Flashcard
   useEffect(() => {
     const fetchQuizData = async () => {
       try {
@@ -31,29 +31,51 @@ export default function QuizPage() {
         if (quizData) {
           setQuizMeta(quizData);
           
-          // Ambil strings JSON
           let rawData = quizData.questions_json || "[]";
-          
-          // Jika data tersangkut dalam double encoded string, kita parse sekali lagi
           if (typeof rawData === "string") {
             rawData = JSON.parse(rawData);
           }
           
           if (Array.isArray(rawData)) {
-            // 🛠️ LOGIK PINTAR: Tukar kunci Huruf Besar CSV kepada huruf kecil jika perlu
-            const normalizedQuestions = rawData.map(q => ({
-              question: q.question || q.Question || q.soalan || "",
-              options: Array.isArray(q.options) ? q.options : (q.Options || q.pilihan || []),
-              correct_answer: q.correct_answer || q.Correct_Answer || q.jawapan || "",
-              explanation: q.explanation || q.Explanation || q.ulasan || ""
-            }));
+            // 🛠️ LOGIK PENYELARASAN SUMBER KAD IMBAS/CSV
+            const normalizedQuestions = rawData.map(q => {
+              // A. Ekstrak teks soalan
+              const teksSoalan = q.question || q.Question || q.front || "";
+              
+              // B. Ekstrak jawapan betul dan ulasan (Pecahkan dari teks \n\n jika format dari back)
+              let jawapanTepat = q.correct_answer || q.Correct_Answer || "";
+              let ulasanCikgu = q.explanation || q.Explanation || "";
+              
+              if (q.back && !jawapanTepat) {
+                // Jika data berformat flashcard { front, back }, pecahkan mengikut baris baru
+                const parts = q.back.split("\n\n");
+                jawapanTepat = parts[0] || "";
+                ulasanCikgu = parts[1] || "";
+              }
+
+              // C. Ambil pilihan jawapan sedia ada, atau bina pilihan automatik jika tiada
+              let pilihanJawapan = q.options || q.Options || [];
+              if (pilihanJawapan.length === 0 && jawapanTepat) {
+                // Fail-safe jika tiada pilihan: Bina pilihan jawapan rawak/strik
+                pilihanJawapan = [jawapanTepat, "Tambahan 1", "Tambahan 2", "Tambahan 3"];
+              }
+
+              return {
+                question: teksSoalan,
+                options: pilihanJawapan,
+                correct_answer: jawapanTepat,
+                explanation: ulasanCikgu
+              };
+            });
             
-            setQuestions(normalizedQuestions);
-            console.log("🎯 Soalan berjaya dinormalisasikan & dimuatkan:", normalizedQuestions);
+            // Tapis keluar jika ada baris kosong
+            const validQuestions = normalizedQuestions.filter(q => q.question !== "");
+            setQuestions(validQuestions);
+            console.log("🎯 Sumber berjaya diselaraskan dengan Flashcard:", validQuestions);
           }
         }
       } catch (err) {
-        console.error("Gagal memuatkan atau mem-parse data kuiz:", err);
+        console.error("Gagal menyelaraskan sumber data kuiz:", err);
       } finally {
         setLoading(false);
         startTimeRef.current = Date.now();
