@@ -17,7 +17,7 @@ const parentNav = [
   { path: "/parent/approvals", icon: CheckSquare, label: "Kelulusan" },
 ];
 
-// Kita letakkan enjin audio di luar supaya ia boleh diguna semula tanpa sela masa (lag)
+// Enjin audio diletakkan di luar komponen
 let audioCtx = null;
 
 const mainkanBunyiPop = () => {
@@ -27,7 +27,6 @@ const mainkanBunyiPop = () => {
       audioCtx = new AudioContext();
     }
     
-    // Resume jika audio terhenti (polisi browser)
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     const oscillator = audioCtx.createOscillator();
@@ -86,26 +85,19 @@ export default function AppLayout() {
     }
   }, [user, isParent, location.pathname, navigate]);
 
-  // ==========================================
-  // PENDENGAR ACARA GLOBAL (Global Event Listener)
-  // ==========================================
+  // Global Event Listener untuk kesan bunyi klik
   useEffect(() => {
     const handleGlobalClick = (e) => {
-      // Periksa jika elemen yang ditekan adalah butang, pautan <a>, atau elemen dengan peranan 'button'
       const isInteractive = e.target.closest(
         'button, a, [role="button"], input[type="submit"], input[type="button"]'
       );
       
-      // Jika ia adalah elemen interaktif, mainkan bunyi
       if (isInteractive) {
         mainkanBunyiPop();
       }
     };
 
-    // Pasang 'telinga' pada keseluruhan dokumen web
     document.addEventListener('click', handleGlobalClick);
-
-    // Cabut 'telinga' apabila pengguna keluar dari halaman (untuk elak memori bocor)
     return () => document.removeEventListener('click', handleGlobalClick);
   }, []);
 
@@ -152,13 +144,21 @@ export default function AppLayout() {
           </nav>
         </div>
 
+        {/* DIBAIKI: Paparan Nama Menggunakan user.full_name / user.nickname & Avatar Dinamik */}
         <div className="p-6 border-t-2 border-orange-100 bg-orange-50/50">
           <div className="flex items-center gap-3">
-            <Link to="/profile" className="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center border-2 border-orange-400 hover:scale-110 transition-transform">
-              <User className="w-5 h-5 text-orange-700" />
+            <Link to="/profile" className="w-10 h-10 bg-white rounded-full flex items-center justify-center border-2 border-orange-400 hover:scale-110 transition-transform overflow-hidden shadow-sm">
+              {user?.profile_picture_url ? (
+                <img src={user.profile_picture_url} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl select-none">{user?.avatar_emoji || "🦧"}</span>
+              )}
             </Link>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-700 truncate">{user?.name || "Kawan Baru"}</p>
+              {/* Membaca full_name atau nickname (jika ada), jika tiada barulah keluar nama peranan */}
+              <p className="text-sm font-bold text-slate-700 truncate">
+                {user?.full_name || user?.nickname || (isParent ? "Ibu Bapa" : "Pelajar")}
+              </p>
               <p className="text-xs text-slate-500 truncate">Lihat Profil</p>
             </div>
             {!isParent && (
@@ -185,8 +185,13 @@ export default function AppLayout() {
                 {unreadCount > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />}
               </Link>
             )}
-            <Link to="/profile" className="p-2 rounded-full bg-orange-100">
-              <User className="w-5 h-5 text-orange-700" />
+            {/* DIBAIKI: Avatar Dinamik pada Header Mobile */}
+            <Link to="/profile" className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-orange-400 overflow-hidden shadow-sm">
+              {user?.profile_picture_url ? (
+                <img src={user.profile_picture_url} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-base select-none">{user?.avatar_emoji || "🦧"}</span>
+              )}
             </Link>
           </div>
         </header>
