@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Check, X, Coins, Clock, Loader2, Sparkles, MessageCircle, ArrowRight } from "lucide-react";
+import { Check, X, Coins, Clock, Loader2, Sparkles, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
@@ -17,24 +17,44 @@ export default function ParentApprovals() {
   const loadData = async () => {
     try {
       const user = await base44.auth.me();
-      const linkReqs = await base44.entities.LinkRequest.filter({ parent_email: user.email, status: "approved" });
       
-      const nameMap = {};
-      linkReqs.forEach(r => { nameMap[r.student_id] = r.student_name; });
-      const studentIds = linkReqs.map(r => r.student_id);
-      
-      if (studentIds.length > 0) {
-        const allReqs = [];
-        for (const sid of studentIds) {
-          const reqs = await base44.entities.RewardRequest.filter({ student_id: sid }, "-created_date", 20);
-          reqs.forEach(r => { r._student_name = nameMap[sid] || "Student"; });
-          allReqs.push(...reqs);
-        }
+      // FIX: Find child IDs via the active ParentChildRelationship table, matching your other managers
+      const relationships = await base44.entities.ParentChildRelationship.filter({
+        parent_id: user.id,
+        status: "active",
+      });
+
+      if (relationships.length > 0) {
+        // Resolve student profiles and reward requests concurrently
+        const requestsArrays = await Promise.all(
+          relationships.map(async (rel) => {
+            try {
+              // Fetch student data profile to resolve names correctly
+              const studentProfile = await base44.entities.User.get(rel.child_id);
+              const displayName = studentProfile.display_name || studentProfile.full_name || studentProfile.username || "Student";
+              
+              // Filter active requests
+              const reqs = await base44.entities.RewardRequest.filter({ student_id: rel.child_id }, "-created_date", 20);
+              
+              return reqs.map(r => ({
+                ...r,
+                _student_name: displayName
+              }));
+            } catch (err) {
+              console.error(`Skipping request load block for student ID ${rel.child_id}:`, err);
+              return [];
+            }
+          })
+        );
+        
+        const allReqs = requestsArrays.flat();
         allReqs.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
         setRequests(allReqs);
+      } else {
+        setRequests([]);
       }
     } catch (err) {
-      console.error("Error loading approvals:", err);
+      console.error("Error loading approvals dashboard log sequence:", err);
     } finally {
       setLoading(false);
     }
@@ -85,9 +105,11 @@ export default function ParentApprovals() {
         variant: decision === "approved" ? "default" : "destructive"
       });
       
-      // Clean target comment box and sync remote states
+      // Clean target comment box
       setMessages(prev => { const copy = { ...prev }; delete copy[req.id]; return copy; });
-      loadData();
+      
+      // Enforce timeout block to allow DB writes to finish committing
+      setTimeout(() => { loadData(); }, 300);
     } catch (err) {
       console.error(err);
       toast({ title: "Transaction Error", description: "Failed to save request decision details.", variant: "destructive" });
@@ -156,7 +178,6 @@ export default function ParentApprovals() {
                   transition={{ delay: i * 0.04 }}
                   className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:border-slate-200 transition-colors relative group"
                 >
-                  {/* Card Main Metadata Container */}
                   <div>
                     <div className="flex justify-between items-start mb-3 gap-2">
                       <div className="min-w-0">
@@ -172,13 +193,13 @@ export default function ParentApprovals() {
                       </span>
                     </div>
 
-                    {/* Cost pricing box layout values */}
+                    {/* Cost pricing box */}
                     <div className="flex items-center gap-1.5 bg-amber-50/60 border border-amber-100/60 w-fit px-3 py-1 rounded-xl mb-4 shadow-3xs">
                       <Coins className="w-4 h-4 text-amber-500 fill-amber-400/20" />
                       <span className="font-black text-amber-700 text-xs">{req.coin_cost} Gold Coins Requested</span>
                     </div>
 
-                    {/* Context Message input feedback module box */}
+                    {/* Feedback box */}
                     <div className="space-y-1 mb-4 relative">
                       <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
                         <MessageCircle className="w-3 h-3 text-slate-400" /> Attached Memo (Optional)
@@ -193,7 +214,7 @@ export default function ParentApprovals() {
                     </div>
                   </div>
 
-                  {/* Dual Control Command Buttons Segment Footer */}
+                  {/* Action buttons */}
                   <div className="flex gap-2.5 border-t border-slate-50 pt-3 mt-1">
                     <Button
                       onClick={() => handleDecision(req, "approved")}
@@ -224,7 +245,7 @@ export default function ParentApprovals() {
         )}
       </div>
 
-      {/* 3. COMPLETED RECENT HISTORY LOGS SEGMENT */}
+      {/* 3. COMPLETED RECENT HISTORY LOGS */}
       {resolved.length > 0 && (
         <div className="space-y-4 pt-2">
           <h2 className="text-md font-extrabold text-slate-700 font-heading">Archived History Log</h2>
@@ -235,14 +256,12 @@ export default function ParentApprovals() {
               return (
                 <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3 hover:bg-slate-50/40 transition-colors">
                   <div className="flex items-center gap-4 min-w-0">
-                    {/* Status Circle Frame box styling details indicators */}
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 shadow-3xs ${
                       isApproved ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-rose-50 border-rose-100 text-rose-500"
                     }`}>
                       {isApproved ? <Check className="w-4 h-4 stroke-[3]" /> : <X className="w-4 h-4 stroke-[3]" />}
                     </div>
                     
-                    {/* Log textual context parameters updates summaries */}
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-slate-800 truncate tracking-tight">{req.reward_title}</p>
                       <p className="text-xs text-slate-400 font-medium flex items-center flex-wrap gap-1 mt-0.5">
@@ -259,7 +278,6 @@ export default function ParentApprovals() {
                     </div>
                   </div>
 
-                  {/* Right side numeric wallet balancing tracking display details */}
                   <div className="flex items-center gap-2 self-end sm:self-center bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-100/60 shrink-0">
                     <span className={`text-xs font-black tracking-tight ${isApproved ? "text-emerald-600" : "text-slate-400 line-through"}`}>
                       {isApproved ? "-" : ""}{req.coin_cost}
@@ -272,7 +290,6 @@ export default function ParentApprovals() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
