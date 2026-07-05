@@ -5,43 +5,52 @@ import { Button } from "@/components/ui/button";
 import { Upload, Image as ImageIcon, Sparkles, Check } from "lucide-react";
 
 // ============================================================
-// DATA AVATAR 2D ANIME BERANIMASI (100% VALID & BEBAS BLOCKED)
-// Menggunakan fail animasi .gif berkualiti tinggi dari sistem terbuka
+// DATA AVATAR BERTEMA MENGGUNAKAN CSS NEON TULEN (100% ANTI-PECAH)
+// Setiap avatar dijana menggunakan kombinasi warna CSS & emoji 
 // ============================================================
 const AVATAR_THEMES = {
   warrior: {
     label: "⚔️ Warrior",
     items: [
-      { id: "war_01", name: "Cyber Ninja", url: "https://cdn.pixabay.com/animation/2022/11/17/04/18/04-18-20-449_512.gif" },
-      { id: "war_02", name: "Pixel Knight", url: "https://cdn.pixabay.com/animation/2023/03/19/18/59/18-59-00-112_512.gif" },
-      { id: "war_03", name: "Neon Samurai", url: "https://cdn.pixabay.com/animation/2023/10/24/13/21/13-21-28-360_512.gif" }
+      { id: "war_01", name: "Cyber Ninja", emoji: "🥷", bg: "from-red-500 via-orange-600 to-amber-500", glow: "shadow-red-500/50" },
+      { id: "war_02", name: "Pixel Knight", emoji: "🛡️", bg: "from-blue-600 via-indigo-600 to-cyan-500", glow: "shadow-blue-500/50" },
+      { id: "war_03", name: "Neon Samurai", emoji: "⚔️", bg: "from-rose-500 via-purple-600 to-indigo-600", glow: "shadow-purple-500/50" }
     ]
   },
   mecha: {
     label: "🤖 Mecha Pilot",
     items: [
-      { id: "mec_01", name: "Iron Core", url: "https://cdn.pixabay.com/animation/2023/05/29/18/43/18-43-34-315_512.gif" },
-      { id: "mec_02", name: "Glitch Robot", url: "https://cdn.pixabay.com/animation/2022/12/16/13/53/13-53-50-621_512.gif" }
+      { id: "mec_01", name: "Iron Core", emoji: "🤖", bg: "from-slate-700 via-zinc-800 to-gray-600", glow: "shadow-slate-500/50" },
+      { id: "mec_02", name: "Glitch Robot", emoji: "👾", bg: "from-emerald-500 via-teal-600 to-cyan-500", glow: "shadow-emerald-500/50" },
+      { id: "mec_03", name: "Gundam Wing", emoji: "🚀", bg: "from-amber-400 via-orange-500 to-red-600", glow: "shadow-amber-500/50" }
     ]
   },
   beast: {
     label: "🦊 Beast",
     items: [
-      { id: "bst_01", name: "Cyber Cat", url: "https://cdn.pixabay.com/animation/2023/04/23/15/45/15-45-12-619_512.gif" },
-      { id: "bst_02", name: "Retro Dino", url: "https://cdn.pixabay.com/animation/2022/07/31/13/37/13-37-33-85_512.gif" }
+      { id: "bst_01", name: "Nine-Tails Fox", emoji: "🦊", bg: "from-orange-500 via-red-500 to-yellow-400", glow: "shadow-orange-500/50" },
+      { id: "bst_02", name: "Azure Dragon", emoji: "🐉", bg: "from-cyan-400 via-blue-500 to-emerald-500", glow: "shadow-cyan-500/50" },
+      { id: "bst_03", name: "Shadow Tiger", emoji: "🐯", bg: "from-amber-500 via-yellow-600 to-zinc-800", glow: "shadow-amber-600/50" }
     ]
   },
   mystic: {
     label: "🔮 Mystic Mage",
     items: [
-      { id: "mys_01", name: "Cosmic Orb", url: "https://cdn.pixabay.com/animation/2023/03/05/17/23/17-23-45-661_512.gif" },
-      { id: "mys_02", name: "Magic Flame", url: "https://cdn.pixabay.com/animation/2023/02/26/04/32/04-32-45-163_512.gif" }
+      { id: "mys_01", name: "Cosmic Orb", emoji: "🔮", bg: "from-purple-600 via-fuchsia-600 to-pink-500", glow: "shadow-fuchsia-500/50" },
+      { id: "mys_02", name: "Magic Flame", emoji: "🔥", bg: "from-red-600 via-rose-500 to-amber-400", glow: "shadow-rose-500/50" },
+      { id: "mys_03", name: "Void Mage", emoji: "✨", bg: "from-indigo-900 via-purple-800 to-slate-900", glow: "shadow-purple-900/50" }
     ]
   }
 };
 
 export default function ProfilePhotoSection({ user, avatarMode, setAvatarMode, uploading, fileInputRef, handlePhotoUpload, handleSaveAvatar }) {
   const [activeTab, setActiveTab] = useState("warrior");
+
+  // Fungsi untuk semak sama ada avatar tersuai ini sedang dipilih
+  const checkIsSelected = (avatar) => {
+    // Memandangkan kita simpan data sebagai string/URL, kita boleh simpan nilai pengecam unik
+    return user?.profile_picture_url === `css-avatar:${avatar.id}`;
+  };
 
   return (
     <motion.div
@@ -102,16 +111,16 @@ export default function ProfilePhotoSection({ user, avatarMode, setAvatarMode, u
               {/* Grid Kandungan Utama Watak Gempak */}
               <div className="grid grid-cols-3 gap-3.5 pt-1">
                 {AVATAR_THEMES[activeTab].items.map((avatar) => {
-                  const isSelected = user?.profile_picture_url === avatar.url;
+                  const isSelected = checkIsSelected(avatar);
                   return (
                     <motion.div
                       key={avatar.id}
-                      onClick={() => handleSaveAvatar(avatar.url)}
-                      className={`group relative cursor-pointer border-2 rounded-xl p-2.5 text-center transition-all bg-secondary/10 hover:bg-secondary/30 ${
+                      onClick={() => handleSaveAvatar(`css-avatar:${avatar.id}`)}
+                      className={`group relative cursor-pointer border-2 rounded-2xl p-3 text-center transition-all bg-secondary/10 hover:bg-secondary/30 flex flex-col items-center justify-center ${
                         isSelected ? "border-primary bg-primary/5 shadow-md" : "border-transparent"
                       }`}
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.97 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
                       {isSelected && (
                         <div className="absolute top-1.5 right-1.5 bg-primary text-white p-0.5 rounded-full z-10 shadow-md">
@@ -119,13 +128,12 @@ export default function ProfilePhotoSection({ user, avatarMode, setAvatarMode, u
                         </div>
                       )}
                       
-                      <img
-                        src={avatar.url}
-                        alt={avatar.name}
-                        className="w-16 h-16 sm:w-20 sm:h-20 mx-auto object-contain lively-avatar"
-                        loading="lazy"
-                      />
-                      <p className="text-[10px] font-bold mt-2 text-foreground truncate">{avatar.name}</p>
+                      {/* LUKISAN AVATAR GRADIENT DENGAN EFEK NEON GLOW & PERGERAKAN LIVELY */}
+                      <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br ${avatar.bg} shadow-lg ${avatar.glow} flex items-center justify-center text-3xl sm:text-4xl lively-avatar group-hover:rotate-6 transition-transform duration-300`}>
+                        {avatar.emoji}
+                      </div>
+
+                      <p className="text-[10px] font-bold mt-2 text-foreground truncate w-full">{avatar.name}</p>
                     </motion.div>
                   );
                 })}
@@ -136,7 +144,7 @@ export default function ProfilePhotoSection({ user, avatarMode, setAvatarMode, u
           {/* BLOK MODE 2: PENGURUSAN FOTO MANUAL DARI PERANTI */}
           {avatarMode === "photo" && (
             <div className="text-center py-4 space-y-4">
-              {user?.profile_picture_url && !user.profile_picture_url.includes("pixabay.com") ? (
+              {user?.profile_picture_url && !user.profile_picture_url.includes("css-avatar:") ? (
                 <div className="relative w-24 h-24 mx-auto group">
                   <img
                     src={user.profile_picture_url}
@@ -173,7 +181,7 @@ export default function ProfilePhotoSection({ user, avatarMode, setAvatarMode, u
                 ) : (
                   <>
                     <Upload className="w-4 h-4 mr-2" />
-                    {user?.profile_picture_url && !user.profile_picture_url.includes("pixabay.com") ? "Ganti Gambar Fail" : "Muat Naik Gambar"}
+                    {user?.profile_picture_url && !user.profile_picture_url.includes("css-avatar:") ? "Ganti Gambar Fail" : "Muat Naik Gambar"}
                   </>
                 )}
               </Button>
