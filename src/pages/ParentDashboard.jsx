@@ -6,10 +6,11 @@ import moment from "moment";
 import { 
   TrendingUp, Users, Bell, Plus, BookOpen, 
   Target, ShieldAlert, Download, Flame, Sun, 
-  X, Lightbulb, Quote, RefreshCw, ArrowRight
+  X, Lightbulb, Quote, RefreshCw, ArrowRight, 
+  Gift, CheckCircle2, Coins, Settings
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -20,30 +21,29 @@ function SmartParentingTips() {
   const [tipIndex, setTipIndex] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Koleksi fakta sains & psikologi pembelajaran sebenar (Boleh digantikan dengan API sebenar)
   const tipsFeed = [
     {
       category: "Psikologi Pembelajaran",
       title: "Pujian 'Growth Mindset' 🌱",
-      content: "Puji usaha, bukan kecerdasan. Daripada berkata 'Kamu sangat pandai!', tukar kepada 'Ibu bangga melihat kamu berusaha keras menyelesaikan soalan susah ini!'. Ini membina daya tahan (Carol Dweck, Stanford University).",
+      content: "Puji usaha, bukan kecerdasan. Daripada berkata 'Kamu sangat pandai!', tukar kepada 'Ibu bangga melihat kamu berusaha keras menyelesaikan soalan susah ini!'. Ini membina daya tahan.",
       source: "Jurnal Pendidikan Kognitif, 2024"
     },
     {
       category: "Fokus & Produktiviti",
       title: "Teknik Belajar Pomodoro ⏱️",
-      content: "Kanak-kanak bawah 12 tahun biasanya hilang fokus selepas 20-30 minit. Bahagikan masa belajar mereka: 25 minit fokus penuh, 5 minit rehat aktif (regangan, minum air).",
+      content: "Kanak-kanak bawah 12 tahun biasanya hilang fokus selepas 20-30 minit. Bahagikan masa belajar mereka: 25 minit fokus penuh, 5 minit rehat aktif.",
       source: "Neuroscience Today"
     },
     {
       category: "Kesihatan & Memori",
       title: "Tidur Menyatukan Memori 🧠",
-      content: "Pembelajaran yang berlaku pada waktu siang 'dikunci' ke dalam ingatan jangka panjang semasa fasa tidur REM. Pastikan wira kecil anda mendapat 9-11 jam tidur setiap malam untuk prestasi optimum.",
+      content: "Pembelajaran 'dikunci' ke dalam ingatan jangka panjang semasa fasa tidur REM. Pastikan wira kecil anda mendapat 9-11 jam tidur setiap malam.",
       source: "Sleep Research Society"
     },
     {
       category: "Sains Kognitif",
       title: "Pembelajaran Pelbagai Deria 🎨",
-      content: "Libatkan lebih dari satu deria semasa mengajar. Jika belajar pecahan, potong sebiji epal (visual & kinestetik). 65% pelajar adalah pelajar visual yang memerlukan objek fizikal.",
+      content: "Libatkan lebih dari satu deria semasa mengajar. Jika belajar pecahan, potong sebiji epal (visual & kinestetik). 65% pelajar memerlukan objek fizikal.",
       source: "Sains Perkembangan Kanak-kanak"
     }
   ];
@@ -53,10 +53,9 @@ function SmartParentingTips() {
     setTimeout(() => {
       setTipIndex((prev) => (prev + 1) % tipsFeed.length);
       setIsRefreshing(false);
-    }, 400); // Simulasi masa loading dari API
+    }, 400); 
   };
 
-  // Putar tips secara automatik setiap 30 saat
   useEffect(() => {
     const interval = setInterval(getNextTip, 30000);
     return () => clearInterval(interval);
@@ -69,13 +68,10 @@ function SmartParentingTips() {
       <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
       
       <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 items-center relative z-10">
-        
-        {/* Ikon Gergasi Kiri */}
         <div className="hidden md:flex w-20 h-20 rounded-full bg-white/10 backdrop-blur-md items-center justify-center shrink-0 border border-white/20">
           <Lightbulb className="w-10 h-10 text-amber-300" />
         </div>
 
-        {/* Kandungan Dinamik */}
         <div className="flex-1 space-y-3 w-full">
           <div className="flex justify-between items-center w-full">
             <Badge className="bg-purple-500/30 text-purple-100 hover:bg-purple-500/40 border border-purple-400/30">
@@ -140,7 +136,7 @@ function WeatherCard() {
       </div>
       <div className="mt-4 pt-3 border-t border-sky-200/50 relative z-10">
         <p className="text-[11px] text-sky-800 font-medium leading-relaxed">
-          Cuaca agak panas di luar. Waktu yang sesuai untuk anak-anak berehat di rumah sambil menyiapkan misi <strong>StudyQuest</strong>! 🏡✨
+          Cuaca agak panas di luar. Waktu yang sesuai untuk anak berehat di rumah sambil main <strong>StudyQuest</strong>! 🏡
         </p>
       </div>
     </Card>
@@ -353,6 +349,15 @@ export default function ParentDashboard() {
     });
   };
 
+  const handleApproveReward = (id, title) => {
+    // Ruang untuk fungsi sebenar: base44.entities.RewardRequest.update(id, {status: 'approved'})
+    toast({
+      title: "Ganjaran Diluluskan! 🎉",
+      description: `Tuntutan "${title}" telah disahkan berjaya.`,
+    });
+    setPendingRequests(prev => prev.filter(r => r.id !== id));
+  };
+
   if (loading) return <div className="flex justify-center min-h-[50vh] items-center"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>;
 
   return (
@@ -375,7 +380,7 @@ export default function ParentDashboard() {
         </Link>
       </div>
 
-      {/* PROACTIVE ALERTS (Dipertingkatkan secara Visual) */}
+      {/* PROACTIVE ALERTS */}
       {children.length > 0 && (
         <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-gradient-to-r from-orange-50 via-rose-50 to-orange-50 border-l-4 border-l-orange-500 border-y border-r border-orange-100 p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex items-center gap-3 flex-1">
@@ -395,11 +400,49 @@ export default function ParentDashboard() {
         </motion.div>
       )}
 
+      {/* TUNTUTAN GANJARAN (LOKASI BARU DI ATAS KAD ANAK) */}
+      {pendingRequests.length > 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-2">
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <Gift className="w-5 h-5 text-amber-500" />
+            <h2 className="text-sm font-bold text-slate-800">Tuntutan Ganjaran Menunggu Kelulusan</h2>
+            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-1.5 py-0 h-5 text-[10px] ml-1">
+              {pendingRequests.length}
+            </Badge>
+          </div>
+          
+          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+            {pendingRequests.map(r => (
+              <div key={r.id} className="min-w-[280px] bg-white border border-amber-200/60 rounded-xl p-3 flex items-center justify-between shadow-sm hover:shadow-md hover:border-amber-300 transition-all flex-shrink-0">
+                <div className="flex items-center gap-3 overflow-hidden pr-2">
+                  <div className="bg-amber-50 p-2 rounded-lg shrink-0">
+                    <Gift className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div className="truncate">
+                    <p className="text-xs font-bold text-slate-800 truncate">{r.reward_title}</p>
+                    <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1 mt-0.5">
+                      <Coins className="w-3 h-3" /> {r.coin_cost} 🪙
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="h-8 px-3 text-[10px] bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white font-bold shadow-sm shrink-0 flex items-center gap-1.5"
+                  onClick={() => handleApproveReward(r.id, r.reward_title)}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Lulus
+                </Button>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* SEKSYEN KAD ANAK-ANAK (KIRI) */}
         <div className="lg:col-span-2 space-y-4">
-          <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+          <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2 px-1">
             Anak-anak Saya
           </h2>
           <div className="grid gap-4 md:grid-cols-2">
@@ -416,41 +459,29 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {/* SEKSYEN SISI (KANAN) */}
+        {/* SEKSYEN SISI (KANAN - DIKEMAS KINI) */}
         <div className="space-y-6">
           <WeatherCard />
-          <Card className="p-5 rounded-2xl shadow-sm border-slate-200">
-            <h2 className="font-bold text-sm text-slate-800 mb-4 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-amber-500" /> Tuntutan Ganjaran Belum Semak
-              {pendingRequests.length > 0 && <Badge className="bg-amber-100 text-amber-700 text-[10px] ml-auto">{pendingRequests.length}</Badge>}
+          
+          <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-gradient-to-b from-white to-indigo-50/30">
+            <h2 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2">
+              <Settings className="w-4 h-4 text-indigo-500" /> Pintasan Pantas
             </h2>
-            {pendingRequests.length === 0 ? (
-              <p className="text-slate-400 text-xs text-center p-4 border border-dashed rounded-xl">Tiada permintaan tertunggak.</p>
-            ) : (
-              <div className="space-y-2">
-                {pendingRequests.map(r => (
-                  <div key={r.id} className="p-3 bg-amber-50/50 rounded-xl border border-amber-100 flex justify-between items-center">
-                    <div>
-                      <p className="text-xs font-bold text-slate-700">{r.reward_title}</p>
-                      <p className="text-[10px] text-amber-600 font-medium">Kos: {r.coin_cost} 🪙</p>
-                    </div>
-                    <Button size="sm" className="h-7 text-[10px] bg-emerald-500 hover:bg-emerald-600">Lulus</Button>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {/* Butang Pintasan ke Kedai Ganjaran */}
-            <div className="pt-4 mt-4 border-t border-slate-100">
-              <Button variant="ghost" className="w-full text-xs font-bold text-indigo-600 hover:bg-indigo-50 justify-between">
-                Urus Katalog Ganjaran <ArrowRight className="w-3.5 h-3.5" />
+            <div className="space-y-2">
+              <Button variant="outline" className="w-full text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-100 justify-between h-10 bg-white">
+                <span className="flex items-center gap-2"><Gift className="w-3.5 h-3.5" /> Urus Katalog Ganjaran</span> 
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="outline" className="w-full text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-100 justify-between h-10 bg-white">
+                <span className="flex items-center gap-2"><BookOpen className="w-3.5 h-3.5" /> Laporan Analitik Penuh</span> 
+                <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             </div>
           </Card>
         </div>
       </div>
 
-      {/* SUDUT INSPIRASI & TIPS KEIBUBAPAAN (Komponen Baharu di Bawah) */}
+      {/* SUDUT INSPIRASI & TIPS KEIBUBAPAAN */}
       <SmartParentingTips />
       
     </div>
