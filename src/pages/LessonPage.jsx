@@ -55,6 +55,13 @@ const shuffleArray = (array) => {
   return newArr;
 };
 
+// Helper untuk mendapatkan String ISO mengikut zon masa Malaysia (waktu tempatan)
+const getMalaysianISOString = () => {
+  const tzoffset = (new Date()).getTimezoneOffset() * 60000; // Beza minit ke milisaat
+  const localISOTime = (new Date(Date.now() - tzoffset)).toISOString();
+  return localISOTime;
+};
+
 // ============================================================================
 // 2. DYNAMIC RESPONSIVE MAIN COMPONENT LAYER
 // ============================================================================
@@ -155,11 +162,13 @@ export default function LessonPage() {
     initializeLesson();
   }, [subjectId, topicId]);
 
+  // Fungsi mengira & merekod durasi pelajaran ke database
   const recordStudyTime = async () => {
     if (!sessionRef.current || !studyStartRef.current) return;
     const minutes = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
     try { 
       await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); 
+      console.log(`⏱️ Berjaya kemas kini durasi: ${minutes} minit.`);
     } catch (err) { 
       console.warn("Failed to record study time", err); 
     }
@@ -210,6 +219,7 @@ export default function LessonPage() {
         }
       });
 
+      // 🛠️ DIKEMAS KINI: Menggunakan waktu tempatan Malaysia untuk cipta sesi baru
       const session = await base44.entities.StudySession.create({
         student_id: user.id,
         subject_id: subjectId,
@@ -218,9 +228,11 @@ export default function LessonPage() {
         subject_name: subject.name,
         ai_explanation: JSON.stringify(response),
         duration_minutes: 0,
+        created_date: getMalaysianISOString() 
       });
 
       setSessionId(session.id);
+      studyStartRef.current = Date.now(); // Reset balik jangka masa mula
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
@@ -318,6 +330,9 @@ export default function LessonPage() {
     setStatus(p => ({ ...p, quiz: true }));
     const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
 
+    // 🛠️ Kemas kini masa nota serta merta sebelum melompat ke kuiz
+    await recordStudyTime();
+
     try {
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         let filteredPool = [...rawBankQuestions];
@@ -341,6 +356,7 @@ export default function LessonPage() {
           questions_json: JSON.stringify(selectedPool),
           difficulty: determinedDifficulty,
           num_questions: selectedPool.length,
+          created_date: getMalaysianISOString() // Ikut Waktu Malaysia
         });
         
         navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: studyStartRef.current } });
@@ -367,6 +383,7 @@ export default function LessonPage() {
             questions_json: JSON.stringify(finalQuestions),
             difficulty: determinedDifficulty,
             num_questions: finalQuestions.length,
+            created_date: getMalaysianISOString() // Ikut Waktu Malaysia
           });
           
           navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: studyStartRef.current } });
