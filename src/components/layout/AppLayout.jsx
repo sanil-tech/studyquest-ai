@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Home, BookOpen, Trophy, Wallet, Bell, User, Users, Gift, CheckSquare, Menu, X, ChevronLeft } from "lucide-react";
@@ -21,16 +21,11 @@ export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // State Logik Data
   const [user, setUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // State UI Navigasi
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); 
-  
-  // Ref untuk Kesan Bunyi (SFX Bloop)
-  const sfxRef = useRef(null);
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => setUser(null));
@@ -61,21 +56,45 @@ export default function AppLayout() {
     }
   }, [user, isParent, location.pathname, navigate]);
 
-  // Fungsi Mainkan Audio "Bloop" (Bunyi Comel & Lembut)
-  const playBloop = (e) => {
-    const isClickable = e.target.closest('button') || e.target.closest('a') || e.target.closest('[role="button"]');
-    
-    if (isClickable && sfxRef.current) {
-      sfxRef.current.currentTime = 0; 
-      // KELANTANGAN DIRENDAHKAN KE 0.4 SUPAYA LEBIH SEDAP DIDENGAR KANAK-KANAK
-      sfxRef.current.volume = 0.4; 
+  // ==========================================
+  // FUNGSI PENJANA BUNYI BLOOP (100% DALAM KOD)
+  // ==========================================
+  const playCuteBloop = () => {
+    try {
+      // Akses sistem audio pelayar web
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return; 
       
-      const playPromise = sfxRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.log("Bunyi bloop dihalang:", error);
-        });
-      }
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      // Gunakan gelombang 'sine' untuk bunyi yang bulat dan lembut (mesra kanak-kanak)
+      osc.type = 'sine';
+
+      // Cipta efek titisan air (frekuensi tinggi jatuh merudum dengan cepat)
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.1);
+
+      // Kawalan kelantangan (bermula sederhana dan terus senyap)
+      gainNode.gain.setValueAtTime(0.2, ctx.currentTime); // Kelantangan: 0.2
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+
+      // Mainkan bunyi selama 0.1 saat
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {
+      console.error("Audio API tidak disokong pada pelayar ini", e);
+    }
+  };
+
+  const handleAppClick = (e) => {
+    const isClickable = e.target.closest('button') || e.target.closest('a') || e.target.closest('[role="button"]');
+    if (isClickable) {
+      playCuteBloop();
     }
   };
 
@@ -92,15 +111,8 @@ export default function AppLayout() {
   );
 
   return (
-    <div className="flex h-screen bg-orange-50/40 overflow-hidden font-sans" onClickCapture={playBloop}>
+    <div className="flex h-screen bg-orange-50/40 overflow-hidden font-sans" onMouseDownCapture={handleAppClick}>
       
-      {/* KESAN BUNYI BUIH (BUBBLE/BLOOP) YANG LEMBUT */}
-      <audio 
-        ref={sfxRef} 
-        src="https://cdn.pixabay.com/download/audio/2022/02/22/audio_c3619582ed.mp3" 
-        preload="auto" 
-      />
-
       <aside 
         className={`hidden md:flex bg-white border-r-4 border-orange-100 flex-col justify-between shadow-xl z-20 transition-all duration-300 ease-in-out ${
           isDesktopSidebarOpen ? "w-72" : "w-0 -translate-x-full border-r-0"
