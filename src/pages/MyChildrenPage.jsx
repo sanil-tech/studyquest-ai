@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
-// 💡 DIKEMASKINI: Mengutamakan nickname, kemudian e-mel
+// 💡 Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
@@ -30,7 +30,6 @@ function DetailedChildCard({ child }) {
     : "Tiada rekod aktif";
 
   const quizScore = child.progress?.quiz_score || null;
-  const totalQuizQuestions = child.progress?.quiz_total_questions || 5;
   const displayName = getDisplayName(child); 
 
   return (
@@ -58,7 +57,6 @@ function DetailedChildCard({ child }) {
               Tahap {child.progress?.level || 1}
             </Badge>
           </div>
-          {/* Menampilkan e-mel rasmi anak di sini */}
           <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{child.email}</p>
         </div>
       </div>
@@ -126,7 +124,7 @@ function DetailedChildCard({ child }) {
             <span className="text-slate-500 flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Markah Kuiz Terkini</span>
             {quizScore !== null ? (
               <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black px-1.5 py-0">
-                {quizScore} / {totalQuizQuestions} Betul
+                {quizScore}% Betul
               </Badge>
             ) : (
               <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0 rounded text-[10px]">Belum Ambil</span>
@@ -157,26 +155,61 @@ export default function MyChildrenPage() {
       setLoading(true);
       const u = await base44.auth.me();
       const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
-      if (!rel.length) return setLoading(false);
+      if (!rel.length) {
+        setChildren([]);
+        return setLoading(false);
+      }
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        const [progress, wallet] = await Promise.all([
+        // 🛠️ Tarik data dari QuizAttempt bersama entiti yang lain secara serentak
+        const [progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
           base44.entities.Progress.filter({ student_id: id }),
           base44.entities.Wallet.filter({ student_id: id }),
+          base44.entities.QuizAttempt.filter({ student_id: id }),
+          base44.entities.User.get(id).catch(() => null),
         ]);
-        const childUser = await base44.entities.User.get(id).catch(() => null);
-        
+
+        // 1. Susun dan ambil data Progress global yang paling terkini
+        let activeProgress = {};
+        if (progressRes && progressRes.length > 0) {
+          activeProgress = progressRes.sort((a, b) => 
+            new Date(b.last_study_date || b.updated_at || 0) - new Date(a.last_study_date || a.updated_at || 0)
+          )[0];
+        }
+
+        // 2. Susun dan ambil markah & nama topik daripada QuizAttempt yang paling terkini
+        let latestQuizScore = null;
+        let latestTopic = activeProgress?.current_topic || "Misi Belum Mula";
+
+        if (attemptsRes && attemptsRes.length > 0) {
+          const latestAttempt = attemptsRes.sort((a, b) => 
+            new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
+          )[0];
+          
+          latestQuizScore = latestAttempt.score; // Mengambil peratusan sebenar (cth: 100)
+          latestTopic = latestAttempt.topic_name || latestTopic;
+        }
+
+        const activeWallet = walletRes && walletRes.length > 0 ? walletRes[0] : { balance: 0 };
+
         return { 
           id, 
-          ...childUser, 
-          progress: progress?.[0] || {}, 
-          wallet: wallet?.[0] || { balance: 0 },
+          email: childUser?.email || "Tiada E-mel",
+          nickname: childUser?.nickname || "",
+          username: childUser?.username || "",
+          wallet: activeWallet,
+          // Gabungkan data progress asas dan timpa dengan markah kuiz sebenar terkini
+          progress: {
+            ...activeProgress,
+            quiz_score: latestQuizScore, 
+            current_topic: latestTopic
+          }
         };
       }));
       setChildren(kids);
     } catch (err) {
-      console.error(err);
+      console.error("Ralat memuatkan data pengurusan anak:", err);
     } finally {
       setLoading(false);
     }
