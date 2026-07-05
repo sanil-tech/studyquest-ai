@@ -9,18 +9,15 @@ import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { getDisplayName } from "@/lib/utils"; 
 
 function CompactChildCard({ child }) {
   const navigate = useNavigate();
   
-  // 💡 DIKEMASKINI: Menggunakan total_xp daripada skema baharu
   const currentXP = child.progress?.total_xp || 0;
-  const nextLevelXP = 500; // Sila laras formula keperluan tahap anda di sini
+  const nextLevelXP = 500; 
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
-  const displayName = child.display_name || "Pelajar";
+  const displayName = child.name || child.display_name || "Pelajar";
   
-  // 💡 DIKEMASKINI: Menggunakan last_study_date daripada skema baharu
   const lastActiveTime = child.progress?.last_study_date 
     ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
@@ -87,14 +84,14 @@ export default function ParentDashboard() {
         return { 
           id, 
           ...childUser, 
-          display_name: getDisplayName(childUser), 
+          display_name: childUser?.name || "Pelajar", 
           progress: progress?.[0] || {}, 
         };
       }));
       setChildren(kids);
     } catch (err) {
       console.error(err);
-    } file {
+    } finally { // 💡 DIKEMASKINI: Membetulkan 'file' kepada 'finally'
       setLoading(false);
     }
   };
