@@ -16,7 +16,6 @@ export default function DuolingoStudentPath() {
   const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
 
-  // 1. Define the game track milestones (Level 1 to Level 8)
   const baseLevels = useMemo(() => [
     { id: 1, title: "Basics of Learning", description: "Kickstart your brain", minXp: 0 },
     { id: 2, title: "Daily Habits", description: "Building routines", minXp: 200 },
@@ -28,7 +27,6 @@ export default function DuolingoStudentPath() {
     { id: 8, title: "Grandmaster", description: "Ultimate final challenge", minXp: 1400 },
   ], []);
 
-  // 2. Reverse them so Level 1 sits at the very BOTTOM of the tree map
   const upwardLevels = useMemo(() => [...baseLevels].reverse(), [baseLevels]);
 
   const loadDashboardData = useCallback(async () => {
@@ -74,7 +72,6 @@ export default function DuolingoStudentPath() {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Handle clicking on a level node to study
   const handleLevelClick = (levelId) => {
     toast({
       title: `Entering Level ${levelId}! 🚀`,
@@ -104,7 +101,6 @@ export default function DuolingoStudentPath() {
     }
   };
 
-  // Zig-zag pattern alignment based on ID sequence
   const getAlternatingClass = (id) => {
     const position = id % 4;
     if (position === 1) return "md:translate-x-16 sm:translate-x-12";
@@ -130,8 +126,9 @@ export default function DuolingoStudentPath() {
       <div className="sticky top-0 z-50 w-full bg-white border-b-2 border-slate-200 shadow-xs px-4 py-3">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 shadow-md flex items-center justify-center text-xl text-white font-bold">
-              {user?.avatar_emoji || "🦉"}
+            <div className="w-10 h-10 rounded-xl bg-orange-500 shadow-md flex items-center justify-center text-xl text-white font-bold">
+              {/* Top Nav Avatar defaults to Orangutan */}
+              {user?.avatar_emoji || "🦧"}
             </div>
             <div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Current Progress</p>
@@ -195,11 +192,9 @@ export default function DuolingoStudentPath() {
         {/* --- VERTICAL TREE PATH (CLIMBING UPWARD) --- */}
         <div className="relative flex flex-col items-center py-10">
           
-          {/* Main vertical track line backbone */}
           <div className="absolute top-0 bottom-0 w-3 bg-slate-200 rounded-full z-0" />
 
-          {/* Map from top to bottom (visually climbing up) */}
-          <div className="relative w-full flex flex-col items-center space-y-14 z-10">
+          <div className="relative w-full flex flex-col items-center space-y-16 z-10">
             {upwardLevels.map((lvl) => {
               const isCompleted = lvl.id < currentLevel;
               const isActive = lvl.id === currentLevel;
@@ -212,24 +207,47 @@ export default function DuolingoStudentPath() {
                 >
                   <div className="relative group">
                     
-                    {/* AVATAR FLOATING OVER THE STUDENT'S CURRENT ACTIVE LEVEL */}
+                    {/* 🦧 LIVELY 3D ORANGUTAN AVATAR FLOATING */}
                     {isActive && (
-                      <motion.div 
-                        animate={{ y: [0, -8, 0] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                        className="absolute -top-16 left-1/2 transform -translate-x-1/2 z-30 flex flex-col items-center pointer-events-none drop-shadow-md"
-                      >
-                        <div className="bg-white text-[10px] font-black px-2 py-0.5 rounded-md border border-slate-200 text-emerald-600 shadow-xs mb-1 whitespace-nowrap uppercase tracking-wider animate-pulse">
-                          Play Level {lvl.id}!
-                        </div>
-                        <div className="text-4xl bg-white p-1 rounded-full ring-4 ring-emerald-400 shadow-sm">
-                          🦉
-                        </div>
-                      </motion.div>
+                      <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 z-30 flex flex-col items-center pointer-events-none drop-shadow-xl">
+                        
+                        {/* Bouncing Speech Bubble */}
+                        <motion.div
+                          animate={{ y: [0, -4, 0] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                          className="bg-white text-[11px] font-black px-3 py-1 rounded-full border-2 border-orange-200 text-orange-600 shadow-md mb-2 whitespace-nowrap uppercase tracking-wider relative"
+                        >
+                          Let's Go!
+                          {/* Little triangle tail for speech bubble */}
+                          <div className="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white" />
+                        </motion.div>
+
+                        {/* Breathing, bobbing, rotating 3D Character Avatar */}
+                        <motion.div 
+                          animate={{ 
+                            y: [0, -12, 0], // Bobs up and down
+                            rotate: [-4, 4, -4], // Sways slightly side to side
+                            scale: [1, 1.05, 1] // "Breathing" scale effect
+                          }}
+                          transition={{ 
+                            duration: 2.5, 
+                            repeat: Infinity, 
+                            ease: "easeInOut" 
+                          }}
+                          className="text-6xl sm:text-7xl filter drop-shadow-[0_12px_10px_rgba(0,0,0,0.25)]"
+                        >
+                          🦧
+                          
+                          {/* HOW TO ADD YOUR ACTUAL 3D IMAGE: */}
+                          {/* Replace the 🦧 above with this image tag once you save the PNG! */}
+                          {/* <img src="/assets/3d-orangutan.png" alt="Orangutan" className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-2xl" /> */}
+                        </motion.div>
+                      </div>
                     )}
 
+                    {/* Active Ring Glow */}
                     {isActive && (
-                      <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-30 scale-125" />
+                      <span className="absolute inset-0 rounded-full bg-orange-400 animate-ping opacity-30 scale-125" />
                     )}
 
                     <button
@@ -238,8 +256,8 @@ export default function DuolingoStudentPath() {
                       className={`
                         relative w-20 h-20 sm:w-24 sm:h-24 rounded-full flex flex-col items-center justify-center 
                         transition-all active:translate-y-1 shadow-lg border-b-6 font-black text-xl select-none
-                        ${isCompleted ? "bg-emerald-500 border-emerald-700 text-white hover:bg-emerald-400 cursor-pointer" : ""}
-                        ${isActive ? "bg-emerald-400 border-emerald-600 text-white scale-110 ring-4 ring-emerald-100 cursor-pointer" : ""}
+                        ${isCompleted ? "bg-orange-500 border-orange-700 text-white hover:bg-orange-400 cursor-pointer" : ""}
+                        ${isActive ? "bg-orange-400 border-orange-600 text-white scale-110 ring-4 ring-orange-100 cursor-pointer" : ""}
                         ${isLocked ? "bg-slate-200 border-slate-400 text-slate-400 cursor-not-allowed" : ""}
                       `}
                     >
@@ -247,8 +265,7 @@ export default function DuolingoStudentPath() {
                       {isActive && <Star className="w-8 h-8 fill-white stroke-[2]" />}
                       {isLocked && <Lock className="w-7 h-7 stroke-[2.5]" />}
                       
-                      {/* Under-node text updated from Unit to Level */}
-                      <span className={`absolute -bottom-7 font-black text-xs uppercase tracking-widestSubtle text-center min-w-[80px] ${isActive ? "text-emerald-500 scale-105" : "text-slate-400"}`}>
+                      <span className={`absolute -bottom-8 font-black text-xs uppercase tracking-widest text-center min-w-[80px] ${isActive ? "text-orange-500 scale-105" : "text-slate-400"}`}>
                         Level {lvl.id}
                       </span>
                     </button>
@@ -273,7 +290,7 @@ export default function DuolingoStudentPath() {
         <div className="fixed bottom-4 left-0 right-0 px-4 z-40 max-w-md mx-auto">
           <Button 
             onClick={() => handleLevelClick(currentLevel)}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-black py-6 rounded-2xl text-base uppercase tracking-wider shadow-lg border-b-4 border-emerald-700 active:border-b-0 transform active:translate-y-[4px] transition-all"
+            className="w-full bg-orange-500 hover:bg-orange-400 text-white font-black py-6 rounded-2xl text-base uppercase tracking-wider shadow-lg border-b-4 border-orange-700 active:border-b-0 transform active:translate-y-[4px] transition-all"
           >
             <Play className="w-5 h-5 mr-2 fill-current" />
             Start Level {currentLevel}
