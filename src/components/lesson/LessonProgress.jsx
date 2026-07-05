@@ -24,7 +24,7 @@ export default function LessonProgress({ steps, onStepClick }) {
     };
   }, []);
 
-  // Memastikan aplikasi tidak crash jika prop 'steps' bernilai undefined/null
+  // Memastikan aplikasi tidak crash jika prop 'steps' bernilai undefined atau null
   const safeSteps = steps || {};
   const completed = STEPS.filter((s) => safeSteps[s.key]).length;
   const percent = Math.round((completed / STEPS.length) * 100);
