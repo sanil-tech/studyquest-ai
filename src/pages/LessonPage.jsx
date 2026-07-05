@@ -46,7 +46,6 @@ Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, create
 Return JSON schema matching: [{ "label": "string", "children": ["string"] }]
 `;
 
-// Helper untuk merawakkan array (Fisher-Yates Shuffle Algorithm)
 const shuffleArray = (array) => {
   const newArr = [...array];
   for (let i = newArr.length - 1; i > 0; i--) {
@@ -68,8 +67,6 @@ export default function LessonPage() {
   const [sessionId, setSessionId] = useState(null);
   const [studentNickname, setStudentNickname] = useState(""); 
   const [loading, setLoading] = useState(true);
-  
-  // Logik Premium Status
   const [isPremium, setIsPremium] = useState(false);
 
   // Cache States
@@ -112,15 +109,12 @@ export default function LessonPage() {
         setSubject(sub);
         setTopic(top);
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
-        
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        // Tarik semua data kuiz/bank soalan dari database
         const allQuizBanks = await base44.entities.Quiz.filter({});
 
         if (allQuizBanks && allQuizBanks.length > 0) {
           const namaTopikSemasa = top.name.toLowerCase().trim();
-          
           const foundBank = allQuizBanks.find(bank => {
             const namaBankCsv = (bank.topic_name || "").toLowerCase().trim();
             return namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv);
@@ -164,7 +158,11 @@ export default function LessonPage() {
   const recordStudyTime = async () => {
     if (!sessionRef.current || !studyStartRef.current) return;
     const minutes = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
-    try { await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); } catch (err) { console.warn("Failed to record study time", err); }
+    try { 
+      await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); 
+    } catch (err) { 
+      console.warn("Failed to record study time", err); 
+    }
   };
 
   useEffect(() => { return () => { recordStudyTime(); }; }, []);
@@ -227,12 +225,11 @@ export default function LessonPage() {
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
       triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
-      
-      // 🎉 Cetuskan animasi confetti apabila berjaya!
       triggerConfetti();
     } catch (e) {
       console.error(e);
-    } finally { setStatus(p => ({ ...p, lesson: false })); }
+    } file_urls
+    finally { setStatus(p => ({ ...p, lesson: false })); }
   };
 
   const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
@@ -311,15 +308,15 @@ export default function LessonPage() {
         { front: `Jom uji kefahaman tentang ${topic?.name || "topik ini"}!`, back: "Sedia! Tekan butang Kuiz di bawah untuk mula menjawab soalan. 🎯" }
       ];
       setFlashcards(errorFallback);
-    } finally { 
+    } final_urls
+    finally { 
       setStatus(p => ({ ...p, flashcards: false })); 
     }
   };
 
+  // 🛠️ DIKEMAS KINI: Menghantar sessionId bersama navigasi kuiz
   const runQuizGeneration = async (numQ) => {
-    await recordStudyTime();
     setStatus(p => ({ ...p, quiz: true }));
-
     const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
 
     try {
@@ -347,7 +344,8 @@ export default function LessonPage() {
           num_questions: selectedPool.length,
         });
         
-        navigate(`/quiz/${quiz.id}`);
+        // 🚀 Bawa state sessionId ke halaman kuiz
+        navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: studyStartRef.current } });
         return;
       } 
       else {
@@ -372,7 +370,9 @@ export default function LessonPage() {
             difficulty: determinedDifficulty,
             num_questions: finalQuestions.length,
           });
-          navigate(`/quiz/${quiz.id}`);
+          
+          // 🚀 Bawa state sessionId ke halaman kuiz
+          navigate(`/quiz/${quiz.id}`, { state: { fromSessionId: sessionId, studyStartTime: studyStartRef.current } });
         }
       }
     } catch (err) {
@@ -429,7 +429,6 @@ export default function LessonPage() {
   return (
     <div className="px-3 sm:px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-8 pb-24 font-sans bg-slate-50/50 min-h-screen">
       
-      {/* Top Header Row - Warna Cyan yang Ceria */}
       <motion.div 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -473,7 +472,6 @@ export default function LessonPage() {
       ) : (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
           
-          {/* Responsive Sticky Tabs - Gaya "Pill" Bubbly */}
           <div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
             <Button size="sm" variant={activeTab === "lesson" ? "default" : "ghost"} onClick={() => setActiveTab("lesson")} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "lesson" ? "shadow-md bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
               <BookOpen className="w-5 h-5"/> Nota Pintar 📖
@@ -486,7 +484,6 @@ export default function LessonPage() {
             </Button>
           </div>
 
-          {/* Dynamic Content Container */}
           {activeTab === "lesson" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
@@ -527,9 +524,7 @@ export default function LessonPage() {
             </motion.div>
           )}
 
-          {/* Responsive Quiz Panel - Super Gamified */}
           <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
-            {/* Dekorasi Latar Belakang */}
             <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/50 rotate-12" />
             
             <div className="relative z-10">
@@ -556,7 +551,6 @@ export default function LessonPage() {
             </div>
           </div>
 
-          {/* Ciri Premium */}
           {isPremium ? (
              <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
                {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
