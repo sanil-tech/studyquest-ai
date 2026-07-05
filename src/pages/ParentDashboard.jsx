@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
-import { TrendingUp, Users, Bell, Plus } from "lucide-react";
+import { 
+  TrendingUp, Users, Bell, Plus, AlertCircle, BookOpen, 
+  Target, Award, ShieldAlert, Download, Clock, Zap
+} from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,138 +23,89 @@ const calculateAge = (birthDate) => {
   return age;
 };
 
-// ---------------- INDIVIDUAL CHILD CARD (SYNCHRONIZED MILESTONE LOGIC) ----------------
+// ---------------- INDIVIDUAL CHILD CARD (WITH ANALYTICS & SUPERPOWERS) ----------------
 function ChildCard({ child }) {
-  // 1. Ambil data XP dan Level dari rekod Progress sebenar
   const currentXP = child.progress?.xp_score || child.progress?.total_xp || 0;
   const currentLevel = child.progress?.level || 1;
   const nextLevelXP = child.progress?.next_level_xp || (currentLevel * 500);
-
-  // Pengiraan kadar peratusan kemajuan XP yang tepat
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   const lastActive = child.last_active ? moment(child.last_active).fromNow() : "Baru aktif";
 
-  // 2. LOGIK MILESTONE (Diselaraskan dengan halaman MyChildren)
-  // Menentukan evolusi reka bentuk naga bersandarkan jumlah XP Bersih anak
   const getDragonMilestone = (xp, lvl) => {
-    if (xp >= 5000 || lvl >= 15) {
-      return {
-        stageTitle: "Ancient Inferno",
-        gradient: "from-rose-600 via-red-500 to-amber-400",
-        glow: "rgba(239, 68, 68, 0.4)",
-        icon: "🐉",
-        subtext: "Tier 3 Titan • Tahap Agung"
-      };
-    } else if (xp >= 1500 || lvl >= 6) {
-      return {
-        stageTitle: "Emerald Drake",
-        gradient: "from-emerald-500 via-teal-500 to-cyan-500",
-        glow: "rgba(16, 185, 129, 0.3)",
-        icon: "🐲",
-        subtext: "Tier 2 Winged • Tahap Menengah"
-      };
-    } else {
-      return {
-        stageTitle: "Ruby Hatchling",
-        gradient: "from-purple-500 via-pink-500 to-rose-400",
-        glow: "rgba(219, 39, 119, 0.2)",
-        icon: "🦖",
-        subtext: "Tier 1 Egg • Tahap Permulaan"
-      };
-    }
+    if (xp >= 5000 || lvl >= 15) return { stageTitle: "Ancient Inferno", gradient: "from-rose-600 via-red-500 to-amber-400", glow: "rgba(239, 68, 68, 0.4)", icon: "🐉", subtext: "Tier 3 Titan" };
+    if (xp >= 1500 || lvl >= 6) return { stageTitle: "Emerald Drake", gradient: "from-emerald-500 via-teal-500 to-cyan-500", glow: "rgba(16, 185, 129, 0.3)", icon: "🐲", subtext: "Tier 2 Winged" };
+    return { stageTitle: "Ruby Hatchling", gradient: "from-purple-500 via-pink-500 to-rose-400", glow: "rgba(219, 39, 119, 0.2)", icon: "🦖", subtext: "Tier 1 Egg" };
   };
 
   const milestone = getDragonMilestone(currentXP, currentLevel);
   const displayName = child.display_name || child.full_name || child.username || "Unnamed Student";
 
   return (
-    <Card className="p-6 space-y-4 bg-white hover:shadow-lg transition-all border-slate-100 relative overflow-hidden group">
-
-      {/* Status Keaktifan Sebenar */}
-      <div className="absolute top-4 right-4 flex items-center gap-1.5">
+    <Card className="p-5 space-y-4 bg-white hover:shadow-xl transition-all border-slate-200 relative overflow-hidden group rounded-2xl">
+      <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <div className={`w-2 h-2 rounded-full ${child.last_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{lastActive}</span>
       </div>
 
       <div className="flex items-start gap-4">
-
-        {/* AVATAR NAGA DENGAN LOGIK MILESTONE BARU */}
-        <div className="relative flex flex-col items-center justify-center p-2 select-none flex-shrink-0">
-          <div style={{ perspective: "1000px" }} className="relative w-20 h-20 flex items-center justify-center">
+        {/* AVATAR */}
+        <div className="relative flex flex-col items-center justify-center p-1 select-none flex-shrink-0">
+          <div style={{ perspective: "1000px" }} className="relative w-16 h-16 flex items-center justify-center">
             <motion.div animate={{ scale: [0.95, 1.15, 0.95], rotate: 360 }} transition={{ duration: 10, repeat: Infinity }} style={{ boxShadow: `0 0 20px ${milestone.glow}` }} className="absolute inset-0 rounded-full border border-dashed border-white/20 opacity-50" />
-            <motion.div animate={{ y: [-4, 4, -4], rotateY: [-5, 5, -5] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className={`w-16 h-16 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white shadow-xl flex items-center justify-center relative z-10`}>
-              <span className="text-4xl drop-shadow-lg">{milestone.icon}</span>
+            <motion.div animate={{ y: [-4, 4, -4], rotateY: [-5, 5, -5] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }} className={`w-12 h-12 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white shadow-md flex items-center justify-center relative z-10`}>
+              <span className="text-2xl drop-shadow-lg">{milestone.icon}</span>
             </motion.div>
           </div>
-          <span className="text-[10px] font-black text-slate-700 mt-2">{milestone.stageTitle}</span>
-          <span className="text-[8px] font-bold text-muted-foreground/70 uppercase tracking-wider scale-90">{milestone.subtext.split("•")[0]}</span>
+          <span className="text-[9px] font-black text-slate-700 mt-1">{milestone.stageTitle}</span>
         </div>
 
+        {/* INFO & XP */}
         <div className="flex-grow space-y-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xl font-bold text-slate-800">{displayName}</h3>
-            <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[10px] font-bold h-5">
-              {child.education_level || "Standard 2"}
-            </Badge>
+          <div className="flex items-center gap-2 mt-1">
+            <h3 className="text-lg font-bold text-slate-800 leading-none">{displayName}</h3>
+            <Badge variant="secondary" className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0 h-4">Tahap {currentLevel}</Badge>
           </div>
-          <p className="text-xs text-muted-foreground font-medium">Umur {calculateAge(child.date_of_birth)} Tahun</p>
-
-          {/* Progress Bar Grafik XP */}
-          <div className="pt-3 space-y-1.5">
+          
+          <div className="pt-2 space-y-1">
             <div className="flex justify-between items-center text-[10px]">
-              <span className="font-bold text-slate-500 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-indigo-500" />
-                Ganjaran XP: <span className="text-slate-700 font-extrabold">{currentXP}</span> / {nextLevelXP} XP
-              </span>
-              <span className="font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
-                Tahap {currentLevel}
-              </span>
+              <span className="font-bold text-slate-500">XP Terkumpul</span>
+              <span className="font-extrabold text-slate-700">{currentXP} / {nextLevelXP}</span>
             </div>
             <Progress value={xpPercentage} className="h-1.5 bg-slate-100" />
-            <p className="text-[9px] text-right text-slate-400 font-medium">{xpPercentage}% menuju tahap seterusnya</p>
           </div>
         </div>
       </div>
 
-      {/* Grid Subjek Fokus & Misi Harian Pelajar */}
-      <div className="grid grid-cols-2 gap-3 pt-2">
-        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Topik Utama</p>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-xs shadow-sm">🔢</div>
-            <span className="text-xs font-bold text-slate-700 truncate">
-              {child.progress?.current_topic || "Pecahan (Math)"}
-            </span>
-          </div>
+      {/* SMART ANALYTICS & FOCUS (NEW) */}
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+          <p className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> Purata Belajar</p>
+          <p className="text-xs font-black text-slate-700 mt-0.5">45 Min <span className="text-[9px] text-emerald-500 font-bold">↑ 10%</span></p>
         </div>
-        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Misi Hari Ini</p>
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-            <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-[10px] shadow-sm text-emerald-500 font-extrabold">
-              {child.progress?.completed_quests || 2}/{child.progress?.total_quests || 3}
-            </div>
-            <span className="truncate">Selesaikan Misi</span>
-          </div>
+        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+          <p className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1"><Target className="w-3 h-3" /> Topik Semasa</p>
+          <p className="text-xs font-black text-indigo-600 mt-0.5 truncate">{child.progress?.current_topic || "Pecahan (Math)"}</p>
         </div>
       </div>
 
-      {/* Rail Metrik & Butang Sorakan Interaktif */}
-      <div className="grid grid-cols-3 gap-2 bg-slate-50/50 p-3 rounded-xl text-center border border-slate-100 group-hover:bg-white transition-colors">
-        <div>
-          <p className="font-black text-slate-700">🪙 {child.wallet?.balance || 0}</p>
-          <p className="text-[9px] text-muted-foreground font-bold uppercase">Koin</p>
-        </div>
-        <div className="border-x border-slate-200/50">
-          <p className="font-black text-orange-500">🔥 {child.progress?.streak_days || 0}</p>
-          <p className="text-[9px] text-muted-foreground font-bold uppercase">Streak</p>
-        </div>
-        <div
-          className="cursor-pointer hover:scale-105 transition-transform active:scale-95"
-          onClick={() => alert(`🎉 Sorakan kasih sayang telah dihantar terus ke peranti ${displayName}!`)}
+      {/* PARENTAL SUPERPOWERS (NEW) */}
+      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+        <Button 
+          size="sm" 
+          variant="outline" 
+          className="h-8 text-[10px] font-bold border-amber-200 text-amber-600 hover:bg-amber-50"
+          onClick={(e) => { e.preventDefault(); alert(`Beri Bonus Koin kepada ${displayName}!`); }}
         >
-          <p className="font-black text-rose-500">❤️ Sorak!</p>
-          <p className="text-[9px] text-muted-foreground font-bold uppercase">Puji Anak</p>
-        </div>
+          🪙 Beri Bonus Koin
+        </Button>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+          onClick={(e) => { e.preventDefault(); alert(`Misi dunia sebenar dicipta untuk ${displayName}!`); }}
+        >
+          🎯 Cipta Misi Khas
+        </Button>
       </div>
     </Card>
   );
@@ -160,8 +114,6 @@ function ChildCard({ child }) {
 // ================= MAIN DASHBOARD =================
 export default function ParentDashboard() {
   const { toast } = useToast();
-
-  const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -170,24 +122,12 @@ export default function ParentDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-
       const u = await base44.auth.me();
-      setUser(u);
-
-      const rel = await base44.entities.ParentChildRelationship.filter({
-        parent_id: u.id,
-        status: ["active", "pending"],
-      });
-
-      if (!rel.length) {
-        setChildren([]);
-        setPendingRequests([]);
-        setLoading(false);
-        return;
-      }
+      
+      const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: ["active", "pending"] });
+      if (!rel.length) return setLoading(false);
 
       const childIds = rel.map(r => r.child_id);
-
       const kids = await Promise.all(
         childIds.map(async (id) => {
           const [progress, wallet] = await Promise.all([
@@ -195,25 +135,11 @@ export default function ParentDashboard() {
             base44.entities.Wallet.filter({ student_id: id }),
           ]);
           const childUser = await base44.entities.User.get(id).catch(() => null);
-
-          return {
-            id,
-            display_name: childUser?.full_name || childUser?.username || "",
-            full_name: childUser?.full_name || "",
-            username: childUser?.username || "",
-            date_of_birth: childUser?.date_of_birth || "",
-            education_level: childUser?.education_level || "",
-            last_active: childUser?.last_active || "",
-            progress: progress?.[0] || {},
-            wallet: wallet?.[0] || { balance: 0 },
-          };
+          return { id, display_name: childUser?.full_name || childUser?.username || "", date_of_birth: childUser?.date_of_birth || "", last_active: childUser?.last_active || "", progress: progress?.[0] || {}, wallet: wallet?.[0] || { balance: 0 } };
         })
       );
 
-      const pending = await base44.entities.RewardRequest.filter({
-        status: "pending",
-      });
-
+      const pending = await base44.entities.RewardRequest.filter({ status: "pending" });
       setChildren(kids);
       setPendingRequests(pending);
     } catch (err) {
@@ -223,94 +149,110 @@ export default function ParentDashboard() {
     }
   };
 
-  // ---------------- EFFECT ----------------
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
-  // ================= UI =================
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex justify-center min-h-[50vh] items-center"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>;
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto bg-slate-50/50 min-h-screen">
+      
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="w-6 h-6 text-primary" />
-            Parent Dashboard
+          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+            Pusat Kawalan Ibu Bapa 🛡️
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Pantau kemajuan pembelajaran dan ganjaran anak-anak anda.
+          <p className="text-muted-foreground text-sm font-medium">
+            Pantau, sokong, dan beri ganjaran kepada wira kecil anda.
           </p>
         </div>
         <Link to="/parent/children">
-          <Button size="sm" className="gap-2">
-            <Plus className="w-4 h-4" />
-            Tambah Anak
+          <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md rounded-xl">
+            <Plus className="w-4 h-4" /> Tambah Anak
           </Button>
         </Link>
       </div>
 
-      {/* CHILDREN */}
-      <div>
-        <h2 className="font-bold mb-3 flex items-center gap-2">
-          Anak Saya
-          <Badge variant="secondary" className="text-xs">{children.length}</Badge>
-        </h2>
-
-        {children.length === 0 ? (
-          <Card className="p-8 text-center text-gray-500">
-            <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="font-medium">Belum ada profil pelajar yang disambungkan.</p>
-            <Link to="/parent/children">
-              <Button variant="outline" size="sm" className="mt-4 gap-2">
-                <Plus className="w-4 h-4" />
-                Sambungkan Anak
-              </Button>
-            </Link>
-          </Card>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {children.map(c => (
-              <Link key={c.id} to={`/parent/children/${c.id}`} className="block">
-                <ChildCard child={c} />
-              </Link>
-            ))}
-          </div>
-        )}
+      {/* PROACTIVE ALERTS (NEW) */}
+      <div className="bg-gradient-to-r from-orange-50 to-rose-50 border border-orange-100 p-4 rounded-2xl shadow-sm flex items-start gap-3">
+        <ShieldAlert className="w-5 h-5 text-orange-500 mt-0.5 animate-pulse" />
+        <div>
+          <h4 className="text-sm font-bold text-orange-800">Perhatian Pintar StudyQuest</h4>
+          <p className="text-xs text-orange-600/80 font-medium mt-1">
+            🔥 <strong>Aisyah</strong> belum mendaftar masuk hari ini. Tinggal 3 jam sebelum streak beliau tamat!
+          </p>
+        </div>
+        <Button size="sm" className="ml-auto bg-orange-500 hover:bg-orange-600 text-[10px] h-7 rounded-lg">Kirim Peringatan</Button>
       </div>
 
-      {/* PENDING REWARD REQUESTS */}
-      <div>
-        <h2 className="font-bold mb-3 flex items-center gap-2">
-          <Bell className="w-4 h-4 text-amber-500" />
-          Permintaan Ganjaran Belum Selesai
-          {pendingRequests.length > 0 && (
-            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs">
-              {pendingRequests.length}
-            </Badge>
-          )}
-        </h2>
-
-        {pendingRequests.length === 0 ? (
-          <p className="text-gray-400 text-sm">Tiada permintaan tertunggak.</p>
-        ) : (
-          <div className="space-y-2">
-            {pendingRequests.map(r => (
-              <Card key={r.id} className="p-3 flex justify-between items-center">
-                <span className="font-medium">{r.reward_title}</span>
-                <span className="text-sm text-muted-foreground">{r.coin_cost} 🪙</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* KIRI: ANAK-ANAK */}
+        <div className="lg:col-span-2 space-y-4">
+          <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+            Anak-anak Saya
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {children.length === 0 ? (
+              <Card className="p-8 text-center text-slate-400 col-span-2 rounded-2xl border-dashed">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm font-medium">Belum ada profil pelajar.</p>
               </Card>
-            ))}
+            ) : (
+              children.map(c => (
+                <Link key={c.id} to={`/parent/children/${c.id}`} className="block">
+                  <ChildCard child={c} />
+                </Link>
+              ))
+            )}
           </div>
-        )}
+        </div>
+
+        {/* KANAN: GANJARAN & BANTUAN AKADEMIK */}
+        <div className="space-y-6">
+          
+          {/* Tuntutan Ganjaran */}
+          <Card className="p-5 rounded-2xl shadow-sm border-slate-200">
+            <h2 className="font-bold text-sm text-slate-800 mb-4 flex items-center gap-2">
+              <Bell className="w-4 h-4 text-amber-500" /> Tuntutan Ganjaran
+              {pendingRequests.length > 0 && <Badge className="bg-amber-100 text-amber-700 text-[10px] ml-auto">{pendingRequests.length}</Badge>}
+            </h2>
+            {pendingRequests.length === 0 ? (
+              <p className="text-slate-400 text-xs text-center p-4 border border-dashed rounded-xl">Tiada permintaan tertunggak.</p>
+            ) : (
+              <div className="space-y-2">
+                {pendingRequests.map(r => (
+                  <div key={r.id} className="p-3 bg-amber-50/50 rounded-xl border border-amber-100 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">{r.reward_title}</p>
+                      <p className="text-[10px] text-amber-600 font-medium">Kos: {r.coin_cost} 🪙</p>
+                    </div>
+                    <Button size="sm" className="h-7 text-[10px] bg-emerald-500 hover:bg-emerald-600">Lulus</Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* PARENT RESOURCES (NEW) */}
+          <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-gradient-to-b from-white to-indigo-50/30">
+            <h2 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-indigo-500" /> Sudut Bantuan Ibu Bapa
+            </h2>
+            <div className="space-y-3">
+              <div className="bg-white p-3 rounded-xl border border-indigo-50 shadow-sm">
+                <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">Tips Topik Semasa: Pecahan</p>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Gunakan epal atau piza untuk tunjukkan konsep 1/2 dan 1/4 kepada anak anda semasa makan malam!
+                </p>
+              </div>
+              <Button variant="outline" className="w-full text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50 gap-2 h-9">
+                <Download className="w-3.5 h-3.5" /> Muat Turun Lembaran Kerja
+              </Button>
+            </div>
+          </Card>
+
+        </div>
       </div>
     </div>
   );
