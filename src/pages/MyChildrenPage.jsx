@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, Calendar 
+  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, Calendar, Zap
 } from "lucide-react";
 import moment from "moment";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -16,17 +16,18 @@ const getDisplayName = (user) => {
 };
 
 function DetailedChildCard({ child, onOpenReport }) {
-  // 🛡️ Perlindungan ralat objek kosong {}
   const sessionData = child.latestSession || {};
+  // 🔗 DIKEMASKINI: Membaca data XP, Streak & Level daripada entiti Progress sepadan dengan StatsBar anak
+  const progressData = child.realProgress || {};
   
-  const currentXP = sessionData.total_xp || 0; 
-  const nextLevelXP = 500;
-  const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
-  const streakDays = sessionData.streak_days || 0;
+  const currentXP = progressData.total_xp || 0; 
+  const xpForNext = progressData.level ? progressData.level * 200 : 200;
+  const xpPercentage = Math.min(Math.round(((currentXP % xpForNext) / xpForNext) * 100), 100);
   
+  const streakDays = progressData.streak_days || 0;
   const currentCoins = child.wallet?.balance || 0;
   
-  // Membaca skema tulen dari StudySession anda
+  // Membaca topik & masa dari StudySession
   const currentTopic = sessionData.topic_name || "Misi Belum Mula"; 
   const totalStudyMinutes = sessionData.duration_minutes || 0; 
   
@@ -59,20 +60,20 @@ function DetailedChildCard({ child, onOpenReport }) {
           <div className="flex items-center justify-between gap-1">
             <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
             <Badge className="bg-blue-50 text-blue-600 border-0 text-[10px] font-black px-1.5 py-0 h-4 rounded shrink-0">
-              Tahap {sessionData.level || 1}
+              Tahap {progressData.level || 1}
             </Badge>
           </div>
           <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{child.email || "Tiada E-mel"}</p>
         </div>
       </div>
 
-      {/* Kemajuan XP */}
+      {/* Kemajuan XP (Formulasi diselaraskan dengan StatsBar anak) */}
       <div className="space-y-1 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
         <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-          <span>XP TERKUMPUL</span>
-          <span>{currentXP}/{nextLevelXP}</span>
+          <span className="flex items-center gap-0.5"><Zap className="w-3 h-3 text-purple-500" /> XP TERKUMPUL</span>
+          <span>{currentXP} XP</span>
         </div>
-        <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
+        <ProgressBar value={isNaN(xpPercentage) ? 0 : xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
       </div>
 
       {/* Grid Status Ringkas */}
@@ -118,7 +119,6 @@ function DetailedChildCard({ child, onOpenReport }) {
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-[11px]">
             <span className="text-slate-500 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Status Nota Bacaan</span>
-            {/* 🛡️ Perlindungan ?.length digunakan di sini */}
             {child.allSessions?.length > 0 ? ( 
               <span className="text-emerald-600 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Selesai</span>
             ) : (
@@ -147,13 +147,13 @@ function DetailedChildCard({ child, onOpenReport }) {
         <BarChart3 className="w-4 h-4" /> Lihat Laporan Penuh Topik
       </Button>
 
-      {/* Butang Tambahan */}
+      {/* Butang Pengurusan */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
           ⚙️ Kata Laluan
         </Button>
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
-          <ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
+          ⚙️ Sekat Akses
         </Button>
       </div>
     </Card>
@@ -178,9 +178,10 @@ export default function MyChildrenPage() {
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        // 🛡️ Diletakkan fungsi .catch(() => []) sebagai perlindungan ralat rangkaian / DB kosong
-        const [studySessionRes, walletRes, attemptsRes, childUser] = await Promise.all([
+        // ⚡ MULTI-FILTER: Membaca StudySession DAN Progress serentak untuk satukan data
+        const [studySessionRes, progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
           base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
+          base44.entities.Progress.filter({ student_id: id }).catch(() => []),
           base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
           base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
           base44.entities.User.get(id).catch(() => null),
@@ -188,7 +189,6 @@ export default function MyChildrenPage() {
 
         let latestSession = {};
         let sortedSessions = [];
-        // 🛡️ DIBAIKI: Menggunakan operator selamat ?. untuk mengelakkan ralat length
         if (studySessionRes && studySessionRes?.length > 0) {
           sortedSessions = [...studySessionRes].sort((a, b) => 
             new Date(b.updated_date || b.created_date || 0) - new Date(a.updated_date || a.created_date || 0)
@@ -196,9 +196,17 @@ export default function MyChildrenPage() {
           latestSession = sortedSessions[0];
         }
 
+        // 🌟 MENYIKRONKAN DATA XP DARI ENTITI PROGRESS
+        let realProgress = { total_xp: 0, streak_days: 0, level: 1 };
+        if (progressRes && progressRes?.length > 0) {
+          const sortedProgress = [...progressRes].sort((a, b) => 
+            new Date(b.updated_at || b.last_study_date || 0) - new Date(a.updated_at || a.last_study_date || 0)
+          );
+          realProgress = sortedProgress[0];
+        }
+
         let latestQuizScore = null;
         let allAttempts = [];
-        // 🛡️ DIBAIKI: Menggunakan operator selamat ?. untuk mengelakkan ralat length jika rekod kuiz kosong
         if (attemptsRes && attemptsRes?.length > 0) {
           allAttempts = [...attemptsRes].sort((a, b) => 
             new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
@@ -206,7 +214,6 @@ export default function MyChildrenPage() {
           latestQuizScore = allAttempts[0].score;
         }
 
-        // 🛡️ DIBAIKI: Menggunakan operator selamat ?. untuk data dompet
         const activeWallet = walletRes && walletRes?.length > 0 ? walletRes[0] : { balance: 0 };
 
         return { 
@@ -218,6 +225,7 @@ export default function MyChildrenPage() {
           allAttempts, 
           allSessions: sortedSessions, 
           latestSession,
+          realProgress, // Membawa objek progress tulen ke paparan kad UI
           quiz: {
             quiz_score: latestQuizScore
           }
@@ -269,7 +277,6 @@ export default function MyChildrenPage() {
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
                 </h4>
-                {/* 🛡️ Perlindungan ralat ?.length */}
                 {!selectedChild.allSessions || selectedChild.allSessions?.length === 0 ? (
                   <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum ada topik pelajaran dimulakan.</p>
                 ) : (
@@ -294,7 +301,6 @@ export default function MyChildrenPage() {
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
                 </h4>
-                {/* 🛡️ Perlindungan ralat ?.length */}
                 {!selectedChild.allAttempts || selectedChild.allAttempts?.length === 0 ? (
                   <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum menduduki sebarang kuiz.</p>
                 ) : (
