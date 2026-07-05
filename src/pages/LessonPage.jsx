@@ -400,57 +400,37 @@ export default function LessonPage() {
       ) : (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
           
-          {/* Navigation Tabs - Nyahaktifkan jika LLM belum sedia */}
-          <div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto md:grid md:grid-cols-3">
-            <Button size="sm" variant={activeTab === "lesson" ? "default" : "ghost"} onClick={() => setActiveTab("lesson")} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 ${activeTab === "lesson" ? "bg-primary text-white" : "text-slate-500"}`}>
-              <BookOpen className="w-5 h-5"/> Nota Pintar 📖
-            </Button>
-            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "ghost"} disabled={!metaData.summary} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 ${activeTab === "flashcards" ? "bg-purple-500 text-white" : "text-slate-500"}`}>
-              <Layers className="w-5 h-5"/> Kad Memori 🃏
-            </Button>
-            <Button size="sm" variant={activeTab === "mindmap" ? "default" : "ghost"} disabled={!metaData.summary} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 ${activeTab === "mindmap" ? "bg-blue-500 text-white" : "text-slate-500"}`}>
-              <GitFork className="w-5 h-5"/> Peta Minda 🧠
-            </Button>
-          </div>
-
-          {/* Dynamic Windows */}
-          {activeTab === "lesson" && (
-            <div className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
-                <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2">✨ Nota Ringkas</h2>
-                {isPremium ? (
-                  <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
-                ) : (
-                  <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm hover:bg-amber-100">
-                    <Lock className="w-4 h-4 text-amber-500" /> Dengar Audio Cerita 🎧
-                  </Button>
-                )}
-              </div>
-              <div className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-loose">
-                <LessonContent content={explanation} />
-              </div>
-            </div>
-          )}
-
-          {activeTab === "flashcards" && (
-            <div className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100">
-              {status.flashcards ? (
-                <div className="flex flex-col items-center justify-center py-16 text-sm text-purple-600 font-medium">
-                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-500" /> 🎮 Menyusun kad ajaib...
-                </div>
-              ) : <Flashcards flashcards={flashcards || []} />}
-            </div>
-          )}
-
-          {activeTab === "mindmap" && (
-            <div className="min-h-[250px] overflow-x-auto rounded-[2rem] bg-blue-50/30 border-2 border-blue-100 p-6">
-              {status.mindmap ? (
-                <div className="flex flex-col items-center justify-center py-16 text-sm text-blue-600 font-medium">
-                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" /> Melukis peta harta karun... 🗺️
-                </div>
-              ) : mindMap ? <MindMap mindMap={{ central_topic: topic.name, branches: mindMap }} /> : null}
-            </div>
-          )}
+{/* Navigation Tabs - Pintar & Sentiasa Buka Jika Nota Dah Sedia */}
+<div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
+  <Button 
+    size="sm" 
+    variant={activeTab === "lesson" ? "default" : "ghost"} 
+    onClick={() => setActiveTab("lesson")} 
+    className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "lesson" ? "shadow-md bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}
+  >
+    <BookOpen className="w-5 h-5"/> Nota Pintar 📖
+  </Button>
+  
+  <Button 
+    size="sm" 
+    variant={activeTab === "flashcards" ? "default" : "ghost"} 
+    disabled={!explanation} // 🌟 Diubah: Kunci HANYA jika teks nota (explanation) langsung belum ada
+    onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} 
+    className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "flashcards" ? "shadow-md bg-purple-500 text-white" : "text-slate-500 hover:bg-slate-100 disabled:opacity-50"}`}
+  >
+    <Layers className="w-5 h-5"/> Kad Memori 🃏
+  </Button>
+  
+  <Button 
+    size="sm" 
+    variant={activeTab === "mindmap" ? "default" : "ghost"} 
+    disabled={!explanation} // 🌟 Diubah: Kunci HANYA jika teks nota (explanation) langsung belum ada
+    onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} 
+    className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "mindmap" ? "shadow-md bg-blue-500 text-white" : "text-slate-500 hover:bg-slate-100 disabled:opacity-50"}`}
+  >
+    <GitFork className="w-5 h-5"/> Peta Minda 🧠
+  </Button>
+</div>
 
           {/* Gamified Quiz Panel */}
           <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
