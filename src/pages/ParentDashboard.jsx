@@ -7,7 +7,8 @@ import {
   TrendingUp, Users, Bell, Plus, BookOpen, 
   Target, ShieldAlert, Flame, Sun, 
   X, Lightbulb, Quote, RefreshCw, 
-  Gift, CheckCircle2, Coins, Settings, BarChart2
+  Gift, CheckCircle2, Coins, Settings, BarChart2,
+  Cloud, CloudRain, CloudLightning, CloudSun, Loader2, MapPin
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
@@ -115,29 +116,145 @@ function SmartParentingTips() {
   );
 }
 
-// ---------------- KOMPONEN KAD CUACA ----------------
+// ---------------- KOMPONEN KAD CUACA (LIVE & LOCATION-BASED) ----------------
 function WeatherCard() {
+  const [weather, setWeather] = useState(null);
+  const [forecast, setForecast] = useState([]);
+  const [location, setLocation] = useState("Mengesan lokasi...");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  // Fungsi untuk tukar WMO Weather Code kepada Teks & Ikon
+  const getWeatherDetails = (wmoCode) => {
+    if (wmoCode === 0) return { label: "Cerah", Icon: Sun, color: "text-amber-500", advice: "Cuaca cantik di luar! Boleh benarkan anak main di taman selepas siapkan misi." };
+    if ([1, 2, 3].includes(wmoCode)) return { label: "Berawan", Icon: CloudSun, color: "text-sky-500", advice: "Cuaca redup. Sesuai untuk aktiviti luar atau membaca di beranda." };
+    if ([45, 48].includes(wmoCode)) return { label: "Berkabus", Icon: Cloud, color: "text-slate-400", advice: "Jarak penglihatan terhad di luar. Pastikan anak-anak kekal hangat." };
+    if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(wmoCode)) return { label: "Hujan", Icon: CloudRain, color: "text-blue-500", advice: "Hujan di luar. Waktu terbaik untuk berehat di rumah sambil buat misi StudyQuest! 🏡" };
+    if ([95, 96, 99].includes(wmoCode)) return { label: "Ribut Petir", Icon: CloudLightning, color: "text-indigo-600", advice: "Ribut petir! Tutup palam elektrik yang tidak perlu dan kekal di dalam rumah. ⚡" };
+    return { label: "Tidak Menentu", Icon: Cloud, color: "text-slate-500", advice: "Cuaca tidak menentu hari ini. Sediakan payung jika mahu keluar." };
+  };
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            // 1. Dapatkan Nama Lokasi (Reverse Geocoding Percuma)
+            const locRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ms`);
+            const locData = await locRes.json();
+            setLocation(locData.city || locData.locality || "Lokasi Anda");
+
+            // 2. Dapatkan Cuaca Semasa & Hourly Forecast (Open-Meteo)
+            const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&timezone=auto`);
+            const data = await weatherRes.json();
+
+            setWeather({
+              temp: Math.round(data.current.temperature_2m),
+              code: data.current.weather_code
+            });
+
+            // 3. Ekstrak Ramalan 5 Jam Akan Datang
+            const now = new Date();
+            // Cari index masa sekarang dalam array hourly
+            const currentHourIndex = data.hourly.time.findIndex(t => new Date(t) > now) - 1; 
+            const startIndex = currentHourIndex >= 0 ? currentHourIndex + 1 : 1; 
+            
+            const next5Hours = [];
+            for(let i = 0; i < 5; i++) {
+               next5Hours.push({
+                 time: data.hourly.time[startIndex + i],
+                 temp: Math.round(data.hourly.temperature_2m[startIndex + i]),
+                 code: data.hourly.weather_code[startIndex + i]
+               });
+            }
+            setForecast(next5Hours);
+            setLoading(false);
+          } catch (err) {
+            console.error("Gagal mengambil data cuaca:", err);
+            setError(true);
+            setLoading(false);
+          }
+        },
+        (err) => {
+          console.warn("Akses lokasi ditolak pengguna.", err);
+          setLocation("Lokasi Tidak Dibenarkan");
+          setError(true);
+          setLoading(false);
+        }
+      );
+    } else {
+       setError(true);
+       setLoading(false);
+    }
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="p-5 rounded-2xl shadow-sm border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 flex flex-col items-center justify-center min-h-[180px]">
+        <Loader2 className="w-8 h-8 text-sky-400 animate-spin mb-2" />
+        <p className="text-xs font-medium text-sky-700">Mencari isyarat satelit cuaca...</p>
+      </Card>
+    );
+  }
+
+  if (error || !weather) {
+    return (
+      <Card className="p-5 rounded-2xl shadow-sm border-slate-200 bg-slate-50 flex flex-col items-center justify-center min-h-[180px] text-center">
+        <Cloud className="w-8 h-8 text-slate-300 mb-2" />
+        <p className="text-xs font-bold text-slate-600 mb-1">Gagal Memuat Cuaca</p>
+        <p className="text-[10px] text-slate-500 px-4">Sila pastikan fungsi GPS (Lokasi) dihidupkan pada pelayar (browser) anda.</p>
+      </Card>
+    );
+  }
+
+  const currentDetails = getWeatherDetails(weather.code);
+  const MainIcon = currentDetails.Icon;
+
   return (
     <Card className="p-5 rounded-2xl shadow-sm border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 relative overflow-hidden">
-      <div className="absolute -top-6 -right-6 opacity-20">
-        <Sun className="w-24 h-24 text-amber-500" />
+      <div className="absolute -top-6 -right-6 opacity-10">
+        <MainIcon className="w-28 h-28 text-sky-900" />
       </div>
-      <div className="flex justify-between items-center relative z-10">
+      
+      <div className="flex justify-between items-start relative z-10">
         <div>
-          <p className="text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-1">Cuaca Semasa</p>
-          <div className="flex items-end gap-2">
-            <h3 className="text-3xl font-black text-slate-800 leading-none">32°C</h3>
+          <div className="flex items-center gap-1 mb-1.5 text-sky-600">
+            <MapPin className="w-3 h-3" />
+            <p className="text-[9px] font-bold uppercase tracking-wider line-clamp-1">{location}</p>
           </div>
-          <p className="text-xs font-bold text-slate-600 mt-1.5">Cerah & Panas</p>
+          <div className="flex items-end gap-2">
+            <h3 className="text-4xl font-black text-slate-800 leading-none">{weather.temp}°<span className="text-xl">C</span></h3>
+          </div>
+          <p className={`text-xs font-bold mt-1.5 ${currentDetails.color}`}>{currentDetails.label}</p>
         </div>
-        <div className="w-12 h-12 bg-white/60 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm">
-          <Sun className="w-7 h-7 text-amber-500" />
+        <div className="w-14 h-14 bg-white/60 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm border border-white">
+          <MainIcon className={`w-8 h-8 ${currentDetails.color}`} />
         </div>
       </div>
-      <div className="mt-4 pt-3 border-t border-sky-200/50 relative z-10">
-        <p className="text-[11px] text-sky-800 font-medium leading-relaxed">
-          Cuaca agak panas di luar. Waktu yang sesuai untuk anak berehat di rumah sambil main <strong>StudyQuest</strong>! 🏡
-        </p>
+
+      <p className="text-[10px] text-sky-800/80 font-medium leading-relaxed mt-3 relative z-10 italic border-l-2 border-sky-300 pl-2">
+        "{currentDetails.advice}"
+      </p>
+
+      {/* RAMALAN 5 JAM AKAN DATANG */}
+      <div className="mt-4 pt-4 border-t border-sky-200/60 relative z-10">
+        <p className="text-[9px] font-bold text-sky-600 uppercase tracking-wider mb-3">Ramalan Seterusnya</p>
+        <div className="flex justify-between items-center gap-1">
+          {forecast.map((f, i) => {
+             const hourlyDetail = getWeatherDetails(f.code);
+             const HourIcon = hourlyDetail.Icon;
+             const timeStr = new Date(f.time).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+             
+             return (
+               <div key={i} className="flex flex-col items-center text-center">
+                 <span className="text-[9px] text-slate-500 font-bold mb-1.5">{timeStr}</span>
+                 <HourIcon className={`w-4 h-4 ${hourlyDetail.color} mb-1.5`} />
+                 <span className="text-[11px] font-black text-slate-700">{f.temp}°</span>
+               </div>
+             )
+          })}
+        </div>
       </div>
     </Card>
   );
@@ -164,7 +281,7 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   );
 }
 
-// ---------------- INDIVIDUAL CHILD CARD (DIKEMAS KINI DENGAN AVATAR HIDUP GOOGLE) ----------------
+// ---------------- INDIVIDUAL CHILD CARD (AVATAR HIDUP GOOGLE) ----------------
 function ChildCard({ child, onRefresh }) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -182,32 +299,25 @@ function ChildCard({ child, onRefresh }) {
   const lastActive = child.last_active ? moment(child.last_active).fromNow() : "Baru aktif";
   const displayName = child.display_name || "Pelajar";
 
-  // LOGIK BARU UNTUK AVATAR NAGA BERANIMASI (MENGGUNAKAN GOOGLE CDN)
   const getDragonMilestone = (xp, lvl) => {
-    // Ancient Inferno - Naga dewasa yang megah
     if (xp >= 5000 || lvl >= 15) return { 
       stageTitle: "Ancient Inferno", 
       gradient: "from-rose-500 via-red-500 to-amber-300", 
       glow: "rgba(239, 68, 68, 0.4)", 
-      // GIF Naga (Dragon) Animasi dari Google
       imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f409/512.gif", 
       glowColor: "#ef4444"
     };
-    // Emerald Drake - Naga remaja
     if (xp >= 1500 || lvl >= 6) return { 
       stageTitle: "Emerald Drake", 
       gradient: "from-emerald-400 via-teal-400 to-cyan-300", 
       glow: "rgba(16, 185, 129, 0.3)", 
-      // GIF Muka Naga (Dragon Face) Animasi dari Google
       imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f432/512.gif", 
       glowColor: "#10b981"
     };
-    // Ruby Hatchling - Naga kecil (T-Rex sebagai proksi naga comel)
     return { 
       stageTitle: "Ruby Hatchling", 
       gradient: "from-purple-400 via-pink-400 to-rose-300", 
       glow: "rgba(219, 39, 119, 0.2)", 
-      // GIF T-Rex Animasi dari Google (sangat comel untuk hatchling!)
       imgUrl: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f996/512.gif", 
       glowColor: "#db2677"
     };
@@ -264,10 +374,8 @@ function ChildCard({ child, onRefresh }) {
 
         <Link to={`/parent/children/${child.id}`} className="block">
           <div className="flex items-start gap-4">
-            {/* AVATAR NAGA YANG HIDUP DAN REALISTIK */}
             <div className="relative flex flex-col items-center justify-center p-1 select-none flex-shrink-0 relative z-10">
               <div style={{ perspective: "1000px" }} className="relative w-18 h-18 flex items-center justify-center">
-                {/* Cahaya Latar Belakang yang Berdenyut (Pulsing Glow) */}
                 <motion.div 
                   animate={{ 
                     scale: [1, 1.1, 1],
@@ -279,18 +387,15 @@ function ChildCard({ child, onRefresh }) {
                   className="absolute inset-0 rounded-full opacity-30 blur-2xl" 
                 />
                 
-                {/* Bulatan Naga Utama */}
                 <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${milestone.gradient} border-2 border-white/60 shadow-lg flex items-center justify-center relative z-10 overflow-hidden`}>
-                  {/* Cahaya Dalaman (Inner Glow) */}
                   <div className="absolute inset-0 bg-white/10 blur-md rounded-full"></div>
                   
-                  {/* Imej Naga 3D dengan Animasi Terapung yang Dipertingkatkan */}
                   <motion.img 
                     src={milestone.imgUrl} 
                     alt={displayName} 
                     animate={{ 
-                      y: [-3, 3, -3], // Gerakan terapung lebih organik (dikurangkan sikit sebab GIF dah ada animasi)
-                      rotate: [-2, 2, -2] // Sedikit putaran lembut
+                      y: [-3, 3, -3], 
+                      rotate: [-2, 2, -2] 
                     }} 
                     transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} 
                     className="w-10 h-10 object-contain drop-shadow-2xl relative z-10" 
