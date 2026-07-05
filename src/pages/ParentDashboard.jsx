@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Clock, Award, ShieldAlert } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 import moment from "moment";
@@ -20,19 +20,15 @@ const calculateAge = (birthDate) => {
   return age;
 };
 
-// ---------------- INDIVIDUAL CHILD CARD (SYNCHRONIZED MILESTONE LOGIC) ----------------
+// ---------------- INDIVIDUAL CHILD CARD (FIXED BUBBLING & ADDED TIME METRIC) ----------------
 function ChildCard({ child, onUnlink }) {
-  // 1. Ambil data XP dan Level dari rekod Progress sebenar
   const currentXP = child.progress?.xp_score || 0;
   const currentLevel = child.progress?.level || 1;
   const nextLevelXP = child.progress?.next_level_xp || (currentLevel * 500);
   
-  // Pengiraan kadar peratusan kemajuan XP yang tepat
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   const lastActive = child.last_active ? moment(child.last_active).fromNow() : "Baru aktif";
 
-  // 2. LOGIK MILESTONE (Diselaraskan dengan halaman MyChildren)
-  // Menentukan evolusi reka bentuk naga bersandarkan jumlah XP Bersih anak
   const getDragonMilestone = (xp, lvl) => {
     if (xp >= 5000 || lvl >= 15) {
       return {
@@ -64,7 +60,7 @@ function ChildCard({ child, onUnlink }) {
   const milestone = getDragonMilestone(currentXP, currentLevel);
 
   return (
-    <Card className="p-6 space-y-4 bg-white hover:shadow-lg transition-all border-slate-100 relative overflow-hidden group">
+    <Card className="p-6 space-y-4 bg-white hover:shadow-xl transition-all border-slate-100 relative overflow-hidden group rounded-2xl">
       
       {/* Status Keaktifan Sebenar */}
       <div className="absolute top-4 right-4 flex items-center gap-1.5">
@@ -73,8 +69,7 @@ function ChildCard({ child, onUnlink }) {
       </div>
 
       <div className="flex items-start gap-4">
-        
-        {/* AVATAR NAGA DENGAN LOGIK MILESTONE BARU */}
+        {/* Avatar Naga */}
         <div className="relative flex flex-col items-center justify-center p-2 select-none flex-shrink-0">
           <div style={{ perspective: "1000px" }} className="relative w-20 h-20 flex items-center justify-center">
             <motion.div animate={{ scale: [0.95, 1.15, 0.95], rotate: 360 }} transition={{ duration: 10, repeat: Infinity }} style={{ boxShadow: `0 0 20px ${milestone.glow}` }} className="absolute inset-0 rounded-full border border-dashed border-white/20 opacity-50" />
@@ -96,7 +91,7 @@ function ChildCard({ child, onUnlink }) {
           <p className="text-xs text-muted-foreground font-medium">Umur {calculateAge(child.date_of_birth)} Tahun</p>
           
           {/* Progress Bar Grafik XP */}
-          <div className="pt-3 space-y-1.5">
+          <div className="pt-2 space-y-1.5">
             <div className="flex justify-between items-center text-[10px]">
               <span className="font-bold text-slate-500 flex items-center gap-1">
                 <TrendingUp className="w-3 h-3 text-indigo-500" /> 
@@ -107,30 +102,31 @@ function ChildCard({ child, onUnlink }) {
               </span>
             </div>
             <Progress value={xpPercentage} className="h-1.5 bg-slate-100" />
-            <p className="text-[9px] text-right text-slate-400 font-medium">{xpPercentage}% menuju tahap seterusnya</p>
           </div>
         </div>
       </div>
 
-      {/* Grid Subjek Fokus & Misi Harian Pelajar */}
-      <div className="grid grid-cols-2 gap-3 pt-2">
+      {/* Grid Subjek Fokus & Metrik Masa Belajar */}
+      <div className="grid grid-cols-2 gap-3 pt-1">
         <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Topik Utama</p>
-            <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-xs shadow-sm">🔢</div>
-                <span className="text-xs font-bold text-slate-700 truncate">
-                  {child.progress?.current_topic || "Pecahan (Math)"}
-                </span>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Masa Belajar Terkumpul</p>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center shadow-sm">
+              <Clock className="w-3.5 h-3.5 text-cyan-500" />
             </div>
+            <span className="text-xs font-black text-slate-700">
+              {child.total_study_minutes} <span className="text-[10px] font-normal text-slate-500">Minit</span>
+            </span>
+          </div>
         </div>
         <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Misi Hari Ini</p>
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-[10px] shadow-sm text-emerald-500 font-extrabold">
-                  {child.progress?.completed_quests || 2}/{child.progress?.total_quests || 3}
-                </div>
-                <span className="truncate">Selesaikan Misi</span>
-            </div>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Topik Terkini</p>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-xs shadow-sm">🔢</div>
+            <span className="text-xs font-bold text-slate-700 truncate">
+              {child.progress?.current_topic || "Nota Pintar"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -145,8 +141,12 @@ function ChildCard({ child, onUnlink }) {
           <p className="text-[9px] text-muted-foreground font-bold uppercase">Streak</p>
         </div>
         <div 
-          className="cursor-pointer hover:scale-105 transition-transform active:scale-95"
-          onClick={() => alert(`🎉 Sorakan kasih sayang telah dihantar terus ke peranti ${child.display_name}!`)}
+          className="cursor-pointer hover:scale-105 transition-transform active:scale-95 bg-rose-50/50 hover:bg-rose-50 rounded-lg py-0.5"
+          onClick={(e) => {
+            e.preventDefault(); // Mengelakkan pautan halaman dipicu
+            e.stopPropagation(); // Menghalang event bubbling ke pautan makmal parent
+            alert(`🎉 Laporan sorakan kasih sayang berjaya dihantar terus ke skrin ${child.display_name}!`);
+          }}
         >
           <p className="font-black text-rose-500">❤️ Sorak!</p>
           <p className="text-[9px] text-muted-foreground font-bold uppercase">Puji Anak</p>
@@ -158,10 +158,14 @@ function ChildCard({ child, onUnlink }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onUnlink(child.id, child.display_name || "Student")}
-            className="text-rose-500 hover:bg-rose-50 w-full"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onUnlink(child.id, child.display_name || "Pelajar");
+            }}
+            className="text-slate-400 hover:text-rose-600 hover:bg-rose-50/50 w-full rounded-xl text-xs transition-colors"
           >
-            Unlink
+            Putuskan Hubungan Akun (Unlink)
           </Button>
         </div>
       )}
@@ -185,6 +189,7 @@ export default function ParentDashboard() {
       const u = await base44.auth.me();
       setUser(u);
 
+      // Ambil perhubungan anak dan penjaga
       const rel = await base44.entities.ParentChildRelationship.filter({
         parent_id: u.id,
         status: ["active", "pending"],
@@ -201,11 +206,15 @@ export default function ParentDashboard() {
 
       const kids = await Promise.all(
         childIds.map(async (id) => {
-          const [progress, wallet] = await Promise.all([
+          const [progress, wallet, studySessions] = await Promise.all([
             base44.entities.Progress.filter({ student_id: id }),
             base44.entities.Wallet.filter({ student_id: id }),
+            base44.entities.StudySession.filter({ student_id: id }), // Integrasi baru untuk menarik data masa belajar
           ]);
           const childUser = await base44.entities.User.get(id).catch(() => null);
+
+          // Kira jumlah keseluruhan minit pembelajaran yang direkodkan dari komponen LessonProgress & LessonPage
+          const totalStudyMinutes = studySessions.reduce((sum, session) => sum + (session.duration_minutes || 0), 0);
 
           return {
             id,
@@ -215,6 +224,7 @@ export default function ParentDashboard() {
             last_active: childUser?.updated_date || "",
             progress: progress?.[0] || {},
             wallet: wallet?.[0] || { balance: 0 },
+            total_study_minutes: totalStudyMinutes, // Dimasukkan ke dalam profil data anak
           };
         })
       );
@@ -237,6 +247,9 @@ export default function ParentDashboard() {
   }, []);
 
   const handleUnlink = async (childId, name) => {
+    const sah = window.confirm(`Adakah anda pasti mahu memutuskan hubungan akaun bersama ${name}?`);
+    if (!sah) return;
+
     try {
       const rel = await base44.entities.ParentChildRelationship.filter({
         parent_id: user.id,
@@ -248,11 +261,11 @@ export default function ParentDashboard() {
           status: "inactive",
         });
       }
-      toast({ title: "Unlinked", description: `${name} removed` });
+      toast({ title: "Berjaya Diputuskan", description: `Profil ${name} telah dikeluarkan.` });
       loadData();
     } catch (err) {
       toast({
-        title: "Failed to unlink",
+        title: "Gagal memutuskan hubungan",
         description: err.message,
         variant: "destructive",
       });
@@ -260,29 +273,38 @@ export default function ParentDashboard() {
   };
 
   if (loading) {
-    return <div className="p-10 text-center">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold">Parent Dashboard</h1>
-        <p className="text-muted-foreground text-sm">
-          Monitor your children's learning progress and rewards.
+    <div className="p-4 sm:p-6 space-y-6 max-w-4xl mx-auto font-sans">
+      
+      {/* Bahagian Header Utama */}
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-md">
+        <h1 className="text-2xl font-black flex items-center gap-2">Portal Penjaga 📊</h1>
+        <p className="text-indigo-100 text-sm mt-1">
+          Pantau progress pembelajaran, jumlah jam membaca nota, kuiz, serta pengurusan ganjaran anak-anak anda.
         </p>
       </div>
 
-      <div>
-        <h2 className="font-bold mb-3">My Children</h2>
+      {/* Grid Profil Anak-anak */}
+      <div className="space-y-3">
+        <h2 className="font-bold text-lg text-slate-800 flex items-center gap-1.5">
+          <Award className="w-5 h-5 text-indigo-500" /> Profil Anak Saya
+        </h2>
 
         {children.length === 0 ? (
-          <div className="p-4 border rounded-xl text-gray-500 text-center">
-            No student profile connected yet.
+          <div className="p-8 border-2 border-dashed rounded-2xl text-gray-400 text-center bg-white">
+            Tiada profil pelajar yang dipautkan lagi buat masa ini.
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {children.map(c => (
-              <Link key={c.id} to={`/parent/children/${c.id}`} className="block">
+              <Link key={c.id} to={`/parent/children/${c.id}`} className="block focus:outline-none">
                 <ChildCard child={c} onUnlink={handleUnlink} />
               </Link>
             ))}
@@ -290,17 +312,30 @@ export default function ParentDashboard() {
         )}
       </div>
 
-      <div>
-        <h2 className="font-bold mb-3">Pending Reward Requests</h2>
+      {/* Bahagian Tuntutan Hadiah Pending */}
+      <div className="space-y-3 pt-2">
+        <h2 className="font-bold text-lg text-slate-800 flex items-center gap-1.5">
+          <ShieldAlert className="w-5 h-5 text-amber-500" /> Permintaan Ganjaran (Menunggu Kelulusan)
+        </h2>
 
         {pendingRequests.length === 0 ? (
-          <div className="text-gray-400 text-sm">No pending requests</div>
+          <div className="text-slate-400 text-sm bg-slate-50 border border-slate-100 rounded-2xl p-4 text-center">
+            Tiada tuntutan hadiah baharu dari anak buat masa ini.
+          </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {pendingRequests.map(r => (
-              <div key={r.id} className="p-3 border rounded-xl flex justify-between items-center">
-                <span>{r.reward_title}</span>
-                <span className="text-sm text-muted-foreground">{r.coin_cost} 🪙</span>
+              <div key={r.id} className="p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-sm">🎁</span>
+                  <div>
+                    <span className="font-bold text-sm text-slate-800 block">{r.reward_title}</span>
+                    <span className="text-[11px] text-slate-400">Menanti penebusan</span>
+                  </div>
+                </div>
+                <Badge className="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-extrabold px-3 py-1 rounded-xl shadow-none">
+                  {r.coin_cost} 🪙
+                </Badge>
               </div>
             ))}
           </div>
