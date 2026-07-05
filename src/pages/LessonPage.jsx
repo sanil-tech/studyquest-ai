@@ -57,61 +57,18 @@ const shuffleArray = (array) => {
 };
 
 // ============================================================================
-// 🐵 MORRY AVATAR COMPONENT (INLINE COMPONENT)
-// ============================================================================
-const MorryAvatar = ({ message, isThinking = false, className = "", size = "text-6xl sm:text-7xl" }) => {
-  const bobbingDuration = isThinking ? 0.8 : 2.5; // Laju sikit kalau tengah fikir
-  const bobbingDistance = isThinking ? -16 : -12;
-
-  return (
-    <div className={`flex flex-col items-center pointer-events-none drop-shadow-xl z-30 ${className}`}>
-      {/* Bouncing Speech Bubble */}
-      {message && (
-        <motion.div
-          animate={{ y: [0, -4, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          className="bg-white text-[11px] font-black px-3 py-1 rounded-full border-2 border-orange-200 text-orange-600 shadow-md mb-2 whitespace-nowrap uppercase tracking-wider relative"
-        >
-          {message}
-          {/* Segitiga ekor belon dialog */}
-          <div className="absolute -bottom-1.5 left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white" />
-        </motion.div>
-      )}
-
-      {/* 3D Character Avatar (Morry Emoji) */}
-      <motion.div
-        animate={{
-          y: [0, bobbingDistance, 0], // Naik turun
-          rotate: isThinking ? [0, 10, -10, 0] : [-4, 4, -4], // Goyang
-          scale: [1, 1.05, 1] // Bernafas
-        }}
-        transition={{
-          duration: bobbingDuration,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-        className={`filter drop-shadow-[0_12px_10px_rgba(0,0,0,0.25)] ${size}`}
-      >
-        🦧
-      </motion.div>
-    </div>
-  );
-};
-
-
-// ============================================================================
 // 2. DYNAMIC RESPONSIVE MAIN COMPONENT LAYER
 // ============================================================================
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
   const navigate = useNavigate();
-  
+ 
   const [subject, setSubject] = useState(null);
   const [topic, setTopic] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [studentNickname, setStudentNickname] = useState("");
   const [loading, setLoading] = useState(true);
-  
+ 
   // Logik Premium Status
   const [isPremium, setIsPremium] = useState(false);
 
@@ -167,7 +124,7 @@ export default function LessonPage() {
 
         if (allQuizBanks && allQuizBanks.length > 0) {
           const namaTopikSemasa = top.name.toLowerCase().trim();
-          
+         
           const foundBank = allQuizBanks.find(bank => {
             const namaBankCsv = (bank.topic_name || "").toLowerCase().trim();
             return namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv);
@@ -189,12 +146,12 @@ export default function LessonPage() {
         if (cachedSessions.length > 0) {
           const session = cachedSessions[0];
           setSessionId(session.id);
-          
+         
           if (session.ai_explanation) {
             const parsed = JSON.parse(session.ai_explanation);
             setExplanation(parsed.lesson_markdown);
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
-            
+           
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
           }
         }
@@ -310,7 +267,7 @@ export default function LessonPage() {
     if (status.flashcards) return;
     
     setStatus(p => ({ ...p, flashcards: true }));
-    
+   
     try {
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         const shuffled = shuffleArray(rawBankQuestions);
@@ -480,9 +437,9 @@ export default function LessonPage() {
   }
 
   return (
-    <div className="px-3 sm:px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-8 pb-24 font-sans bg-slate-50/50 min-h-screen">
+    <div className="px-3 sm:px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-8 pb-24 font-sans bg-slate-50/50 min-h-screen relative overflow-hidden">
       
-      {/* Top Header Row - Warna Cyan yang Ceria */}
+      {/* Top Header Row */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -506,17 +463,12 @@ export default function LessonPage() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", bounce: 0.5 }}
-          className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto relative mt-10"
+          className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto"
         >
-          {/* LOKASI 1: MORRY DI SKRIN MENU UTAMA (Menunggu Butang Ditekan) */}
-          <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
-            <MorryAvatar 
-              message={status.lesson ? "Morry tengah fikir jap..." : "Jom mula!"} 
-              isThinking={status.lesson}
-            />
+          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <Sparkles className="w-10 h-10 text-primary animate-pulse" />
           </div>
-
-          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800 mt-10">
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800">
             Hai {studentNickname}! 👋<br/>Sedia untuk belajar? 🚀
           </h2>
           <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">
@@ -531,8 +483,8 @@ export default function LessonPage() {
       ) : (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
           
-          {/* Responsive Sticky Tabs - Gaya "Pill" Bubbly */}
-          <div className="sticky top-2 z-40 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
+          {/* Responsive Sticky Tabs */}
+          <div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
             <Button size="sm" variant={activeTab === "lesson" ? "default" : "ghost"} onClick={() => setActiveTab("lesson")} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "lesson" ? "shadow-md bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
               <BookOpen className="w-5 h-5"/> Nota Pintar 📖
             </Button>
@@ -566,16 +518,7 @@ export default function LessonPage() {
           )}
 
           {activeTab === "flashcards" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100 relative mt-8">
-              
-              {/* LOKASI 2: MORRY PADA KAD MEMORI */}
-              <MorryAvatar 
-                message={status.flashcards ? "Tengah susun kad..." : "Ingat betul-betul!"} 
-                isThinking={status.flashcards}
-                className="absolute -top-12 -right-2 sm:-top-16 sm:-right-6"
-                size="text-5xl sm:text-6xl"
-              />
-
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100">
               {status.flashcards ? (
                 <div className="flex flex-col items-center justify-center py-16 text-sm text-purple-600 font-medium">
                   <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-500" /> 🎮 Menyusun kad ajaib...
@@ -585,16 +528,7 @@ export default function LessonPage() {
           )}
 
           {activeTab === "mindmap" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] overflow-x-auto rounded-[2rem] bg-blue-50/30 border-2 border-blue-100 p-6 shadow-inner relative mt-8">
-              
-              {/* LOKASI 3: MORRY PADA PETA MINDA */}
-              <MorryAvatar 
-                message={status.mindmap ? "Melukis peta..." : "Wah, cantiknya!"} 
-                isThinking={status.mindmap}
-                className="absolute -top-12 -left-2 sm:-top-16 sm:-left-6"
-                size="text-5xl sm:text-6xl"
-              />
-
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] overflow-x-auto rounded-[2rem] bg-blue-50/30 border-2 border-blue-100 p-6 shadow-inner">
               {status.mindmap ? (
                 <div className="flex flex-col items-center justify-center py-16 text-sm text-blue-600 font-medium">
                   <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" /> Melukis peta harta karun... 🗺️
@@ -603,11 +537,9 @@ export default function LessonPage() {
             </motion.div>
           )}
 
-          {/* Responsive Quiz Panel - Super Gamified */}
+          {/* Responsive Quiz Panel */}
           <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
-            {/* Dekorasi Latar Belakang */}
             <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/50 rotate-12" />
-            
             <div className="relative z-10">
               <h3 className="font-bold text-xl sm:text-2xl text-orange-900 mb-2">
                 Uji Minda, {studentNickname}! 🎯
@@ -615,14 +547,12 @@ export default function LessonPage() {
               <p className="text-sm sm:text-base text-orange-700 mb-6 font-medium">
                 Kumpul Syiling 🪙, naik level, dan jadi juara kelas! Jom sahut cabaran!
               </p>
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
                   <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-orange-500 hover:bg-orange-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all">
                     {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2 fill-current" />} Cabaran Pantas (10 Soalan)
                   </Button>
                 </motion.div>
-
                 <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
                   <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-red-500 hover:bg-red-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all">
                     {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />} Ujian Boss (20 Soalan)
@@ -642,9 +572,33 @@ export default function LessonPage() {
               <Lock className="w-4 h-4 mr-2 text-amber-500" /> Ciri Premium: Jana Semula Nota 🌟
             </Button>
           )}
-            
         </motion.div>
       )}
+
+      {/* =========================================================================
+          ORANG UTAN MASCOT - Terapung di hadapan lapisan utama
+          - Menggunakan z-50 untuk mengelakkan ditindih
+          - Fixed position supaya kekal sewaktu menatal
+      ========================================================================= */}
+      <motion.div
+        animate={{ y: [0, -15, 0] }}
+        transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
+        className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 flex items-end drop-shadow-2xl pointer-events-none"
+      >
+        <div className="bg-white p-3 md:p-4 rounded-3xl rounded-br-none shadow-xl mb-4 mr-2 border-4 border-orange-300 pointer-events-auto max-w-[160px]">
+          <p className="text-xs md:text-sm font-bold text-orange-700 leading-snug">
+            Ayo, jom belajar {studentNickname}! 🦧✨
+          </p>
+        </div>
+        {/* Pastikan anda menukar path gambar ini kepada lokasi sebenar fail gambar avatar anda */}
+        <img
+          src="/assets/orang-utan.png" 
+          alt="Mascot Orang Utan"
+          className="w-24 h-24 md:w-32 md:h-32 object-contain pointer-events-auto cursor-pointer hover:scale-110 transition-transform active:scale-95"
+          onClick={triggerConfetti}
+        />
+      </motion.div>
+
     </div>
   );
 }
