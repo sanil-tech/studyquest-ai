@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import { 
   TrendingUp, Users, Bell, Plus, BookOpen, 
-  Target, ShieldAlert, Download, Flame, Sun, 
-  X, Lightbulb, Quote, RefreshCw, ArrowRight, 
-  Gift, CheckCircle2, Coins, Settings
+  Target, ShieldAlert, Flame, Sun, 
+  X, Lightbulb, Quote, RefreshCw, 
+  Gift, CheckCircle2, Coins, Settings, BarChart2
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
@@ -140,6 +140,26 @@ function WeatherCard() {
         </p>
       </div>
     </Card>
+  );
+}
+
+// ---------------- KOMPONEN PINTASAN PANTAS ----------------
+function ShortcutCard({ icon: Icon, title, desc, gradient }) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.03, y: -2 }}
+      whileTap={{ scale: 0.97 }}
+      className={`flex-1 bg-gradient-to-br ${gradient} p-3 sm:p-4 rounded-2xl shadow-md flex items-center gap-3 text-white justify-start relative overflow-hidden border border-white/10`}
+    >
+      <div className="absolute -right-4 -top-4 bg-white/10 w-16 h-16 rounded-full blur-xl"></div>
+      <div className="bg-white/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-md shrink-0">
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="text-left flex-1 min-w-0">
+        <p className="text-xs sm:text-sm font-bold truncate">{title}</p>
+        <p className="text-[9px] sm:text-[10px] text-white/80 truncate mt-0.5">{desc}</p>
+      </div>
+    </motion.button>
   );
 }
 
@@ -344,13 +364,12 @@ export default function ParentDashboard() {
 
   const handleSendReminder = () => {
     toast({
-      title: "Peringatan Dihantar! 🔔",
-      description: "Notifikasi pintar telah dipanjangkan ke peranti anak anda.",
+      title: "Ping Dihantar! 🔔",
+      description: "Peringatan pantas telah berbunyi di peranti anak anda.",
     });
   };
 
   const handleApproveReward = (id, title) => {
-    // Ruang untuk fungsi sebenar: base44.entities.RewardRequest.update(id, {status: 'approved'})
     toast({
       title: "Ganjaran Diluluskan! 🎉",
       description: `Tuntutan "${title}" telah disahkan berjaya.`,
@@ -364,7 +383,7 @@ export default function ParentDashboard() {
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto bg-slate-50/50 min-h-screen">
       
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-2">
         <div>
           <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
             Pusat Kawalan Ibu Bapa 🛡️
@@ -380,32 +399,44 @@ export default function ParentDashboard() {
         </Link>
       </div>
 
-      {/* PROACTIVE ALERTS */}
-      {children.length > 0 && (
-        <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-gradient-to-r from-orange-50 via-rose-50 to-orange-50 border-l-4 border-l-orange-500 border-y border-r border-orange-100 p-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="p-2 bg-orange-100 rounded-full shrink-0">
-              <ShieldAlert className="w-5 h-5 text-orange-600 animate-pulse" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-orange-900">Perhatian Pintar StudyQuest</h4>
-              <p className="text-xs text-orange-700 font-medium mt-0.5">
-                🔥 <strong>{children[0]?.display_name}</strong> belum log masuk hari ini. Jaga *streak* harian agar tidak terputus!
-              </p>
-            </div>
-          </div>
-          <Button size="sm" className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-xs h-9 rounded-lg font-bold shrink-0 gap-2 shadow-sm" onClick={handleSendReminder}>
-            <Bell className="w-3.5 h-3.5" /> Kirim Peringatan Ping
-          </Button>
-        </motion.div>
-      )}
+      {/* PINTASAN PANTAS (LOKASI BARU) */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-2"
+      >
+        <ShortcutCard 
+          icon={Gift} 
+          title="Ganjaran" 
+          desc="Urus hadiah anak" 
+          gradient="from-pink-500 to-rose-400" 
+        />
+        <ShortcutCard 
+          icon={BarChart2} 
+          title="Analitik" 
+          desc="Prestasi akademik" 
+          gradient="from-blue-500 to-cyan-500" 
+        />
+        <ShortcutCard 
+          icon={Target} 
+          title="Misi Baru" 
+          desc="Beri tugasan khas" 
+          gradient="from-emerald-500 to-teal-400" 
+        />
+        <ShortcutCard 
+          icon={Settings} 
+          title="Tetapan" 
+          desc="Profil & Kawalan" 
+          gradient="from-slate-700 to-slate-500" 
+        />
+      </motion.div>
 
-      {/* TUNTUTAN GANJARAN (LOKASI BARU DI ATAS KAD ANAK) */}
+      {/* TUNTUTAN GANJARAN */}
       {pendingRequests.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-2">
           <div className="flex items-center gap-2 mb-3 px-1">
             <Gift className="w-5 h-5 text-amber-500" />
-            <h2 className="text-sm font-bold text-slate-800">Tuntutan Ganjaran Menunggu Kelulusan</h2>
+            <h2 className="text-sm font-bold text-slate-800">Tuntutan Menunggu Kelulusan</h2>
             <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-1.5 py-0 h-5 text-[10px] ml-1">
               {pendingRequests.length}
             </Badge>
@@ -440,12 +471,41 @@ export default function ParentDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* SEKSYEN KAD ANAK-ANAK (KIRI) */}
+        {/* SEKSYEN KIRI (PERINGATAN & KAD ANAK) */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2 px-1">
             Anak-anak Saya
           </h2>
-          <div className="grid gap-4 md:grid-cols-2">
+
+          {/* PERINGATAN PINTAR */}
+          {children.length > 0 && (
+            <motion.div 
+              initial={{ y: -10, opacity: 0 }} 
+              animate={{ y: 0, opacity: 1 }} 
+              className="bg-white border border-orange-200 p-3 sm:p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden"
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-500 rounded-l-2xl"></div>
+              <div className="flex items-center gap-3 pl-2">
+                <div className="p-2 bg-orange-50 rounded-full shrink-0 text-orange-500">
+                  <ShieldAlert className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <p className="text-[13px] text-slate-700 font-medium leading-tight">
+                    <strong className="text-orange-700">{children[0]?.display_name}</strong> belum log masuk hari ini. Jangan biarkan <i>streak</i> terputus!
+                  </p>
+                </div>
+              </div>
+              <Button 
+                size="sm" 
+                className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white text-[11px] h-8 rounded-full font-bold shrink-0 shadow-sm transition-transform hover:scale-105 active:scale-95 px-5" 
+                onClick={handleSendReminder}
+              >
+                🔔 Ping Sekarang
+              </Button>
+            </motion.div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2 pt-1">
             {children.length === 0 ? (
               <Card className="p-8 text-center text-slate-400 col-span-2 rounded-2xl border-dashed">
                 <Users className="w-10 h-10 mx-auto mb-3 opacity-50" />
@@ -459,23 +519,28 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {/* SEKSYEN SISI (KANAN - DIKEMAS KINI) */}
+        {/* SEKSYEN SISI (KANAN) */}
         <div className="space-y-6">
           <WeatherCard />
           
-          <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-gradient-to-b from-white to-indigo-50/30">
-            <h2 className="font-bold text-sm text-indigo-900 mb-3 flex items-center gap-2">
-              <Settings className="w-4 h-4 text-indigo-500" /> Pintasan Pantas
+          {/* STATISTIK RINGKAS MENGGANTIKAN PINTASAN PANTAS LAMA */}
+          <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-white">
+            <h2 className="font-bold text-sm text-indigo-900 mb-4 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-indigo-500" /> Ringkasan Mingguan
             </h2>
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-100 justify-between h-10 bg-white">
-                <span className="flex items-center gap-2"><Gift className="w-3.5 h-3.5" /> Urus Katalog Ganjaran</span> 
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-              <Button variant="outline" className="w-full text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-100 justify-between h-10 bg-white">
-                <span className="flex items-center gap-2"><BookOpen className="w-3.5 h-3.5" /> Laporan Analitik Penuh</span> 
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+                <span className="text-xs font-bold text-slate-600">XP Terkumpul</span>
+                <span className="text-sm font-black text-indigo-600">+1,250 XP</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+                <span className="text-xs font-bold text-slate-600">Misi Selesai</span>
+                <span className="text-sm font-black text-emerald-600">8 Misi</span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+                <span className="text-xs font-bold text-slate-600">Hari Aktif</span>
+                <span className="text-sm font-black text-orange-500">5 Hari</span>
+              </div>
             </div>
           </Card>
         </div>
