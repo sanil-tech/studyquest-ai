@@ -360,13 +360,14 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Connected Parents Links */}
+          {/* Student Identifiers */}
           {isStudent && (
-            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
-              <ParentConnections user={user} />
+            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
+              <StudentIdSection user={user} />
             </div>
           )}
 
+         
           {/* Admin Tools Links */}
           {user?.role === "admin" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
