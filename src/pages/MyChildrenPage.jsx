@@ -17,31 +17,44 @@ import { motion, AnimatePresence } from "framer-motion";
 import AddChildModal from "@/components/parent/AddChildModal";
 import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
 
-// ---------------- KOMPONEN KECIL: LESSON CARD ----------------
+// ---------------- KOMPONEN KECIL: LESSON CARD (MENGGUNAKAN LOGIK DATA SEBENAR ANDA) ----------------
 function ChildLessonCard({ lesson }) {
-  // Memastikan status disemak dengan betul (kecil/besar huruf)
-  const isCompleted = lesson.status?.toLowerCase() === "completed" || lesson.is_completed === true;
-  
+  // Menggunakan STEPS mengikut komponen LessonProgress anda
+  const stepsData = lesson.steps || {};
+  const totalSteps = ["lesson", "flashcards", "mindmap", "activity"];
+  const completedSteps = totalSteps.filter((key) => stepsData[key]).length;
+  const percent = Math.round((completedSteps / totalSteps.length) * 100);
+  const isCompleted = percent === 100;
+
   return (
-    <div className="min-w-[220px] max-w-[220px] bg-white border border-border/60 rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex-shrink-0">
-      <div className="flex justify-between items-start mb-2">
-        <div className={`p-1.5 rounded-lg ${isCompleted ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-          <BookOpen className="w-4 h-4" />
+    <div className="min-w-[240px] max-w-[240px] bg-white border border-border/60 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all flex-shrink-0 flex flex-col justify-between">
+      <div>
+        <div className="flex justify-between items-start mb-2">
+          <div className={`p-1.5 rounded-lg ${isCompleted ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+            <BookOpen className="w-4 h-4" />
+          </div>
+          {isCompleted ? (
+            <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">100% Selesai</Badge>
+          ) : (
+            <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">{percent}% Proses</Badge>
+          )}
         </div>
-        {isCompleted ? (
-          <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">Selesai</Badge>
-        ) : (
-          <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold py-0 h-4 rounded-md">Proses</Badge>
-        )}
+        
+        <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={lesson.title || lesson.lesson_name}>
+          {lesson.title || lesson.lesson_name || "Pelajaran Tanpa Tajuk"}
+        </h4>
+        
+        <span className="text-[10px] font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+          {lesson.subject || lesson.category || "Umum"}
+        </span>
       </div>
-      <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={lesson.title || lesson.lesson_name}>
-        {lesson.title || lesson.lesson_name || "Pelajaran Tanpa Tajuk"}
-      </h4>
-      <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-        <Clock className="w-3 h-3" />
-        <span>{lesson.duration || lesson.time_spent || "15 min"}</span>
-        <span>•</span>
-        <span className="font-semibold text-slate-700">{lesson.subject || lesson.category || "Umum"}</span>
+
+      {/* Mini Progress Bar berdasarkan steps anak */}
+      <div className="mt-3 space-y-1">
+        <div className="flex justify-between text-[8px] text-slate-400 font-bold">
+          <span>Tugasan: {completedSteps}/4</span>
+        </div>
+        <Progress value={percent} className="h-1 bg-slate-100" />
       </div>
     </div>
   );
@@ -49,23 +62,24 @@ function ChildLessonCard({ lesson }) {
 
 // ---------------- KOMPONEN KECIL: QUIZ CARD ----------------
 function ChildQuizCard({ quiz }) {
-  // Mengesan markah sama ada daripada `score`, `marks`, atau `percentage`
   const actualScore = quiz.score !== undefined ? quiz.score : (quiz.marks || quiz.percentage || 0);
   const scoreColor = actualScore >= 80 ? "text-emerald-600 bg-emerald-50 border-emerald-100" : actualScore >= 50 ? "text-amber-600 bg-amber-50 border-amber-100" : "text-rose-600 bg-rose-50 border-rose-100";
 
   return (
-    <div className="min-w-[220px] max-w-[220px] bg-white border border-border/60 rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex-shrink-0">
-      <div className="flex justify-between items-start mb-2">
-        <div className="p-1.5 rounded-lg bg-purple-50 text-purple-600">
-          <HelpCircle className="w-4 h-4" />
+    <div className="min-w-[240px] max-w-[240px] bg-white border border-border/60 rounded-xl p-3.5 shadow-sm hover:shadow-md transition-all flex-shrink-0 flex flex-col justify-between">
+      <div>
+        <div className="flex justify-between items-start mb-2">
+          <div className="p-1.5 rounded-lg bg-purple-50 text-purple-600">
+            <HelpCircle className="w-4 h-4" />
+          </div>
+          <div className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${scoreColor}`}>
+            Skor: {actualScore}%
+          </div>
         </div>
-        <div className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${scoreColor}`}>
-          Skor: {actualScore}%
-        </div>
+        <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={quiz.title || quiz.quiz_name}>
+          {quiz.title || quiz.quiz_name || "Kuiz Tanpa Tajuk"}
+        </h4>
       </div>
-      <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={quiz.title || quiz.quiz_name}>
-        {quiz.title || quiz.quiz_name || "Kuiz Tanpa Tajuk"}
-      </h4>
       <div className="flex items-center justify-between text-[10px] text-slate-500 mt-2">
         <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{quiz.subject || "Subjek"}</span>
         <span>{quiz.completed_at ? new Date(quiz.completed_at).toLocaleDateString('ms-MY') : "Selesai"}</span>
@@ -130,7 +144,7 @@ function AiAnalyticPanel({ child, isPremium }) {
         <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
           <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Rumusan AI</p>
           <p className="text-xs text-slate-700 leading-relaxed">
-            {child.display_name} menunjukkan minat tinggi berdasarkan data masa nyata. Fokus pembelajaran adalah optimum.
+            {child.display_name} menunjukkan minat yang tinggi. Prestasi tugasan setakat ini amat memberangsangkan.
           </p>
         </div>
       </div>
@@ -138,7 +152,7 @@ function AiAnalyticPanel({ child, isPremium }) {
   );
 }
 
-// ---------------- INDIVIDU UTAMA ----------------
+// ---------------- MAIN PORTAL COMPONENT ----------------
 export default function MyChildrenPage() {
   const [user, setUser] = useState(null);
   const [children, setChildren] = useState([]);
@@ -180,7 +194,7 @@ export default function MyChildrenPage() {
             let quizzes = [];
 
             try {
-              // DATA SEBENAR: Ditapis secara spesifik mengikut `student_id: child.id`
+              // PENAPISAN DATA SEBENAR: Menggunakan child.id
               const [p, w, l, q] = await Promise.all([
                 base44.entities.Progress.filter({ student_id: child.id }).then((r) => r[0] || null),
                 base44.entities.Wallet.filter({ student_id: child.id }).then((r) => r[0] || null),
@@ -192,7 +206,7 @@ export default function MyChildrenPage() {
               lessons = l;
               quizzes = q;
             } catch (metaErr) {
-              console.error(`Gagal mendapatkan data metadata untuk anak ${child.id}:`, metaErr);
+              console.error(`Gagal mendapatkan data untuk anak ${child.id}:`, metaErr);
             }
 
             return {
@@ -200,7 +214,7 @@ export default function MyChildrenPage() {
               display_name: getDisplayName(child),
               progress,
               wallet,
-              lessons: lessons || [], // Menggunakan array kosong jika database tiada rekod, tiada mock-data lagi
+              lessons: lessons || [], 
               quizzes: quizzes || [],
               relationshipId: rel.id,
               is_premium: child.is_premium || false 
@@ -350,7 +364,7 @@ export default function MyChildrenPage() {
 
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 border-t border-slate-100">
                         
-                        {/* Kiri: Real Lesson & Quiz Progress */}
+                        {/* Kiri: Real Lesson (Menggunakan data steps dari komponen anda) */}
                         <div className="lg:col-span-7 space-y-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
                             <div className="flex gap-2">
@@ -370,7 +384,7 @@ export default function MyChildrenPage() {
                             <Link to={`/parent/children/${child.id}`} className="text-[10px] font-bold text-indigo-600 hover:underline self-end sm:self-auto">LIHAT LAPORAN PENUH →</Link>
                           </div>
 
-                          <div className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-hide min-h-[105px]">
+                          <div className="flex gap-4 overflow-x-auto pb-4 pt-1 scrollbar-hide min-h-[120px]">
                             {currentTab === "lessons" ? (
                               child.lessons && child.lessons.length > 0 ? (
                                 child.lessons.map((lesson) => (
