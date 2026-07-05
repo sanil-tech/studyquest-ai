@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Link, useNavigate } from "react-router-dom"; // <-- Tambah useNavigate di sini
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import { 
@@ -144,7 +144,6 @@ function WeatherCard() {
 }
 
 // ---------------- KOMPONEN PINTASAN PANTAS ----------------
-// Ditambah prop `onClick` supaya butang ini berfungsi
 function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
     <motion.button
@@ -332,7 +331,7 @@ function ChildCard({ child, onRefresh }) {
 // ================= MAIN DASHBOARD =================
 export default function ParentDashboard() {
   const { toast } = useToast();
-  const navigate = useNavigate(); // <-- Hook navigasi
+  const navigate = useNavigate(); 
   const [children, setChildren] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -380,13 +379,11 @@ export default function ParentDashboard() {
     setPendingRequests(prev => prev.filter(r => r.id !== id));
   };
 
-  // Fungsi untuk kad pintasan "Misi Baru"
   const handleNewMissionShortcut = () => {
     toast({
       title: "Pilih Anak",
       description: "Sila klik butang 'Cipta Misi Khas' pada kad profil anak di bawah.",
     });
-    // Menatal (scroll) ke bahagian anak-anak secara automatik
     window.scrollTo({ top: 300, behavior: "smooth" });
   };
 
@@ -412,7 +409,7 @@ export default function ParentDashboard() {
         </Link>
       </div>
 
-      {/* PINTASAN PANTAS (KINI BERFUNGSI DENGAN ONCLICK) */}
+      {/* PINTASAN PANTAS - DIKEMAS KINI MENGELAKKAN ROUTING ERROR */}
       <motion.div 
         initial={{ opacity: 0, y: 10 }} 
         animate={{ opacity: 1, y: 0 }} 
@@ -423,28 +420,36 @@ export default function ParentDashboard() {
           title="Ganjaran" 
           desc="Urus hadiah anak" 
           gradient="from-pink-500 to-rose-400" 
-          onClick={() => navigate("/parent/rewards")} // Contoh route ke halaman ganjaran
+          onClick={() => navigate("/parent/rewards")} 
         />
+        {/* BUTANG ANALITIK DITUKAR KEPADA TOAST SEMENTARA */}
         <ShortcutCard 
           icon={BarChart2} 
           title="Analitik" 
           desc="Prestasi akademik" 
           gradient="from-blue-500 to-cyan-500" 
-          onClick={() => navigate("/parent/analytics")} // Contoh route ke halaman analitik
+          onClick={() => toast({
+            title: "Akan Datang! 🚧",
+            description: "Modul Analitik masih dalam fasa pembangunan dan laluan belum wujud.",
+          })} 
         />
         <ShortcutCard 
           icon={Target} 
           title="Misi Baru" 
           desc="Beri tugasan khas" 
           gradient="from-emerald-500 to-teal-400" 
-          onClick={handleNewMissionShortcut} // Guna fungsi custom untuk beritahu pengguna
+          onClick={handleNewMissionShortcut} 
         />
+        {/* BUTANG TETAPAN DITUKAR KEPADA TOAST SEMENTARA */}
         <ShortcutCard 
           icon={Settings} 
           title="Tetapan" 
           desc="Profil & Kawalan" 
           gradient="from-slate-700 to-slate-500" 
-          onClick={() => navigate("/settings")} // Contoh route ke halaman tetapan
+          onClick={() => toast({
+            title: "Akan Datang! 🚧",
+            description: "Halaman Tetapan masih dalam fasa pembangunan dan laluan belum wujud.",
+          })} 
         />
       </motion.div>
 
@@ -540,7 +545,6 @@ export default function ParentDashboard() {
         <div className="space-y-6">
           <WeatherCard />
           
-          {/* STATISTIK RINGKAS MENGGANTIKAN PINTASAN PANTAS LAMA */}
           <Card className="p-5 rounded-2xl shadow-sm border-indigo-100 bg-white">
             <h2 className="font-bold text-sm text-indigo-900 mb-4 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-indigo-500" /> Ringkasan Mingguan
@@ -563,7 +567,6 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* SUDUT INSPIRASI & TIPS KEIBUBAPAAN */}
       <SmartParentingTips />
       
     </div>
