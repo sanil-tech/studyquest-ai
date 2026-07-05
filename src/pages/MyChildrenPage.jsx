@@ -16,25 +16,26 @@ const getDisplayName = (user) => {
 };
 
 function DetailedChildCard({ child, onOpenReport }) {
-  // 🛡️ Perlindungan ralat: Memastikan progressData sentiasa berupa objek walaupun data DB kosong
-  const progressData = child.progress || {};
+  const sessionData = child.latestSession || {};
   
-  const currentXP = progressData.total_xp || 0;
+  // XP & Streak (Boleh diletakkan fallback jika disimpan di entiti berbeza)
+  const currentXP = sessionData.total_xp || 0; 
   const nextLevelXP = 500;
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
+  const streakDays = sessionData.streak_days || 0;
   
-  const streakDays = progressData.streak_days || 0;
   const currentCoins = child.wallet?.balance || 0;
   
-  // 🔗 Menghubungkan parameter baharu berdasarkan Schema Editor anda
-  const currentTopic = progressData.topic_name || "Misi Belum Mula"; 
-  const totalStudyMinutes = progressData.duration_minutes || 0; 
+  // 🔗 DIKEMASKINI: Membaca skema tulen dari StudySession anda
+  const currentTopic = sessionData.topic_name || "Misi Belum Mula"; 
+  const totalStudyMinutes = sessionData.duration_minutes || 0; 
   
-  const lastActiveTime = progressData.last_study_date 
-    ? `Belajar Terakhir: ${moment(progressData.last_study_date).format("DD/MM/YYYY")}` 
+  // Menggunakan created_date / updated_date dari fail CSV anda
+  const lastActiveTime = sessionData.updated_date 
+    ? `Belajar Terakhir: ${moment(sessionData.updated_date).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
 
-  const quizScore = progressData.quiz_score || null;
+  const quizScore = child.quiz?.quiz_score || null;
   const displayName = getDisplayName(child); 
 
   return (
@@ -59,7 +60,7 @@ function DetailedChildCard({ child, onOpenReport }) {
           <div className="flex items-center justify-between gap-1">
             <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
             <Badge className="bg-blue-50 text-blue-600 border-0 text-[10px] font-black px-1.5 py-0 h-4 rounded shrink-0">
-              Tahap {progressData.level || 1}
+              Tahap {sessionData.level || 1}
             </Badge>
           </div>
           <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{child.email || "Tiada E-mel"}</p>
@@ -101,7 +102,7 @@ function DetailedChildCard({ child, onOpenReport }) {
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-400" />
           <div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Jumlah Masa Belajar</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Masa Sesi Terakhir</p>
             <p className="text-sm font-black mt-1 leading-none">{totalStudyMinutes} <span className="text-[11px] font-normal text-slate-400">Minit</span></p>
           </div>
         </div>
@@ -118,8 +119,8 @@ function DetailedChildCard({ child, onOpenReport }) {
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-[11px]">
             <span className="text-slate-500 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Status Nota Bacaan</span>
-            {/* 🛡️ DIBAIKI: Ditambah ?. untuk mengelakkan ralat 'undefined' */}
-            {progressData?.lesson ? ( 
+            {/* 🛡️ Memandangkan rekod wujud di StudySession, ia bermaksud nota sudah dibaca */}
+            {child.allSessions?.length > 0 ? ( 
               <span className="text-emerald-600 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Selesai</span>
             ) : (
               <span className="text-slate-400 font-medium">Belum Dibaca</span>
@@ -139,21 +140,13 @@ function DetailedChildCard({ child, onOpenReport }) {
         </div>
       </div>
 
+      {/* Butang Lihat Laporan Penuh */}
       <Button 
         onClick={() => onOpenReport(child)}
         className="w-full h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5"
       >
         <BarChart3 className="w-4 h-4" /> Lihat Laporan Penuh Topik
       </Button>
-
-      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
-          ⚙️ Kata Laluan
-        </Button>
-        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
-          <ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
-        </Button>
-      </div>
     </Card>
   );
 }
@@ -176,32 +169,31 @@ export default function MyChildrenPage() {
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        const [progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
-          base44.entities.Progress.filter({ student_id: id }),
+        const [studySessionRes, walletRes, attemptsRes, childUser] = await Promise.all([
+          // 🔥 PERTUKARAN UTAMA: Menukar 'Progress' kepada 'StudySession' mengikut data tulen anda
+          base44.entities.StudySession.filter({ student_id: id }),
           base44.entities.Wallet.filter({ student_id: id }),
           base44.entities.QuizAttempt.filter({ student_id: id }),
           base44.entities.User.get(id).catch(() => null),
         ]);
 
-        let activeProgress = {};
-        let sortedProgressList = [];
-        if (progressRes && progressRes.length > 0) {
-          sortedProgressList = [...progressRes].sort((a, b) => 
-            new Date(b.last_study_date || b.updated_at || 0) - new Date(a.last_study_date || a.updated_at || 0)
+        let latestSession = {};
+        let sortedSessions = [];
+        if (studySessionRes && studySessionRes.length > 0) {
+          // Menyusun mengikut updated_date berasaskan data eksport CSV anda
+          sortedSessions = [...studySessionRes].sort((a, b) => 
+            new Date(b.updated_date || b.created_date || 0) - new Date(a.updated_date || a.created_date || 0)
           );
-          activeProgress = sortedProgressList[0];
+          latestSession = sortedSessions[0];
         }
 
         let latestQuizScore = null;
-        let latestTopic = activeProgress?.topic_name || "Misi Belum Mula"; 
         let allAttempts = [];
-
         if (attemptsRes && attemptsRes.length > 0) {
           allAttempts = [...attemptsRes].sort((a, b) => 
             new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
           );
           latestQuizScore = allAttempts[0].score;
-          latestTopic = allAttempts[0].topic_name || latestTopic;
         }
 
         const activeWallet = walletRes && walletRes.length > 0 ? walletRes[0] : { balance: 0 };
@@ -213,11 +205,10 @@ export default function MyChildrenPage() {
           username: childUser?.username || "",
           wallet: activeWallet,
           allAttempts, 
-          allProgress: sortedProgressList, 
-          progress: {
-            ...activeProgress,
-            quiz_score: latestQuizScore, 
-            topic_name: latestTopic 
+          allSessions: sortedSessions, // Menyimpan semua sesi pengajian untuk modal popup
+          latestSession,
+          quiz: {
+            quiz_score: latestQuizScore
           }
         };
       }));
@@ -237,7 +228,7 @@ export default function MyChildrenPage() {
         <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
           <Users className="w-5 h-5 text-indigo-600" /> Profil Pengurusan Anak-Anak
         </h1>
-        <p className="text-xs text-slate-500 mt-0.5">Analisis kemajuan penuh, baki koin, kuiz, dan masa pembelajaran nyata.</p>
+        <p className="text-xs text-slate-500 mt-0.5">Analisis kemajuan penuh, baki koin, kuiz, dan masa pembelajaran nyata daripada database.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -250,7 +241,7 @@ export default function MyChildrenPage() {
         ))}
       </div>
 
-      {/* MODAL POPUP */}
+      {/* MODAL POPUP: LAPORAN PENUH BERDASARKAN STUDYSESSION */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
           <DialogHeader className="border-b pb-3">
@@ -262,28 +253,24 @@ export default function MyChildrenPage() {
           {selectedChild && (
             <div className="space-y-6 mt-4">
               
-              {/* Seksyen 1: Nota Pelajaran */}
+              {/* Seksyen 1: Nota Pelajaran dari StudySession */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
                 </h4>
-                {selectedChild.allProgress.length === 0 ? (
+                {selectedChild.allSessions.length === 0 ? (
                   <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum ada topik pelajaran dimulakan.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedChild.allProgress.map((prog, idx) => (
+                    {selectedChild.allSessions.map((session, idx) => (
                       <div key={idx} className="bg-slate-50 border border-slate-100 p-3 rounded-xl flex items-center justify-between">
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-700 truncate">{prog.topic_name || "Topik Am"}</p>
+                          <p className="text-xs font-bold text-slate-700 truncate">{session.topic_name || "Topik Tanpa Nama"}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {prog.duration_minutes || 0} Minit Belajar
+                            <Clock className="w-3 h-3" /> {session.duration_minutes || 0} Minit Diluangkan
                           </p>
                         </div>
-                        {prog.lesson ? (
-                          <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold">Nota Selesai</Badge>
-                        ) : (
-                          <Badge className="bg-slate-100 text-slate-400 border border-slate-200 text-[10px] font-normal">Membaca</Badge>
-                        )}
+                        <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold">Nota Selesai</Badge>
                       </div>
                     ))}
                   </div>
@@ -305,12 +292,9 @@ export default function MyChildrenPage() {
                           <p className="text-xs font-black text-slate-800">{attempt.topic_name || "Kuiz Tanpa Nama"}</p>
                           <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium mt-0.5">
                             <span><Calendar className="w-3 h-3 inline mr-0.5" /> {moment(attempt.created_at).format("DD MMM YYYY, h:mm a")}</span>
-                            <span className="text-amber-600 font-bold"><Coins className="w-3 h-3 inline mr-0.5" /> +{attempt.coins_earned || 0} Koin</span>
                           </div>
                         </div>
-                        <Badge className={`text-xs font-black px-2 py-0.5 rounded-lg ${
-                          attempt.score >= 80 ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"
-                        }`}>
+                        <Badge className="text-xs font-black px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
                           {attempt.score}% Markah
                         </Badge>
                       </div>
