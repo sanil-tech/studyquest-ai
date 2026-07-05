@@ -9,6 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
+// 💡 DIKEMASKINI: Mengutamakan nickname, kemudian e-mel
+const getDisplayName = (user) => {
+  if (!user) return "Pelajar";
+  return user.nickname || user.username || user.email || "Pelajar";
+};
+
 function DetailedChildCard({ child }) {
   const currentXP = child.progress?.total_xp || 0;
   const nextLevelXP = 500;
@@ -25,7 +31,7 @@ function DetailedChildCard({ child }) {
 
   const quizScore = child.progress?.quiz_score || null;
   const totalQuizQuestions = child.progress?.quiz_total_questions || 5;
-  const displayName = child.name || child.display_name || "Pelajar";
+  const displayName = getDisplayName(child); 
 
   return (
     <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
@@ -52,7 +58,8 @@ function DetailedChildCard({ child }) {
               Tahap {child.progress?.level || 1}
             </Badge>
           </div>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5">Ruby Hatchling</p>
+          {/* Menampilkan e-mel rasmi anak di sini */}
+          <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{child.email}</p>
         </div>
       </div>
 
@@ -133,7 +140,6 @@ function DetailedChildCard({ child }) {
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
           ⚙️ Kata Laluan
         </Button>
-        {/* 💡 DIKEMASKINI: Menambah pembuka tag < yang tertinggal */}
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
           <ShieldAlert className="w-3.5 h-3.5 mr-1" /> Sekat Akses
         </Button>
@@ -164,7 +170,6 @@ export default function MyChildrenPage() {
         return { 
           id, 
           ...childUser, 
-          display_name: childUser?.name || "Pelajar", 
           progress: progress?.[0] || {}, 
           wallet: wallet?.[0] || { balance: 0 },
         };
