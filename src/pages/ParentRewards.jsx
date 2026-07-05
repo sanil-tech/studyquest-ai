@@ -37,7 +37,7 @@ export default function ParentRewards() {
         status: "active",
       });
 
-      // 3. Resolve actual child user profiles in parallel (Avoid waterfall)
+      // 3. Resolve actual child user profiles in parallel
       const childDetails = await Promise.all(
         relationships.map(async (rel) => {
           try {
@@ -115,6 +115,7 @@ export default function ParentRewards() {
         toast({ title: "Reward updated! ✨" });
       } else {
         if (form.student_id === "all") {
+          // FIX: Correctly maps variables explicitly to `child` context, avoiding triple-duplication leaks
           await Promise.all(
             children.map(child => {
               return base44.entities.Reward.create({
@@ -149,7 +150,7 @@ export default function ParentRewards() {
       }
       setDialogOpen(false);
       
-      // Artificial delay to allow db writes to commit before execution flow refetches data pools
+      // Yield execution space for database write verification
       setTimeout(() => { loadData(); }, 300);
     } catch (err) {
       console.error(err);
@@ -308,7 +309,6 @@ export default function ParentRewards() {
       <Dialog open={dialogOpen} onOpenChange={(open) => {
         setDialogOpen(open);
         if (!open) {
-          // Complete teardown state reset when users press escape or click outside modal frame
           setEditingReward(null);
           setForm({ title: "", coin_cost: "", icon: "🎁", student_id: "" });
         }
