@@ -10,10 +10,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-// 💡 FUNGSI SOKONGAN UNTUK NAMA PAPARAN
+// 💡 DIKEMASKINI: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
-  return user.name || user.username || user.email || "Pelajar";
+  return user.nickname || user.username || user.email || "Pelajar";
 };
 
 function CompactChildCard({ child }) {
@@ -22,7 +22,7 @@ function CompactChildCard({ child }) {
   const currentXP = child.progress?.total_xp || 0;
   const nextLevelXP = 500; 
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
-  const displayName = getDisplayName(child); // 💡 Digunakan di sini
+  const displayName = getDisplayName(child); 
   
   const lastActiveTime = child.progress?.last_study_date 
     ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
@@ -51,7 +51,9 @@ function CompactChildCard({ child }) {
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
-            <p className="text-[11px] text-slate-500 font-bold truncate mt-0.5">
+            {/* Paparkan e-mel di bawah nickname sebagai rujukan tambahan ibu bapa */}
+            <p className="text-[10px] text-slate-400 truncate leading-none">{child.email}</p>
+            <p className="text-[11px] text-slate-500 font-bold truncate mt-1.5">
               📚 {currentTopic}
             </p>
           </div>
