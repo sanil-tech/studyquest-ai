@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Home, BookOpen, Trophy, Wallet, Bell, User, Users, Gift, CheckSquare, Menu, X, ChevronLeft } from "lucide-react";
+import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft } from "lucide-react";
 
 const studentNav = [
   { path: "/dashboard", icon: Home, label: "Home" },
@@ -56,12 +56,9 @@ export default function AppLayout() {
     }
   }, [user, isParent, location.pathname, navigate]);
 
-  // ==========================================
-  // FUNGSI PENJANA BUNYI BLOOP (100% DALAM KOD)
-  // ==========================================
+  // Fungsi Penjana Bunyi Bloop 
   const playCuteBloop = () => {
     try {
-      // Akses sistem audio pelayar web
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) return; 
       
@@ -72,22 +69,17 @@ export default function AppLayout() {
       osc.connect(gainNode);
       gainNode.connect(ctx.destination);
 
-      // Gunakan gelombang 'sine' untuk bunyi yang bulat dan lembut (mesra kanak-kanak)
       osc.type = 'sine';
-
-      // Cipta efek titisan air (frekuensi tinggi jatuh merudum dengan cepat)
       osc.frequency.setValueAtTime(800, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.1);
 
-      // Kawalan kelantangan (bermula sederhana dan terus senyap)
-      gainNode.gain.setValueAtTime(0.2, ctx.currentTime); // Kelantangan: 0.2
+      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
 
-      // Mainkan bunyi selama 0.1 saat
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.1);
     } catch (e) {
-      console.error("Audio API tidak disokong pada pelayar ini", e);
+      console.error("Audio API error", e);
     }
   };
 
@@ -113,16 +105,19 @@ export default function AppLayout() {
   return (
     <div className="flex h-screen bg-orange-50/40 overflow-hidden font-sans" onMouseDownCapture={handleAppClick}>
       
+      {/* ==========================================
+          SIDEBAR DESKTOP & TABLET
+          ========================================== */}
       <aside 
-        className={`hidden md:flex bg-white border-r-4 border-orange-100 flex-col justify-between shadow-xl z-20 transition-all duration-300 ease-in-out ${
-          isDesktopSidebarOpen ? "w-72" : "w-0 -translate-x-full border-r-0"
+        className={`hidden md:flex bg-white border-r-4 border-orange-100 flex-col shadow-xl z-20 transition-all duration-300 ease-in-out ${
+          isDesktopSidebarOpen ? "w-64 lg:w-72" : "w-0 -translate-x-full border-r-0"
         }`}
       >
         <div className="p-6 flex-1 overflow-y-auto">
           <div className="flex items-center justify-between mb-10">
             <Link to={isParent ? "/parent" : "/dashboard"} className="flex items-center gap-3 group">
                <div className="text-3xl group-hover:scale-110 transition-transform">🦧</div>
-               <div className="text-2xl font-black text-orange-700 tracking-tight">StudyQuest</div>
+               <div className="text-xl lg:text-2xl font-black text-orange-700 tracking-tight">StudyQuest</div>
             </Link>
           </div>
 
@@ -142,28 +137,12 @@ export default function AppLayout() {
             })}
           </nav>
         </div>
-
-        <div className="p-5 border-t-2 border-orange-100 bg-orange-50/50">
-          <div className="flex items-center gap-3 p-2 rounded-2xl">
-            <Link to="/profile"><RenderAvatar className="w-12 h-12 hover:opacity-80 transition-opacity" /></Link>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-800 truncate">{user?.full_name || (isParent ? "Ibu Bapa" : "Pelajar")}</p>
-              <p className="text-xs text-orange-600 font-bold uppercase tracking-wide">{user?.app_role || "User"}</p>
-            </div>
-            {!isParent && (
-              <Link to="/notifications" className="relative p-2 rounded-full hover:bg-white transition-colors">
-                <Bell className="w-5 h-5 text-slate-500" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
-            )}
-          </div>
-        </div>
+        {/* PROFIL DI SINI TELAH DIBUANG */}
       </aside>
 
+      {/* ==========================================
+          SIDEBAR MOBILE (Laci)
+          ========================================== */}
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
@@ -194,9 +173,13 @@ export default function AppLayout() {
         </nav>
       </aside>
 
+      {/* ==========================================
+          KAWASAN KANDUNGAN UTAMA (DENGAN TOP BAR BARU)
+          ========================================== */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="p-4 bg-white border-b-2 border-orange-100 flex justify-between items-center z-30 shadow-sm relative">
+        <header className="p-4 bg-white border-b-2 border-orange-100 flex justify-between items-center z-30 shadow-sm relative min-h-[72px]">
           
+          {/* BAHAGIAN KIRI: Butang Togol & Tajuk */}
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)} 
@@ -209,19 +192,17 @@ export default function AppLayout() {
               <Menu className="w-6 h-6" />
             </button>
             
-            {!isDesktopSidebarOpen && (
-              <span className="hidden md:inline-block font-black text-xl text-orange-700 tracking-tight animate-in fade-in duration-200">
-                StudyQuest 🦧
-              </span>
-            )}
+            {/* Tunjuk tajuk di Top Bar jika sidebar tertutup ATAU pada paparan mobile */}
+            <span className={`font-black text-xl text-orange-700 tracking-tight transition-opacity ${!isDesktopSidebarOpen || 'md:hidden'} block`}>
+              StudyQuest <span className="hidden md:inline">🦧</span>
+            </span>
           </div>
           
-          <span className="md:hidden font-black text-xl text-orange-700 tracking-tight">StudyQuest</span>
-          
-          <div className="flex items-center gap-2">
+          {/* BAHAGIAN KANAN: Notifikasi & Profil Penuh (Responsive) */}
+          <div className="flex items-center gap-2 md:gap-4">
             {!isParent && (
-              <Link to="/notifications" className="relative p-2 rounded-full hover:bg-slate-100 transition-colors">
-                <Bell className="w-5 h-5 text-slate-500" />
+              <Link to="/notifications" className="relative p-2 rounded-full hover:bg-orange-50 text-slate-400 hover:text-orange-500 transition-colors">
+                <Bell className="w-6 h-6" />
                 {unreadCount > 0 && (
                   <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {unreadCount}
@@ -229,19 +210,26 @@ export default function AppLayout() {
                 )}
               </Link>
             )}
-            <Link to="/profile" className="md:hidden">
-              <RenderAvatar className="w-9 h-9" />
-            </Link>
-            {!isDesktopSidebarOpen && (
-              <div className="hidden md:flex items-center gap-2 animate-in fade-in duration-200">
-                <Link to="/profile"><RenderAvatar className="w-9 h-9" /></Link>
+            
+            {/* PROFIL LENGKAP DIPINDAHKAN KE SINI */}
+            <Link to="/profile" className="flex items-center gap-3 group md:hover:bg-orange-50 md:p-1.5 md:pr-4 md:rounded-full transition-colors">
+              <RenderAvatar className="w-9 h-9 md:w-10 md:h-10 transition-transform group-hover:scale-105" />
+              
+              {/* Nama & Role hanya dipaparkan di skrin Tablet/Desktop (md ke atas) */}
+              <div className="hidden md:block text-left">
+                <p className="text-sm font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition-colors max-w-[140px] truncate">
+                  {user?.full_name || (isParent ? "Ibu Bapa" : "Pelajar")}
+                </p>
+                <p className="text-[10px] text-orange-600 font-bold uppercase tracking-wide">
+                  {user?.app_role || "User"}
+                </p>
               </div>
-            )}
+            </Link>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth transition-all duration-300">
-          <div className="max-w-5xl mx-auto">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 scroll-smooth transition-all duration-300">
+          <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>
         </main>
