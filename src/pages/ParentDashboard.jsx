@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-// Helper: Mengutamakan nickname, kemudian e-mel
+// 💡 DIKEMASKINI: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
@@ -20,7 +20,6 @@ function CompactChildCard({ child }) {
   const navigate = useNavigate();
   
   const currentXP = child.progress?.total_xp || 0;
-  const currentLevel = child.progress?.level || 1;
   const nextLevelXP = 500; 
   const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
   const displayName = getDisplayName(child); 
@@ -30,10 +29,6 @@ function CompactChildCard({ child }) {
     : "Tiada rekod aktif";
     
   const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
-
-  // Generate URL Avatar RPG secara dinamik berasaskan nama & level
-  const avatarSeed = `${displayName}_lvl_${currentLevel}`;
-  const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${avatarSeed}&backgroundColor=f8fafc,e0e7ff`;
 
   return (
     <Card 
@@ -51,21 +46,12 @@ function CompactChildCard({ child }) {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Avatar RPG Engine */}
-          <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 shadow-inner overflow-hidden shrink-0 group-hover:scale-110 transition-transform">
-            <img 
-              src={avatarUrl} 
-              alt="Hero Avatar" 
-              className="w-full h-full object-contain"
-              loading="lazy"
-            />
+          <div className="w-11 h-11 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100 text-xl shrink-0">
+            🦖
           </div>
-          
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-               <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
-               {currentLevel > 10 && <span className="text-[10px]">🛡️</span>}
-            </div>
+            <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
+            {/* Paparkan e-mel di bawah nickname sebagai rujukan tambahan ibu bapa */}
             <p className="text-[10px] text-slate-400 truncate leading-none">{child.email}</p>
             <p className="text-[11px] text-slate-500 font-bold truncate mt-1.5">
               📚 {currentTopic}
@@ -75,7 +61,7 @@ function CompactChildCard({ child }) {
 
         <div className="space-y-1 pt-1">
           <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-            <span className="text-indigo-600">TAHAP {currentLevel}</span>
+            <span>TAHAP {child.progress?.level || 1}</span>
             <span className="text-slate-600">{xpPercentage}%</span>
           </div>
           <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
@@ -100,7 +86,7 @@ export default function ParentDashboard() {
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        const progress = await base44.entities.Progress.filter({ student_id: id }).catch(() => []);
+        const progress = await base44.entities.Progress.filter({ student_id: id });
         const childUser = await base44.entities.User.get(id).catch(() => null);
         
         return { 
@@ -109,7 +95,7 @@ export default function ParentDashboard() {
           progress: progress?.[0] || {}, 
         };
       }));
-      setChildren(kids.filter(k => k.id));
+      setChildren(kids);
     } catch (err) {
       console.error(err);
     } finally { 
@@ -163,7 +149,7 @@ export default function ParentDashboard() {
           <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 flex justify-between items-center">
             <div>
               <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5"><MapPin className="w-3 h-3" /> Kota Kinabalu</div>
-              <h3 className="text-2xl font-black text-slate-800">30°c <span className="text-xs font-bold text-blue-500 ml-1">Cerah</span></h3>
+              <h3 className="text-2xl font-black text-slate-800">30°c <span className="text-xs font-bold text-blue-500 ml-1">Hujan</span></h3>
             </div>
             <CloudRain className="w-6 h-6 text-blue-500" />
           </Card>
@@ -175,7 +161,7 @@ export default function ParentDashboard() {
 
 function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
-    <button onClick={onClick} className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 hover:brightness-110 transition-all`}>
+    <button onClick={onClick} className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5`}>
       <div className="bg-white/20 p-2 rounded-lg"><Icon className="w-4 h-4" /></div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-bold truncate">{title}</p>
