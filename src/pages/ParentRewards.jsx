@@ -42,12 +42,10 @@ export default function ParentRewards() {
         relationships.map(async (rel) => {
           try {
             const child = await base44.entities.User.get(rel.child_id);
-            return {
-              id: child.id,
-              full_name: child.display_name || child.full_name || child.username || `Profile (${child.email?.split("@")[0]})`,
-              email: child.email || "",
-              username: child.username || ""
-            };
+           const getDisplayName = (user) => {
+  if (!user) return "Pelajar";
+  return user.nickname || user.username || user.email || "Pelajar";
+};
           } catch (childErr) {
             console.error(`Failed to load user info for child id ${rel.child_id}:`, childErr);
             return null;
