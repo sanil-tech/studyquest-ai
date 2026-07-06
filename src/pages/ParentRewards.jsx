@@ -11,6 +11,12 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const EMOJIS = ["🍦", "🎮", "🎬", "📱", "🛍️", "🎂", "🏀", "🎵", "📚", "✈️", "🎁", "⭐"];
 
+// Helper function added here!
+const getDisplayName = (user) => {
+  if (!user) return "Pelajar";
+  return user.nickname || user.username || user.email || "Pelajar";
+};
+
 export default function ParentRewards() {
   const [user, setUser] = useState(null);
   const [rewards, setRewards] = useState([]);
@@ -42,10 +48,13 @@ export default function ParentRewards() {
         relationships.map(async (rel) => {
           try {
             const child = await base44.entities.User.get(rel.child_id);
-           const getDisplayName = (user) => {
-  if (!user) return "Pelajar";
-  return user.nickname || user.username || user.email || "Pelajar";
-};
+            return {
+              id: child.id,
+              // Using your helper function here
+              full_name: getDisplayName(child),
+              email: child.email || "",
+              username: child.username || ""
+            };
           } catch (childErr) {
             console.error(`Failed to load user info for child id ${rel.child_id}:`, childErr);
             return null;
@@ -113,7 +122,6 @@ export default function ParentRewards() {
         toast({ title: "Reward updated! ✨" });
       } else {
         if (form.student_id === "all") {
-          // FIX: Correctly maps variables explicitly to `child` context, avoiding triple-duplication leaks
           await Promise.all(
             children.map(child => {
               return base44.entities.Reward.create({
@@ -257,8 +265,9 @@ export default function ParentRewards() {
                           {reward.coin_cost} coins
                         </span>
                         
+                        {/* Removed the .split(" ")[0] here so full nickname displays! */}
                         <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg max-w-[140px] truncate">
-                          👤 {assignedChild ? assignedChild.full_name?.split(" ")[0] : "Unknown Child"}
+                          👤 {assignedChild ? assignedChild.full_name : "Unknown Child"}
                         </span>
                       </div>
                     </div>
