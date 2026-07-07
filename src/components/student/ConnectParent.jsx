@@ -1,32 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { UserCheck, Loader2, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
-
-// Extracted helper function to prevent re-creation on every render/load run
-const hydrateParentData = async (relationships) => {
-  return Promise.all(
-    relationships.map(async (item) => {
-      try {
-        const pUser = await base44.entities.User.get(item.parent_id);
-        return {
-          ...item,
-          parent_name: pUser?.full_name || pUser?.nickname || "Parent User",
-          parent_email: pUser?.email || "No email provided"
-        };
-      } catch (err) {
-        console.error(`Failed to hydrate parent ${item.parent_id}:`, err);
-        return {
-          ...item,
-          parent_name: "Parent User",
-          parent_email: "Parent profile details loading error"
-        };
-      }
-    })
-  );
-};
 
 export default function ConnectParent({ user }) {
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -35,59 +12,64 @@ export default function ConnectParent({ user }) {
   const [processing, setProcessing] = useState(null);
   const { toast } = useToast();
 
-  // Wrapped in useCallback to safely include it in the useEffect dependency array
-  const load = useCallback(async (isCurrentRef = { current: true }) => {
-    if (!user?.id) return;
-    
+  const load = async () => {
     try {
       setLoading(true);
 
-      // Fetch links targeting this specific child's ID
+      // Fetch links targeting this specific child's ID matching the updated schema
       const links = await base44.entities.ParentChildRelationship.filter({ 
         child_id: user.id 
       });
 
+      // Hydrate parent profile data (names/emails) dynamically since it's not in the relationship entity
+      const hydrateRelationships = async (items) => {
+        return Promise.all(
+          items.map(async (item) => {
+            try {
+              const pUser = await base44.entities.User.get(item.parent_id);
+              return {
+                ...item,
+                parent_name: pUser?.full_name || pUser?.nickname || "Parent User",
+                parent_email: pUser?.email || "No email provided"
+              };
+            } catch {
+              return {
+                ...item,
+                parent_name: "Parent User",
+                parent_email: "Parent profile details loading error"
+              };
+            }
+          })
+        );
+      };
+
       const pending = links.filter(r => r.status === "pending");
       const approved = links.find(r => r.status === "active");
 
-      // Batch all items together to run hydration in a single parallel batch
-      const itemsToHydrate = [...pending];
-      if (approved) itemsToHydrate.push(approved);
-
-      const hydratedItems = await hydrateParentData(itemsToHydrate);
-
-      // Prevent updating state if the component unmounted or user.id changed mid-request
-      if (!isCurrentRef.current) return;
-
-      // Distribute back to respective states
-      const hydratedPending = hydratedItems.filter(r => r.status === "pending");
-      const hydratedApproved = hydratedItems.find(r => r.status === "active");
-
-      setPendingRequests(hydratedPending);
-      setApprovedLink(hydratedApproved || null);
+      setPendingRequests(await hydrateRelationships(pending));
+      
+      if (approved) {
+        const [hydratedApproved] = await hydrateRelationships([approved]);
+        setApprovedLink(hydratedApproved);
+      } else {
+        setApprovedLink(null);
+      }
 
     } catch (err) {
       console.error("Failed to fetch linkages:", err);
     } finally {
-      if (isCurrentRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, [user?.id]);
+  };
 
   useEffect(() => { 
-    const isCurrentRef = { current: true };
-    
-    load(isCurrentRef); 
-
-    return () => {
-      isCurrentRef.current = false; // Fixes race conditions / memory leaks
-    };
-  }, [load]);
+    if (user?.id) load(); 
+  }, [user?.id]);
 
   const handleAction = async (relationshipId, action) => {
     setProcessing(relationshipId);
     try {
+      // Direct Edge Function routing matching your exact Deno endpoint setup
       const response = await base44.functions.respondToLinkRequest({
         relationship_id: relationshipId,
         action: action, // 'approve' or 'reject'
