@@ -1,30 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, Sparkles } from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
+import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
 import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
 import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
 import SecuritySection from "@/components/profile/SecuritySection";
 import StudentIdSection from "@/components/profile/StudentIdSection";
-import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
-
-// Gaya animasi CSS sebaris untuk kesan watak "Bernafas / Hidup"
-const livelyAvatarGlobalStyle = `
-  @keyframes breathePulse {
-    0% { transform: scale(1); filter: drop-shadow(0 4px 6px rgba(99, 102, 241, 0.15)); }
-    50% { transform: scale(1.04); filter: drop-shadow(0 10px 15px rgba(99, 102, 241, 0.35)); }
-    100% { transform: scale(1); filter: drop-shadow(0 4px 6px rgba(99, 102, 241, 0.15)); }
-  }
-  .lively-avatar {
-    animation: breathePulse 3.5s ease-in-out infinite;
-  }
-`;
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -33,11 +21,7 @@ export default function ProfilePage() {
   const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showAvatar, setShowAvatar] = useState(false);
-  const [avatarMode, setAvatarMode] = useState("emoji"); // "emoji" merujuk kepada mod Avatar Dinamik 2D
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  
   const [formData, setFormData] = useState({
     full_name: "",
     nickname: "",
@@ -62,49 +46,17 @@ export default function ProfilePage() {
       favorite_subjects: [],
     },
   });
-
+  const [avatarMode, setAvatarMode] = useState("emoji");
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
-  const syncFormData = (userData) => {
-    setFormData({
-      full_name: userData.full_name || "",
-      nickname: userData.nickname || "",
-      school_year: userData.school_year || "",
-      school_name: userData.school_name || "",
-      class_name: userData.class_name || "",
-      gender: userData.gender || "",
-      date_of_birth: userData.date_of_birth || "",
-      country: userData.country || "Malaysia",
-      state: userData.state || "",
-      notification_preferences: userData.notification_preferences || {
-        email_notifications: true,
-        push_notifications: true,
-        quiz_reminders: true,
-        daily_learning_reminder: true,
-        parent_progress_reports: true,
-        weekly_achievement_summary: true,
-      },
-      learning_preferences: userData.learning_preferences || {
-        daily_goal_minutes: 20,
-        difficulty_preference: "medium",
-        favorite_subjects: [],
-      },
-    });
-  };
-
   useEffect(() => {
-    // Suntik animasi hidup ke dalam dokumen HTML
-    const styleSheet = document.createElement("style");
-    styleSheet.type = "text/css";
-    styleSheet.innerText = livelyAvatarGlobalStyle;
-    document.head.appendChild(styleSheet);
-
     const load = async () => {
       try {
         const u = await base44.auth.me();
         setUser(u);
-        syncFormData(u);
         
         if (u.app_role === "student") {
           const [progs, wallets, attempts] = await Promise.all([
@@ -112,11 +64,35 @@ export default function ProfilePage() {
             base44.entities.Wallet.filter({ student_id: u.id }),
             base44.entities.QuizAttempt.filter({ student_id: u.id }),
           ]);
-          
-          if (progs?.[0]) setProgress(progs[0]);
-          if (wallets?.[0]) setWallet(wallets[0]);
-          if (attempts) setTotalQuizzes(attempts.length);
+          setProgress(progs[0]);
+          setWallet(wallets[0]);
+          totalQuizzes && setTotalQuizzes(attempts.length);
         }
+        
+        setFormData({
+          full_name: u.full_name || "",
+          nickname: u.nickname || "",
+          school_year: u.school_year || "",
+          school_name: u.school_name || "",
+          class_name: u.class_name || "",
+          gender: u.gender || "",
+          date_of_birth: u.date_of_birth || "",
+          country: u.country || "Malaysia",
+          state: u.state || "",
+          notification_preferences: u.notification_preferences || {
+            email_notifications: true,
+            push_notifications: true,
+            quiz_reminders: true,
+            daily_learning_reminder: true,
+            parent_progress_reports: true,
+            weekly_achievement_summary: true,
+          },
+          learning_preferences: u.learning_preferences || {
+            daily_goal_minutes: 20,
+            difficulty_preference: "medium",
+            favorite_subjects: [],
+          },
+        });
       } catch (err) {
         console.error("Failed to load profile:", err);
       } finally {
@@ -124,32 +100,15 @@ export default function ProfilePage() {
       }
     };
     load();
-
-    return () => {
-      document.head.removeChild(styleSheet);
-    };
-  }, []);
+  }, [user?.id]);
 
   const handleLogout = () => {
     base44.auth.logout("/login");
   };
 
-  const handleSaveAvatar = async (avatarUrl) => {
-    try {
-      await base44.auth.updateMe({ profile_picture_url: avatarUrl, avatar_emoji: null });
-      setUser((prev) => ({ ...prev, profile_picture_url: avatarUrl, avatar_emoji: null }));
-      toast({
-        title: "Avatar Dinamik Diaktifkan! ⚡",
-        description: "Penampilan karakter baharu anda berjaya disimpan.",
-      });
-    } catch (err) {
-      console.error("Failed to save avatar:", err);
-      toast({
-        title: "Gagal menukar avatar",
-        description: "Sila cuba sebentar lagi.",
-        variant: "destructive",
-      });
-    }
+  const handleSaveAvatar = async (emoji) => {
+    await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
+    setUser((prev) => ({ ...prev, avatar_emoji: emoji, profile_picture_url: null }));
   };
 
   const handlePhotoUpload = async (e) => {
@@ -163,14 +122,14 @@ export default function ProfilePage() {
       setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
       setAvatarMode("photo");
       toast({
-        title: "Gambar berjaya dimuat naik!",
-        description: "Foto profil manual anda telah dikemas kini.",
+        title: "Photo uploaded!",
+        description: "Your profile photo has been updated.",
       });
     } catch (err) {
       console.error("Photo upload failed:", err);
       toast({
-        title: "Gagal muat naik",
-        description: "Sila pastikan format fail adalah imej yang sah.",
+        title: "Upload failed",
+        description: "Failed to upload photo. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -179,8 +138,8 @@ export default function ProfilePage() {
   };
 
   const handleRemovePhoto = async () => {
-    await base44.auth.updateMe({ profile_picture_url: null, avatar_emoji: "🎓" });
-    setUser((prev) => ({ ...prev, profile_picture_url: null, avatar_emoji: "🎓" }));
+    await base44.auth.updateMe({ profile_picture_url: null });
+    setUser((prev) => ({ ...prev, profile_picture_url: null }));
     setAvatarMode("emoji");
   };
 
@@ -190,7 +149,19 @@ export default function ProfilePage() {
       await base44.auth.updateMe(formData);
       const updatedUser = await base44.auth.me();
       setUser(updatedUser);
-      syncFormData(updatedUser);
+      setFormData({
+        full_name: updatedUser.full_name || "",
+        nickname: updatedUser.nickname || "",
+        school_year: updatedUser.school_year || "",
+        school_name: updatedUser.school_name || "",
+        class_name: updatedUser.class_name || "",
+        gender: updatedUser.gender || "",
+        date_of_birth: updatedUser.date_of_birth || "",
+        country: updatedUser.country || "Malaysia",
+        state: updatedUser.state || "",
+        notification_preferences: updatedUser.notification_preferences || formData.notification_preferences,
+        learning_preferences: updatedUser.learning_preferences || formData.learning_preferences,
+      });
       setEditing(false);
 
       if (updatedUser.app_role === "student") {
@@ -208,14 +179,14 @@ export default function ProfilePage() {
       }
 
       toast({
-        title: "Profil disimpan! ✓",
-        description: "Maklumat profil anda telah berjaya dikemas kini.",
+        title: "Profile saved! ✓",
+        description: "Your profile has been updated successfully.",
       });
     } catch (err) {
       console.error("Failed to save profile:", err);
       toast({
-        title: "Gagal menyimpan",
-        description: err.message || "Sesuatu masalah berlaku",
+        title: "Failed to save",
+        description: err.message || "Something went wrong",
         variant: "destructive",
       });
     } finally {
@@ -251,16 +222,16 @@ export default function ProfilePage() {
             <div className="relative group">
               <div className="w-28 h-28 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
                 {user?.profile_picture_url ? (
-                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover lively-avatar" />
+                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-5xl select-none lively-avatar">{user?.avatar_emoji || "🎓"}</span>
+                  <span className="text-5xl select-none">{user?.avatar_emoji || "🎓"}</span>
                 )}
               </div>
-              {isStudent && (user?.profile_picture_url || user?.avatar_emoji !== "🎓") && (
+              {isStudent && showAvatar && (
                 <button
                   onClick={handleRemovePhoto}
                   className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
-                  title="Reset Profil"
+                  title="Remove photo"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -288,7 +259,7 @@ export default function ProfilePage() {
                   onClick={() => setShowAvatar(!showAvatar)}
                   className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
                 >
-                  {showAvatar ? "Tutup Panel" : "Pilih Avatar Animasi"}
+                  {showAvatar ? "Hide Options" : "Change Avatar/Photo"}
                 </Button>
               )}
               
@@ -308,7 +279,7 @@ export default function ProfilePage() {
                 ) : (
                   <Pen className="w-3.5 h-3.5 mr-1.5" />
                 )}
-                {saving ? "Saving..." : editing ? "Simpan Data" : "Edit Profil"}
+                {saving ? "Saving..." : editing ? "Save Profile Data" : "Edit Details"}
               </Button>
             </div>
           )}
@@ -320,7 +291,7 @@ export default function ProfilePage() {
         
         {/* Left Hand Sidebar Column */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Quick Metrics */}
+          {/* Quick Metrics (Only for student views) */}
           {isStudent && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -360,15 +331,21 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Student Identifiers */}
+          {/* Student Identifiers / Security Keys */}
           {isStudent && (
             <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
               <StudentIdSection user={user} />
             </div>
           )}
 
-         
-          {/* Admin Tools Links */}
+          {/* Associated Parent Node Bindings */}
+          {isStudent && (
+            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden p-1">
+              <ParentConnections user={user} />
+            </div>
+          )}
+
+          {/* Admin Platform Tool Links */}
           {user?.role === "admin" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-all duration-200">
@@ -384,7 +361,7 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Sign Out Action Button */}
+          {/* System Sign out Operations Anchor */}
           <Button
             variant="outline"
             onClick={handleLogout}
@@ -395,32 +372,36 @@ export default function ProfilePage() {
           </Button>
         </div>
 
-        {/* Right Hand / Main Content Columns */}
+        {/* Right Hand / Main Content Columns Content Segment */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Sub-Komponen Pilihan Avatar Dinamik */}
+          {/* Avatar Settings Section Dropdown Panel */}
           <AnimatePresence>
             {showAvatar && isStudent && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden p-1"
+                className="overflow-hidden bg-card rounded-2xl border border-border/60 p-1 shadow-xs"
               >
                 <ProfilePhotoSection
                   user={user}
                   avatarMode={avatarMode}
                   setAvatarMode={setAvatarMode}
                   uploading={uploading}
+                  setUploading={setUploading}
                   fileInputRef={fileInputRef}
                   handlePhotoUpload={handlePhotoUpload}
+                  handleRemovePhoto={handleRemovePhoto}
                   handleSaveAvatar={handleSaveAvatar}
+                  showAvatar={showAvatar}
+                  setShowAvatar={setShowAvatar}
                 />
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Main Core Form Inputs */}
+          {/* Core Profile Parameters Forms Layout UI Block */}
           {(isStudent || isParent) && (
             <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
               <CardContent className="p-6 md:p-8">
@@ -435,7 +416,7 @@ export default function ProfilePage() {
             </Card>
           )}
 
-          {/* Notifications Form Blocks */}
+          {/* Notification System Node Hooks */}
           {editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
               <NotificationPreferencesSection
@@ -446,7 +427,7 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Learning Sub-settings Track */}
+          {/* Curriculums Learning Track Preferences */}
           {isStudent && editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
               <LearningPreferencesSection
@@ -457,7 +438,7 @@ export default function ProfilePage() {
             </motion.div>
           )}
 
-          {/* Password Security Actions Module */}
+          {/* Cryptography / Account Access Keys Modification Interface */}
           {editing && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
               <SecuritySection

@@ -38,18 +38,38 @@
   ],
   "rls": {
     "create": {
-      "user_condition": {
-        "authenticated": true
-      }
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "read": {
-      "user_condition": {
-        "authenticated": true
-      }
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}",
+            "$exists": true
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "update": {
       "user_condition": {
-        "authenticated": true
+        "role": "admin"
       }
     },
     "delete": {
