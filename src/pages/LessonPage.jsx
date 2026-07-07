@@ -259,7 +259,7 @@ export default function LessonPage() {
       triggerConfetti();
     } catch (e) {
       console.error(e);
-    } finaly { setStatus(p => ({ ...p, lesson: false })); }
+    } finally { setStatus(p => ({ ...p, lesson: false })); }
   };
 
   const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
