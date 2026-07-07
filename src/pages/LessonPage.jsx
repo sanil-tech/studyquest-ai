@@ -21,27 +21,23 @@ export default function StudentLessonPage() {
     activity: false,
   });
 
-  // Hubungkan dengan kaedah pengesahan akaun/ID pelajar aktif anda
   const [studentId] = useState("student-123"); 
 
-  // useRef memastikan tracker masa bebas daripada isu tak-segerak (asynchronous lag) React state
   const startTimeRef = useRef(Date.now());
   const progressIdRef = useRef(null);
 
-  // 1. MEMUATKAN DATA PROGRESS SEPADAN DENGAN SCHEMA EDITOR DB
+  // 1. MEMUATKAN DATA PROGRESS SEPADAN DENGAN SCHEMA DB
   useEffect(() => {
     const fetchLessonAndProgress = async () => {
       try {
         setLoading(true);
-        startTimeRef.current = Date.now(); // Tetapkan masa mula sebaik sahaja komponen dimuatkan
+        startTimeRef.current = Date.now(); 
 
-        // Contoh simulasi kandungan silibus/nota pelajaran
         setLessonData({
           title: "People & Culture (Lanjutan)",
           content: "Ini adalah kandungan teks utama untuk topik bacaan hari ini..."
         });
 
-        // Tapis progress pelajar berdasarkan student_id
         const progressRecords = await base44.entities.Progress.filter({
           student_id: studentId,
         });
@@ -49,7 +45,7 @@ export default function StudentLessonPage() {
         if (progressRecords.length > 0) {
           const record = progressRecords[0];
           setCurrentProgress(record);
-          progressIdRef.current = record.id; // Simpan ID unik untuk rujukan fungsi simpan masa
+          progressIdRef.current = record.id; 
           
           setStepsStatus({
             lesson: record.step_lesson_done || false,
@@ -58,14 +54,13 @@ export default function StudentLessonPage() {
             activity: record.step_activity_done || false,
           });
         } else {
-          // Jika data kosong (Anak baru buka kali pertama), cipta baris baru mengikut struktur skema
           const newRecord = await base44.entities.Progress.create({
             student_id: studentId,
             level: 1,
             total_xp: 0,
             streak_days: 0,
-            total_study_time: 0, // Mengikut nama skema sebenar
-            last_study_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+            total_study_time: 0, 
+            last_study_date: new Date().toISOString().split('T')[0], 
             step_lesson_done: false,
             step_flashcards_done: false,
             step_mindmap_done: false,
@@ -89,25 +84,20 @@ export default function StudentLessonPage() {
     fetchLessonAndProgress();
   }, [lessonId, studentId, toast]);
 
-  // 2. FUNGSI UNTUK MENGIRA DAN MENGEMAS KINI MASA (MINIT) KE DATABASE SEBENAR
+  // 2. MENGIRA DAN MENGEMAS KINI MASA (MINIT) KETIKA KELUAR HALAMAN
   const saveStudyTime = async () => {
     const progressId = progressIdRef.current;
     if (!progressId) return;
 
-    // Kira durasi masa aktif pelajar dalam unit saat
     const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
     
-    // Hanya proses sekiranya pelajar meluangkan masa melebihi 10 saat (mengelakkan spam data bernilai 0)
     if (elapsedSeconds > 10) {
-      const minutesEarned = Math.round(elapsedSeconds / 60) || 1;
+      const minutesEarned = Math.max(Math.round(elapsedSeconds / 60), 1);
 
       try {
-        // Ambil data progress terkini dari database untuk elakkan isu 'override'
         const latestProgress = await base44.entities.Progress.get(progressId);
-        
-        // 💡 PEMBETULAN NAMA FIELD: total_study_time & last_study_date
         const currentTotalTime = latestProgress?.total_study_time || 0;
-        const todayDate = new Date().toISOString().split('T')[0]; // Format standard YYYY-MM-DD
+        const todayDate = new Date().toISOString().split('T')[0];
 
         await base44.entities.Progress.update(progressId, {
           total_study_time: currentTotalTime + minutesEarned,
@@ -116,19 +106,19 @@ export default function StudentLessonPage() {
         
         console.log(`[Timer] Rekod disimpan: +${minutesEarned} Minit ke total_study_time.`);
       } catch (err) {
-        console.error("Ralat ketika cuba mengemas kini masa pengisian di database:", err);
+        console.error("Ralat ketika mengemas kini masa di database:", err);
       }
     }
   };
 
-  // 3. CLEANUP EFFECT: DICETUSKAN SECARA AUTOMATIK SEBAIK SAHAJA PELAJAR KELUAR HALAMAN
+  // 3. CLEANUP EFFECT (Ketiksa Pelajar Keluar Halaman)
   useEffect(() => {
     return () => {
       saveStudyTime();
     };
   }, []);
 
-  // 4. MENGENDALIKAN AMALAN KLIK SETIAP TUGASAN (STEP CLICK)
+  // 4. MENGENDALIKAN KLIK TUGASAN
   const handleStepClick = async (stepKey) => {
     if (!currentProgress) return;
 
@@ -141,7 +131,7 @@ export default function StudentLessonPage() {
 
       await base44.entities.Progress.update(currentProgress.id, {
         [fieldToUpdate]: updatedStatus[stepKey],
-        last_study_date: todayDate // Kemaskini tarikh terakhir belajar apabila ada aktiviti
+        last_study_date: todayDate 
       });
 
       toast({
@@ -164,7 +154,6 @@ export default function StudentLessonPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6 bg-slate-50 min-h-screen">
-      {/* Top Navigation */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-xl">
           <ArrowLeft className="w-4 h-4" />
@@ -175,10 +164,7 @@ export default function StudentLessonPage() {
         </div>
       </div>
 
-      {/* Tata Atur Reka Bentuk */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
-        
-        {/* Bahagian Teks Kandungan */}
         <div className="md:col-span-2 bg-white rounded-2xl p-5 border border-slate-100 shadow-xs space-y-4">
           <div className="flex items-center gap-2 text-slate-700 font-bold text-sm border-b pb-2 border-slate-50">
             <BookOpen className="w-4 h-4 text-indigo-500" />
@@ -192,15 +178,12 @@ export default function StudentLessonPage() {
           </div>
         </div>
 
-        {/* Bahagian Komponen Kemajuan (LessonProgress Component) */}
         <div className="md:col-span-1">
           <LessonProgress 
             steps={stepsStatus} 
             onStepClick={handleStepClick} 
-            progressId={currentProgress?.id} 
           />
         </div>
-
       </div>
     </div>
   );
