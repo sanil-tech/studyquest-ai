@@ -182,7 +182,7 @@ export default function StudyPage() {
                   <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${activeLibrarySubject === subjectName ? "rotate-90 text-indigo-600" : ""}`} />
                 </button>
               ))}
-            </div>
+              </div>
 
             {/* Expanded Folder Contents */}
             {activeLibrarySubject && (

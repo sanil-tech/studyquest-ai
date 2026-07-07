@@ -1,233 +1,144 @@
 import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { useNavigate } from "react-router-dom";
-import { GraduationCap, Key, Lock, AlertCircle, Loader2, ArrowLeft, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { motion } from "framer-motion";
-import { toast } from "@/components/ui/use-toast";
+import { GraduationCap, Lock, Loader2, ArrowLeft, User } from "lucide-react";
+import AuthLayout from "@/components/AuthLayout";
 
 export default function ChildLogin() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
-  const [pin, setPin] = useState("");
-  const [loginMethod, setLoginMethod] = useState("password");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError("");
+    setLoading(true);
 
     try {
-      const cleanUsername = username.trim();
-
-      if (!cleanUsername) {
-        setError("Please enter your Username");
-        setLoading(false);
-        return;
+      const inputVal = usernameInput.trim().toLowerCase();
+      
+      if (!inputVal) {
+        throw new Error("Sila masukkan Username anda.");
       }
 
-      if (loginMethod === "password" && !password) {
-        setError("Please enter your password");
-        setLoading(false);
-        return;
-      }
+      // Tukar input kepada format e-mel maya yang sepadan dengan sistem Edge Function
+      const fakeEmail = inputVal.includes("@") 
+        ? inputVal 
+        : `child-${inputVal}@studyquest.local`;
 
-      if (loginMethod === "pin" && (!pin || pin.length < 4)) {
-        setError("Please enter your 4-6 digit PIN");
-        setLoading(false);
-        return;
-      }
+      // Log masuk ke dalam sistem Auth rasmi Base44
+      await base44.auth.loginViaEmailPassword(fakeEmail, password);
 
-      const response = await base44.functions.invoke("childLogin", {
-        username: cleanUsername,
-        password: loginMethod === "password" ? password : null,
-        pin: loginMethod === "pin" ? pin : null,
-      });
+      // Ambil data maklumat murid untuk mengesahkan sesi aktif
+      const user = await base44.auth.me();
 
-      if (response.data.success) {
-        const userData = response.data.user;
-
-        localStorage.setItem('studyquest_session', JSON.stringify({
-          type: 'child',
-          userId: userData.id,
-          loginTime: new Date().toISOString()
-        }));
-        localStorage.setItem('studyquest_user', JSON.stringify(userData));
-
-        toast({
-          title: "Welcome back! 🎉",
-          description: `Hi ${userData.nickname || "Hero"}!`,
-          duration: 2000
-        });
-
-        if (userData.profile_completed) {
-          navigate("/dashboard");
-        } else {
-          navigate("/complete-profile");
-        }
+      if (user) {
+        window.location.href = "/dashboard";
       } else {
-        setError(response.data.error || "Login failed. Please try again.");
+        throw new Error("Gagal memuatkan profil murid.");
       }
     } catch (err) {
-      console.error("Child login error:", err);
-      setError(err.response?.data?.error || "Cannot connect to server. Please try again.");
+      console.error("Ralat Log Masuk Anak:", err);
+      
+      // 💡 DIBAIKI: Mengekstrak teks ralat secara selamat untuk mengelakkan ralat 'Object to primitive value'
+      let safeErrorMessage = "Username atau kata laluan salah. Sila semak semula.";
+      
+      if (err) {
+        if (typeof err === "string") {
+          safeErrorMessage = err;
+        } else if (err.message && typeof err.message === "string") {
+          safeErrorMessage = err.message;
+        } else {
+          try {
+            // Jika ia adalah objek ralat yang kompleks, tukar kepada string
+            safeErrorMessage = err.message ? String(err.message) : JSON.stringify(err);
+          } catch (e) {
+            safeErrorMessage = "Ralat sistem semasa mendaftar masuk.";
+          }
+        }
+      }
+      
+      setError(safeErrorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleLogin();
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3 }}
-        className="w-full max-w-md"
-      >
-        <Card className="w-full border-2 border-primary/20 shadow-xl bg-white/90 backdrop-blur-sm">
-          <CardHeader className="text-center pb-2">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <GraduationCap className="w-8 h-8 text-primary" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold text-primary">
-              Welcome to StudyQuest! 🚀
-            </CardTitle>
-            <CardDescription className="text-base mt-2">
-              Login with your Username
-            </CardDescription>
-          </CardHeader>
+    <AuthLayout
+      icon={GraduationCap}
+      title="Portal Murid StudyQuest 🚀"
+      subtitle="Masukkan Username dan Kata Laluan anda untuk mula belajar"
+      footer={
+        <Link to="/login" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Log Masuk Ibu Bapa
+        </Link>
+      }
+    >
+      {error && (
+        <div className="mb-4 p-3 rounded-xl bg-destructive/10 text-destructive text-xs font-bold border border-destructive/20">
+          ⚠️ {error}
+        </div>
+      )}
 
-          <CardContent className="space-y-4 pt-4">
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg">
-              <Button
-                variant={loginMethod === "password" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setLoginMethod("password");
-                  setPin("");
-                  setError("");
-                }}
-                className={loginMethod === "password" ? "shadow-sm bg-white text-slate-900" : "text-slate-600"}
-              >
-                <Key className="w-4 h-4 mr-2" />
-                Password
-              </Button>
-              <Button
-                variant={loginMethod === "pin" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setLoginMethod("pin");
-                  setPassword("");
-                  setError("");
-                }}
-                className={loginMethod === "pin" ? "shadow-sm bg-white text-slate-900" : "text-slate-600"}
-              >
-                <Lock className="w-4 h-4 mr-2" />
-                PIN
-              </Button>
-            </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="username" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Username / Nama Pengguna
+          </Label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              id="username"
+              type="text"
+              placeholder="Contoh: morry2"
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+              className="pl-10 h-12 rounded-xl border-slate-200 text-sm font-medium"
+              autoFocus
+              required
+            />
+          </div>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-semibold flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Username
-              </Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                onKeyPress={handleKeyPress}
-                placeholder="e.g. testing"
-                className="text-lg h-12 bg-white"
-                autoFocus
-              />
-            </div>
+        <div className="space-y-2">
+          <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Kata Laluan
+          </Label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="pl-10 h-12 rounded-xl border-slate-200 text-sm"
+              required
+            />
+          </div>
+        </div>
 
-            {loginMethod === "password" ? (
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-semibold">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Enter your password"
-                  className="text-lg h-12 bg-white"
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="pin" className="text-sm font-semibold">
-                  PIN (4-6 digits)
-                </Label>
-                <Input
-                  id="pin"
-                  type="password"
-                  inputMode="numeric"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  onKeyPress={handleKeyPress}
-                  placeholder="••••"
-                  className="text-lg h-12 font-mono tracking-widest text-center bg-white"
-                  maxLength={6}
-                />
-              </div>
-            )}
-
-            {error && (
-              <Alert variant="destructive" className="border-red-300 bg-red-50 text-red-900">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <AlertDescription className="text-sm font-medium ml-2 break-words">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              onClick={handleLogin}
-              disabled={loading}
-              className="w-full h-12 text-lg font-bold rounded-xl mt-2 transition-all active:scale-[0.98]"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                "Login 🎯"
-              )}
-            </Button>
-
-            <div className="pt-4 pb-2 border-t mt-6">
-              <Button
-                variant="ghost"
-                className="w-full text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2"
-                onClick={() => navigate("/login")}
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Main Login
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
+        <Button 
+          type="submit" 
+          className="w-full h-12 font-bold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-md mt-2" 
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Memproses Masuk...
+            </>
+          ) : (
+            "Mula Belajar Sekarang ✨"
+          )}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }
