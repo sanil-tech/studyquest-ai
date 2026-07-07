@@ -3,14 +3,17 @@ import { base44 } from "@/api/base44Client";
 import { Link, useNavigate } from "react-router-dom";
 import moment from "moment";
 import { 
-  Users, Plus, Target, Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning, MapPin, Clock, ArrowRight, Settings
+  Users, Target, Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning, MapPin, Clock, ArrowRight, Settings, UserPlus
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-// 💡 Pembantu: Mengutamakan nickname, kemudian e-mel
+// 💡 Import komponen modal yang telah kita baiki tadi
+import AddChildModal from "./AddChildModal"; // Pastikan laluan (path) fail ini betul mengikut struktur projek anda
+
+// Pembantu: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
@@ -105,16 +108,17 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Mengurus keadaan cuaca semasa dan senarai ramalan 5 jam
+  // State untuk mengawal pembukaan AddChildModal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Mengurus keadaan cuaca semasa
   const [currentWeather, setCurrentWeather] = useState({ temp: 31, code: 0, locationName: "Kota Kinabalu" });
   const [hourlyForecast, setHourlyForecast] = useState([]);
   const [loadingWeather, setLoadingWeather] = useState(true);
 
-  // Fungsi memanggil API Cuaca & Ramalan Jam
   const fetchWeatherAndForecast = async (lat, lon, name) => {
     try {
       setLoadingWeather(true);
-      // Memohon data cuaca semasa DAN ramalan jam (hourly) sekali gus
       const res = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,weathercode`
       );
@@ -131,15 +135,11 @@ export default function ParentDashboard() {
       if (data?.hourly?.time) {
         const now = moment();
         const forecastList = [];
-        
-        // Cari indeks masa yang sepadan atau terdekat dengan waktu sekarang
         for (let i = 0; i < data.hourly.time.length; i++) {
           const forecastTime = moment(data.hourly.time[i]);
-          
-          // Ambil waktu bermula dari jam semasa dan 5 jam ke hadapan
           if (forecastTime.isSameOrAfter(now, "hour") && forecastList.length < 5) {
             forecastList.push({
-              time: forecastTime.format("h a"), // format: "1 pm", "2 pm"
+              time: forecastTime.format("h a"),
               temp: Math.round(data.hourly.temperature_2m[i]),
               code: data.hourly.weathercode[i]
             });
@@ -159,22 +159,11 @@ export default function ParentDashboard() {
       fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu");
       return;
     }
-
-    const geoOptions = {
-      enableHighAccuracy: true,
-      timeout: 5000,
-      maximumAge: 0
-    };
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
         fetchWeatherAndForecast(position.coords.latitude, position.coords.longitude, "Lokasi Semasa");
       },
-      (error) => {
-        console.warn("Akses lokasi disekat. Default ke Kota Kinabalu.");
-        fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu");
-      },
-      geoOptions
+      () => fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu")
     );
   };
 
@@ -191,11 +180,13 @@ export default function ParentDashboard() {
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        const progressPromise = base44.entities.Progress.filter({ student_id: id }).catch(() => []);
-        const childUserPromise = base44.entities.User.get(id).catch(() => null);
-        const [progress, childUser] = await Promise.all([progressPromise, childUserPromise]);
-        
-        return { id, ...childUser, progress: progress?.[0] || {} };
+        const childUser = await base44.entities.User.get(id).catch(() => null);
+        const progressArray = await base44.entities.Progress.filter({ student_id: id }).catch(() => []);
+        return { 
+          id, 
+          ...childUser, 
+          progress: progressArray?.[0] || {} 
+        };
       }));
       
       setChildren(kids);
@@ -224,15 +215,30 @@ export default function ParentDashboard() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto bg-slate-50/40 min-h-screen">
-      {/* Header */}
-      <div className="flex justify-between items-center gap-4">
+      {/* Header Utama */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Pusat Kawalan Ibu Bapa 🛡️</h1>
-          <p className="text-slate-500 text-xs">Aktiviti semasa, kelulusan segera, dan status ringkas anak anda.</p>
+          <p className="text-slate-500 text-xs">Pantau progres, urus ganjaran dan beri misi baru.</p>
         </div>
-        <Button size="sm" className="bg-indigo-600 text-white rounded-xl font-bold text-xs h-9 px-3.5 hover:bg-indigo-700" onClick={() => navigate("/parent/children")}>
-          <Plus className="w-3.5 h-3.5 mr-1" /> Urus Anak
-        </Button>
+        
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* 💡 Butang Tambah Anak yang memicu state modal menjadi true */}
+          <Button 
+            className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-sm transition-all active:scale-95"
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            <UserPlus className="w-4 h-4 mr-2" /> Tambah Anak Baru
+          </Button>
+          
+          <Button 
+            variant="outline"
+            className="sm:flex-none border-slate-200 text-slate-600 rounded-xl font-bold text-xs h-10 px-4 hover:bg-slate-50"
+            onClick={() => navigate("/parent/children")}
+          >
+            <Settings className="w-3.5 h-3.5 mr-2" /> Urus
+          </Button>
+        </div>
       </div>
 
       {/* Kad Pintasan */}
@@ -258,9 +264,16 @@ export default function ParentDashboard() {
             
             {children.length === 0 ? (
               <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white">
-                <p className="text-sm text-slate-500 font-medium mb-3">Tiada profil anak yang dihubungkan lagi.</p>
-                <Button size="sm" variant="outline" className="rounded-xl font-bold text-xs" onClick={() => navigate("/parent/children")}>
-                  Hubungkan Akaun Anak
+                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                   <UserPlus className="w-6 h-6 text-slate-300" />
+                </div>
+                <p className="text-sm text-slate-500 font-medium mb-4">Tiada profil anak yang dihubungkan lagi.</p>
+                <Button 
+                  size="sm" 
+                  className="bg-indigo-600 text-white rounded-xl font-bold text-xs px-6"
+                  onClick={() => setIsAddModalOpen(true)}
+                >
+                  Hubungkan Akaun Anak Sekarang
                 </Button>
               </Card>
             ) : (
@@ -273,16 +286,15 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {/* 🌤️ WIDGET CUACA KINI & RAMALAN 5 JAM */}
+        {/* WIDGET CUACA */}
         <div className="lg:col-span-4 space-y-3">
           <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100/60 flex flex-col justify-between space-y-4 shadow-xs">
             {loadingWeather ? (
               <div className="text-[11px] font-medium text-slate-400 animate-pulse py-6 text-center w-full">
-                Menyinkronkan ramalan cuaca semasa...
+                Menyinkronkan ramalan cuaca...
               </div>
             ) : (
               <>
-                {/* Cuaca Semasa */}
                 <div className="flex justify-between items-center w-full">
                   <div>
                     <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
@@ -298,10 +310,8 @@ export default function ParentDashboard() {
                   <CurrentIcon className={`w-8 h-8 ${currentDetails.color}`} />
                 </div>
 
-                {/* Garis Pemisah Visual */}
                 <div className="border-t border-sky-200/40 w-full" />
 
-                {/* Bar Grid: Ramalan 5 Jam ke Hadapan */}
                 <div>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
                     <Clock className="w-3 h-3 text-sky-500" /> Ramalan 5 Jam Akan Datang
@@ -324,8 +334,14 @@ export default function ParentDashboard() {
             )}
           </Card>
         </div>
-
       </div>
+
+      {/* 💡 KAWALAN MODAL: Disuntik di sini supaya boleh dipaparkan secara dinamik di atas dashboard */}
+      <AddChildModal 
+        open={isAddModalOpen} 
+        onOpenChange={setIsAddModalOpen}
+        onChildAdded={() => loadData()} // Automatik panggil fungsi muat semula data anak apabila akaun baharu disahkan
+      />
     </div>
   );
 }
