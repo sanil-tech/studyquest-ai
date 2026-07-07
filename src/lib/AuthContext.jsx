@@ -36,7 +36,6 @@ export const AuthProvider = ({ children }) => {
         const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
         setAppPublicSettings(publicSettings);
         
-        // Semak auth tanpa mengira token jika ada sesi anak dalam localStorage
         const hasChildSession = localStorage.getItem('studyquest_session');
         if (appParams.token || hasChildSession) {
           await checkUserAuth();
@@ -49,6 +48,9 @@ export const AuthProvider = ({ children }) => {
       } catch (appError) {
         console.error('App state check failed:', appError);
         
+        // 💡 DIBAIKI: Mengeluarkan teks mesej terselamat daripada ralat objek
+        const fallbackMsg = appError.message ? String(appError.message) : 'Failed to load app';
+        
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
           const reason = appError.data.extra_data.reason;
           if (reason === 'auth_required') {
@@ -56,12 +58,12 @@ export const AuthProvider = ({ children }) => {
           } else if (reason === 'user_not_registered') {
             setAuthError({ type: 'user_not_registered', message: 'User not registered for this app' });
           } else {
-            setAuthError({ type: reason, message: appError.message });
+            setAuthError({ type: String(reason), message: fallbackMsg });
           }
         } else {
           setAuthError({
             type: 'unknown',
-            message: appError.message || 'Failed to load app'
+            message: fallbackMsg
           });
         }
         setIsLoadingPublicSettings(false);
@@ -71,7 +73,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Unexpected error:', error);
       setAuthError({
         type: 'unknown',
-        message: error.message || 'An unexpected error occurred'
+        message: error.message ? String(error.message) : 'An unexpected error occurred'
       });
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
@@ -82,7 +84,6 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoadingAuth(true);
       
-      // 1. Cuba pulihkan sesi log masuk anak (Contoh: morry) daripada localStorage
       const sessionData = localStorage.getItem('studyquest_session');
       const storedUser = localStorage.getItem('studyquest_user');
       
@@ -91,10 +92,9 @@ export const AuthProvider = ({ children }) => {
           const session = JSON.parse(sessionData);
           const parsedUser = JSON.parse(storedUser);
           
-          // 💡 DIBAIKI: Menggunakan client-side entity endpoint biasa, BUKAN asServiceRole
+          // Memanggil entiti secara klien biasa untuk pengesahan ID anak
           const verifiedUser = await base44.entities.User.get(session.userId).catch(() => null);
           
-          // Jika pengesahan API berjaya dan akaun tidak dikunci
           if (verifiedUser && !verifiedUser.account_locked) {
             setUser(verifiedUser);
             setIsAuthenticated(true);
@@ -103,7 +103,6 @@ export const AuthProvider = ({ children }) => {
             return;
           } 
           
-          // Fallback ke data simpanan jika pelayan tidak dapat dihubungi seketika tetapi data wujud
           if (parsedUser && !parsedUser.account_locked) {
             setUser(parsedUser);
             setIsAuthenticated(true);
@@ -112,13 +111,11 @@ export const AuthProvider = ({ children }) => {
             return;
           }
         } catch (sessionError) {
-          console.log('Sesi anak rosak atau tamat tempoh, membersihkan memori...');
           localStorage.removeItem('studyquest_session');
           localStorage.removeItem('studyquest_user');
         }
       }
       
-      // 2. Jika tiada sesi anak, gunakan sesi standard Base44 (Sesi Ibu bapa)
       if (appParams.token) {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
@@ -145,7 +142,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
-    // Buang semua memori sesi anak
     localStorage.removeItem('studyquest_session');
     localStorage.removeItem('studyquest_user');
     
