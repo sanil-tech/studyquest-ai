@@ -66,6 +66,7 @@ export default function LessonPage() {
   const [subject, setSubject] = useState(null);
   const [topic, setTopic] = useState(null);
   const [sessionId, setSessionId] = useState(null);
+  const [currentSession, setCurrentSession] = useState(null); // Menyimpan rujukan penuh StudySession semasa
   const [studentNickname, setStudentNickname] = useState(""); 
   const [loading, setLoading] = useState(true);
   
@@ -138,6 +139,7 @@ export default function LessonPage() {
           }
         }
 
+        // Cari StudySession sedia ada berdasarkan student_id dan topic_id
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: user.id, topic_id: topicId },
           "-created_date",
@@ -147,13 +149,23 @@ export default function LessonPage() {
         if (cachedSessions.length > 0 && !isUnmounted.current) {
           const session = cachedSessions[0];
           setSessionId(session.id);
+          setCurrentSession(session); // Simpan objek session penuh untuk elak duplikasi
           
+          // Jika ai_explanation wujud, hydrate semua data cache
           if (session.ai_explanation) {
             const parsed = JSON.parse(session.ai_explanation);
             setExplanation(parsed.lesson_markdown);
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
             
-            if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
+            // Hydrate cache mindmap jika ada
+            if (session.mindmap_json) {
+              setMindMap(JSON.parse(session.mindmap_json));
+            }
+            
+            // Hydrate cache flashcards jika ada
+            if (session.flashcards_json) {
+              setFlashcards(JSON.parse(session.flashcards_json));
+            }
           }
         }
       } catch (err) {
@@ -202,12 +214,16 @@ export default function LessonPage() {
 
   const generateCoreLesson = async () => {
     if (status.lesson) return;
+    // Semakan tambahan sebelum panggil AI: jika cache sudah diisi secara dinamik, abort.
+    if (explanation) return;
+
     setStatus(p => ({ ...p, lesson: true }));
     try {
       const user = await base44.auth.me();
       const config = await getContextConfiguration();
       const lang = getLanguageMode();
 
+      // Panggil AI hanya jika tiada penjelasan dalam cache
       const response = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash", 
         add_context_from_internet: config.useInternet,
@@ -224,17 +240,31 @@ export default function LessonPage() {
         }
       });
 
-      const session = await base44.entities.StudySession.create({
-        student_id: user.id,
-        subject_id: subjectId,
-        topic_id: topicId,
-        topic_name: topic.name,
-        subject_name: subject.name,
-        ai_explanation: JSON.stringify(response),
-        duration_minutes: 0,
-      });
+      let session;
+      
+      // LOGIK CACHE ANTI-DUPLIKASI: Jika StudySession sedia ada wujud, gunakan UPDATE. Jangan CREATE baru.
+      if (sessionId || currentSession) {
+        const targetId = sessionId || currentSession.id;
+        session = await base44.entities.StudySession.update(targetId, {
+          ai_explanation: JSON.stringify(response),
+          topic_name: topic.name,
+          subject_name: subject.name,
+        });
+      } else {
+        // Hanya cipta rekod baru jika langsung tiada StudySession untuk student + topik ini
+        session = await base44.entities.StudySession.create({
+          student_id: user.id,
+          subject_id: subjectId,
+          topic_id: topicId,
+          topic_name: topic.name,
+          subject_name: subject.name,
+          ai_explanation: JSON.stringify(response),
+          duration_minutes: 0,
+        });
+      }
 
       setSessionId(session.id);
+      setCurrentSession(session);
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
@@ -248,6 +278,8 @@ export default function LessonPage() {
   };
 
   const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
+    // Jika mindmap sudah sedia ada di-load dari cache awal, halang prefetch latar belakang
+    if (mindMap && mindMap.length > 0) return;
     try {
       base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
@@ -264,6 +296,7 @@ export default function LessonPage() {
   };
 
   const loadFlashcardsOnDemand = async () => {
+    // SEMAK CACHE DAHULU: Jika flashcards sudah wujud dari cache initialize, jangan panggil AI/Bank Soalan
     if (flashcards && flashcards.length > 0) return;
     if (status.flashcards) return;
     
@@ -279,9 +312,10 @@ export default function LessonPage() {
           back: `${q.correct_answer}\n\n${q.explanation || ""}`
         }));
 
-        if (sessionId) {
+        const targetId = sessionId || currentSession?.id;
+        if (targetId) {
           try {
-            await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(mappedCards) });
+            await base44.entities.StudySession.update(targetId, { flashcards_json: JSON.stringify(mappedCards) });
           } catch (dbErr) {
             console.error("Gagal mengemas kini StudySession:", dbErr);
           }
@@ -300,9 +334,10 @@ export default function LessonPage() {
       });
 
       if (res && Array.isArray(res) && res.length > 0) {
-        if (sessionId) {
+        const targetId = sessionId || currentSession?.id;
+        if (targetId) {
           try {
-            await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(res) });
+            await base44.entities.StudySession.update(targetId, { flashcards_json: JSON.stringify(res) });
           } catch (dbErr) {
             console.error("Gagal mengemas kini StudySession:", dbErr);
           }
@@ -348,7 +383,7 @@ export default function LessonPage() {
         const selectedPool = shuffledQuestions.slice(0, Math.min(numQ, shuffledQuestions.length));
 
         const quiz = await base44.entities.Quiz.create({
-          session_id: sessionId,
+          session_id: sessionId || currentSession?.id,
           topic_name: topic.name,
           subject_name: subject?.name || "Matematik",
           questions_json: JSON.stringify(selectedPool),
@@ -374,7 +409,7 @@ export default function LessonPage() {
           const finalQuestions = res.slice(0, numQ);
 
           const quiz = await base44.entities.Quiz.create({
-            session_id: sessionId,
+            session_id: sessionId || currentSession?.id,
             topic_name: topic.name,
             subject_name: subject?.name || "Matematik",
             questions_json: JSON.stringify(finalQuestions),
@@ -392,6 +427,7 @@ export default function LessonPage() {
   };
 
   const loadMindMapOnDemand = async () => {
+    // SEMAK CACHE DAHULU: Jika mindmap sudah wujud, pintas panggilan AI sepenuhnya
     if (mindMap && mindMap.length > 0) return;
     if (status.mindmap) return;
 
@@ -407,9 +443,10 @@ export default function LessonPage() {
       });
 
       if (res && Array.isArray(res)) {
-        if (sessionId) {
+        const targetId = sessionId || currentSession?.id;
+        if (targetId) {
           try {
-            await base44.entities.StudySession.update(sessionId, { mindmap_json: JSON.stringify(res) });
+            await base44.entities.StudySession.update(targetId, { mindmap_json: JSON.stringify(res) });
           } catch (dbErr) {
             console.error("Gagal mengemas kini StudySession untuk mindmap:", dbErr);
           }
@@ -567,7 +604,7 @@ export default function LessonPage() {
 
           {/* Ciri Premium */}
           {isPremium ? (
-               <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
+               <Button variant="ghost" size="sm" onClick={() => { setExplanation(""); setFlashcards(null); setMindMap(null); generateCoreLesson(); }} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
                  {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
                </Button>
              ) : (
