@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 // 💡 Import komponen modal yang telah kita baiki tadi
-import AddChildModal from "./AddChildModal"; // Pastikan laluan (path) fail ini betul mengikut struktur projek anda
+import AddChildModal from "@/components/parent/AddChildModal"; // Pastikan laluan (path) fail ini betul mengikut struktur projek anda
 
 // Pembantu: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
