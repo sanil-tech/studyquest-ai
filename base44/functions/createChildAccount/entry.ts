@@ -1,7 +1,36 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.31";
 
-const hashPassword = (password: string) =>
-  btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
+// PBKDF2 password hashing (non-reversible)
+// Store format: pbkdf2$<iterations>$<salt>$<hash_hex>
+const PBKDF2_ITERATIONS = 100000;
+
+const toHex = (buf: ArrayBuffer) =>
+  Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+const hashPassword = async (password: string) => {
+  const salt = crypto.randomUUID();
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: encoder.encode(salt),
+      iterations: PBKDF2_ITERATIONS,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    256
+  );
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${salt}$${toHex(bits)}`;
+};
 
 Deno.serve(async (req) => {
   try {
@@ -56,7 +85,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const passwordHash = hashPassword(childData.password);
+    const passwordHash = await hashPassword(childData.password);
 
     const studentId =
       "SQ" + Math.floor(100000 + Math.random() * 900000);
