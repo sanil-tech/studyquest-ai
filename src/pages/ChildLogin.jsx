@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/use-toast";
 
 export default function ChildLogin() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState(""); // Memegang nilai username atau student_id
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
   const [loginMethod, setLoginMethod] = useState("password");
@@ -24,31 +24,38 @@ export default function ChildLogin() {
     setError("");
 
     try {
-      const cleanUsername = username.trim();
+      const cleanInput = identifier.trim();
 
-      if (!cleanUsername) {
-        setError("Please enter your Username");
+      if (!cleanInput) {
+        setError("Sila masukkan Username atau ID Pelajar anda.");
         setLoading(false);
         return;
       }
 
       if (loginMethod === "password" && !password) {
-        setError("Please enter your password");
+        setError("Sila masukkan kata laluan anda.");
         setLoading(false);
         return;
       }
 
       if (loginMethod === "pin" && (!pin || pin.length < 4)) {
-        setError("Please enter your 4-6 digit PIN");
+        setError("Sila masukkan 4-6 digit PIN anda.");
         setLoading(false);
         return;
       }
 
-      const response = await base44.functions.invoke("childLogin", {
-        username: cleanUsername,
+      // 💡 PEMBETULAN UTAMA: Mengesan jenis input secara automatik
+      // Jika input bermula dengan 'SQ', ia akan dihantar sebagai student_id ke backend.
+      const isStudentId = cleanInput.toUpperCase().startsWith("SQ");
+      
+      const payload = {
+        student_id: isStudentId ? cleanInput.toUpperCase() : null,
+        username: !isStudentId ? cleanInput.toLowerCase() : null,
         password: loginMethod === "password" ? password : null,
         pin: loginMethod === "pin" ? pin : null,
-      });
+      };
+
+      const response = await base44.functions.invoke("childLogin", payload);
 
       if (response.data.success) {
         const userData = response.data.user;
@@ -61,8 +68,8 @@ export default function ChildLogin() {
         localStorage.setItem('studyquest_user', JSON.stringify(userData));
 
         toast({
-          title: "Welcome back! 🎉",
-          description: `Hi ${userData.nickname || "Hero"}!`,
+          title: "Selamat kembali! 🎉",
+          description: `Hai ${userData.nickname || "Wira StudyQuest"}!`,
           duration: 2000
         });
 
@@ -72,11 +79,11 @@ export default function ChildLogin() {
           navigate("/complete-profile");
         }
       } else {
-        setError(response.data.error || "Login failed. Please try again.");
+        setError(response.data.error || "Log masuk gagal. Sila semak semula maklumat anda.");
       }
     } catch (err) {
       console.error("Child login error:", err);
-      setError(err.response?.data?.error || "Cannot connect to server. Please try again.");
+      setError(err.response?.data?.error || "Gagal menyambung ke pelayan. Sila cuba lagi.");
     } finally {
       setLoading(false);
     }
@@ -104,14 +111,15 @@ export default function ChildLogin() {
               </div>
             </div>
             <CardTitle className="text-2xl font-bold text-primary">
-              Welcome to StudyQuest! 🚀
+              Selamat Datang ke StudyQuest! 🚀
             </CardTitle>
             <CardDescription className="text-base mt-2">
-              Login with your Username
+              Log masuk dengan Username atau ID Pelajar anda
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4 pt-4">
+            {/* Tukar Kaedah Log Masuk */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg">
               <Button
                 variant={loginMethod === "password" ? "default" : "ghost"}
@@ -124,7 +132,7 @@ export default function ChildLogin() {
                 className={loginMethod === "password" ? "shadow-sm bg-white text-slate-900" : "text-slate-600"}
               >
                 <Key className="w-4 h-4 mr-2" />
-                Password
+                Kata Laluan
               </Button>
               <Button
                 variant={loginMethod === "pin" ? "default" : "ghost"}
@@ -137,30 +145,32 @@ export default function ChildLogin() {
                 className={loginMethod === "pin" ? "shadow-sm bg-white text-slate-900" : "text-slate-600"}
               >
                 <Lock className="w-4 h-4 mr-2" />
-                PIN
+                PIN Akaun
               </Button>
             </div>
 
+            {/* Input Identiti (Username / ID Pelajar) */}
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-semibold flex items-center gap-2">
+              <Label htmlFor="identifier" className="text-sm font-semibold flex items-center gap-2">
                 <User className="w-4 h-4" />
-                Username
+                Username / ID Pelajar
               </Label>
               <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                id="identifier"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="e.g. testing"
+                placeholder="Contoh: ahmad_abu atau SQ-123456"
                 className="text-lg h-12 bg-white"
                 autoFocus
               />
             </div>
 
+            {/* Input Kata Laluan Dinamik */}
             {loginMethod === "password" ? (
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-semibold">
-                  Password
+                  Kata Laluan
                 </Label>
                 <Input
                   id="password"
@@ -168,14 +178,14 @@ export default function ChildLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Enter your password"
+                  placeholder="Masukkan kata laluan anda"
                   className="text-lg h-12 bg-white"
                 />
               </div>
             ) : (
               <div className="space-y-2">
                 <Label htmlFor="pin" className="text-sm font-semibold">
-                  PIN (4-6 digits)
+                  PIN (4-6 digit)
                 </Label>
                 <Input
                   id="pin"
@@ -191,6 +201,7 @@ export default function ChildLogin() {
               </div>
             )}
 
+            {/* Paparan Ralat */}
             {error && (
               <Alert variant="destructive" className="border-red-300 bg-red-50 text-red-900">
                 <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -200,6 +211,7 @@ export default function ChildLogin() {
               </Alert>
             )}
 
+            {/* Butang Log Masuk */}
             <Button
               onClick={handleLogin}
               disabled={loading}
@@ -208,13 +220,14 @@ export default function ChildLogin() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Logging in...
+                  Memproses masuk...
                 </>
               ) : (
-                "Login 🎯"
+                "Masuk Sekarang 🎯"
               )}
             </Button>
 
+            {/* Butang Kembali */}
             <div className="pt-4 pb-2 border-t mt-6">
               <Button
                 variant="ghost"
@@ -222,7 +235,7 @@ export default function ChildLogin() {
                 onClick={() => navigate("/login")}
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Main Login
+                Kembali ke Log Masuk Utama
               </Button>
             </div>
           </CardContent>
