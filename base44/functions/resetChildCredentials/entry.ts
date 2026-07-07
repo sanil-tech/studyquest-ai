@@ -20,12 +20,34 @@ const generatePassword = () => {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 };
 
-const hashPassword = (password) => {
-  return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
-};
+// ============================================================================
+// PBKDF2 PASSWORD/PIN HASHING (non-reversible)
+// Store format: pbkdf2$<iterations>$<salt>$<hash_hex>
+// ============================================================================
 
-const hashPin = (pin) => {
-  return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
+const PBKDF2_ITERATIONS = 100000;
+
+const toHex = (buf) =>
+  Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+const hashSecret = async (secret) => {
+  const salt = crypto.randomUUID();
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: encoder.encode(salt), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  );
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${salt}$${toHex(bits)}`;
 };
 
 Deno.serve(async (req) => {
@@ -66,7 +88,7 @@ Deno.serve(async (req) => {
     if (action === 'reset_password') {
       const newPassword = generatePassword();
       await base44.asServiceRole.entities.User.update(child_id, {
-        password_hash: hashPassword(newPassword),
+        password_hash: await hashSecret(newPassword),
         failed_login_attempts: 0,
         account_locked: false,
       });
@@ -80,7 +102,7 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'PIN must be 4-6 digits' }, { status: 400 });
       }
       await base44.asServiceRole.entities.User.update(child_id, {
-        pin_hash: hashPin(new_pin),
+        pin_hash: await hashSecret(new_pin),
         pin_enabled: true,
         login_method: 'both',
         failed_login_attempts: 0,
@@ -103,7 +125,7 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'PIN must be 4-6 digits' }, { status: 400 });
       }
       await base44.asServiceRole.entities.User.update(child_id, {
-        pin_hash: hashPin(new_pin),
+        pin_hash: await hashSecret(new_pin),
         pin_enabled: true,
         login_method: 'both',
       });

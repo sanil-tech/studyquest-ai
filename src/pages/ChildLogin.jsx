@@ -55,7 +55,7 @@ export default function ChildLogin() {
 
         localStorage.setItem('studyquest_session', JSON.stringify({
           type: 'child',
-          userId: userData.id,
+          token: userData.session_token,
           loginTime: new Date().toISOString()
         }));
         localStorage.setItem('studyquest_user', JSON.stringify(userData));
