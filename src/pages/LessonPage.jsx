@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Loader2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import LessonProgress from "./LessonProgress";
+import LessonProgress from "../components/lesson/LessonProgress";
 
 export default function StudentLessonPage() {
   const { lessonId } = useParams();
