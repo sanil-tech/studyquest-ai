@@ -32,7 +32,12 @@ export default function LessonProgress({ steps, onStepClick }) {
   const handleStepClick = (stepKey) => {
     // Tukar saat kepada minit (minima 1 minit jika kurang daripada seminit)
     const minutesEarned = Math.max(Math.round(secondsSpent / 60), 1);
+    
+    // Hantar data ke parent component
     onStepClick?.(stepKey, minutesEarned);
+
+    // FIX: Set semula masa ke 0 supaya pengiraan adil untuk aktiviti seterusnya
+    setSecondsSpent(0);
   };
 
   return (
