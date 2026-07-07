@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Link, useNavigate } from "react-router-dom";
 import moment from "moment";
 import { 
-  Users, Plus, Target, Gift, BarChart2, CloudRain, MapPin, Clock, ArrowRight, Settings
+  Users, Plus, Target, Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning, MapPin, Clock, ArrowRight, Settings
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,15 @@ import { Progress } from "@/components/ui/progress";
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
+};
+
+// Fungsi pembantu untuk memetakan kod cuaca Open-Meteo kepada Icon & Teks Bahasa Melayu
+const getWeatherDetails = (code) => {
+  if (code === 0) return { label: "Cerah", icon: Sun, color: "text-amber-500" };
+  if ([1, 2, 3].includes(code)) return { label: "Berawan", icon: Cloud, color: "text-slate-400" };
+  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return { label: "Hujan", icon: CloudRain, color: "text-blue-500" };
+  if ([95, 96, 99].includes(code)) return { label: "Ribut Petir", icon: CloudLightning, color: "text-purple-500" };
+  return { label: "Redup", icon: Cloud, color: "text-sky-500" };
 };
 
 // 1. Komponen Pintasan (Shortcut Card)
@@ -36,7 +45,6 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
 function CompactChildCard({ child }) {
   const navigate = useNavigate();
   
-  // 🔄 DIKEMASKINI: Menggunakan formulasi dinamik dari MyChildrenPage
   const currentXP = child.progress?.total_xp || 0;
   const currentLevel = child.progress?.level || 1;
   const xpForNext = currentLevel ? currentLevel * 200 : 200;
@@ -97,6 +105,32 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // State baru untuk Cuaca Nyata
+  const [weather, setWeather] = useState({ temp: 30, code: 0, locationName: "Lokasi Anda" });
+  const [loadingWeather, setLoadingWeather] = useState(true);
+
+  // Fungsi mengambil cuaca berasaskan koordinat
+  const fetchWeather = async (lat, lon, name = "Lokasi Semasa") => {
+    try {
+      setLoadingWeather(true);
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+      );
+      const data = await res.json();
+      if (data?.current_weather) {
+        setWeather({
+          temp: Math.round(data.current_weather.temperature),
+          code: data.current_weather.weathercode,
+          locationName: name
+        });
+      }
+    } catch (error) {
+      console.error("Gagal mengambil data cuaca:", error);
+    } finally {
+      setLoadingWeather(false);
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -137,7 +171,26 @@ export default function ParentDashboard() {
 
   useEffect(() => { 
     loadData(); 
+
+    // Geolocation API untuk mengesan kedudukan sebenar browser user
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          fetchWeather(position.coords.latitude, position.coords.longitude, "Lokasi Semasa");
+        },
+        (error) => {
+          console.warn("Akses lokasi ditolak, menggunakan lokasi fallback (Kota Kinabalu).");
+          // Fallback ke Kota Kinabalu jika user block GPS permission
+          fetchWeather(5.9804, 116.0735, "Kota Kinabalu");
+        }
+      );
+    } else {
+      fetchWeather(5.9804, 116.0735, "Kota Kinabalu");
+    }
   }, []);
+
+  const weatherDetails = getWeatherDetails(weather.code);
+  const WeatherIcon = weatherDetails.icon;
 
   if (loading) {
     return (
@@ -199,16 +252,27 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {/* Widget Cuaca */}
+        {/* Widget Cuaca Nyata Berdasarkan Lokasi Semasa */}
         <div className="lg:col-span-4 space-y-4">
-          <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 flex justify-between items-center">
-            <div>
-              <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                <MapPin className="w-3 h-3" /> Kota Kinabalu
-              </div>
-              <h3 className="text-2xl font-black text-slate-800">30°C <span className="text-xs font-bold text-blue-500 ml-1">Hujan</span></h3>
-            </div>
-            <CloudRain className="w-6 h-6 text-blue-500" />
+          <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 flex justify-between items-center min-h-[92px]">
+            {loadingWeather ? (
+              <div className="text-[11px] font-medium text-slate-400 animate-pulse">Mengemas kini cuaca...</div>
+            ) : (
+              <>
+                <div>
+                  <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                    <MapPin className="w-3 h-3" /> {weather.locationName}
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-800">
+                    {weather.temp}°C 
+                    <span className={`text-xs font-bold ml-1.5 ${weatherDetails.color}`}>
+                      {weatherDetails.label}
+                    </span>
+                  </h3>
+                </div>
+                <WeatherIcon className={`w-7 h-7 ${weatherDetails.color}`} />
+              </>
+            )}
           </Card>
         </div>
       </div>
