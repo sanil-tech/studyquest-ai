@@ -6,7 +6,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
 export default function RewardsPage() {
-  const [user, setUser] = useState(null);
   const [rewards, setRewards] = useState([]);
   const [wallet, setWallet] = useState(null);
   const [requests, setRequests] = useState([]);
@@ -18,7 +17,6 @@ export default function RewardsPage() {
     const loadStudentData = async () => {
       try {
         const studentUser = await base44.auth.me();
-        setUser(studentUser);
 
         // 1. Fetch the student's unique relationship record to discover their parent_id
         const relationships = await base44.entities.ParentChildRelationship.filter({
@@ -29,10 +27,9 @@ export default function RewardsPage() {
         const activeParentId = relationships[0]?.parent_id || null;
 
         // 2. Fetch data pools in parallel
-        // FIX: Added student_id filter so children only see rewards specifically created for them!
         const [fetchedRewards, wallets, reqs] = await Promise.all([
           activeParentId 
-            ? base44.entities.Reward.filter({ parent_id: activeParentId, student_id: studentUser.id }) 
+            ? base44.entities.Reward.filter({ parent_id: activeParentId }) 
             : Promise.resolve([]),
           base44.entities.Wallet.filter({ student_id: studentUser.id }),
           base44.entities.RewardRequest.filter({ student_id: studentUser.id }, "-created_date", 20),
@@ -51,8 +48,7 @@ export default function RewardsPage() {
   }, []);
 
   const requestReward = async (reward) => {
-    const currentBalance = wallet?.balance || 0;
-    if (currentBalance < reward.coin_cost) {
+    if ((wallet?.balance || 0) < reward.coin_cost) {
       toast({ 
         title: "Not enough coins! 🪙", 
         description: `You need ${reward.coin_cost} coins for this reward. Keep studying!`, 
@@ -61,10 +57,9 @@ export default function RewardsPage() {
       return;
     }
     
-    if (!user) return;
     setRequesting(reward.id);
-    
     try {
+      const user = await base44.auth.me();
       const req = await base44.entities.RewardRequest.create({
         student_id: user.id,
         student_email: user.email, 
@@ -85,10 +80,7 @@ export default function RewardsPage() {
         });
       }
 
-      // Optimistically update requests history & locally adjust current pending wallet state balances
       setRequests(prev => [req, ...prev]);
-      setWallet(prev => prev ? { ...prev, balance: Math.max(0, prev.balance - reward.coin_cost) } : prev);
-      
       toast({ 
         title: "Request sent! 🎉", 
         description: "Your parent has been notified to review your request." 
