@@ -13,14 +13,15 @@ import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 
 // ============================================================================
-// 🔗 DAFTAR PAUTAN VIDEO YOUTUBE MENGIKUT NAMA TOPIK
+// 🔗 DAFTAR PAUTAN VIDEO YOUTUBE MENGIKUT KATA KUNCI TOPIK
 // ============================================================================
-// Sila tulis nama topik dalam HURUF KECIL SAHAJA sebagai kata kunci (key).
-// Anda boleh tukar pautan "https://www.youtube.com/watch?v=..." di bawah kepada link sebenar nanti.
+// Sistem akan mengesan kata kunci di bawah di dalam nama topik pangkalan data.
 const VIDEO_MAPPING = {
-  "banyak dan sedikit": "https://youtu.be/-8OVG1zor8w",
-  // ✨ Tambah lagi topik baru di bawah ini mengikut format yang sama:
-  // "nama topik dalam huruf kecil": "pautan youtube anda",
+  "banyak": "https://youtu.be/-8OVG1zor8w", // ✨ Video sebenar anda dimuatkan di sini!
+  "sedikit": "https://youtu.be/-8OVG1zor8w", // Padanan untuk topik sedikit
+  "tambah": "https://www.youtube.com/watch?v=CONTOH_ID_2",
+  "tolak": "https://www.youtube.com/watch?v=CONTOH_ID_3",
+  "bentuk": "https://www.youtube.com/watch?v=CONTOH_ID_4",
 };
 
 // ============================================================================
@@ -321,35 +322,44 @@ export default function LessonPage() {
   const handlePremiumRedirect = () => { alert("Opps! Ciri eksklusif ini hanya untuk ahli Premium sahaja. 🚀"); };
 
   // ============================================================================
-  // ✨ FUNGSI PINTAR: getEmbedUrl (TUKAR FORMAT & PADANKAN VIDEO)
+  // ✨ FUNGSI PINTAR: getEmbedUrl (PENGESAN KEYWORD & PENYUSUN EMBED)
   // ============================================================================
   const getEmbedUrl = (topicName) => {
-    if (!topicName) return null;
+    let rawUrl = topic?.video_url || null;
 
-    // Menukar nama topik semasa kepada huruf kecil dan buang ruang kosong berlebih
-    const formattedTopicName = topicName.toLowerCase().trim();
-    
-    // 1. Cuba semak link daripada list VIDEO_MAPPING berdasarkan nama topik
-    // 2. Jika tiada, ia akan gunakan lajur database (topic?.video_url) sebagai pelan simpanan (fallback)
-    const url = VIDEO_MAPPING[formattedTopicName] || topic?.video_url;
-    if (!url) return null;
-    
-    let baseEmbedUrl = "";
-    if (url.includes("watch?v=")) {
-      baseEmbedUrl = url.replace("watch?v=", "embed/");
-    } else if (url.includes("youtu.be/")) {
-      baseEmbedUrl = url.replace("youtu.be/", "youtube.com/embed/");
-    } else {
-      baseEmbedUrl = url;
+    // 1. Semak padanan kata kunci daripada list VIDEO_MAPPING
+    if (topicName) {
+      const nameLower = topicName.toLowerCase();
+      const matchedKey = Object.keys(VIDEO_MAPPING).find(key => nameLower.includes(key));
+      
+      if (matchedKey) {
+        rawUrl = VIDEO_MAPPING[matchedKey];
+      }
     }
 
-    const cleanUrl = baseEmbedUrl.split("?")[0];
+    if (!rawUrl) return null;
     
-    // Memulangkan URL dengan konfigurasi autoplay, mute dan tutup cadangan video lain (rel=0)
-    return `${cleanUrl}?autoplay=1&mute=1&rel=0`;
+    // 2. Ekstrak Video ID YouTube secara selamat
+    let videoId = "";
+    try {
+      if (rawUrl.includes("youtube.com/watch")) {
+        const urlParams = new URLSearchParams(rawUrl.split("?")[1]);
+        videoId = urlParams.get("v");
+      } else if (rawUrl.includes("youtu.be/")) {
+        videoId = rawUrl.split("youtu.be/")[1]?.split("?")[0];
+      } else if (rawUrl.includes("youtube.com/embed/")) {
+        videoId = rawUrl.split("youtube.com/embed/")[1]?.split("?")[0];
+      }
+    } catch (err) {
+      console.error("Gagal mengekstrak ID YouTube:", err);
+    }
+
+    if (!videoId) return null;
+
+    // 3. Kembalikan pautan format embed rasmi berserta parameter penting
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&enablejsapi=1`;
   };
 
-  // Kita hantar nama topik penuh dari database ke dalam fungsi pembantu
   const embedVideoUrl = getEmbedUrl(topic?.name);
 
   if (loading) {
@@ -409,7 +419,7 @@ export default function LessonPage() {
                 {isPremium ? <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} /> : <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm"><Lock className="w-4 h-4" /> Dengar Audio 🎧</Button>}
               </div>
 
-              {/* 🎬 VIDEO IFRAME HANYA AKAN MUNCUL SELEPAS BUTANG MULA DITEKAN (AUTOPLAY + MUTED) */}
+              {/* 🎬 VIDEO IFRAME SEBENAR YOUTUBE ANDA AKAN MUNCUL DI SINI SELEPAS PEMBELAJARAN BERMULA */}
               {embedVideoUrl && (
                 <div className="w-full space-y-2">
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100">
@@ -445,7 +455,7 @@ export default function LessonPage() {
             </motion.div>
           )}
 
-          {/* Panel Kuiz Gamified */}
+          {/* Panel Kuiz */}
           <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
             <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/50 rotate-12" />
             <div className="relative z-10">
