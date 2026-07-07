@@ -10,18 +10,38 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-// 💡 Mengutamakan nickname, kemudian e-mel
+// 💡 Pembantu: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
 };
 
+// 1. Komponen Pintasan (Shortcut Card)
+function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
+  return (
+    <button 
+      onClick={onClick} 
+      className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 hover:opacity-95 transition-opacity active:scale-[0.98]`}
+    >
+      <div className="bg-white/20 p-2 rounded-lg shrink-0"><Icon className="w-4 h-4" /></div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold truncate">{title}</p>
+        <p className="text-[9px] text-white/80 truncate">{desc}</p>
+      </div>
+    </button>
+  );
+}
+
+// 2. Komponen Kad Anak Ringkas (Compact Child Card)
 function CompactChildCard({ child }) {
   const navigate = useNavigate();
   
+  // 🔄 DIKEMASKINI: Menggunakan formulasi dinamik dari MyChildrenPage
   const currentXP = child.progress?.total_xp || 0;
-  const nextLevelXP = 500; 
-  const xpPercentage = Math.min(Math.round((currentXP / nextLevelXP) * 100), 100);
+  const currentLevel = child.progress?.level || 1;
+  const xpForNext = currentLevel ? currentLevel * 200 : 200;
+  const xpPercentage = Math.min(Math.round(((currentXP % xpForNext) / xpForNext) * 100), 100);
+  
   const displayName = getDisplayName(child); 
   
   const lastActiveTime = child.progress?.last_study_date 
@@ -60,16 +80,17 @@ function CompactChildCard({ child }) {
 
         <div className="space-y-1 pt-1">
           <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-            <span>TAHAP {child.progress?.level || 1}</span>
-            <span className="text-slate-600">{xpPercentage}%</span>
+            <span>TAHAP {currentLevel}</span>
+            <span className="text-slate-600">{isNaN(xpPercentage) ? 0 : xpPercentage}%</span>
           </div>
-          <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
+          <Progress value={isNaN(xpPercentage) ? 0 : xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
         </div>
       </div>
     </Card>
   );
 }
 
+// 3. Komponen Utama Dashboard
 export default function ParentDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -81,7 +102,6 @@ export default function ParentDashboard() {
       setLoading(true);
       const u = await base44.auth.me();
       
-      // Ambil perhubungan anak yang aktif
       const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
       if (!rel || !rel.length) {
         setChildren([]);
@@ -90,7 +110,6 @@ export default function ParentDashboard() {
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        // Menggunakan catch untuk mengelakkan keseluruhan Promise.all gagal jika satu request error
         const progressPromise = base44.entities.Progress.filter({ student_id: id }).catch(() => []);
         const childUserPromise = base44.entities.User.get(id).catch(() => null);
         
@@ -180,7 +199,7 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {/* Widget Cuaca / Info Sampingan */}
+        {/* Widget Cuaca */}
         <div className="lg:col-span-4 space-y-4">
           <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 flex justify-between items-center">
             <div>
@@ -194,17 +213,5 @@ export default function ParentDashboard() {
         </div>
       </div>
     </div>
-  );
-}
-
-function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
-  return (
-    <button onClick={onClick} className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 hover:opacity-95 transition-opacity active:scale-[0.98]`}>
-      <div className="bg-white/20 p-2 rounded-lg shrink-0"><Icon className="w-4 h-4" /></div>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-bold truncate">{title}</p>
-        <p className="text-[9px] text-white/80 truncate">{desc}</p>
-      </div>
-    </button>
   );
 }
