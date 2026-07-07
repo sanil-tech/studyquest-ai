@@ -18,12 +18,11 @@ const getDisplayName = (user) => {
 
 // Fungsi memetakan kod cuaca Open-Meteo kepada Icon & Teks Bahasa Melayu
 const getWeatherDetails = (code) => {
-  // Kod 0 & 1 merujuk kepada Langit Cerah / Clear Sky
   if ([0, 1].includes(code)) return { label: "Cerah", icon: Sun, color: "text-amber-500" };
   if ([2, 3].includes(code)) return { label: "Berawan", icon: Cloud, color: "text-slate-400" };
   if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return { label: "Hujan", icon: CloudRain, color: "text-blue-500" };
   if ([95, 96, 99].includes(code)) return { label: "Ribut Petir", icon: CloudLightning, color: "text-purple-500" };
-  return { label: "Cerah", icon: Sun, color: "text-amber-500" }; // Default to Cerah
+  return { label: "Cerah", icon: Sun, color: "text-amber-500" };
 };
 
 // 1. Komponen Pintasan (Shortcut Card)
@@ -106,54 +105,74 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Default Fallback disetkan terus ke Kota Kinabalu, Sabah (Cerah, 31°C)
-  const [weather, setWeather] = useState({ temp: 31, code: 0, locationName: "Kota Kinabalu" });
+  // Mengurus keadaan cuaca semasa dan senarai ramalan 5 jam
+  const [currentWeather, setCurrentWeather] = useState({ temp: 31, code: 0, locationName: "Kota Kinabalu" });
+  const [hourlyForecast, setHourlyForecast] = useState([]);
   const [loadingWeather, setLoadingWeather] = useState(true);
 
-  // Fungsi memanggil API Cuaca mengikut Latitud & Longitud terkini
-  const fetchWeather = async (lat, lon, name) => {
+  // Fungsi memanggil API Cuaca & Ramalan Jam
+  const fetchWeatherAndForecast = async (lat, lon, name) => {
     try {
+      setLoadingWeather(true);
+      // Memohon data cuaca semasa DAN ramalan jam (hourly) sekali gus
       const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,weathercode`
       );
       const data = await res.json();
+      
       if (data?.current_weather) {
-        setWeather({
+        setCurrentWeather({
           temp: Math.round(data.current_weather.temperature),
           code: data.current_weather.weathercode,
           locationName: name
         });
       }
+
+      if (data?.hourly?.time) {
+        const now = moment();
+        const forecastList = [];
+        
+        // Cari indeks masa yang sepadan atau terdekat dengan waktu sekarang
+        for (let i = 0; i < data.hourly.time.length; i++) {
+          const forecastTime = moment(data.hourly.time[i]);
+          
+          // Ambil waktu bermula dari jam semasa dan 5 jam ke hadapan
+          if (forecastTime.isSameOrAfter(now, "hour") && forecastList.length < 5) {
+            forecastList.push({
+              time: forecastTime.format("h a"), // format: "1 pm", "2 pm"
+              temp: Math.round(data.hourly.temperature_2m[i]),
+              code: data.hourly.weathercode[i]
+            });
+          }
+        }
+        setHourlyForecast(forecastList);
+      }
     } catch (error) {
-      console.error("Gagal memuatkan API cuaca:", error);
+      console.error("Gagal memuatkan ramalan cuaca:", error);
     } finally {
       setLoadingWeather(false);
     }
   };
 
-  // Logik Geolocation yang diperbaiki (Memaksa semakan kebenaran pelayar)
   const handleLocationDetection = () => {
     if (!navigator.geolocation) {
-      // Jika browser tidak support, kekal Kota Kinabalu
-      fetchWeather(5.9804, 116.0735, "Kota Kinabalu");
+      fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu");
       return;
     }
 
     const geoOptions = {
       enableHighAccuracy: true,
       timeout: 5000,
-      maximumAge: 0 // Memaksa browser mengambil GPS baru, bukan data cache lama
+      maximumAge: 0
     };
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        // Berjaya dapat koordinat user secara live
-        fetchWeather(position.coords.latitude, position.coords.longitude, "Lokasi Semasa");
+        fetchWeatherAndForecast(position.coords.latitude, position.coords.longitude, "Lokasi Semasa");
       },
       (error) => {
-        console.warn("Akses lokasi pelayar disekat/timeout. Menggunakan lokasi Kota Kinabalu.");
-        // Sekiranya user block atau popup tidak keluar, default terus ke Kota Kinabalu
-        fetchWeather(5.9804, 116.0735, "Kota Kinabalu");
+        console.warn("Akses lokasi disekat. Default ke Kota Kinabalu.");
+        fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu");
       },
       geoOptions
     );
@@ -163,8 +182,8 @@ export default function ParentDashboard() {
     try {
       setLoading(true);
       const u = await base44.auth.me();
-      
       const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
+      
       if (!rel || !rel.length) {
         setChildren([]);
         return;
@@ -174,24 +193,14 @@ export default function ParentDashboard() {
       const kids = await Promise.all(childIds.map(async (id) => {
         const progressPromise = base44.entities.Progress.filter({ student_id: id }).catch(() => []);
         const childUserPromise = base44.entities.User.get(id).catch(() => null);
-        
         const [progress, childUser] = await Promise.all([progressPromise, childUserPromise]);
         
-        return { 
-          id, 
-          ...childUser, 
-          progress: progress?.[0] || {}, 
-        };
+        return { id, ...childUser, progress: progress?.[0] || {} };
       }));
       
       setChildren(kids);
     } catch (err) {
       console.error("Gagal memuatkan data dashboard:", err);
-      toast({
-        variant: "destructive",
-        title: "Ralat Sistem",
-        description: "Gagal mengambil data anak-anak anda. Sila cuba lagi.",
-      });
     } finally { 
       setLoading(false);
     }
@@ -199,11 +208,11 @@ export default function ParentDashboard() {
 
   useEffect(() => { 
     loadData(); 
-    handleLocationDetection(); // Panggil fungsi pengesan lokasi secara tepat
+    handleLocationDetection(); 
   }, []);
 
-  const weatherDetails = getWeatherDetails(weather.code);
-  const WeatherIcon = weatherDetails.icon;
+  const currentDetails = getWeatherDetails(currentWeather.code);
+  const CurrentIcon = currentDetails.icon;
 
   if (loading) {
     return (
@@ -247,7 +256,6 @@ export default function ParentDashboard() {
               </Link>
             </div>
             
-            {/* Keadaan jika tiada data anak terpaut */}
             {children.length === 0 ? (
               <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white">
                 <p className="text-sm text-slate-500 font-medium mb-3">Tiada profil anak yang dihubungkan lagi.</p>
@@ -265,29 +273,58 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {/* Widget Cuaca Nyata Berdasarkan Lokasi Semasa */}
-        <div className="lg:col-span-4 space-y-4">
-          <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100 flex justify-between items-center min-h-[92px]">
+        {/* 🌤️ WIDGET CUACA KINI & RAMALAN 5 JAM */}
+        <div className="lg:col-span-4 space-y-3">
+          <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100/60 flex flex-col justify-between space-y-4 shadow-xs">
             {loadingWeather ? (
-              <div className="text-[11px] font-medium text-slate-400 animate-pulse">Mengemas kini cuaca...</div>
+              <div className="text-[11px] font-medium text-slate-400 animate-pulse py-6 text-center w-full">
+                Menyinkronkan ramalan cuaca semasa...
+              </div>
             ) : (
               <>
-                <div>
-                  <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                    <MapPin className="w-3 h-3" /> {weather.locationName}
+                {/* Cuaca Semasa */}
+                <div className="flex justify-between items-center w-full">
+                  <div>
+                    <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
+                      <MapPin className="w-3 h-3" /> {currentWeather.locationName}
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-800 leading-tight">
+                      {currentWeather.temp}°C 
+                      <span className={`text-xs font-bold ml-1.5 ${currentDetails.color}`}>
+                        {currentDetails.label}
+                      </span>
+                    </h3>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-800">
-                    {weather.temp}°C 
-                    <span className={`text-xs font-bold ml-1.5 ${weatherDetails.color}`}>
-                      {weatherDetails.label}
-                    </span>
-                  </h3>
+                  <CurrentIcon className={`w-8 h-8 ${currentDetails.color}`} />
                 </div>
-                <WeatherIcon className={`w-7 h-7 ${weatherDetails.color}`} />
+
+                {/* Garis Pemisah Visual */}
+                <div className="border-t border-sky-200/40 w-full" />
+
+                {/* Bar Grid: Ramalan 5 Jam ke Hadapan */}
+                <div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-sky-500" /> Ramalan 5 Jam Akan Datang
+                  </p>
+                  <div className="grid grid-cols-5 gap-1 text-center w-full">
+                    {hourlyForecast.map((hourData, idx) => {
+                      const hourDetails = getWeatherDetails(hourData.code);
+                      const HourIcon = hourDetails.icon;
+                      return (
+                        <div key={idx} className="bg-white/40 p-1.5 rounded-xl border border-white/40 flex flex-col items-center justify-between min-w-0">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase">{hourData.time}</span>
+                          <HourIcon className={`w-4 h-4 my-1 ${hourDetails.color}`} />
+                          <span className="text-xs font-black text-slate-700">{hourData.temp}°C</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </>
             )}
           </Card>
         </div>
+
       </div>
     </div>
   );
