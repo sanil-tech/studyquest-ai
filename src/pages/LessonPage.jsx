@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, HelpCircle } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -84,6 +84,7 @@ export default function LessonPage() {
 
   const studyStartRef = useRef(null);
   const sessionRef = useRef(null);
+  const isUnmounted = useRef(false);
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
 
@@ -102,6 +103,7 @@ export default function LessonPage() {
   };
 
   useEffect(() => {
+    isUnmounted.current = false;
     const initializeLesson = async () => {
       try {
         const [sub, top, user] = await Promise.all([
@@ -109,6 +111,9 @@ export default function LessonPage() {
           base44.entities.Topic.get(topicId),
           base44.auth.me(),
         ]);
+        
+        if (isUnmounted.current) return;
+
         setSubject(sub);
         setTopic(top);
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
@@ -118,7 +123,7 @@ export default function LessonPage() {
         // Tarik semua data kuiz/bank soalan dari database
         const allQuizBanks = await base44.entities.Quiz.filter({});
 
-        if (allQuizBanks && allQuizBanks.length > 0) {
+        if (allQuizBanks && allQuizBanks.length > 0 && !isUnmounted.current) {
           const namaTopikSemasa = top.name.toLowerCase().trim();
           
           const foundBank = allQuizBanks.find(bank => {
@@ -139,7 +144,7 @@ export default function LessonPage() {
           1
         );
 
-        if (cachedSessions.length > 0) {
+        if (cachedSessions.length > 0 && !isUnmounted.current) {
           const session = cachedSessions[0];
           setSessionId(session.id);
           
@@ -154,11 +159,17 @@ export default function LessonPage() {
       } catch (err) {
         console.error("Cache initialization failed", err);
       } finally {
-        studyStartRef.current = Date.now();
-        setLoading(false);
+        if (!isUnmounted.current) {
+          studyStartRef.current = Date.now();
+          setLoading(false);
+        }
       }
     };
     initializeLesson();
+
+    return () => {
+      isUnmounted.current = true;
+    };
   }, [subjectId, topicId]);
 
   const recordStudyTime = async () => {
@@ -190,6 +201,7 @@ export default function LessonPage() {
   };
 
   const generateCoreLesson = async () => {
+    if (status.lesson) return;
     setStatus(p => ({ ...p, lesson: true }));
     try {
       const user = await base44.auth.me();
@@ -276,7 +288,6 @@ export default function LessonPage() {
         }
         
         setFlashcards(mappedCards);
-        setStatus(p => ({ ...p, flashcards: false }));
         return; 
       } 
       
@@ -298,17 +309,14 @@ export default function LessonPage() {
         }
         setFlashcards(res);
       } else {
-        const fallbackCards = [
-          { front: `Mari teroka topik ${topic?.name || "ini"} bersama-sama!`, back: "Hebat! Klik butang 'Seterusnya' untuk kad lain. ✨" },
-          { front: "Berapakah hasil 1 + 1?", back: "2\n\nBijak! 1 digabung dengan 1 menjadi dua. 🌟" },
-          { front: "Kumpulan yang mempunyai objek yang banyak dipanggil?", back: "Kumpulan Banyak\n\nSyabas! Anda memang pemenang. 🏆" }
-        ];
-        setFlashcards(fallbackCards);
+        throw new Error("Invalid structure returned");
       }
     } catch (err) {
       console.error("Ralat kritikal dalam loadFlashcardsOnDemand:", err);
       const errorFallback = [
-        { front: `Jom uji kefahaman tentang ${topic?.name || "topik ini"}!`, back: "Sedia! Tekan butang Kuiz di bawah untuk mula menjawab soalan. 🎯" }
+        { front: `Mari teroka topik ${topic?.name || "ini"} bersama-sama!`, back: "Hebat! Klik butang 'Seterusnya' untuk kad lain. ✨" },
+        { front: "Berapakah hasil 1 + 1?", back: "2\n\nBijak! 1 digabung dengan 1 menjadi dua. 🌟" },
+        { front: "Kumpulan yang mempunyai objek yang banyak dipanggil?", back: "Kumpulan Banyak\n\nSyabas! Anda memang pemenang. 🏆" }
       ];
       setFlashcards(errorFallback);
     } finally { 
@@ -317,6 +325,7 @@ export default function LessonPage() {
   };
 
   const runQuizGeneration = async (numQ) => {
+    if (status.quiz) return;
     await recordStudyTime();
     setStatus(p => ({ ...p, quiz: true }));
 
@@ -558,15 +567,15 @@ export default function LessonPage() {
 
           {/* Ciri Premium */}
           {isPremium ? (
-             <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
-               {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
-             </Button>
-           ) : (
-             <Button variant="ghost" size="sm" onClick={handlePremiumRedirect} className="w-full text-sm font-medium text-amber-600 bg-amber-50/50 hover:bg-amber-100 py-3 rounded-full border-2 border-dashed border-amber-200 transition-colors">
-               <Lock className="w-4 h-4 mr-2 text-amber-500" /> Ciri Premium: Jana Semula Nota 🌟
-             </Button>
-           )}
-           
+               <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
+                 {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
+               </Button>
+             ) : (
+               <Button variant="ghost" size="sm" onClick={handlePremiumRedirect} className="w-full text-sm font-medium text-amber-600 bg-amber-50/50 hover:bg-amber-100 py-3 rounded-full border-2 border-dashed border-amber-200 transition-colors">
+                 <Lock className="w-4 h-4 mr-2 text-amber-500" /> Ciri Premium: Jana Semula Nota 🌟
+               </Button>
+             )}
+             
         </motion.div>
       )}
     </div>
