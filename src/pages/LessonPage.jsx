@@ -15,10 +15,9 @@ import MindMap from "@/components/lesson/MindMap";
 // ============================================================================
 // 🔗 DAFTAR PAUTAN VIDEO YOUTUBE MENGIKUT KATA KUNCI TOPIK
 // ============================================================================
-// Sistem akan mengesan kata kunci di bawah di dalam nama topik pangkalan data.
 const VIDEO_MAPPING = {
-  "banyak": "https://youtu.be/-8OVG1zor8w", // ✨ Video sebenar anda dimuatkan di sini!
-  "sedikit": "https://youtu.be/-8OVG1zor8w", // Padanan untuk topik sedikit
+  "banyak": "https://youtu.be/-8OVG1zor8w",  // ✨ Video sebenar anda
+  "sedikit": "https://youtu.be/-8OVG1zor8w", // ✨ Video sebenar anda
   "tambah": "https://www.youtube.com/watch?v=CONTOH_ID_2",
   "tolak": "https://www.youtube.com/watch?v=CONTOH_ID_3",
   "bentuk": "https://www.youtube.com/watch?v=CONTOH_ID_4",
@@ -106,6 +105,7 @@ export default function LessonPage() {
     return "Sahabat";
   };
 
+  // 🔍 SISTEM CACHE YANG TELAH DIBETULKAN
   useEffect(() => {
     isUnmounted.current = false;
     const initializeLesson = async () => {
@@ -136,6 +136,7 @@ export default function LessonPage() {
           }
         }
 
+        // Semak Sesi Pengajian Terdahulu
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: user.id, topic_id: topicId },
           "-created_date",
@@ -145,11 +146,16 @@ export default function LessonPage() {
         if (cachedSessions.length > 0 && !isUnmounted.current) {
           const session = cachedSessions[0];
           setSessionId(session.id);
+          
           if (session.ai_explanation) {
             const parsed = JSON.parse(session.ai_explanation);
+            
+            // ✨ Setkan state utama terus daripada cache supaya skrin tukar automatik
             setExplanation(parsed.lesson_markdown);
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+            
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
+            if (session.flashcards_json) setFlashcards(JSON.parse(session.flashcards_json));
           }
         }
       } catch (err) {
@@ -322,12 +328,11 @@ export default function LessonPage() {
   const handlePremiumRedirect = () => { alert("Opps! Ciri eksklusif ini hanya untuk ahli Premium sahaja. 🚀"); };
 
   // ============================================================================
-  // ✨ FUNGSI PINTAR: getEmbedUrl (PENGESAN KEYWORD & PENYUSUN EMBED)
+  // ✨ FUNGSI EMBED VIDEO YOUTUBE PINTAR & BERSEDIA (BUILT-IN ID EXTRACTOR)
   // ============================================================================
   const getEmbedUrl = (topicName) => {
     let rawUrl = topic?.video_url || null;
 
-    // 1. Semak padanan kata kunci daripada list VIDEO_MAPPING
     if (topicName) {
       const nameLower = topicName.toLowerCase();
       const matchedKey = Object.keys(VIDEO_MAPPING).find(key => nameLower.includes(key));
@@ -339,7 +344,6 @@ export default function LessonPage() {
 
     if (!rawUrl) return null;
     
-    // 2. Ekstrak Video ID YouTube secara selamat
     let videoId = "";
     try {
       if (rawUrl.includes("youtube.com/watch")) {
@@ -356,7 +360,6 @@ export default function LessonPage() {
 
     if (!videoId) return null;
 
-    // 3. Kembalikan pautan format embed rasmi berserta parameter penting
     return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&enablejsapi=1`;
   };
 
@@ -419,7 +422,7 @@ export default function LessonPage() {
                 {isPremium ? <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} /> : <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm"><Lock className="w-4 h-4" /> Dengar Audio 🎧</Button>}
               </div>
 
-              {/* 🎬 VIDEO IFRAME SEBENAR YOUTUBE ANDA AKAN MUNCUL DI SINI SELEPAS PEMBELAJARAN BERMULA */}
+              {/* 🎬 VIDEO IFRAME YOUTUBE SEBENAR ANDA */}
               {embedVideoUrl && (
                 <div className="w-full space-y-2">
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100">
