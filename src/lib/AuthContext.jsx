@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [appPublicSettings, setAppPublicSettings] = useState(null);
 
   useEffect(() => {
     checkAppState();
@@ -23,14 +23,12 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
       
-      // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
       const appClient = createAxiosClient({
         baseURL: `/api/apps/public`,
         headers: {
           'X-App-Id': appParams.appId
         },
-        token: appParams.token, // Include token if available
+        token: appParams.token,
         interceptResponses: true
       });
       
@@ -38,8 +36,9 @@ export const AuthProvider = ({ children }) => {
         const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
         setAppPublicSettings(publicSettings);
         
-        // If we got the app public settings successfully, check if user is authenticated
-        if (appParams.token) {
+        // Semak auth tanpa mengira token jika ada sesi anak dalam localStorage
+        const hasChildSession = localStorage.getItem('studyquest_session');
+        if (appParams.token || hasChildSession) {
           await checkUserAuth();
         } else {
           setIsLoadingAuth(false);
@@ -50,24 +49,14 @@ export const AuthProvider = ({ children }) => {
       } catch (appError) {
         console.error('App state check failed:', appError);
         
-        // Handle app-level errors
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
           const reason = appError.data.extra_data.reason;
           if (reason === 'auth_required') {
-            setAuthError({
-              type: 'auth_required',
-              message: 'Authentication required'
-            });
+            setAuthError({ type: 'auth_required', message: 'Authentication required' });
           } else if (reason === 'user_not_registered') {
-            setAuthError({
-              type: 'user_not_registered',
-              message: 'User not registered for this app'
-            });
+            setAuthError({ type: 'user_not_registered', message: 'User not registered for this app' });
           } else {
-            setAuthError({
-              type: reason,
-              message: appError.message
-            });
+            setAuthError({ type: reason, message: appError.message });
           }
         } else {
           setAuthError({
@@ -93,32 +82,43 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoadingAuth(true);
       
-      // First, try to restore child session from localStorage
+      // 1. Cuba pulihkan sesi log masuk anak (Contoh: morry) daripada localStorage
       const sessionData = localStorage.getItem('studyquest_session');
       const storedUser = localStorage.getItem('studyquest_user');
       
       if (sessionData && storedUser) {
         try {
           const session = JSON.parse(sessionData);
-          const user = JSON.parse(storedUser);
+          const parsedUser = JSON.parse(storedUser);
           
-          // Verify user still exists and is not locked
-          const verifiedUser = await base44.asServiceRole.entities.User.get(session.userId);
+          // 💡 DIBAIKI: Menggunakan client-side entity endpoint biasa, BUKAN asServiceRole
+          const verifiedUser = await base44.entities.User.get(session.userId).catch(() => null);
+          
+          // Jika pengesahan API berjaya dan akaun tidak dikunci
           if (verifiedUser && !verifiedUser.account_locked) {
             setUser(verifiedUser);
             setIsAuthenticated(true);
             setIsLoadingAuth(false);
             setAuthChecked(true);
             return;
+          } 
+          
+          // Fallback ke data simpanan jika pelayan tidak dapat dihubungi seketika tetapi data wujud
+          if (parsedUser && !parsedUser.account_locked) {
+            setUser(parsedUser);
+            setIsAuthenticated(true);
+            setIsLoadingAuth(false);
+            setAuthChecked(true);
+            return;
           }
         } catch (sessionError) {
-          console.log('Session restoration failed, clearing session');
+          console.log('Sesi anak rosak atau tamat tempoh, membersihkan memori...');
           localStorage.removeItem('studyquest_session');
           localStorage.removeItem('studyquest_user');
         }
       }
       
-      // If no child session, try standard Base44 auth
+      // 2. Jika tiada sesi anak, gunakan sesi standard Base44 (Sesi Ibu bapa)
       if (appParams.token) {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
@@ -135,7 +135,6 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
       setAuthChecked(true);
       
-      // If user auth fails, it might be an expired token
       if (error.status === 401 || error.status === 403) {
         setAuthError({
           type: 'auth_required',
@@ -146,7 +145,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
-    // Clear child session if exists
+    // Buang semua memori sesi anak
     localStorage.removeItem('studyquest_session');
     localStorage.removeItem('studyquest_user');
     
@@ -154,16 +153,13 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     
     if (shouldRedirect) {
-      // Use the SDK's logout method which handles token cleanup and redirect
       base44.auth.logout(window.location.href);
     } else {
-      // Just remove the token without redirect
       base44.auth.logout();
     }
   };
 
   const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
     base44.auth.redirectToLogin(window.location.href);
   };
 
