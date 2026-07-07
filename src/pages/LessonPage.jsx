@@ -214,8 +214,19 @@ export default function LessonPage() {
 
   const generateCoreLesson = async () => {
     if (status.lesson) return;
-    // Semakan tambahan sebelum panggil AI: jika cache sudah diisi secara dinamik, abort.
+
+    // 1. SEMAKAN UTAMA CACHE: Jika data pengajaran sudah sedia ada di state, gunakan sahaja
     if (explanation) return;
+
+    // 2. SEMAKAN KEDUA CACHE: Jika rekod StudySession mempunyai ai_explanation, terus guna tanpa panggil AI
+    if (currentSession?.ai_explanation) {
+      const parsed = JSON.parse(currentSession.ai_explanation);
+      setExplanation(parsed.lesson_markdown);
+      setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+      if (currentSession.mindmap_json) setMindMap(JSON.parse(currentSession.mindmap_json));
+      if (currentSession.flashcards_json) setFlashcards(JSON.parse(currentSession.flashcards_json));
+      return;
+    }
 
     setStatus(p => ({ ...p, lesson: true }));
     try {
@@ -223,7 +234,7 @@ export default function LessonPage() {
       const config = await getContextConfiguration();
       const lang = getLanguageMode();
 
-      // Panggil AI hanya jika tiada penjelasan dalam cache
+      // Panggil AI hanya apabila memang tiada cache langsung
       const response = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash", 
         add_context_from_internet: config.useInternet,
@@ -242,7 +253,7 @@ export default function LessonPage() {
 
       let session;
       
-      // LOGIK CACHE ANTI-DUPLIKASI: Jika StudySession sedia ada wujud, gunakan UPDATE. Jangan CREATE baru.
+      // LOGIK CACHE ANTI-DUPLIKASI: Jika StudySession wujud, kemaskini menggunakan UPDATE
       if (sessionId || currentSession) {
         const targetId = sessionId || currentSession.id;
         session = await base44.entities.StudySession.update(targetId, {
@@ -251,7 +262,7 @@ export default function LessonPage() {
           subject_name: subject.name,
         });
       } else {
-        // Hanya cipta rekod baru jika langsung tiada StudySession untuk student + topik ini
+        // Cipta rekod baru jika langsung tiada StudySession untuk student + topik ini
         session = await base44.entities.StudySession.create({
           student_id: user.id,
           subject_id: subjectId,
@@ -270,7 +281,6 @@ export default function LessonPage() {
       
       triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
       
-      // 🎉 Cetuskan animasi confetti apabila berjaya!
       triggerConfetti();
     } catch (e) {
       console.error(e);
@@ -278,7 +288,6 @@ export default function LessonPage() {
   };
 
   const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
-    // Jika mindmap sudah sedia ada di-load dari cache awal, halang prefetch latar belakang
     if (mindMap && mindMap.length > 0) return;
     try {
       base44.integrations.Core.InvokeLLM({
@@ -296,7 +305,6 @@ export default function LessonPage() {
   };
 
   const loadFlashcardsOnDemand = async () => {
-    // SEMAK CACHE DAHULU: Jika flashcards sudah wujud dari cache initialize, jangan panggil AI/Bank Soalan
     if (flashcards && flashcards.length > 0) return;
     if (status.flashcards) return;
     
@@ -427,7 +435,6 @@ export default function LessonPage() {
   };
 
   const loadMindMapOnDemand = async () => {
-    // SEMAK CACHE DAHULU: Jika mindmap sudah wujud, pintas panggilan AI sepenuhnya
     if (mindMap && mindMap.length > 0) return;
     if (status.mindmap) return;
 
