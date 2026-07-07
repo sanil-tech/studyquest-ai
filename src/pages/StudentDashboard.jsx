@@ -134,9 +134,10 @@ export default function StudentDashboard() {
   const nextLevelXp = level * 200;
   const xpPercentage = Math.min((xp / nextLevelXp) * 100, 100);
 
-  const todayDateString = moment().format("YYYY-MM-DD");
+  // FIXED: Object-to-object comparison with day granularity to handle ISO string mismatches
+  const today = moment();
   const todayMinutes = sessions
-    .filter(s => moment(s.created_date).isSame(todayDateString, "day"))
+    .filter(s => s.created_date && moment(s.created_date).isSame(today, "day"))
     .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
 
   if (loading) {
