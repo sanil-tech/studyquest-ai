@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, PlayCircle } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -11,17 +11,6 @@ import LessonContent from "@/components/lesson/LessonContent";
 import VoicePlayer from "@/components/lesson/VoicePlayer";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
-
-// ============================================================================
-// 🔗 DAFTAR PAUTAN VIDEO YOUTUBE MENGIKUT KATA KUNCI TOPIK
-// ============================================================================
-const VIDEO_MAPPING = {
-  "banyak": "https://youtu.be/-8OVG1zor8w",
-  "sedikit": "https://youtu.be/-8OVG1zor8w",
-  "tambah": "https://www.youtube.com/watch?v=CONTOH_ID_2",
-  "tolak": "https://www.youtube.com/watch?v=CONTOH_ID_3",
-  "bentuk": "https://www.youtube.com/watch?v=CONTOH_ID_4",
-};
 
 // ============================================================================
 // 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY
@@ -105,15 +94,10 @@ export default function LessonPage() {
     return "Sahabat";
   };
 
-  // ============================================================================
-  // ⚙️ PROSES KRONOLOGI KETAT (ANTI-RESET PROMPT)
-  // ============================================================================
   useEffect(() => {
     isUnmounted.current = false;
-    
     const initializeLesson = async () => {
       try {
-        // 1. Dapatkan maklumat asas subjek, topik dan profail pengguna serentak
         const [sub, top, user] = await Promise.all([
           base44.entities.Subject.get(subjectId),
           base44.entities.Topic.get(topicId),
@@ -127,38 +111,7 @@ export default function LessonPage() {
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        // 2. Cari Sesi Pengajian yang Sedia Ada (CACHE CHECK)
-        // Menggunakan parameter penapisan ID yang selamat untuk mengelakkan kegagalan string matching
-        const cachedSessions = await base44.entities.StudySession.filter(
-          { topic_id: topicId, student_id: user.id },
-          "-created_date",
-          1
-        );
-
-        if (cachedSessions && cachedSessions.length > 0 && !isUnmounted.current) {
-          const session = cachedSessions[0];
-          
-          if (session.ai_explanation) {
-            const parsed = JSON.parse(session.ai_explanation);
-            
-            if (parsed && parsed.lesson_markdown) {
-              setSessionId(session.id);
-              setExplanation(parsed.lesson_markdown);
-              setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
-              
-              if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
-              if (session.flashcards_json) setFlashcards(JSON.parse(session.flashcards_json));
-              
-              // Jika cache dijumpai dan berjaya dimasukkan ke state, hentikan pemuatan terus
-              studyStartRef.current = Date.now();
-              setLoading(false);
-              return; 
-            }
-          }
-        }
-
-        // 3. Jika TIADA Cache, baru kita muatkan senarai bank soalan (Ringan & Laju)
-        const allQuizBanks = await base44.entities.Quiz.filter({}, "-created_date", 20);
+        const allQuizBanks = await base44.entities.Quiz.filter({});
         if (allQuizBanks && allQuizBanks.length > 0 && !isUnmounted.current) {
           const namaTopikSemasa = top.name.toLowerCase().trim();
           const foundBank = allQuizBanks.find(bank => {
@@ -171,8 +124,24 @@ export default function LessonPage() {
           }
         }
 
+        const cachedSessions = await base44.entities.StudySession.filter(
+          { student_id: user.id, topic_id: topicId },
+          "-created_date",
+          1
+        );
+
+        if (cachedSessions.length > 0 && !isUnmounted.current) {
+          const session = cachedSessions[0];
+          setSessionId(session.id);
+          if (session.ai_explanation) {
+            const parsed = JSON.parse(session.ai_explanation);
+            setExplanation(parsed.lesson_markdown);
+            setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+            if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
+          }
+        }
       } catch (err) {
-        console.error("Gagal memuatkan sistem cache pengajian:", err);
+        console.error("Cache initialization failed", err);
       } finally {
         if (!isUnmounted.current) {
           studyStartRef.current = Date.now();
@@ -180,7 +149,6 @@ export default function LessonPage() {
         }
       }
     };
-
     initializeLesson();
     return () => { isUnmounted.current = true; };
   }, [subjectId, topicId]);
@@ -341,43 +309,21 @@ export default function LessonPage() {
 
   const handlePremiumRedirect = () => { alert("Opps! Ciri eksklusif ini hanya untuk ahli Premium sahaja. 🚀"); };
 
-  // ============================================================================
-  // ✨ LOGIK DETECT VIDEO YOUTUBE UNTUK IFRAME
-  // ============================================================================
-  const getEmbedUrl = (topicName) => {
-    let rawUrl = topic?.video_url || null;
-
-    if (topicName) {
-      const nameLower = topicName.toLowerCase();
-      const matchedKey = Object.keys(VIDEO_MAPPING).find(key => nameLower.includes(key));
-      
-      if (matchedKey) {
-        rawUrl = VIDEO_MAPPING[matchedKey];
-      }
-    }
-
-    if (!rawUrl) return null;
-    
+  const getEmbedUrl = (url) => {
+    if (!url) return null;
     let videoId = "";
-    try {
-      if (rawUrl.includes("youtube.com/watch")) {
-        const urlParams = new URLSearchParams(rawUrl.split("?")[1]);
-        videoId = urlParams.get("v");
-      } else if (rawUrl.includes("youtu.be/")) {
-        videoId = rawUrl.split("youtu.be/")[1]?.split("?")[0];
-      } else if (rawUrl.includes("youtube.com/embed/")) {
-        videoId = rawUrl.split("youtube.com/embed/")[1]?.split("?")[0];
-      }
-    } catch (err) {
-      console.error("Gagal mengekstrak ID YouTube:", err);
+    if (url.includes("youtube.com/watch")) {
+      const urlParams = new URLSearchParams(url.split("?")[1]);
+      videoId = urlParams.get("v");
+    } else if (url.includes("youtu.be/")) {
+      videoId = url.split("youtu.be/")[1]?.split("?")[0];
+    } else if (url.includes("youtube.com/embed/")) {
+      videoId = url.split("youtube.com/embed/")[1]?.split("?")[0];
     }
-
-    if (!videoId) return null;
-
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&enablejsapi=1`;
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
   };
 
-  const embedVideoUrl = getEmbedUrl(topic?.name);
+  const embedVideoUrl = getEmbedUrl(topic?.video_url);
 
   if (loading) {
     return (
@@ -401,7 +347,6 @@ export default function LessonPage() {
         </div>
       </motion.div>
 
-      {/* JIKA EXPLANATION BELUM ADA / TIDAK DIJUMPAI DI CACHE -> TUNJUK BUTANG MULA */}
       {!explanation ? (
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl max-w-md mx-auto">
           <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6">
@@ -414,7 +359,6 @@ export default function LessonPage() {
           </Button>
         </motion.div>
       ) : (
-        /* JIKA EXPLANATION ADA (DARI CACHE / BARU DIJANA) -> TERUS TUNJUK NOTA & VIDEO */
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
           
           {/* Navigation Tabs */}
@@ -430,7 +374,7 @@ export default function LessonPage() {
             </Button>
           </div>
 
-          {/* Tab Kandungan Nota + Video */}
+          {/* Tab Content */}
           {activeTab === "lesson" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
@@ -438,21 +382,9 @@ export default function LessonPage() {
                 {isPremium ? <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} /> : <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm"><Lock className="w-4 h-4" /> Dengar Audio 🎧</Button>}
               </div>
 
-              {/* Video Player */}
               {embedVideoUrl && (
-                <div className="w-full space-y-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100">
-                    <PlayCircle className="w-3.5 h-3.5 fill-red-100" /> Video Pembelajaran 🎬
-                  </span>
-                  <div className="aspect-video w-full rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm bg-black">
-                    <iframe
-                      src={embedVideoUrl}
-                      title={topic?.name}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                  </div>
+                <div className="w-full aspect-video rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm bg-black">
+                  <iframe src={embedVideoUrl} title={topic?.name} className="w-full h-full" allowFullScreen></iframe>
                 </div>
               )}
 
@@ -474,7 +406,7 @@ export default function LessonPage() {
             </motion.div>
           )}
 
-          {/* Panel Kuiz */}
+          {/* Quiz Generator Panel */}
           <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
             <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/50 rotate-12" />
             <div className="relative z-10">
