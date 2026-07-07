@@ -97,23 +97,19 @@ export const AuthProvider = ({ children }) => {
       const sessionData = localStorage.getItem('studyquest_session');
       const storedUser = localStorage.getItem('studyquest_user');
       
-      if (sessionData) {
+      if (sessionData && storedUser) {
         try {
           const session = JSON.parse(sessionData);
-
-          if (session.token) {
-            // Verify session token server-side — never use asServiceRole on the client
-            const response = await base44.functions.invoke('verifyChildSession', {
-              token: session.token,
-            });
-            const verifiedUser = response.data?.user;
-            if (verifiedUser && !verifiedUser.account_locked) {
-              setUser(verifiedUser);
-              setIsAuthenticated(true);
-              setIsLoadingAuth(false);
-              setAuthChecked(true);
-              return;
-            }
+          const user = JSON.parse(storedUser);
+          
+          // Verify user still exists and is not locked
+          const verifiedUser = await base44.asServiceRole.entities.User.get(session.userId);
+          if (verifiedUser && !verifiedUser.account_locked) {
+            setUser(verifiedUser);
+            setIsAuthenticated(true);
+            setIsLoadingAuth(false);
+            setAuthChecked(true);
+            return;
           }
         } catch (sessionError) {
           console.log('Session restoration failed, clearing session');
