@@ -16,8 +16,8 @@ import MindMap from "@/components/lesson/MindMap";
 // 🔗 DAFTAR PAUTAN VIDEO YOUTUBE MENGIKUT KATA KUNCI TOPIK
 // ============================================================================
 const VIDEO_MAPPING = {
-  "banyak": "https://youtu.be/-8OVG1zor8w",  // ✨ Video sebenar anda
-  "sedikit": "https://youtu.be/-8OVG1zor8w", // ✨ Video sebenar anda
+  "banyak": "https://youtu.be/-8OVG1zor8w",
+  "sedikit": "https://youtu.be/-8OVG1zor8w",
   "tambah": "https://www.youtube.com/watch?v=CONTOH_ID_2",
   "tolak": "https://www.youtube.com/watch?v=CONTOH_ID_3",
   "bentuk": "https://www.youtube.com/watch?v=CONTOH_ID_4",
@@ -105,11 +105,15 @@ export default function LessonPage() {
     return "Sahabat";
   };
 
-  // 🔍 SISTEM CACHE YANG TELAH DIBETULKAN
+  // ============================================================================
+  // ⚙️ PROSES KRONOLOGI KETAT (ANTI-RESET PROMPT)
+  // ============================================================================
   useEffect(() => {
     isUnmounted.current = false;
+    
     const initializeLesson = async () => {
       try {
+        // 1. Dapatkan maklumat asas subjek, topik dan profail pengguna serentak
         const [sub, top, user] = await Promise.all([
           base44.entities.Subject.get(subjectId),
           base44.entities.Topic.get(topicId),
@@ -123,7 +127,38 @@ export default function LessonPage() {
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        const allQuizBanks = await base44.entities.Quiz.filter({});
+        // 2. Cari Sesi Pengajian yang Sedia Ada (CACHE CHECK)
+        // Menggunakan parameter penapisan ID yang selamat untuk mengelakkan kegagalan string matching
+        const cachedSessions = await base44.entities.StudySession.filter(
+          { topic_id: topicId, student_id: user.id },
+          "-created_date",
+          1
+        );
+
+        if (cachedSessions && cachedSessions.length > 0 && !isUnmounted.current) {
+          const session = cachedSessions[0];
+          
+          if (session.ai_explanation) {
+            const parsed = JSON.parse(session.ai_explanation);
+            
+            if (parsed && parsed.lesson_markdown) {
+              setSessionId(session.id);
+              setExplanation(parsed.lesson_markdown);
+              setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+              
+              if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
+              if (session.flashcards_json) setFlashcards(JSON.parse(session.flashcards_json));
+              
+              // Jika cache dijumpai dan berjaya dimasukkan ke state, hentikan pemuatan terus
+              studyStartRef.current = Date.now();
+              setLoading(false);
+              return; 
+            }
+          }
+        }
+
+        // 3. Jika TIADA Cache, baru kita muatkan senarai bank soalan (Ringan & Laju)
+        const allQuizBanks = await base44.entities.Quiz.filter({}, "-created_date", 20);
         if (allQuizBanks && allQuizBanks.length > 0 && !isUnmounted.current) {
           const namaTopikSemasa = top.name.toLowerCase().trim();
           const foundBank = allQuizBanks.find(bank => {
@@ -136,30 +171,8 @@ export default function LessonPage() {
           }
         }
 
-        // Semak Sesi Pengajian Terdahulu
-        const cachedSessions = await base44.entities.StudySession.filter(
-          { student_id: user.id, topic_id: topicId },
-          "-created_date",
-          1
-        );
-
-        if (cachedSessions.length > 0 && !isUnmounted.current) {
-          const session = cachedSessions[0];
-          setSessionId(session.id);
-          
-          if (session.ai_explanation) {
-            const parsed = JSON.parse(session.ai_explanation);
-            
-            // ✨ Setkan state utama terus daripada cache supaya skrin tukar automatik
-            setExplanation(parsed.lesson_markdown);
-            setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
-            
-            if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
-            if (session.flashcards_json) setFlashcards(JSON.parse(session.flashcards_json));
-          }
-        }
       } catch (err) {
-        console.error("Cache initialization failed", err);
+        console.error("Gagal memuatkan sistem cache pengajian:", err);
       } finally {
         if (!isUnmounted.current) {
           studyStartRef.current = Date.now();
@@ -167,6 +180,7 @@ export default function LessonPage() {
         }
       }
     };
+
     initializeLesson();
     return () => { isUnmounted.current = true; };
   }, [subjectId, topicId]);
@@ -328,7 +342,7 @@ export default function LessonPage() {
   const handlePremiumRedirect = () => { alert("Opps! Ciri eksklusif ini hanya untuk ahli Premium sahaja. 🚀"); };
 
   // ============================================================================
-  // ✨ FUNGSI EMBED VIDEO YOUTUBE PINTAR & BERSEDIA (BUILT-IN ID EXTRACTOR)
+  // ✨ LOGIK DETECT VIDEO YOUTUBE UNTUK IFRAME
   // ============================================================================
   const getEmbedUrl = (topicName) => {
     let rawUrl = topic?.video_url || null;
@@ -387,6 +401,7 @@ export default function LessonPage() {
         </div>
       </motion.div>
 
+      {/* JIKA EXPLANATION BELUM ADA / TIDAK DIJUMPAI DI CACHE -> TUNJUK BUTANG MULA */}
       {!explanation ? (
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl max-w-md mx-auto">
           <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6">
@@ -399,6 +414,7 @@ export default function LessonPage() {
           </Button>
         </motion.div>
       ) : (
+        /* JIKA EXPLANATION ADA (DARI CACHE / BARU DIJANA) -> TERUS TUNJUK NOTA & VIDEO */
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
           
           {/* Navigation Tabs */}
@@ -422,7 +438,7 @@ export default function LessonPage() {
                 {isPremium ? <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} /> : <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm"><Lock className="w-4 h-4" /> Dengar Audio 🎧</Button>}
               </div>
 
-              {/* 🎬 VIDEO IFRAME YOUTUBE SEBENAR ANDA */}
+              {/* Video Player */}
               {embedVideoUrl && (
                 <div className="w-full space-y-2">
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100">
