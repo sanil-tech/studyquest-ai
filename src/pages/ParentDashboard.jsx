@@ -16,13 +16,14 @@ const getDisplayName = (user) => {
   return user.nickname || user.username || user.email || "Pelajar";
 };
 
-// Fungsi pembantu untuk memetakan kod cuaca Open-Meteo kepada Icon & Teks Bahasa Melayu
+// Fungsi memetakan kod cuaca Open-Meteo kepada Icon & Teks Bahasa Melayu
 const getWeatherDetails = (code) => {
-  if (code === 0) return { label: "Cerah", icon: Sun, color: "text-amber-500" };
-  if ([1, 2, 3].includes(code)) return { label: "Berawan", icon: Cloud, color: "text-slate-400" };
+  // Kod 0 & 1 merujuk kepada Langit Cerah / Clear Sky
+  if ([0, 1].includes(code)) return { label: "Cerah", icon: Sun, color: "text-amber-500" };
+  if ([2, 3].includes(code)) return { label: "Berawan", icon: Cloud, color: "text-slate-400" };
   if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return { label: "Hujan", icon: CloudRain, color: "text-blue-500" };
   if ([95, 96, 99].includes(code)) return { label: "Ribut Petir", icon: CloudLightning, color: "text-purple-500" };
-  return { label: "Redup", icon: Cloud, color: "text-sky-500" };
+  return { label: "Cerah", icon: Sun, color: "text-amber-500" }; // Default to Cerah
 };
 
 // 1. Komponen Pintasan (Shortcut Card)
@@ -105,14 +106,13 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // State baru untuk Cuaca Nyata
-  const [weather, setWeather] = useState({ temp: 30, code: 0, locationName: "Lokasi Anda" });
+  // Default Fallback disetkan terus ke Kota Kinabalu, Sabah (Cerah, 31°C)
+  const [weather, setWeather] = useState({ temp: 31, code: 0, locationName: "Kota Kinabalu" });
   const [loadingWeather, setLoadingWeather] = useState(true);
 
-  // Fungsi mengambil cuaca berasaskan koordinat
-  const fetchWeather = async (lat, lon, name = "Lokasi Semasa") => {
+  // Fungsi memanggil API Cuaca mengikut Latitud & Longitud terkini
+  const fetchWeather = async (lat, lon, name) => {
     try {
-      setLoadingWeather(true);
       const res = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
       );
@@ -125,10 +125,38 @@ export default function ParentDashboard() {
         });
       }
     } catch (error) {
-      console.error("Gagal mengambil data cuaca:", error);
+      console.error("Gagal memuatkan API cuaca:", error);
     } finally {
       setLoadingWeather(false);
     }
+  };
+
+  // Logik Geolocation yang diperbaiki (Memaksa semakan kebenaran pelayar)
+  const handleLocationDetection = () => {
+    if (!navigator.geolocation) {
+      // Jika browser tidak support, kekal Kota Kinabalu
+      fetchWeather(5.9804, 116.0735, "Kota Kinabalu");
+      return;
+    }
+
+    const geoOptions = {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0 // Memaksa browser mengambil GPS baru, bukan data cache lama
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        // Berjaya dapat koordinat user secara live
+        fetchWeather(position.coords.latitude, position.coords.longitude, "Lokasi Semasa");
+      },
+      (error) => {
+        console.warn("Akses lokasi pelayar disekat/timeout. Menggunakan lokasi Kota Kinabalu.");
+        // Sekiranya user block atau popup tidak keluar, default terus ke Kota Kinabalu
+        fetchWeather(5.9804, 116.0735, "Kota Kinabalu");
+      },
+      geoOptions
+    );
   };
 
   const loadData = async () => {
@@ -171,22 +199,7 @@ export default function ParentDashboard() {
 
   useEffect(() => { 
     loadData(); 
-
-    // Geolocation API untuk mengesan kedudukan sebenar browser user
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          fetchWeather(position.coords.latitude, position.coords.longitude, "Lokasi Semasa");
-        },
-        (error) => {
-          console.warn("Akses lokasi ditolak, menggunakan lokasi fallback (Kota Kinabalu).");
-          // Fallback ke Kota Kinabalu jika user block GPS permission
-          fetchWeather(5.9804, 116.0735, "Kota Kinabalu");
-        }
-      );
-    } else {
-      fetchWeather(5.9804, 116.0735, "Kota Kinabalu");
-    }
+    handleLocationDetection(); // Panggil fungsi pengesan lokasi secara tepat
   }, []);
 
   const weatherDetails = getWeatherDetails(weather.code);
