@@ -399,7 +399,7 @@ export default function LessonPage() {
         const quiz = await base44.entities.Quiz.create({
           session_id: sessionId,
           topic_name: topic.name,
-          subject_name: subject?.name || "Matematik",
+          subject_name: subject?.name || "Mathematic",
           questions_json: JSON.stringify(res.slice(0, 10)),
           difficulty: "easy",
           num_questions: 10,
