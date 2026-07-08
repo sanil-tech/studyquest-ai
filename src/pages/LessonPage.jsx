@@ -255,6 +255,25 @@ export default function LessonPage() {
     }
   };
 
+  // YouTube iframe auto-detect: advance to Phase 2 when video ends
+  useEffect(() => {
+    const handleEmbedVideoStatus = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.event === "infoDelivery" && data.info && data.info.playerState === 0) {
+          confetti({ particleCount: 80, spread: 60 });
+          alert(`🎉 Hebat ${studentNickname}! Anda telah selesai menonton video kembara ini. Jom kita ke cabaran seterusnya!`);
+          handleNextPhase();
+        }
+      } catch (e) {
+        // Ignore non-YouTube messages
+      }
+    };
+
+    window.addEventListener("message", handleEmbedVideoStatus);
+    return () => window.removeEventListener("message", handleEmbedVideoStatus);
+  }, [videoUrl, studentNickname]);
+
   const loadMindMapOnDemand = async () => {
     if (mindMap && mindMap.length > 0) return;
     if (status.mindmap) return;
@@ -400,31 +419,6 @@ export default function LessonPage() {
         allowFullScreen
       ></iframe>
     </div>
-
-    {/* Skrip Pengesan Auto-Kembali (Hanya berfungsi jika video dimainkan dalam iframe) */}
-    {useEffect(() => {
-      // Fungsi callback apabila API YouTube sedia
-      window.onYouTubeIframeAPIChange = () => {}; 
-      
-      const handleEmbedVideoStatus = (event) => {
-        // Mengesan mesej daripada iframe YouTube
-        try {
-          const data = JSON.parse(event.data);
-          // infoDelivery bermaksud status video berubah. info: 0 ialah 'ENDED' (Video tamat)
-          if (data.event === "infoDelivery" && data.info && data.info.playerState === 0) {
-            confetti({ particleCount: 80, spread: 60 });
-            // Keluar prompt/alert mesra kanak-kanak
-            alert(`🎉 Hebat ${studentNickname}! Anda telah selesai menonton video kembara ini. Jom kita ke cabaran seterusnya!`);
-            handleNextPhase(); // Auto tukar ke Cabaran 2 (Nota)
-          }
-        } catch (e) {
-          // Abaikan mesej bukan-YouTube
-        }
-      };
-
-      window.addEventListener("message", handleEmbedVideoStatus);
-      return () => window.removeEventListener("message", handleEmbedVideoStatus);
-    }, [videoUrl, studentNickname])}
 
     {/* BUTANG ALTERNATIF: Pembetulan Error 153 + Prompt Auto Semasa Kembali */}
     <div className="pt-1">
