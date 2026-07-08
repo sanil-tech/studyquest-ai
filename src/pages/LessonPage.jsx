@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Loader2, Trophy, GitFork, Youtube, Star, HelpCircle, RefreshCw, Lock } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Trophy, GitFork, Youtube, Star, Volume2, HelpCircle, RefreshCw, Lock, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -10,8 +10,18 @@ import LessonContent from "@/components/lesson/LessonContent";
 import MindMap from "@/components/lesson/MindMap";
 
 // ============================================================================
-// 1. HELPERS & FORMATTING REGISTER
+// FUN AUDIO ASSISTANT (Text-to-Speech bawaan telefon/komputer untuk anak kecil)
 // ============================================================================
+const speakText = (text) => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel(); // Hentikan suara lama jika ada
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ms-MY'; // Set Bahasa Melayu
+    utterance.rate = 0.9; // Perlahankan sedikit suara untuk kanak-kanak
+    window.speechSynthesis.speak(utterance);
+  }
+};
+
 const shuffleArray = (array) => {
   const newArr = [...array];
   for (let i = newArr.length - 1; i > 0; i--) {
@@ -24,41 +34,41 @@ const shuffleArray = (array) => {
 const generateDynamicQuestionsFromContent = (explanation, keywords, topicName) => {
   if (explanation && explanation.includes("Banyak dan Sedikit")) {
     return [
-      { id: 1, emoji: "🍎🍎🍎🍎🍎🍎🍎🍎", text: "Kumpulan 8 biji epal ini dikategorikan sebagai apa?", options: ["Banyak", "Sedikit", "Sama"], correct: "Banyak", hint: "Rujuk contoh nota: 8 biji epal adalah..." },
-      { id: 2, emoji: "🍎 Jude", text: "Kumpulan 2 biji epal ini pula dikategorikan sebagai apa?", options: ["Banyak", "Sedikit", "Kurang Pasti"], correct: "Sedikit", hint: "Rujuk contoh nota: 2 biji epal bermaksud..." },
-      { id: 3, emoji: "🌻🌻🌻🌻🌻🌻🌻🌻🌻🌻", text: "Ada 10 kuntum bunga matahari. Adakah kuantiti ini banyak atau sedikit?", options: ["Banyak", "Sedikit", "Kosong"], correct: "Banyak", hint: "Imbas kembali perbandingan antara 10 bunga matahari dengan 3 rama-rama." },
-      { id: 4, emoji: "🦋🦋🦋", text: "Hanya ada 3 ekor rama-rama yang terbang. Kuantiti ini ialah...", options: ["Banyak", "Sedikit", "Lebih"], correct: "Sedikit", hint: "Antara 10 bunga dan 3 rama-rama, kumpulan yang sedikit ialah..." },
-      { id: 5, emoji: "🍎 VS 🍏", text: "Apabila kita membandingkan dua kumpulan, kumpulan yang mempunyai KURANG benda disebut?", options: ["Banyak", "Sedikit", "Besar"], correct: "Sedikit", hint: "Petunjuk bahagian Cuba Ingat: Cari yang kurang!" },
-      { id: 6, emoji: "🎁 VS 📦", text: "Kumpulan yang mempunyai LEBIH banyak benda pula disebut?", options: ["Banyak", "Sedikit", "Kecil"], correct: "Banyak", hint: "Imbas kembali nota bintang (⭐): Banyak bermaksud ada lebih banyak benda." },
-      { id: 7, emoji: "🧺 (Bakul A: 8 Epal)", text: "Jika Bakul A ada 8 epal dan Bakul B ada 2 epal, bakul mana yang LEBIH BANYAK?", options: ["Bakul A", "Bakul B", "Kedua-duanya sama"], correct: "Bakul A", hint: "Semak soalan 2 di bahagian 'Cuba Ingat'. Cari nombor yang lebih besar." },
-      { id: 8, emoji: "🧺 (Bakul B: 2 Epal)", text: "Berdasarkan situasi bakul yang sama (Bakul A: 8, Bakul B: 2), bakul mana yang SEDIKIT?", options: ["Bakul A", "Bakul B", "Sama banyak"], correct: "Bakul B", hint: "Bakul yang sedikit mempunyai bilangan epal yang kurang." },
-      { id: 9, emoji: "🍦 🍦 🍦", text: "Kita membandingkan dua kumpulan benda untuk melihat mana yang 'lebih' atau...", options: ["Kurang", "Tinggi", "Panjang"], correct: "Kurang", hint: "Sila rujuk perenggan pertama di bawah tajuk 'Mari Ingat Semula!'." },
-      { id: 10, emoji: "⭐✨", text: "Apakah istilah lawan atau pasangan bandingan bagi perkataan 'Banyak'?", options: ["Sedikit", "Lebih", "Sama"], correct: "Sedikit", hint: "Bila kita bandingkan, kita akan tahu kumpulan mana yang Banyak dan mana yang..." }
+      { id: 1, emoji: "🍎🍎🍎🍎🍎🍎🍎🍎", text: "Cuba lihat epal ini. Adakah ia banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Banyak", hint: "Epal ini ada banyak!" },
+      { id: 2, emoji: "🍎🍎", text: "Epal ini sikit sahaja. Kita panggil apa?", options: ["Banyak", "Sedikit"], correct: "Sedikit", hint: "Hanya ada dua, maksudnya sedikit." },
+      { id: 3, emoji: "🌻🌻🌻🌻🌻🌻🌻🌻🌻🌻", text: "Bunga ini bertimbun-timbun! Banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Banyak", hint: "Kira sama-sama, ada banyak!" },
+      { id: 4, emoji: "🦋", text: "Rama-rama ini tinggal seekor sahaja. Banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Sedikit", hint: "Satu sahaja bermaksud sedikit." },
+      { id: 5, emoji: "🎈🎈🎈🎈🎈🎈🎈", text: "Belon pesta ini ada banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Banyak", hint: "Meriahnya belon! Ada banyak." },
+      { id: 6, emoji: "🐱", text: "Kucing comel ini keseorangan. Banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Sedikit", hint: "Sikit sahaja kucing ini." },
+      { id: 7, emoji: "🚗🚗🚗🚗🚗🚗", text: "Kereta mainan ini banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Banyak", hint: "Kereta bertumpuk-tumpuk, jadi banyak." },
+      { id: 8, emoji: "🌟", text: "Bintang di langit ini ada satu sahaja. Banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Sedikit", hint: "Hanya satu bintang bermaksud sedikit." },
+      { id: 9, emoji: "🐟🐟🐟🐟🐟🐟🐟🐟", text: "Ikan berenang di akuarium. Banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Banyak", hint: "Penuh ikan dalam air! Banyak." },
+      { id: 10, emoji: "🍬🍬", text: "Gula-gula adik ada dua sahaja. Banyak atau sedikit?", options: ["Banyak", "Sedikit"], correct: "Sedikit", hint: "Dua biji gula-gula sahaja maksudnya sedikit." }
     ].map(q => ({ ...q, options: shuffleArray(q.options) }));
   }
 
-  const sourceWords = Array.from(new Set([...(keywords || []), "Belajar", "Pintar", "Maju"]));
+  const sourceWords = Array.from(new Set([...(keywords || []), "Betul", "Pintar"]));
   return [...Array(10)].map((_, i) => {
     const correct = sourceWords[i % sourceWords.length] || "Betul";
     return {
       id: i + 1,
-      emoji: "🌟",
-      text: `Manakah perkataan utama rahsia yang kita pelajari dalam topik "${topicName}"?`,
-      options: shuffleArray([correct, "Lain-lain", "Salah"]),
+      emoji: "⭐",
+      text: `Mari cari gambar dan perkataan yang sama! Pilih perkataan ini:`,
+      options: shuffleArray([correct, "Lain"]),
       correct: correct,
-      hint: `Cari istilah: ${correct}`
+      hint: `Pilih bulatan perkataan yang sama.`
     };
   });
 };
 
 // ============================================================================
-// 2. INTERACTIVE GAME COMPONENT (10 LEVELS) - KEMAS KINI STABIL (TOUCH & SCREEN FIX)
+// 2. INTERACTIVE GAME COMPONENT - UI WARNA WARNI & BANTUAN AUDIO AUDIO
 // ============================================================================
 function Year1InteractiveGame({ explanation, keywords, topicName, studentNickname, onComplete }) {
   const [questions, setQuestions] = useState([]);
   const [currentLevel, setCurrentLevel] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState("Seret elemen ke kotak jawapan padanan yang betul! 🧠✨");
+  const [feedbackMessage, setFeedbackMessage] = useState("Ketuk butang hijau bawah, seret kad kuning ke kotak jawapan comel! 🌈");
 
   useEffect(() => {
     if (explanation) {
@@ -68,11 +78,19 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
     }
   }, [explanation, keywords, topicName]);
 
+  // Sebut soalan secara automatik setiap kali level bertukar (Membantu anak tidak pandai membaca)
+  useEffect(() => {
+    if (questions.length > 0 && !isFinished) {
+      const q = questions[currentLevel];
+      speakText(`${q.text}. Pilihan jawapan ialah, ${q.options.join(' atau ')}`);
+    }
+  }, [currentLevel, questions, isFinished]);
+
   if (questions.length === 0) {
     return (
       <div className="p-6 text-center text-xs text-slate-400">
         <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-purple-400" />
-        Menyusun arena cabaran berasaskan nota topik...
+        Sabar ya, permainan comel sedang dibuka...
       </div>
     );
   }
@@ -80,11 +98,9 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
   const currentQuestion = questions[currentLevel];
 
   const handleDragEnd = (event, info) => {
-    // Cari elemen DOM di bawah titik koordinat pelepasan seretan
     const elementAtPoint = document.elementFromPoint(info.point.x, info.point.y);
     if (!elementAtPoint) return;
 
-    // Jejak ke atas untuk mengesan elemen drop target terdekat
     const target = elementAtPoint.closest(".game-drop-target");
     let selectedValue = null;
 
@@ -93,8 +109,9 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
     }
 
     if (selectedValue === currentQuestion.correct) {
-      confetti({ particleCount: 30, spread: 40, origin: { y: 0.6 } });
-      setFeedbackMessage(`Syabas ${studentNickname}! Tepat sekali, jawapannya ialah "${currentQuestion.correct}"! 🌈`);
+      confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
+      speakText("Wah hebatnya betul!");
+      setFeedbackMessage(`🎉 Betul lah ${studentNickname}! Bijak sangat!`);
       
       if (currentLevel + 1 >= questions.length) {
         setIsFinished(true);
@@ -102,48 +119,62 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
       } else {
         setTimeout(() => {
           setCurrentLevel((prev) => prev + 1);
-          setFeedbackMessage("Hebat! Jom selesaikan cabaran peringkat seterusnya! 🚀");
-        }, 1300);
+          setFeedbackMessage("Jom main pusingan seterusnya! 🚀");
+        }, 1200);
       }
     } else if (selectedValue !== null) {
-      setFeedbackMessage(`Opps! Mari semak petunjuk ini: "${currentQuestion.hint}" 💡`);
+      speakText("Cuba lagi sayang, tengok gambar betul-betul.");
+      setFeedbackMessage(`Alahai, salah sikit! 💡 Petunjuk: ${currentQuestion.hint}`);
     }
   };
 
   if (isFinished) {
     return (
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-b from-emerald-50 to-emerald-100/50 rounded-3xl p-6 border-2 border-emerald-200 text-center space-y-4 shadow-md">
-        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">🏆</div>
-        <h4 className="text-xl font-extrabold text-emerald-900">10/10 Markah Penuh!</h4>
-        <p className="text-sm text-emerald-700 font-medium">Bijaknya {studentNickname}! Anda berjaya melepas 10 peringkat perlawanan padanan nota dengan cemerlang!</p>
-        <Button onClick={() => { setCurrentLevel(0); setIsFinished(false); }} variant="outline" size="sm" className="rounded-xl border-emerald-300 text-emerald-700 bg-white gap-1 text-xs mx-auto">
-          <RefreshCw className="w-3 h-3" /> Main Semula
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-b from-yellow-50 via-amber-100 to-amber-200 rounded-[2.5rem] p-6 border-4 border-amber-300 text-center space-y-4 shadow-xl">
+        <div className="text-6xl animate-bounce">🏆</div>
+        <h4 className="text-2xl font-black text-amber-950">HEBAT! 10 BINTANG PENUH!</h4>
+        <p className="text-xs text-amber-900 font-bold">Anak pintar {studentNickname} berjaya selesaikan semua permainan! 🌈</p>
+        <Button onClick={() => { setCurrentLevel(0); setIsFinished(false); }} className="rounded-full bg-emerald-500 hover:bg-emerald-600 font-black text-xs text-white px-6 py-4 shadow-md mx-auto">
+          <RefreshCw className="w-4 h-4 mr-1" /> Main Semula
         </Button>
       </motion.div>
     );
   }
 
   return (
-    <div className="bg-white rounded-3xl p-5 border-2 border-purple-200 text-center space-y-5 shadow-inner">
-      <div className="flex items-center justify-between px-1">
-        <span className="text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded-full">Peringkat Game {currentQuestion.id} / 10</span>
-        <div className="flex items-center gap-0.5">
+    <div className="bg-gradient-to-b from-white to-purple-50 rounded-[2.5rem] p-5 border-4 border-purple-300 text-center space-y-4 shadow-md">
+      
+      {/* METER BINTANG GAMPANG DIFAHAMI */}
+      <div className="flex items-center justify-between bg-purple-100/60 p-2 rounded-2xl">
+        <span className="text-[11px] font-black text-purple-800">Pusingan {currentQuestion.id} / 10</span>
+        <div className="flex gap-0.5">
           {[...Array(10)].map((_, idx) => (
-            <Star key={idx} className={`w-3.5 h-3.5 ${idx <= currentLevel ? "text-amber-400 fill-amber-400" : "text-slate-200"}`} />
+            <span key={idx} className="text-sm">{idx <= currentLevel ? "⭐" : "⚫"}</span>
           ))}
         </div>
       </div>
 
-      <div className="space-y-1">
-        <div className="text-4xl my-1">{currentQuestion.emoji}</div>
-        <p className="text-sm font-extrabold text-slate-700 px-2 leading-relaxed">{currentQuestion.text}</p>
+      {/* AUDIO READ ASSISTANT BUTTON */}
+      <button 
+        onClick={() => speakText(`${currentQuestion.text}. Pilihan jawapan, ${currentQuestion.options.join(' atau ')}`)}
+        className="w-full p-2 bg-emerald-500 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-sm border-b-4 border-emerald-700 active:transform active:scale-95 transition-all"
+      >
+        <Volume2 className="w-5 h-5 animate-pulse" /> DENGAR SUARA CIKGU 🔊
+      </button>
+
+      {/* EMOJI VISUAL BESAR (UTAMAKAN GAMBAR) */}
+      <div className="bg-white py-4 px-2 rounded-3xl border-2 border-purple-100 shadow-inner space-y-2">
+        <div className="text-6xl my-2 select-none tracking-widest p-2 bg-slate-50 rounded-2xl inline-block max-w-full overflow-x-auto min-h-[80px] leading-tight">{currentQuestion.emoji}</div>
+        <p className="text-xs font-black text-slate-700 leading-snug px-1">{currentQuestion.text}</p>
       </div>
 
-      <div className="bg-purple-50 text-purple-900 p-2.5 rounded-2xl text-xs font-bold min-h-[40px] flex items-center justify-center border border-purple-100">
-        {feedbackMessage}
+      {/* MAKLUM BALAS WARNA COLOURED */}
+      <div className="bg-amber-100 text-amber-950 p-2.5 rounded-xl text-[10px] font-bold border border-amber-300">
+        📢 {feedbackMessage}
       </div>
 
-      <div className="py-2 flex justify-center items-center min-h-[80px]">
+      {/* KAD UNTUK DISERET */}
+      <div className="py-2 flex justify-center items-center min-h-[90px]">
         <motion.div
           key={currentQuestion.id} 
           drag 
@@ -152,22 +183,31 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
           onDragEnd={handleDragEnd} 
           whileHover={{ scale: 1.1 }} 
           whileTap={{ scale: 0.9 }}
-          className="p-4 bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-amber-300 rounded-2xl shadow-sm cursor-grab active:cursor-grabbing inline-flex flex-col items-center justify-center min-w-[130px] touch-none"
+          className="p-4 bg-gradient-to-b from-yellow-300 to-amber-400 border-b-4 border-amber-600 rounded-3xl shadow-md cursor-grab active:cursor-grabbing inline-flex flex-col items-center justify-center min-w-[150px] touch-none"
         >
-          <span className="text-[10px] font-black text-amber-900 tracking-wider pointer-events-none">ANGKAT & LEPAS 👋</span>
+          <span className="text-3xl select-none">👆</span>
+          <span className="text-[11px] font-black text-amber-950 mt-1 tracking-wider">HERET KAD INI 👋</span>
         </motion.div>
       </div>
 
-      <div className="border-t border-dashed border-slate-200 my-1" />
+      <div className="border-t-2 border-dashed border-purple-200 my-1" />
 
+      {/* KOTAK JAWAPAN JATUHAN (DIBESARKAN & BERWARNA WARNI) */}
       <div className="space-y-2">
-        <p className="text-[10px] font-bold text-slate-400 flex items-center justify-center gap-1">
-          <HelpCircle className="w-3 h-3" /> Jatuhkan di dalam petak jawapan nota yang betul:
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <p className="text-[10px] font-bold text-purple-400">👇 Lepaskan kad di dalam kotak betul pilihan anda:</p>
+        <div className="grid grid-cols-2 gap-3">
           {currentQuestion.options.map((opt, i) => (
-            <div key={i} data-value={opt} className="game-drop-target p-3 rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/40 flex items-center justify-center min-h-[50px] hover:bg-purple-100 hover:border-purple-400 transition-colors pointer-events-auto">
-              <span className="text-xs font-extrabold text-purple-900 pointer-events-none">{opt}</span>
+            <div 
+              key={i} 
+              data-value={opt} 
+              className={`game-drop-target p-4 rounded-2xl border-4 border-dashed flex flex-col items-center justify-center min-h-[65px] transition-all ${
+                opt === "Banyak" || i === 0 
+                  ? "bg-cyan-50 border-cyan-300 text-cyan-900 hover:bg-cyan-100" 
+                  : "bg-pink-50 border-pink-300 text-pink-900 hover:bg-pink-100"
+              }`}
+            >
+              <span className="text-base font-black pointer-events-none">{opt === "Banyak" ? "เยอะ / Banyak 🍎" : "นิดเดียว / Sedikit 🍏"}</span>
+              <span className="text-[11px] font-extrabold text-slate-500 pointer-events-none">{opt}</span>
             </div>
           ))}
         </div>
@@ -177,7 +217,7 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
 }
 
 // ============================================================================
-// 3. MAIN COMPONENT LAYER (MISSION-BASED LEARNING FLOW)
+// 3. MAIN LESSON PAGE COMPONENT WITH ADAPTIVE KIDS LAYOUT
 // ============================================================================
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
@@ -189,22 +229,18 @@ export default function LessonPage() {
   const [studentNickname, setStudentNickname] = useState(""); 
   const [loading, setLoading] = useState(true);
 
-  // Content States
   const [explanation, setExplanation] = useState("");
   const [videoUrl, setVideoUrl] = useState(""); 
   const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
   const [mindMap, setMindMap] = useState(null);
 
-  // Fasa Mengikut Misi Pembelajaran Kembara
   const [currentPhase, setCurrentPhase] = useState(1); 
   const [status, setStatus] = useState({ lesson: false, mindmap: false, quiz: false });
 
-  // State Pengurusan Video & Sistem Lock Misi 
   const [isImmersive, setIsImmersive] = useState(false);
   const [videoKey, setVideoKey] = useState(0);
   const [isVideoCompleted, setIsVideoCompleted] = useState(false);
 
-  // Memaksa kitaran semula render iframe 300ms selepas fasa bertukar bagi membetulkan ralat Referrer
   useEffect(() => {
     if (currentPhase === 1) {
       const timer = setTimeout(() => {
@@ -214,37 +250,37 @@ export default function LessonPage() {
     }
   }, [currentPhase]);
 
-  // Mendengar signal status tamat tontonan daripada YouTube Player API
+  // Sebut panduan suara pembuka apabila fasa bertukar
+  useEffect(() => {
+    if (explanation) {
+      if (currentPhase === 1) speakText("Langkah satu. Jom tengok video kartun sampai habis untuk buka pintu permainan!");
+      if (currentPhase === 2) speakText("Langkah dua. Wah jom lihat gambar nota ceria ini sama-sama.");
+      if (currentPhase === 3) speakText("Langkah tiga. Masa untuk main game padanan mencabar! Bersedia?");
+      if (currentPhase === 4) speakText("Langkah empat. Jom serang bos besar kuiz dan kutub markah penuh!");
+    }
+  }, [currentPhase, explanation]);
+
   useEffect(() => {
     const handleVideoEndMessage = (event) => {
       if (!event.origin.includes("youtube.com")) return;
 
       try {
         let data = event.data;
-        if (typeof data === "string") {
-          data = JSON.parse(data);
-        }
+        if (typeof data === "string") data = JSON.parse(data);
 
-        // Pengesanan berasaskan state onStateChange (0 = ENDED)
         if (data.event === "onStateChange" && data.info === 0) {
           setIsImmersive(false); 
           setIsVideoCompleted(true); 
           confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-          
-          setTimeout(() => {
-            alert(`🎉 Tahniah ${studentNickname}! Misi menonton selesai. Butang "Misi Seterusnya" kini telah dibuka!`);
-          }, 400);
+          speakText("Tahniah! Video sudah habis. Jom tekan butang anak panah ungu untuk main game!");
         }
-      } catch (e) {
-        // Abaikan mesej bukan format JSON sah
-      }
+      } catch (e) {}
     };
 
     window.addEventListener("message", handleVideoEndMessage);
     return () => window.removeEventListener("message", handleVideoEndMessage);
-  }, [studentNickname]);
+  }, []);
 
-  // Inisialisasi Data Misi
   useEffect(() => {
     const initializeLesson = async () => {
       try {
@@ -256,7 +292,7 @@ export default function LessonPage() {
         
         setSubject(sub);
         setTopic(top);
-        setStudentNickname(user?.nickname || user?.profile?.nickname || "Si Bijak");
+        setStudentNickname(user?.nickname || user?.profile?.nickname || "Si Comel");
 
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: user.id, topic_id: topicId },
@@ -271,15 +307,12 @@ export default function LessonPage() {
             const parsed = JSON.parse(session.ai_explanation);
             setExplanation(parsed.lesson_markdown);
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
-            
-            const detectedVideo = parsed.video_url || top?.video_url || "https://www.youtube.com/embed/-8OVG1zor8w";
-            setVideoUrl(detectedVideo);
-            
+            setVideoUrl(parsed.video_url || top?.video_url || "https://www.youtube.com/embed/-8OVG1zor8w");
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
           }
         }
       } catch (err) {
-        console.error("Gagal memuatkan misi kembara:", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -289,14 +322,14 @@ export default function LessonPage() {
 
   const handleNextPhase = () => {
     if (currentPhase === 1 && !isVideoCompleted) {
-      alert("🔒 Sila tonton video tugasan sehingga tamat dahulu sebelum meneruskan misi!");
+      speakText("Sila tengok video dahulu sayang.");
+      alert("🔒 Sila tengok video kartun sehingga habis dahulu ya!");
       return;
     }
-    
     if (currentPhase === 1) loadMindMapOnDemand();
     setCurrentPhase(prev => prev + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    confetti({ particleCount: 50, spread: 30, origin: { y: 0.7 } });
+    confetti({ particleCount: 40, spread: 30, origin: { y: 0.7 } });
   };
 
   const handlePrevPhase = () => {
@@ -308,15 +341,13 @@ export default function LessonPage() {
 
   const loadMindMapOnDemand = async () => {
     if (mindMap && mindMap.length > 0) return;
-    if (status.mindmap) return;
-    setStatus(p => ({ ...p, mindmap: true }));
     try {
       const res = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
-        prompt: `Create a simple mind map based on summary "${metaData.summary || topic?.name}". Return schema matching: [{ "label": "string", "children": ["string"] }]`,
+        prompt: `Create a simple mind map for 7yo based on "${topic?.name}". Simple keys. Schema: [{ "label": "string", "children": ["string"] }]`,
       });
       if (res && Array.isArray(res)) setMindMap(res);
-    } catch (err) { console.error(err); } finally { setStatus(p => ({ ...p, mindmap: false })); }
+    } catch (err) {}
   };
 
   const generateCoreLesson = async () => {
@@ -327,7 +358,7 @@ export default function LessonPage() {
       const dynamicTopicVideo = topic?.video_url || "https://www.youtube.com/embed/-8OVG1zor8w";
 
       const sampleExplanation = `
-### 🌟 Recap: Banyak dan Sedikit\n\n🧠 **Mari Ingat Semula!**\nKita membandingkan dua kumpulan benda untuk melihat mana yang \"lebih\" atau \"kurang\".\n\n👀 **Lihat Contoh**\n* 🍎🍎🍎🍎🍎🍎🍎🍎 = **Banyak epal** (ada 8 biji)\n* 🍎🍎 = **Sedikit epal** (ada 2 biji)\n* 🌻🌻🌻🌻🌻🌻🌻🌻🌻🌻 = **Banyak bunga matahari** (ada 10 kuntum)\n* 🦋🦋🦋 = **Sedikit rama-rama** (ada 3 ekor)\n\n⭐ **Ingat!**\n* Banyak bermaksud ada lebih banyak benda.\n* Sedikit bermaksud ada kurang benda.
+### 🌟 Jom Ingat: Banyak & Sedikit\n\n👀 **Lihat Contoh Gambar Comel:**\n* 🍎🍎🍎🍎🍎🍎 = **Banyak Kuantiti**\n* 🍎 = **Sedikit / Sikit Sahaja**\n\n⭐ **Tips Kilat:**\n* Banyak bermaksud penuh melimpah-limpah.\n* Sedikit bermaksud sunyi bersendirian.
       `;
 
       const session = await base44.entities.StudySession.create({
@@ -349,7 +380,8 @@ export default function LessonPage() {
       setExplanation(sampleExplanation);
       setVideoUrl(dynamicTopicVideo);
       setCurrentPhase(1);
-      setIsVideoCompleted(false); 
+      setIsVideoCompleted(false);
+      speakText(`Selamat datang ${user.nickname || "Si Comel"}! Jom ketuk butang video besar di tengah skrin!`);
     } catch (e) {
       console.error(e);
     } finally { setStatus(p => ({ ...p, lesson: false })); }
@@ -361,7 +393,7 @@ export default function LessonPage() {
     try {
       const res = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
-        prompt: `Based on topic: "${topic?.name || "Banyak dan Sedikit"}", generate exactly 10 MCQs. Return JSON: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
+        prompt: `Create 10 easy questions for 7yo kids about "${topic?.name}". Simple language. JSON format: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
       });
       if (res && Array.isArray(res)) {
         const quiz = await base44.entities.Quiz.create({
@@ -372,220 +404,184 @@ export default function LessonPage() {
           difficulty: "easy",
           num_questions: 10,
         });
-        
-        // Pautan Dinamik Navigasi: Membuka QuizPage berpandukan kuiz ID baharu yang dijana
         navigate(`/quiz/${quiz.id}`);
       }
-    } catch (err) { console.error(err); } finally { setStatus(p => ({ ...p, quiz: false })); }
+    } catch (err) {} finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
-  // Formula Selamat untuk Pembinaan URL Komunikasi API YouTube JavaScript Player
-  const getSecuredUrl = (url) => {
-    if (!url) return "";
-    const cleanUrl = url.split("?")[0]; 
-    return `${cleanUrl}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&controls=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&widgetid=1`;
-  };
-
-  const securedVideoUrl = getSecuredUrl(videoUrl);
+  const securedVideoUrl = (() => {
+    if (!videoUrl) return "";
+    const cleanUrl = videoUrl.split("?")[0]; 
+    return `${cleanUrl}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&controls=1&modestbranding=1&rel=0`;
+  })();
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-4 border-t-purple-500 rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-purple-50 text-purple-600 gap-2">
+        <Loader2 className="w-10 h-10 animate-spin" />
+        <span className="text-xs font-black animate-bounce">Sabar ya comel, dunia belajar sedang bersiap... ✨</span>
       </div>
     );
   }
 
   return (
-    <div className="px-3 py-6 max-w-md mx-auto space-y-6 pb-28 bg-slate-50 min-h-screen">
+    <div className="px-4 py-4 max-w-md mx-auto space-y-5 pb-28 bg-gradient-to-b from-amber-50/40 to-purple-50/40 min-h-screen select-none">
       
-      {/* HEADER BAR */}
-      <div className="flex items-center gap-4 bg-gradient-to-r from-purple-100 via-indigo-50 to-cyan-100 p-4 rounded-3xl border shadow-sm">
-        <Link to={`/study/${subjectId}`} className="p-2.5 bg-white rounded-xl shadow-sm">
-          <ArrowLeft className="w-5 h-5 text-purple-600" />
+      {/* HEADER UTAMAKAN KANAK-KANAK */}
+      <div className="flex items-center gap-3 bg-white p-3 rounded-[2rem] border-4 border-purple-200 shadow-sm">
+        <Link to={`/study/${subjectId}`} className="p-2.5 bg-purple-100 hover:bg-purple-200 rounded-2xl transition-transform active:scale-90">
+          <ArrowLeft className="w-5 h-5 text-purple-700" />
         </Link>
-        <div>
-          <h1 className="text-sm font-bold text-slate-800">{topic?.name || "Banyak dan Sedikit"} 🌟</h1>
-          <p className="text-purple-700 font-medium text-xs">{subject?.name || "Matematik"} • {topic?.form_level || "Tahun 1"}</p>
+        <div className="flex-1">
+          <h1 className="text-xs font-black text-slate-800 leading-tight">Topik: {topic?.name || "Banyak & Sedikit"} 🎒</h1>
+          <p className="text-[10px] text-purple-600 font-bold">{subject?.name || "Matematik"} • Peringkat Darjah 1</p>
         </div>
+        <div className="text-2xl animate-spin-[spin_4s_linear_infinite]">⭐</div>
       </div>
 
       {!explanation ? (
-        <div className="text-center py-12 px-4 bg-white border-2 border-dashed rounded-3xl shadow-md space-y-4">
-          <Sparkles className="w-8 h-8 text-purple-500 animate-pulse mx-auto" />
-          <h2 className="text-base font-black text-slate-800">Sedia Mulakan Kembara, {studentNickname}? 🚀</h2>
-          <p className="text-xs text-slate-500">Selesaikan setiap cabaran untuk membuka kunci perlawanan Boss Besar!</p>
-          <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-11 rounded-full font-bold bg-purple-600 hover:bg-purple-700 text-white">
-            {status.lesson ? "Membuka Gerbang Misi..." : "Mula Selesaikan Misi!"}
+        <div className="text-center py-10 px-5 bg-white border-4 border-dashed border-purple-300 rounded-[2.5rem] shadow-md space-y-4">
+          <div className="text-6xl animate-bounce">🚀</div>
+          <h2 className="text-lg font-black text-purple-950">Hai {studentNickname}! Ready nak main?</h2>
+          <p className="text-xs text-slate-500 font-medium px-2">Ada banyak hadiah bintang menanti anda di dalam pusingan ini!</p>
+          <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 rounded-3xl text-sm font-black bg-gradient-to-r from-purple-500 to-indigo-600 border-b-4 border-indigo-800 text-white shadow-lg active:transform active:scale-95 transition-all">
+            {status.lesson ? "Membuka Pintu Ajaib..." : "TEKAN SINI UNTUK MULA! 🌟"}
           </Button>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4">
           
-          {/* TRACKER PROGRESS MISI */}
-          <div className="bg-white p-4 rounded-2xl border text-xs space-y-2.5 font-black text-slate-700 shadow-sm">
-            <div className="flex justify-between items-center">
-              <span>Misi Semasa: Peringrat {currentPhase} / 4</span>
-              <span className="text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100 animate-pulse text-[10px]">
-                {currentPhase === 1 && "📺 Cabaran 1: Pawagam Minda"}
-                {currentPhase === 2 && "📖 Cabaran 2: Jejak Nota Bijak"}
-                {currentPhase === 3 && "🎮 Cabaran 3: Arena Padanan"}
-                {currentPhase === 4 && "🔥 Cabaran Akhir: Boss Besar Kuiz"}
-              </span>
+          {/* TRACKER VISUAL HAIWAN (Anak kecil faham gambar ikon berbanding peratusan teks) */}
+          <div className="bg-white p-3 rounded-2xl border-2 border-purple-100 text-center space-y-1.5 shadow-sm">
+            <div className="flex justify-around items-center text-xl">
+              <span className={`p-1 rounded-full ${currentPhase === 1 ? "bg-purple-100 scale-125 border-2 border-purple-400" : "opacity-40"}`}>📺 🐥</span>
+              <span className="text-xs text-slate-300">➔</span>
+              <span className={`p-1 rounded-full ${currentPhase === 2 ? "bg-purple-100 scale-125 border-2 border-purple-400" : "opacity-40"}`}>📖 🐱</span>
+              <span className="text-xs text-slate-300">➔</span>
+              <span className={`p-1 rounded-full ${currentPhase === 3 ? "bg-purple-100 scale-125 border-2 border-purple-400" : "opacity-40"}`}>🎮 🐰</span>
+              <span className="text-xs text-slate-300">➔</span>
+              <span className={`p-1 rounded-full ${currentPhase === 4 ? "bg-purple-100 scale-125 border-2 border-purple-400" : "opacity-40"}`}>👑 🦁</span>
             </div>
-            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border p-0.5">
-              <div className="h-full bg-gradient-to-r from-purple-400 to-cyan-500 rounded-full transition-all duration-300" style={{ width: `${(currentPhase / 4) * 100}%` }} />
-            </div>
+            <p className="text-[10px] font-black text-purple-700 uppercase tracking-wider">
+              {currentPhase === 1 && "Fasa 1: Kedai Wayang Gambar"}
+              {currentPhase === 2 && "Fasa 2: Buku Nota Berwarna"}
+              {currentPhase === 3 && "Fasa 3: Taman Mainan Padanan"}
+              {currentPhase === 4 && "Fasa Kemuncak: Serangan Raja Kuiz"}
+            </p>
           </div>
 
-          {/* DYNAMIC CONTENT SWITCHER */}
-          <div className="min-h-[300px]">
+          {/* MAIN DYNAMIC BOX AREA */}
+          <div className="min-h-[280px]">
             <AnimatePresence mode="wait">
               
-              {/* CABARAN 1: WATCH VIDEO */}
+              {/* PHASING 1: VIDEO ADAPTIVE */}
               {currentPhase === 1 && (
-                <motion.div key="m1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-white rounded-3xl p-4 border shadow-sm space-y-3">
-                  <div>
-                    <h3 className="font-extrabold text-xs text-slate-700 flex items-center gap-1.5">
-                      🍿 Cabaran 1: Pengendali Pawagam Minda!
-                    </h3>
-                    <p className="text-[11px] text-slate-500 font-medium">Klik pada video untuk mula menonton dalam mod skrin besar pintar!</p>
-                  </div>
+                <motion.div key="p1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl p-4 border shadow-sm space-y-3">
+                  <button 
+                    onClick={() => speakText("Sila ketuk gambar televisyen besar di bawah untuk tonton kartun sampai habis!")}
+                    className="w-full text-left bg-slate-50 p-2 rounded-xl flex items-center gap-2 border"
+                  >
+                    <span className="text-lg">🔊</span>
+                    <p className="text-[11px] font-bold text-slate-600">Ketuk televisyen di bawah untuk tonton video kartun! 🍿</p>
+                  </button>
 
                   <div 
                     onClick={() => setIsImmersive(true)}
-                    className="group relative w-full rounded-2xl overflow-hidden aspect-video bg-slate-950 border-2 border-purple-100 shadow-md cursor-zoom-in hover:border-purple-400 transition-all duration-300"
+                    className="group relative w-full rounded-2xl overflow-hidden aspect-video bg-slate-900 border-4 border-amber-300 shadow-md cursor-pointer"
                   >
                     <iframe 
                       key={`mini-${videoKey}`}
-                      className="absolute top-0 left-0 w-full h-full pointer-events-none select-none" 
+                      className="absolute inset-0 w-full h-full pointer-events-none" 
                       src={securedVideoUrl}
-                      title="Mini Player"
-                      referrerPolicy="strict-origin-when-cross-origin"
+                      title="Kid Player"
                     ></iframe>
-                    
-                    <div className="absolute inset-0 bg-purple-950/20 group-hover:bg-purple-950/40 flex flex-col items-center justify-center opacity-100 transition-all duration-300">
-                      <div className="bg-white/95 text-purple-700 font-black text-[11px] px-3 py-2 rounded-full shadow-md flex items-center gap-1.5 transform group-hover:scale-110 transition-transform">
-                        <Youtube className="w-4 h-4 fill-red-500 text-red-500 animate-pulse" />
-                        KETUK UNTUK SKRIN PENUH 🚀
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <div className="bg-amber-400 text-slate-950 font-black text-xs px-4 py-2.5 rounded-full shadow-lg animate-bounce flex items-center gap-1.5">
+                        ▶️ BUKA SKRIN BESAR
                       </div>
                     </div>
                   </div>
 
-                  {/* Indikator Status Tontonan & Butang Bantuan Kecemasan */}
-                  <div className={`p-3 rounded-xl border text-center font-bold text-xs ${isVideoCompleted ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                  <div className={`p-3 rounded-2xl border text-center font-black text-xs ${isVideoCompleted ? "bg-emerald-100 border-emerald-300 text-emerald-800" : "bg-amber-100 border-amber-300 text-amber-800"}`}>
                     {isVideoCompleted ? (
-                      "✅ Bagus! Tontonan selesai. Anda boleh teruskan perjalanan!"
+                      "🎉 Syabas! Video tamat. Jom gerak ke fasa seterusnya!"
                     ) : (
                       <div className="space-y-2">
-                        <p>🔒 Sila tonton sehingga video tamat untuk membuka kunci misi seterusnya.</p>
-                        <button 
-                          onClick={() => setIsVideoCompleted(true)} 
-                          className="text-[10px] text-purple-600 underline block mx-auto font-medium hover:text-purple-800"
-                        >
-                          (Sudah selesai tonton? Klik sini jika butang masih dikunci)
+                        <p>🔒 Tonton dahulu sehingga habis untuk buka kunci main game.</p>
+                        <button onClick={() => setIsVideoCompleted(true)} className="text-[9px] text-purple-600 underline block mx-auto font-bold">
+                          (Dah siap tonton? Klik sini jika tersekat)
                         </button>
                       </div>
                     )}
                   </div>
 
-                  {/* OVERLAY MODAL SKRIN PENUH */}
+                  {/* IMMERSIVE VIDEO SCREEN LAYER */}
                   <AnimatePresence>
                     {isImmersive && (
-                      <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-slate-950 z-[9999] flex flex-col items-center justify-center p-2 sm:p-6"
-                      >
-                        <div className="w-full max-w-4xl flex items-center justify-between p-3 text-white">
-                          <span className="text-xs font-black tracking-wide text-purple-300 animate-pulse bg-purple-950/50 px-3 py-1 rounded-full border border-purple-800">
-                            📺 MOD KEMBARA MINDA SELESA: JANGAN KELUAR YA!
-                          </span>
-                          <Button 
-                            onClick={() => setIsImmersive(false)}
-                            className="bg-white/10 hover:bg-white/20 text-white rounded-full font-bold text-xs h-8 px-4 border border-white/20"
-                          >
-                            Tutup Skrin ✕
-                          </Button>
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black z-[9999] flex flex-col items-center justify-center p-2">
+                        <div className="w-full max-w-2xl flex justify-between p-2 text-white items-center">
+                          <span className="text-[10px] font-black bg-purple-600 px-3 py-1 rounded-full text-white">📺 WAYANG KARTUN SI COMEL</span>
+                          <Button onClick={() => setIsImmersive(false)} className="bg-red-500 text-white font-black h-8 px-3 rounded-xl text-xs">✕ Keluar</Button>
                         </div>
-
-                        <div className="w-full max-w-4xl aspect-video rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 bg-black relative">
+                        <div className="w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-black relative border-2 border-white/20">
                           <iframe 
                             key={`full-${videoKey}`}
-                            id="yt-player-immersive"
-                            className="absolute top-0 left-0 w-full h-full" 
+                            className="absolute inset-0 w-full h-full" 
                             src={securedVideoUrl} 
-                            title="Immersive Video Player" 
-                            referrerPolicy="strict-origin-when-cross-origin"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
                           ></iframe>
                         </div>
-
-                        <p className="text-[10px] text-slate-400 mt-4 mt-4 text-center font-medium">
-                          *Video dimainkan dengan selamat di dalam aplikasi. Sebaik sahaja tamat, skrin akan ditutup sendiri secara automatik!
-                        </p>
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </motion.div>
               )}
 
-              {/* CABARAN 2: READ NOTES */}
+              {/* PHASING 2: VISUAL NOTES */}
               {currentPhase === 2 && (
-                <motion.div key="m2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-                  <div className="bg-white rounded-3xl p-5 border shadow-sm space-y-3">
-                    <h2 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
-                      🔍 Cabaran 2: Imbas Semula Nota Kebijaksanaan
-                    </h2>
-                    <p className="text-[11px] text-slate-500 font-medium">Baca perkataan penting dengan teliti. Ini adalah kunci rahsia kemenangan game anda!</p>
-                    <div className="prose prose-sm text-slate-700 text-xs leading-relaxed border-t pt-2">
+                <motion.div key="p2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+                  <div className="bg-white rounded-3xl p-5 border shadow-sm space-y-2">
+                    <button onClick={() => speakText("Mari lihat buku nota bergambar ini.")} className="w-full text-left bg-purple-50 p-2 rounded-xl flex items-center gap-2 border border-purple-200">
+                      <span className="text-base">🔊</span>
+                      <p className="text-[11px] font-black text-purple-950">Dengar bunyi penerangan buku nota bergambar 📖</p>
+                    </button>
+                    <div className="prose prose-sm text-slate-800 text-xs font-bold leading-relaxed border-t pt-2">
                       <LessonContent content={explanation} />
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-3xl p-4 border shadow-sm space-y-2">
-                    <h3 className="font-bold text-xs text-slate-800 flex items-center gap-1">
-                      <GitFork className="w-3.5 h-3.5 text-blue-500"/> Infografik Struktur Visual Minda
-                    </h3>
-                    <div className="p-2 bg-blue-50/20 rounded-xl border">
-                      {mindMap ? <MindMap mindMap={{ central_topic: topic?.name || "Topik", branches: mindMap }} /> : <p className="text-xs text-center text-slate-400 py-3">Menyediakan grafik...</p>}
-                    </div>
+                  <div className="bg-white rounded-3xl p-3 border shadow-sm space-y-1">
+                    <h3 className="font-black text-xs text-slate-800 flex items-center gap-1">🗺️ Peta Grafik Minda</h3>
+                    {mindMap ? <MindMap mindMap={{ central_topic: topic?.name || "Nota", branches: mindMap }} /> : <p className="text-center text-[10px] py-2 text-slate-400">Memuatkan gambar...</p>}
                   </div>
                 </motion.div>
               )}
 
-              {/* CABARAN 3: INTERACTIVE MATCHING GAME */}
+              {/* PHASING 3: COMPACT DRAG GAME COMPONENT */}
               {currentPhase === 3 && (
-                <motion.div key="m3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
-                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-200 text-center space-y-1">
-                    <h3 className="font-black text-purple-950 text-xs">⚡ Cabaran 3: Arena Pahlawan Padanan (10 Level)</h3>
-                    <p className="text-[10px] text-purple-800 font-medium">
-                      Hebat! Selesaikan kesemua 10 peringkat padanan objek terus daripada nota anda untuk membuka laluan gerbang Boss Besar!
-                    </p>
-                  </div>
+                <motion.div key="p3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                   <Year1InteractiveGame 
                     explanation={explanation}
                     keywords={metaData.keywords}
                     topicName={topic?.name || "Topik"}
                     studentNickname={studentNickname}
-                    onComplete={() => console.log("Misi 3 selesai!")}
+                    onComplete={() => console.log("Game tamat")}
                   />
                 </motion.div>
               )}
 
-              {/* CABARAN 4: BOSS BESAR KUIZ */}
+              {/* PHASING 4: BOSS BATTLE */}
               {currentPhase === 4 && (
-                <motion.div key="m4" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                  <div className="bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 rounded-[2rem] p-6 border-4 border-orange-200 shadow-lg text-center space-y-4">
-                    <Trophy className="w-12 h-12 text-amber-500 mx-auto animate-bounce" />
-                    <h3 className="font-black text-base text-red-950 uppercase tracking-wide">🏆 Cabaran Akhir: Lawan Boss Besar Kuiz Juara!</h3>
-                    <p className="text-xs text-orange-800 max-w-xs mx-auto font-medium">
-                      Masa untuk serangan terakhir, {studentNickname}! Jawab soalan gempak ini dengan tepat, buktikan kehebatan anda dan tewaskan Boss Besar!
+                <motion.div key="p4" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+                  <div className="bg-gradient-to-br from-red-500 via-orange-500 to-yellow-400 rounded-[2.5rem] p-6 text-center text-white space-y-4 border-b-8 border-red-800 shadow-2xl">
+                    <div className="text-6xl animate-bounce">🦁</div>
+                    <h3 className="font-black text-xl uppercase tracking-wider">MASA SERANG RAJA KUIZ!</h3>
+                    <p className="text-xs font-bold text-yellow-100 px-2 leading-relaxed">
+                      Jawab 10 soalan mudah bergambar, kalahkan raksasa kuiz dan tuntut pingat emas kembara anda!
                     </p>
-                    <Button onClick={runQuizGeneration} disabled={status.quiz} className="bg-gradient-to-r from-orange-500 to-red-600 text-white font-black shadow-md rounded-xl text-xs w-full h-12 tracking-wider">
-                      {status.quiz ? "Menyediakan Medan Pertempuran..." : "SERANG BOSS BESAR ⚔️"}
+                    <Button onClick={runQuizGeneration} disabled={status.quiz} className="bg-yellow-300 hover:bg-yellow-400 text-slate-950 font-black rounded-2xl text-xs w-full h-14 border-b-4 border-yellow-600 shadow-md transform active:scale-95 transition-all">
+                      {status.quiz ? "Menyediakan Padang Kuiz..." : "MULA KUIZ SEKARANG ⚔️💥"}
                     </Button>
                   </div>
                 </motion.div>
@@ -593,33 +589,27 @@ export default function LessonPage() {
             </AnimatePresence>
           </div>
 
-          {/* FLOATING ACTION CONTROL MISSION BUTTONS */}
+          {/* FLOATING ACTION BOTTOM NAV BAR (BUTANG DIBESARKAN) */}
           <div className="fixed bottom-4 left-0 right-0 px-4 flex justify-between gap-4 max-w-md mx-auto z-40">
-            <Button onClick={handlePrevPhase} disabled={currentPhase === 1} variant="outline" className="h-11 px-5 rounded-full font-bold bg-white text-xs border-slate-200 shadow-sm">
-              ⬅️ Patah Balik
+            <Button onClick={handlePrevPhase} disabled={currentPhase === 1} className="h-14 px-5 rounded-3xl font-black bg-white text-slate-700 text-xs border-2 border-slate-300 border-b-4 border-slate-400 shadow-md active:scale-95 transition-all">
+              ⬅️ Kiri (Undur)
             </Button>
             
             {currentPhase < 4 ? (
               <Button 
                 onClick={handleNextPhase} 
                 disabled={currentPhase === 1 && !isVideoCompleted}
-                className={`h-11 px-6 rounded-full font-black text-white text-xs shadow-md gap-1.5 transition-all duration-300 ${
+                className={`h-14 px-6 rounded-3xl font-black text-xs text-white shadow-lg flex items-center gap-1.5 transition-all ${
                   currentPhase === 1 && !isVideoCompleted 
-                    ? "bg-slate-300 border-slate-200 text-slate-500 cursor-not-allowed opacity-80" 
-                    : "bg-gradient-to-r from-purple-600 to-cyan-600 hover:scale-105"
+                    ? "bg-slate-300 border-slate-400 text-slate-500 cursor-not-allowed opacity-70" 
+                    : "bg-gradient-to-r from-purple-500 to-pink-500 border-b-4 border-pink-700 active:scale-105"
                 }`}
               >
-                {currentPhase === 1 && !isVideoCompleted ? (
-                  <>
-                    <Lock className="w-3.5 h-3.5" /> Dikunci 🔒
-                  </>
-                ) : (
-                  "Misi Seterusnya ➡️"
-                )}
+                {currentPhase === 1 && !isVideoCompleted ? "🔒 Sila Tonton" : "Seterusnya ➡️"}
               </Button>
             ) : (
-              <span className="text-[10px] font-black text-orange-700 bg-orange-100 border border-orange-200 px-4 py-2 rounded-full animate-bounce flex items-center justify-center shadow-sm">
-                PERLAWANAN KEMUNCAK! 🔥
+              <span className="text-[10px] font-black text-red-700 bg-red-100 border-2 border-red-300 px-4 py-3 rounded-full shadow-inner animate-pulse flex items-center justify-center">
+                PANTAS SERANG! 🔥
               </span>
             )}
           </div>
