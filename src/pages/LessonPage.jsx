@@ -1,5 +1,5 @@
 // src/pages/LessonPage.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Sparkles, Loader2, Trophy, GitFork, Youtube, Star, HelpCircle, RefreshCw } from "lucide-react";
@@ -119,7 +119,7 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-b from-emerald-50 to-emerald-100/50 rounded-3xl p-6 border-2 border-emerald-200 text-center space-y-4 shadow-md">
         <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">🏆</div>
         <h4 className="text-xl font-extrabold text-emerald-900">10/10 Markah Penuh!</h4>
-        <p className="text-sm text-emerald-700 font-medium">Bijaknya ${studentNickname}! Anda berjaya melepas 10 peringkat perlawanan padanan nota dengan cemerlang!</p>
+        <p className="text-sm text-emerald-700 font-medium">Bijaknya {studentNickname}! Anda berjaya melepas 10 peringkat perlawanan padanan nota dengan cemerlang!</p>
         <Button onClick={() => { setCurrentLevel(0); setIsFinished(false); }} variant="outline" size="sm" className="rounded-xl border-emerald-300 text-emerald-700 bg-white gap-1 text-xs mx-auto">
           <RefreshCw className="w-3 h-3" /> Main Semula
         </Button>
@@ -197,6 +197,44 @@ export default function LessonPage() {
   const [currentPhase, setCurrentPhase] = useState(1); 
   const [status, setStatus] = useState({ lesson: false, mindmap: false, quiz: false });
 
+  // 🌟 PERBAIKAN UTAMA: State & Effects Pengurusan Video Diletakkan Di Bahagian Atas Komponen Utama
+  const [isImmersive, setIsImmersive] = useState(false);
+  const [videoKey, setVideoKey] = useState(0);
+
+  // Memaksa kitaran semula render iframe 300ms selepas fasa bertukar bagi membetulkan ralat Referrer (Error 153)
+  useEffect(() => {
+    if (currentPhase === 1) {
+      const timer = setTimeout(() => {
+        setVideoKey(prev => prev + 1);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [currentPhase]);
+
+  // Mendengar signal status tamat tontonan daripada YouTube Player API
+  useEffect(() => {
+    const handleVideoEndMessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.event === "infoDelivery" && data.info && data.info.playerState === 0) {
+          setIsImmersive(false); // Auto-tutup modal skrin penuh
+          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+          
+          setTimeout(() => {
+            alert(`🎉 Tahniah ${studentNickname}! Misi menonton selesai. Jom kita terus ke Cabaran 2!`);
+            handleNextPhase(); // Auto bawa ke Cabaran 2
+          }, 400);
+        }
+      } catch (e) {
+        // Abaikan mesej ralat rujukan luar
+      }
+    };
+
+    window.addEventListener("message", handleVideoEndMessage);
+    return () => window.removeEventListener("message", handleVideoEndMessage);
+  }, [studentNickname, videoUrl]);
+
+  // Inisialisasi Data Misi
   useEffect(() => {
     const initializeLesson = async () => {
       try {
@@ -210,7 +248,6 @@ export default function LessonPage() {
         setTopic(top);
         setStudentNickname(user?.nickname || user?.profile?.nickname || "Si Bijak");
 
-        // Semak pangkalan data bagi sesi pengajian sedia ada (cache)
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: user.id, topic_id: topicId },
           "-created_date",
@@ -225,8 +262,7 @@ export default function LessonPage() {
             setExplanation(parsed.lesson_markdown);
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
             
-            // 🌟 LOGIK PENGESANAN VIDEO DINAMIK BERLAPIS (Video ikut topik secara automatik)
-            const detectedVideo = parsed.video_url || top?.video_url || "https://www.youtube.com/embed/-8OVG1zor8w?si=CEcDsctK57fTa39x";
+            const detectedVideo = parsed.video_url || top?.video_url || "https://www.youtube.com/embed/-8OVG1zor8w";
             setVideoUrl(detectedVideo);
             
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
@@ -255,26 +291,6 @@ export default function LessonPage() {
     }
   };
 
-  // YouTube iframe auto-detect: advance to Phase 2 when video ends
-  useEffect(() => {
-    const handleEmbedVideoStatus = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.event === "infoDelivery" && data.info && data.info.playerState === 0) {
-          confetti({ particleCount: 80, spread: 60 });
-          alert(`🎉 Hebat ${studentNickname}! Anda telah selesai menonton video kembara ini. Jom kita ke cabaran seterusnya!`);
-          handleNextPhase();
-        }
-      } catch (e) {
-        // Ignore non-YouTube messages
-      }
-    };
-
-    window.addEventListener("message", handleEmbedVideoStatus);
-    return () => window.removeEventListener("message", handleEmbedVideoStatus);
-  }, [videoUrl, studentNickname]);
-  
-
   const loadMindMapOnDemand = async () => {
     if (mindMap && mindMap.length > 0) return;
     if (status.mindmap) return;
@@ -293,9 +309,7 @@ export default function LessonPage() {
     setStatus(p => ({ ...p, lesson: true }));
     try {
       const user = await base44.auth.me();
-      
-      // Auto-detect video mengikut pautan yang diletakkan dalam entiti topik asal
-      const dynamicTopicVideo = topic?.video_url || "https://www.youtube.com/embed/-8OVG1zor8w?si=CEcDsctK57fTa39x";
+      const dynamicTopicVideo = topic?.video_url || "https://www.youtube.com/embed/-8OVG1zor8w";
 
       const sampleExplanation = `
 ### 🌟 Recap: Banyak dan Sedikit\n\n🧠 **Mari Ingat Semula!**\nKita membandingkan dua kumpulan benda untuk melihat mana yang \"lebih\" atau \"kurang\".\n\n👀 **Lihat Contoh**\n* 🍎🍎🍎🍎🍎🍎🍎🍎 = **Banyak epal** (ada 8 biji)\n* 🍎🍎 = **Sedikit epal** (ada 2 biji)\n* 🌻🌻🌻🌻🌻🌻🌻🌻🌻🌻 = **Banyak bunga matahari** (ada 10 kuntum)\n* 🦋🦋🦋 = **Sedikit rama-rama** (ada 3 ekor)\n\n⭐ **Ingat!**\n* Banyak bermaksud ada lebih banyak benda.\n* Sedikit bermaksud ada kurang benda.
@@ -347,6 +361,9 @@ export default function LessonPage() {
     } catch (err) { console.error(err); } finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
+  // URL Video yang dikunci ketat (Mengunci tontonan dalam aplikasi sahaja + Atasi Ralat 153)
+  const securedVideoUrl = `${videoUrl}${videoUrl.includes('?') ? '&' : '?'}enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&controls=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1`;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -381,7 +398,7 @@ export default function LessonPage() {
       ) : (
         <div className="space-y-5">
           
-          {/* TRACKER PROGRESS MISI BERULANG */}
+          {/* TRACKER PROGRESS MISI */}
           <div className="bg-white p-4 rounded-2xl border text-xs space-y-2.5 font-black text-slate-700 shadow-sm">
             <div className="flex justify-between items-center">
               <span>Misi Semasa: Peringkat {currentPhase} / 4</span>
@@ -397,127 +414,83 @@ export default function LessonPage() {
             </div>
           </div>
 
-          {/* DYNAMIC CONTENT SWITCHER BASED ON MISSION */}
+          {/* DYNAMIC CONTENT SWITCHER */}
           <div className="min-h-[300px]">
             <AnimatePresence mode="wait">
               
-{/* CABARAN 1: WATCH VIDEO (IN-APP EXCLUSIVE + AUTO FULLSCREEN MODAL) */}
-{currentPhase === 1 && (
-  <motion.div key="m1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-white rounded-3xl p-4 border shadow-sm space-y-3">
-    
-    {/* State Pengurusan Skrin Penuh Dinamik */}
-    {(() => {
-      const [isImmersive, setIsImmersive] = useState(false);
-      const [videoKey, setVideoKey] = useState(0);
+              {/* CABARAN 1: WATCH VIDEO (IN-APP LOCKED + IMMERSIVE FULLSCREEN OVERLAY) */}
+              {currentPhase === 1 && (
+                <motion.div key="m1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-white rounded-3xl p-4 border shadow-sm space-y-3">
+                  <div>
+                    <h3 className="font-extrabold text-xs text-slate-700 flex items-center gap-1.5">
+                      🍿 Cabaran 1: Pengendali Pawagam Minda!
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-medium">Klik pada video untuk mula menonton dalam mod skrin besar pintar!</p>
+                  </div>
 
-      // Seterusnya, kita pasang pengesan mesej YouTube API
-      useEffect(() => {
-        const handleVideoEndMessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            // playerState === 0 bermaksud video TELAH SELESAI dimainkan (ENDED)
-            if (data.event === "infoDelivery" && data.info && data.info.playerState === 0) {
-              setIsImmersive(false); // 🌟 AUTO CLOSE: Tutup mod skrin penuh serta-merta
-              confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-              
-              // Keluar notifikasi kejayaan comel untuk kanak-kanak
-              setTimeout(() => {
-                alert(`🎉 Tahniah ${studentNickname}! Misi menonton selesai. Jom kita terus ke Cabaran 2!`);
-                handleNextPhase(); // Auto-bawa ke peringkat seterusnya
-              }, 400);
-            }
-          } catch (e) {
-            // Abaikan mesej ralat rujukan luar
-          }
-        };
-
-        window.addEventListener("message", handleVideoEndMessage);
-        return () => window.removeEventListener("message", handleVideoEndMessage);
-      }, [studentNickname]);
-
-      // URL Video yang dikunci ketat (In-App Only: menyekat pautan luar & logo keluar)
-      const securedVideoUrl = `${videoUrl}${videoUrl.includes('?') ? '&' : '?'}enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&controls=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1`;
-
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-extrabold text-xs text-slate-700 flex items-center gap-1.5">
-                🍿 Cabaran 1: Pengendali Pawagam Minda!
-              </h3>
-              <p className="text-[11px] text-slate-500 font-medium">Klik pada video untuk mula menonton dalam mod skrin besar pintar!</p>
-            </div>
-          </div>
-
-          {/* PORTAL IFRAME BIASA (PANDANGAN KECIL) */}
-          <div 
-            onClick={() => setIsImmersive(true)} // 🌟 CLICK TO FULLSCREEN: Aktifkan mod penuh
-            className="group relative w-full rounded-2xl overflow-hidden aspect-video bg-slate-950 border-2 border-purple-100 shadow-md cursor-zoom-in hover:border-purple-400 transition-all duration-300"
-          >
-            <iframe 
-              key={`mini-${videoKey}`}
-              className="absolute top-0 left-0 w-full h-full pointer-events-none select-none" // Disekat daripada klik biasa untuk paksa mod skrin besar
-              src={securedVideoUrl}
-              title="Mini Player"
-              referrerPolicy="strict-origin-when-cross-origin"
-            ></iframe>
-            
-            {/* Hover Overlay Effect */}
-            <div className="absolute inset-0 bg-purple-950/20 group-hover:bg-purple-950/40 flex flex-col items-center justify-center opacity-100 transition-all duration-300">
-              <div className="bg-white/95 text-purple-700 font-black text-[11px] px-3 py-2 rounded-full shadow-md flex items-center gap-1.5 transform group-hover:scale-110 transition-transform">
-                <Youtube className="w-4 h-4 fill-red-500 text-red-500 animate-pulse" />
-                KETUK UNTUK SKRIN PENUH 🚀
-              </div>
-            </div>
-          </div>
-
-          {/* 🌟 IMMERSIVE FULL SCREEN OVERLAY MODAL (KUNCI DALAM APPS SAJA) */}
-          <AnimatePresence>
-            {isImmersive && (
-              <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-slate-950 z-[9999] flex flex-col items-center justify-center p-2 sm:p-6"
-              >
-                {/* Pengepala Kawalan Atas Skrin Penuh */}
-                <div className="w-full max-w-4xl flex items-center justify-between p-3 text-white">
-                  <span className="text-xs font-black tracking-wide text-purple-300 animate-pulse bg-purple-950/50 px-3 py-1 rounded-full border border-purple-800">
-                    📺 MOD KEMBARA MINDA SELESA: JANGAN KELUAR YA!
-                  </span>
-                  <Button 
-                    onClick={() => setIsImmersive(false)}
-                    className="bg-white/10 hover:bg-white/20 text-white rounded-full font-bold text-xs h-8 px-4 border border-white/20"
+                  {/* PORTAL IFRAME BIASA (PANDANGAN KECIL) */}
+                  <div 
+                    onClick={() => setIsImmersive(true)}
+                    className="group relative w-full rounded-2xl overflow-hidden aspect-video bg-slate-950 border-2 border-purple-100 shadow-md cursor-zoom-in hover:border-purple-400 transition-all duration-300"
                   >
-                    Tutup Skrin ✕
-                  </Button>
-                </div>
+                    <iframe 
+                      key={`mini-${videoKey}`}
+                      className="absolute top-0 left-0 w-full h-full pointer-events-none select-none" 
+                      src={securedVideoUrl}
+                      title="Mini Player"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    ></iframe>
+                    
+                    <div className="absolute inset-0 bg-purple-950/20 group-hover:bg-purple-950/40 flex flex-col items-center justify-center opacity-100 transition-all duration-300">
+                      <div className="bg-white/95 text-purple-700 font-black text-[11px] px-3 py-2 rounded-full shadow-md flex items-center gap-1.5 transform group-hover:scale-110 transition-transform">
+                        <Youtube className="w-4 h-4 fill-red-500 text-red-500 animate-pulse" />
+                        KETUK UNTUK SKRIN PENUH 🚀
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Bekas Video Gergasi (Maksimum Paparan Telefon/Tablet) */}
-                <div className="w-full max-w-4xl aspect-video rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 bg-black relative">
-                  <iframe 
-                    key={`full-${videoKey}`}
-                    id="yt-player-immersive"
-                    className="absolute top-0 left-0 w-full h-full" 
-                    src={securedVideoUrl} 
-                    title="Immersive Video Player" 
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                </div>
+                  {/* OVERLAY MODAL SKRIN PENUH IMERSIF */}
+                  <AnimatePresence>
+                    {isImmersive && (
+                      <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-slate-950 z-[9999] flex flex-col items-center justify-center p-2 sm:p-6"
+                      >
+                        <div className="w-full max-w-4xl flex items-center justify-between p-3 text-white">
+                          <span className="text-xs font-black tracking-wide text-purple-300 animate-pulse bg-purple-950/50 px-3 py-1 rounded-full border border-purple-800">
+                            📺 MOD KEMBARA MINDA SELESA: JANGAN KELUAR YA!
+                          </span>
+                          <Button 
+                            onClick={() => setIsImmersive(false)}
+                            className="bg-white/10 hover:bg-white/20 text-white rounded-full font-bold text-xs h-8 px-4 border border-white/20"
+                          >
+                            Tutup Skrin ✕
+                          </Button>
+                        </div>
 
-                <p className="text-[10px] text-slate-400 mt-4 text-center font-medium">
-                  *Video dimainkan dengan selamat di dalam aplikasi. Sebaik sahaja tamat, skrin akan ditutup sendiri secara automatik!
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      );
-    })()}
-  </motion.div>
-)}
+                        <div className="w-full max-w-4xl aspect-video rounded-2xl overflow-hidden shadow-2xl border-2 border-white/10 bg-black relative">
+                          <iframe 
+                            key={`full-${videoKey}`}
+                            id="yt-player-immersive"
+                            className="absolute top-0 left-0 w-full h-full" 
+                            src={securedVideoUrl} 
+                            title="Immersive Video Player" 
+                            referrerPolicy="strict-origin-when-cross-origin"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          ></iframe>
+                        </div>
+
+                        <p className="text-[10px] text-slate-400 mt-4 text-center font-medium">
+                          *Video dimainkan dengan selamat di dalam aplikasi. Sebaik sahaja tamat, skrin akan ditutup sendiri secara automatik!
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )}
 
               {/* CABARAN 2: READ NOTES */}
               {currentPhase === 2 && (
@@ -543,7 +516,7 @@ export default function LessonPage() {
                 </motion.div>
               )}
 
-              {/* CABARAN 3: INTERACTIVE MATCHING GAME (10 LEVELS) */}
+              {/* CABARAN 3: INTERACTIVE MATCHING GAME */}
               {currentPhase === 3 && (
                 <motion.div key="m3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                   <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-200 text-center space-y-1">
@@ -562,7 +535,7 @@ export default function LessonPage() {
                 </motion.div>
               )}
 
-              {/* CABARAN 4: BOSS BESAR KUIZ JUARA */}
+              {/* CABARAN 4: BOSS BESAR KUIZ */}
               {currentPhase === 4 && (
                 <motion.div key="m4" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
                   <div className="bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 rounded-[2rem] p-6 border-4 border-orange-200 shadow-lg text-center space-y-4">
