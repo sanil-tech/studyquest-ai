@@ -381,18 +381,75 @@ export default function LessonPage() {
           <div className="min-h-[300px]">
             <AnimatePresence mode="wait">
               
-              {/* CABARAN 1: WATCH VIDEO */}
-              {currentPhase === 1 && (
-                <motion.div key="m1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-white rounded-3xl p-4 border shadow-sm space-y-3">
-                  <h3 className="font-extrabold text-xs text-slate-700 flex items-center gap-1.5">
-                    🍿 Cabaran 1: Sila Tekan Play & Tonton Video Kembara!
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">Kumpul maklumat penting di dalam video ini bagi membantu anda menyelesaikan misi-misi seterusnya!</p>
-                  <div className="relative w-full rounded-xl overflow-hidden aspect-video bg-slate-900 border">
-                    <iframe className="absolute top-0 left-0 w-full h-full" src={`${videoUrl}`} title="Video Player" allowFullScreen></iframe>
-                  </div>
-                </motion.div>
-              )}
+              {/* CABARAN 1: WATCH VIDEO (DENGAN DETECT & PROMPT AUTOMATIK) */}
+{currentPhase === 1 && (
+  <motion.div key="m1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-white rounded-3xl p-4 border shadow-sm space-y-3">
+    <h3 className="font-extrabold text-xs text-slate-700 flex items-center gap-1.5">
+      🍿 Cabaran 1: Sila Tekan Play & Tonton Video Kembara!
+    </h3>
+    <p className="text-[11px] text-slate-500 font-medium">Kumpul maklumat penting di dalam video ini bagi membantu anda menyelesaikan misi-misi seterusnya!</p>
+    
+    {/* Pemain Video Iframe dengan ID untuk API pengesanan */}
+    <div className="relative w-full rounded-xl overflow-hidden aspect-video bg-slate-950 border">
+      <iframe 
+        id="yt-player"
+        className="absolute top-0 left-0 w-full h-full" 
+        src={`${videoUrl}${videoUrl.includes('?') ? '&' : '?'}enablejsapi=1`} 
+        title="Video Player" 
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      ></iframe>
+    </div>
+
+    {/* Skrip Pengesan Auto-Kembali (Hanya berfungsi jika video dimainkan dalam iframe) */}
+    {useEffect(() => {
+      // Fungsi callback apabila API YouTube sedia
+      window.onYouTubeIframeAPIChange = () => {}; 
+      
+      const handleEmbedVideoStatus = (event) => {
+        // Mengesan mesej daripada iframe YouTube
+        try {
+          const data = JSON.parse(event.data);
+          // infoDelivery bermaksud status video berubah. info: 0 ialah 'ENDED' (Video tamat)
+          if (data.event === "infoDelivery" && data.info && data.info.playerState === 0) {
+            confetti({ particleCount: 80, spread: 60 });
+            // Keluar prompt/alert mesra kanak-kanak
+            alert(`🎉 Hebat ${studentNickname}! Anda telah selesai menonton video kembara ini. Jom kita ke cabaran seterusnya!`);
+            handleNextPhase(); // Auto tukar ke Cabaran 2 (Nota)
+          }
+        } catch (e) {
+          // Abaikan mesej bukan-YouTube
+        }
+      };
+
+      window.addEventListener("message", handleEmbedVideoStatus);
+      return () => window.removeEventListener("message", handleEmbedVideoStatus);
+    }, [videoUrl, studentNickname])}
+
+    {/* BUTANG ALTERNATIF: Pembetulan Error 153 + Prompt Auto Semasa Kembali */}
+    <div className="pt-1">
+      <Button 
+        onClick={() => {
+          const watchUrl = videoUrl.replace("/embed/", "/watch?v=").split("?")[0];
+          window.open(watchUrl, "_blank");
+
+          // 🌟 PROMPT AUTOMATIK: Apabila mereka kembali ke apps selepas klik butang ini
+          setTimeout(() => {
+            const confirmNext = window.confirm(`🎈 Dah selesai tonton video di YouTube tadi, ${studentNickname}? Klik 'OK' untuk terus ke Cabaran 2: Jejak Nota Kebijaksanaan!`);
+            if (confirmNext) {
+              handleNextPhase();
+            }
+          }, 2000); // Muncul prompt bersedia di latar belakang apps
+        }}
+        variant="outline" 
+        className="w-full h-10 rounded-xl text-xs font-bold border-red-200 bg-red-50/50 hover:bg-red-100 text-red-700 flex items-center justify-center gap-2"
+      >
+        <Youtube className="w-4 h-4 fill-red-600 text-red-600" />
+        Video Tak Boleh Main? Klik Sini Untuk Tonton Di YouTube 👋
+      </Button>
+    </div>
+  </motion.div>
+)}
 
               {/* CABARAN 2: READ NOTES */}
               {currentPhase === 2 && (
