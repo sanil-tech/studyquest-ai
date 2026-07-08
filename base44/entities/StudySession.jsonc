@@ -37,9 +37,51 @@
     "topic_id"
   ],
   "rls": {
-    "create": null,
-    "read": null,
-    "update": null,
-    "delete": null
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }
