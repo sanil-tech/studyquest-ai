@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, Youtube, ArrowRight, CheckCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, Youtube, ArrowRight, CheckCircle, RefreshCw, Star, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -56,31 +56,34 @@ const shuffleArray = (array) => {
 };
 
 // ============================================================================
-// 2. SUB-COMPONENT: INTERACTIVE DRAG & DROP GAME (KHUSUS TAHUN 1)
+// 2. SUB-COMPONENT: UPGRADED 10-LEVEL INTERACTIVE GAME (KHUSUS TAHUN 1)
 // ============================================================================
 function Year1InteractiveGame({ studentNickname, onComplete }) {
-  // Contoh data permainan berasaskan kurikulum Matematik/Sains Tahun 1 KSSR (Kuantiti & Kumpulan)
-  const initialItems = [
-    { id: "item-1", emoji: "🍎 🍎 🍎", name: "3 Biji Epal", matchId: "target-3" },
-    { id: "item-2", emoji: "🐱 🐱 🐱 🐱 🐱", name: "5 Ekor Kucing", matchId: "target-5" },
-    { id: "item-3", emoji: "🍦 🍦", name: "2 Batang Aiskrim", matchId: "target-2" },
+  // Database 10 Soalan Interaktif bertemakan Matematik & Sains Tahun 1 KSSR (Kuantiti & Padanan Asas)
+  const gameDatabase = [
+    { id: 1, emoji: "🍎 🍎 🍎", name: "3 Biji Epal", options: [2, 3, 4], correct: 3 },
+    { id: 2, emoji: "🐱 🐱 🐱 🐱 🐱", name: "5 Ekor Kucing", options: [3, 5, 6], correct: 5 },
+    { id: 3, emoji: "🍦 🍦", name: "2 Batang Aiskrim", options: [1, 2, 3], correct: 2 },
+    { id: 4, emoji: "🚗 🚗 🚗 🚗", name: "4 Buah Kereta", options: [4, 5, 2], correct: 4 },
+    { id: 5, emoji: "🎈", name: "1 Biji Belon", options: [1, 2, 3], correct: 1 },
+    { id: 6, emoji: "⭐️ ⭐️ ⭐️ ⭐️ ⭐️ ⭐️", name: "6 Butir Bintang", options: [5, 6, 7], correct: 6 },
+    { id: 7, emoji: "🐸 🐸 🐸 🐸 🐸 🐸 🐸", name: "7 Ekor Katak", options: [6, 7, 8], correct: 7 },
+    { id: 8, emoji: "🐟 🐟 🐟 🐟 🐟 🐟 🐟 🐟", name: "8 Ekor Ikan", options: [7, 8, 9], correct: 8 },
+    { id: 9, emoji: "🦋 🦋 🦋 🦋 🦋 🦋 🦋 🦋 🦋", name: "9 Ekor Rama-rama", options: [8, 9, 10], correct: 9 },
+    { id: 10, emoji: "🍪 🍪 🍪 🍪 🍪 🍪 🍪 🍪 🍪 🍪", name: "10 Keping Biskut", options: [7, 9, 10], correct: 10 },
   ];
 
-  const targets = [
-    { id: "target-2", label: "Nombor 2", value: 2 },
-    { id: "target-3", label: "Nombor 3", value: 3 },
-    { id: "target-5", label: "Nombor 5", value: 5 },
-  ];
+  const [currentLevel, setCurrentLevel] = useState(0);
+  const [isFinished, setIsFinished] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("Seret gambar kumpulan objek ke sarang nombor yang betul! 🎈");
+  const [wrongAttempts, setWrongAttempts] = useState(0);
 
-  const [score, setScore] = useState(0);
-  const [solvedItems, setSolvedItems] = useState([]);
-  const [message, setMessage] = useState("Seret gambar kumpulan objek ke dalam sarang nombor yang betul! 🎈");
+  const currentQuestion = gameDatabase[currentLevel];
 
-  const handleDragEnd = (event, info, item) => {
-    // Logik ringkas mengesan koordinat sasaran lepasan (Drop Zone Checking)
-    // Sesuai digunakan pada web responsif dan peranti skrin sentuh mobile
-    const dropTargets = document.querySelectorAll(".drop-target");
-    let detectedTargetId = null;
+  const handleDragEnd = (event, info) => {
+    // Cari zon sasaran hantaran (Drop targets) di skrin peranti
+    const dropTargets = document.querySelectorAll(".game-drop-target");
+    let selectedNumberValue = null;
 
     dropTargets.forEach((target) => {
       const rect = target.getBoundingClientRect();
@@ -90,99 +93,129 @@ function Year1InteractiveGame({ studentNickname, onComplete }) {
         info.point.y >= rect.top &&
         info.point.y <= rect.bottom
       ) {
-        detectedTargetId = target.getAttribute("data-id");
+        selectedNumberValue = parseInt(target.getAttribute("data-value"), 10);
       }
     });
 
-    if (detectedTargetId === item.matchId) {
-      if (!solvedItems.includes(item.id)) {
-        confetti({ particleCount: 40, spread: 40, origin: { y: 0.6 } });
-        setSolvedItems([...solvedItems, item.id]);
-        setScore((prev) => prev + 1);
-        setMessage(`Wah, bijak! Jawapan tepat untuk ${item.name}! 🎉`);
-        
-        if (score + 1 === initialItems.length) {
-          setMessage(`Syabas ${studentNickname}! Anda berjaya selesaikan semua game padanan! 🏆`);
-          if (onComplete) onComplete();
-        }
+    if (selectedNumberValue === currentQuestion.correct) {
+      // JAWAPAN BETUL 🎉
+      confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
+      setFeedbackMessage(`Hebat ${studentNickname}! Jawapan tepat, itu adalah ${currentQuestion.name}! ✨`);
+      
+      // Semak jika sudah sampai soalan terakhir (Soalan ke-10)
+      if (currentLevel + 1 >= gameDatabase.length) {
+        setIsFinished(true);
+        if (onComplete) onComplete();
+      } else {
+        // Melompat ke level seterusnya selepas jeda masa animasi pendek
+        setTimeout(() => {
+          setCurrentLevel((prev) => prev + 1);
+          setFeedbackMessage("Wah, mari selesaikan cabaran seterusnya! 🚀");
+          setWrongAttempts(0);
+        }, 1200);
       }
-    } else if (detectedTargetId) {
-      setMessage("Opps! Cuba lagi ya, padanan itu kurang tepat. 🦊");
+    } else if (selectedNumberValue !== null) {
+      // JAWAPAN SALAH 🦊
+      setWrongAttempts((prev) => prev + 1);
+      setFeedbackMessage("Opps! Kuantiti kurang tepat. Cuba kira semula objek di atas ya? 🌸");
     }
   };
 
-  const resetGame = () => {
-    setScore(0);
-    setSolvedItems([]);
-    setMessage("Jom cuba lagi! Seret gambar objek ke sarang nombor yang betul! 🎈");
+  const restartGame = () => {
+    setCurrentLevel(0);
+    setIsFinished(false);
+    setWrongAttempts(0);
+    setFeedbackMessage("Jom cuba lagi! Seret gambar kumpulan objek ke sarang nombor yang betul! 🎈");
   };
+
+  if (isFinished) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-gradient-to-b from-emerald-50 to-emerald-100/50 rounded-3xl p-6 border-2 border-emerald-200 text-center space-y-4 shadow-md"
+      >
+        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl animate-bounce">
+          🏆
+        </div>
+        <h4 className="text-xl font-extrabold text-emerald-900">10 / 10 Markah Penuh!</h4>
+        <p className="text-sm text-emerald-700 font-medium">
+          Syabas {studentNickname}! Anda berjaya menyelesaikan kesemua 10 peringkat permainan padanan interaktif KSSR dengan sangat bijak!
+        </p>
+        <div className="flex gap-2 justify-center pt-2">
+          <Button onClick={restartGame} variant="outline" size="sm" className="rounded-xl border-emerald-300 text-emerald-700 bg-white gap-1 text-xs">
+            <RefreshCw className="w-3 h-3" /> Main Semula
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-3xl p-5 border-2 border-purple-200 text-center space-y-6 shadow-inner">
-      <div className="bg-purple-100 text-purple-900 p-3 rounded-2xl text-sm font-bold animate-pulse">
-        {message}
+      {/* Penunjuk Tahap Soalan Semasa */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded-full">
+          Soalan {currentQuestion.id} / 10
+        </span>
+        <div className="flex items-center gap-0.5">
+          {[...Array(10)].map((_, idx) => (
+            <Star 
+              key={idx} 
+              className={`w-3.5 h-3.5 ${idx <= currentLevel ? "text-amber-400 fill-amber-400" : "text-slate-200"}`} 
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Paparan Skor Ganjaran Pintar */}
-      <div className="flex items-center justify-between px-2">
-        <span className="text-xs font-bold text-slate-500">Markah Game: {score} / {initialItems.length}</span>
-        {score === initialItems.length && (
-          <span className="text-xs font-bold text-green-600 flex items-center gap-1 animate-bounce">
-            <CheckCircle className="w-4 h-4" /> Tugasan Selesai!
+      {/* Bar mesej maklum balas interaktif */}
+      <div className="bg-purple-50 text-purple-900 p-3 rounded-2xl text-xs sm:text-sm font-bold min-h-[44px] flex items-center justify-center border border-purple-100">
+        {feedbackMessage}
+      </div>
+
+      {/* KOTAK SUBJEK GAMBAR YANG BOLEH DIALIKKAN (DRAG ITEM) */}
+      <div className="py-6 flex justify-center items-center min-h-[120px]">
+        <motion.div
+          key={currentQuestion.id} // Memaksa pembaharuan komponen semasa pertukaran level
+          drag
+          dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
+          dragElastic={0.5}
+          onDragEnd={handleDragEnd}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.95 }}
+          className="p-6 bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-amber-300 rounded-2xl shadow-md cursor-grab active:cursor-grabbing inline-flex flex-col items-center justify-center min-w-[140px] select-none"
+        >
+          <span className="text-3xl sm:text-4xl tracking-widest mb-2 filter drop-shadow-sm">
+            {currentQuestion.emoji}
           </span>
-        )}
+          <span className="text-[11px] font-extrabold text-amber-900 tracking-wider bg-white/70 px-2 py-0.5 rounded-md">
+            SORONG SAYA 👋
+          </span>
+        </motion.div>
       </div>
 
-      {/* Bahagian Objek Yang Boleh Ditarik (Drag Items) */}
-      <div className="flex flex-wrap justify-center gap-4 py-4 min-h-[100px]">
-        {initialItems.map((item) => {
-          const isSolved = solvedItems.includes(item.id);
-          return (
-            <motion.div
-              key={item.id}
-              drag={!isSolved}
-              dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
-              dragElastic={0.6}
-              onDragEnd={(e, info) => handleDragEnd(e, info, item)}
-              whileHover={{ scale: isSolved ? 1 : 1.1 }}
-              whileTap={{ scale: isSolved ? 1 : 0.95 }}
-              className={`p-4 rounded-2xl shadow-md border-2 cursor-grab active:cursor-grabbing flex flex-col items-center justify-center transition-colors select-none ${
-                isSolved 
-                  ? "bg-emerald-100 border-emerald-300 opacity-50 cursor-default" 
-                  : "bg-gradient-to-br from-yellow-50 to-amber-100 border-amber-300"
-              }`}
-            >
-              <span className="text-2xl mb-1">{item.emoji}</span>
-              <span className="text-xs font-bold text-slate-700">{isSolved ? "Selesai ✨" : item.name}</span>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Penunjuk Garisan Pembagi Visual */}
       <div className="border-t-2 border-dashed border-purple-100 my-2" />
 
-      {/* Bahagian Sarang Sasaran (Drop Targets Zones) */}
-      <div className="grid grid-cols-3 gap-3 pt-2">
-        {targets.map((target) => (
-          <div
-            key={target.id}
-            data-id={target.id}
-            className="drop-target h-28 rounded-2xl border-4 border-dashed border-purple-300 bg-purple-50/50 flex flex-col items-center justify-center gap-1 hover:bg-purple-100 transition-colors"
-          >
-            <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-extrabold flex items-center justify-center text-lg shadow-sm">
-              {target.value}
+      {/* SARANG PILIHAN JAWAPAN (DROP TARGETS) */}
+      <div className="space-y-2">
+        <p className="text-[11px] font-bold text-slate-400 flex items-center justify-center gap-1">
+          <HelpCircle className="w-3 h-3" /> Letakkan gambar di dalam kotak nombor yang betul:
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {currentQuestion.options.map((opt, i) => (
+            <div
+              key={i}
+              data-value={opt}
+              className="game-drop-target h-24 rounded-2xl border-4 border-dashed border-purple-200 bg-purple-50/40 flex flex-col items-center justify-center gap-1 hover:bg-purple-100 hover:border-purple-300 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-purple-600 text-white font-extrabold flex items-center justify-center text-lg shadow-sm">
+                {opt}
+              </div>
+              <span className="text-[10px] font-bold text-purple-700">Kotak {opt}</span>
             </div>
-            <span className="text-[10px] font-bold text-purple-700">{target.label}</span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-
-      {score > 0 && (
-        <Button onClick={resetGame} variant="ghost" size="sm" className="text-xs font-semibold text-slate-400 hover:text-purple-600 gap-1 rounded-full mx-auto">
-          <RefreshCw className="w-3 h-3" /> Set Semula Permainan
-        </Button>
-      )}
     </div>
   );
 }
@@ -234,7 +267,7 @@ export default function LessonPage() {
     }
     if (!formLevel) return "Kawan";
     const level = formLevel.toLowerCase();
-    if (level.includes("tahun 1") || level.includes("standard 1") || level.includes("primary 1")) return "Si Bijak";
+    if (level.includes("tahun 1") || level.includes("standard 1") || level.includes("darjah 1")) return "Si Bijak";
     if (level.includes("tahun") || level.includes("standard") || level.includes("primary")) return "Bintang";
     return "Sahabat";
   };
@@ -256,7 +289,6 @@ export default function LessonPage() {
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        // Semak sekiranya murid merupakan murid Tahun 1 KSSR untuk pengaktifan Game Grafik Interaktif
         const checkLevel = (top?.form_level || "").toLowerCase();
         if (checkLevel.includes("tahun 1") || checkLevel.includes("standard 1") || checkLevel.includes("darjah 1")) {
           setIsYear1(true);
@@ -288,7 +320,7 @@ export default function LessonPage() {
           if (session.ai_explanation) {
             const parsed = JSON.parse(session.ai_explanation);
             setExplanation(parsed.lesson_markdown);
-            setVideoUrl(parsed.video_url || ""); 
+            setVideoUrl(parsed.video_url || "https://www.youtube.com/embed/di6Uv7N69O8"); 
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
           }
@@ -311,7 +343,6 @@ export default function LessonPage() {
     if (next === 2) {
       loadMindMapOnDemand();
     } else if (next === 3 && !isYear1) {
-      // Hanya tarik flashcard biasa jika murid bukan darjah 1
       loadFlashcardsOnDemand();
     }
     setCurrentPhase(next);
@@ -389,7 +420,7 @@ export default function LessonPage() {
 
       setSessionId(session.id);
       setExplanation(response.lesson_markdown);
-      setVideoUrl(""); 
+      setVideoUrl("https://www.youtube.com/embed/di6Uv7N69O8"); 
       setMetaData({ summary: response.summary, keywords: response.keywords });
       setCurrentPhase(1); 
       
@@ -594,7 +625,7 @@ export default function LessonPage() {
           <div className="min-h-[400px]">
             <AnimatePresence mode="wait">
               
-              {/* FASA 1: TONTON VIDEO */}
+              {/* FASA 1: TONTON VIDEO (Pilihan Manual Bebas Autoplay) */}
               {currentPhase === 1 && (
                 <motion.div key="p1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                   {videoUrl ? (
@@ -605,16 +636,16 @@ export default function LessonPage() {
                         </div>
                         <div>
                           <h3 className="font-bold text-lg text-slate-800">Langkah 1: Tonton Animasi Dahulu Yuk!</h3>
-                          <p className="text-slate-400 text-xs">Fahami gambaran subjek secara santai sebelum bermain game.</p>
+                          <p className="text-slate-400 text-xs">Tekan butang main tengah untuk memulakan video ulangkaji.</p>
                         </div>
                       </div>
                       <div className="relative w-full rounded-2xl overflow-hidden shadow-md aspect-video border border-slate-200 bg-slate-900">
                         <iframe
                           className="absolute top-0 left-0 w-full h-full"
-                          src={videoUrl}
+                          src={`${videoUrl}?rel=0&controls=1`}
                           title="YouTube Video Player StudyQuest"
                           frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
                         ></iframe>
                       </div>
@@ -653,7 +684,6 @@ export default function LessonPage() {
                     </div>
                   </div>
 
-                  {/* Peta Minda / Infografik */}
                   <div className="bg-white rounded-[2rem] p-5 sm:p-6 border-4 border-slate-100 shadow-lg space-y-4">
                     <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 border-b-2 border-slate-100 pb-3">
                       <GitFork className="w-5 h-5 text-blue-500"/> 🧠 Peta Minda Infografik Visual
@@ -673,19 +703,18 @@ export default function LessonPage() {
                 </motion.div>
               )}
 
-              {/* FASA 3: PENGASINGAN LOGIK KHUSUS TAHUN 1 vs TAHUN LAIN */}
+              {/* FASA 3: INTERAKTIF GAME 10 LEVEL (TAHUN 1) VS FLASHCARD (TAHUN LAIN) */}
               {currentPhase === 3 && (
                 <motion.div key="p3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                   
                   {isYear1 ? (
-                    // 🎮 JIKA MURID TAHUN 1 -> PAPARKAN GAME INTERAKTIF SENTUH (DRAG & DROP)
                     <div className="space-y-4">
                       <div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-4 rounded-3xl border-2 border-purple-200 shadow-sm">
                         <h3 className="font-extrabold text-purple-950 flex items-center gap-2 text-base">
-                          🎮 Langkah 3: Game Sorong & Padan Gambar Ajaib!
+                          🎮 Langkah 3: Super Game 10 Level Padanan Objek!
                         </h3>
                         <p className="text-xs text-purple-800 font-medium mt-1">
-                          Gunakan jari anda pada skrin untuk menggerakkan imej kumpulan objek ke dalam sarang kotak nombor kuantiti yang betul.
+                          Seret gambar kumpulan emoji objek comel ke bawah dan lepaskan di dalam kotak nombor kuantiti angka yang betul. Selesaikan kesemua 10 level untuk menang!
                         </p>
                       </div>
                       
@@ -695,7 +724,6 @@ export default function LessonPage() {
                       />
                     </div>
                   ) : (
-                    // 🃏 JIKA TAHUN 2 - TAHUN 6 -> PAPARKAN FLASHCARD TRADISIONAL BIASA
                     <>
                       <div className="bg-white rounded-3xl p-4 border-2 border-slate-100 shadow-sm">
                         <h3 className="font-bold text-base text-purple-900 flex items-center gap-2">
