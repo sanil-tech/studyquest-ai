@@ -273,6 +273,7 @@ export default function LessonPage() {
     window.addEventListener("message", handleEmbedVideoStatus);
     return () => window.removeEventListener("message", handleEmbedVideoStatus);
   }, [videoUrl, studentNickname]);
+  
 
   const loadMindMapOnDemand = async () => {
     if (mindMap && mindMap.length > 0) return;
@@ -410,14 +411,21 @@ export default function LessonPage() {
     
     {/* Pemain Video Iframe dengan ID untuk API pengesanan */}
     <div className="relative w-full rounded-xl overflow-hidden aspect-video bg-slate-950 border">
-      <iframe 
-        id="yt-player"
-        className="absolute top-0 left-0 w-full h-full" 
-        src={`${videoUrl}${videoUrl.includes('?') ? '&' : '?'}enablejsapi=1`} 
-        title="Video Player" 
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      ></iframe>
+      {/* Pemain Video Iframe Utama - Selesai Isu Error 153 & Refresh */}
+<div className="relative w-full rounded-xl overflow-hidden aspect-video bg-slate-950 border">
+  <iframe 
+    id="yt-player"
+    className="absolute top-0 left-0 w-full h-full" 
+    src={`${videoUrl}${videoUrl.includes('?') ? '&' : '?'}enablejsapi=1&origin=${window.location.origin}`} 
+    title="Video Player" 
+    
+    // 🌟 ATRIBUT UTAMA: Selesaikan sekatan rujukan (Error 153)
+    referrerPolicy="strict-origin-when-cross-origin" 
+    
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  ></iframe>
+</div>
     </div>
 
     {/* BUTANG ALTERNATIF: Pembetulan Error 153 + Prompt Auto Semasa Kembali */}
