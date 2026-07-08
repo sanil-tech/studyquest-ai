@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -74,6 +74,7 @@ export default function LessonPage() {
 
   // Cache States
   const [explanation, setExplanation] = useState("");
+  const [videoUrl, setVideoUrl] = useState(""); // <--- STATE BAHARU UNTUK VIDEO URL
   const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
@@ -151,6 +152,7 @@ export default function LessonPage() {
           if (session.ai_explanation) {
             const parsed = JSON.parse(session.ai_explanation);
             setExplanation(parsed.lesson_markdown);
+            setVideoUrl(parsed.video_url || ""); // <--- AMBIL VIDEO URL DARIPADA CACHED JSON
             setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
             
             if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
@@ -236,6 +238,7 @@ export default function LessonPage() {
 
       setSessionId(session.id);
       setExplanation(response.lesson_markdown);
+      setVideoUrl(""); // Pembasuhan semula untuk penjanaan baru AI
       setMetaData({ summary: response.summary, keywords: response.keywords });
       
       triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
@@ -387,7 +390,7 @@ export default function LessonPage() {
     } catch (err) {
       console.error("Gagal menjana kuiz exam:", err);
     } finally {
-      setStatus(p => ({ ...p, quiz: false }));
+      fancyStatusSetter => setStatus(p => ({ ...p, quiz: false }));
     }
   };
 
@@ -497,23 +500,52 @@ export default function LessonPage() {
 
           {/* Dynamic Content Container */}
           {activeTab === "lesson" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
-                <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2">✨ Nota Ringkas</h2>
-                {isPremium ? (
-                  <div className="bg-primary/10 rounded-full pr-2">
-                     <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
+            <div className="space-y-6">
+              {/* Kad Nota Utama */}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
+                  <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2">✨ Nota Ringkas</h2>
+                  {isPremium ? (
+                    <div className="bg-primary/10 rounded-full pr-2">
+                       <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm hover:bg-amber-100">
+                      <Lock className="w-4 h-4 text-amber-500" /> Dengar Audio Cerita 🎧
+                    </Button>
+                  ) }
+                </div>
+                <div className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-loose">
+                  <LessonContent content={explanation} />
+                </div>
+              </motion.div>
+
+              {/* KOD BAHARU: KAD VIDEO YOUTUBE EMBEDDED */}
+              {videoUrl && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 15 }} 
+                  animate={{ opacity: 1, y: 0 }} 
+                  className="bg-white rounded-[2rem] p-5 sm:p-6 border-4 border-slate-100 shadow-lg space-y-4"
+                >
+                  <div className="flex items-center gap-2 border-b-2 border-slate-100 pb-3">
+                    <div className="p-2 bg-red-100 rounded-xl">
+                      <Youtube className="w-6 h-6 text-red-600 fill-current" />
+                    </div>
+                    <h3 className="font-bold text-lg text-slate-800">📺 Jom Tonton Video Pembelajaran!</h3>
                   </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm hover:bg-amber-100">
-                    <Lock className="w-4 h-4 text-amber-500" /> Dengar Audio Cerita 🎧
-                  </Button>
-                )}
-              </div>
-              <div className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-loose">
-                <LessonContent content={explanation} />
-              </div>
-            </motion.div>
+                  <div className="relative w-full rounded-2xl overflow-hidden shadow-md aspect-video border border-slate-200">
+                    <iframe
+                      className="absolute top-0 left-0 w-full h-full"
+                      src={videoUrl}
+                      title="YouTube Video Player StudyQuest"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                </motion.div>
+              )}
+            </div>
           )}
 
           {activeTab === "flashcards" && (
