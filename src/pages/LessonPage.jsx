@@ -1,4 +1,3 @@
-// src/pages/LessonPage.jsx
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -26,7 +25,7 @@ const generateDynamicQuestionsFromContent = (explanation, keywords, topicName) =
   if (explanation && explanation.includes("Banyak dan Sedikit")) {
     return [
       { id: 1, emoji: "🍎🍎🍎🍎🍎🍎🍎🍎", text: "Kumpulan 8 biji epal ini dikategorikan sebagai apa?", options: ["Banyak", "Sedikit", "Sama"], correct: "Banyak", hint: "Rujuk contoh nota: 8 biji epal adalah..." },
-      { id: 2, emoji: "🍎🍎", text: "Kumpulan 2 biji epal ini pula dikategorikan sebagai apa?", options: ["Banyak", "Sedikit", "Kurang Pasti"], correct: "Sedikit", hint: "Rujuk contoh nota: 2 biji epal bermaksud..." },
+      { id: 2, emoji: "🍎 Jude", text: "Kumpulan 2 biji epal ini pula dikategorikan sebagai apa?", options: ["Banyak", "Sedikit", "Kurang Pasti"], correct: "Sedikit", hint: "Rujuk contoh nota: 2 biji epal bermaksud..." },
       { id: 3, emoji: "🌻🌻🌻🌻🌻🌻🌻🌻🌻🌻", text: "Ada 10 kuntum bunga matahari. Adakah kuantiti ini banyak atau sedikit?", options: ["Banyak", "Sedikit", "Kosong"], correct: "Banyak", hint: "Imbas kembali perbandingan antara 10 bunga matahari dengan 3 rama-rama." },
       { id: 4, emoji: "🦋🦋🦋", text: "Hanya ada 3 ekor rama-rama yang terbang. Kuantiti ini ialah...", options: ["Banyak", "Sedikit", "Lebih"], correct: "Sedikit", hint: "Antara 10 bunga dan 3 rama-rama, kumpulan yang sedikit ialah..." },
       { id: 5, emoji: "🍎 VS 🍏", text: "Apabila kita membandingkan dua kumpulan, kumpulan yang mempunyai KURANG benda disebut?", options: ["Banyak", "Sedikit", "Besar"], correct: "Sedikit", hint: "Petunjuk bahagian Cuba Ingat: Cari yang kurang!" },
@@ -53,7 +52,7 @@ const generateDynamicQuestionsFromContent = (explanation, keywords, topicName) =
 };
 
 // ============================================================================
-// 2. INTERACTIVE GAME COMPONENT (10 LEVELS)
+// 2. INTERACTIVE GAME COMPONENT (10 LEVELS) - KEMAS KINI STABIL (TOUCH & SCREEN FIX)
 // ============================================================================
 function Year1InteractiveGame({ explanation, keywords, topicName, studentNickname, onComplete }) {
   const [questions, setQuestions] = useState([]);
@@ -81,18 +80,17 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
   const currentQuestion = questions[currentLevel];
 
   const handleDragEnd = (event, info) => {
-    const dropTargets = document.querySelectorAll(".game-drop-target");
+    // Cari elemen DOM di bawah titik koordinat pelepasan seretan
+    const elementAtPoint = document.elementFromPoint(info.point.x, info.point.y);
+    if (!elementAtPoint) return;
+
+    // Jejak ke atas untuk mengesan elemen drop target terdekat
+    const target = elementAtPoint.closest(".game-drop-target");
     let selectedValue = null;
 
-    dropTargets.forEach((target) => {
-      const rect = target.getBoundingClientRect();
-      if (
-        info.point.x >= rect.left && info.point.x <= rect.right &&
-        info.point.y >= rect.top && info.point.y <= rect.bottom
-      ) {
-        selectedValue = target.getAttribute("data-value");
-      }
-    });
+    if (target) {
+      selectedValue = target.getAttribute("data-value");
+    }
 
     if (selectedValue === currentQuestion.correct) {
       confetti({ particleCount: 30, spread: 40, origin: { y: 0.6 } });
@@ -147,10 +145,16 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
 
       <div className="py-2 flex justify-center items-center min-h-[80px]">
         <motion.div
-          key={currentQuestion.id} drag dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }} dragElastic={0.6} onDragEnd={handleDragEnd} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-          className="p-4 bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-amber-300 rounded-2xl shadow-sm cursor-grab active:cursor-grabbing inline-flex flex-col items-center justify-center min-w-[130px]"
+          key={currentQuestion.id} 
+          drag 
+          dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }} 
+          dragElastic={0.6} 
+          onDragEnd={handleDragEnd} 
+          whileHover={{ scale: 1.1 }} 
+          whileTap={{ scale: 0.9 }}
+          className="p-4 bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-amber-300 rounded-2xl shadow-sm cursor-grab active:cursor-grabbing inline-flex flex-col items-center justify-center min-w-[130px] touch-none"
         >
-          <span className="text-[10px] font-black text-amber-900 tracking-wider">ANGKAT & LEPAS 👋</span>
+          <span className="text-[10px] font-black text-amber-900 tracking-wider pointer-events-none">ANGKAT & LEPAS 👋</span>
         </motion.div>
       </div>
 
@@ -162,8 +166,8 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {currentQuestion.options.map((opt, i) => (
-            <div key={i} data-value={opt} className="game-drop-target p-3 rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/40 flex items-center justify-center min-h-[50px] hover:bg-purple-100 hover:border-purple-400 transition-colors">
-              <span className="text-xs font-extrabold text-purple-900">{opt}</span>
+            <div key={i} data-value={opt} className="game-drop-target p-3 rounded-xl border-2 border-dashed border-purple-200 bg-purple-50/40 flex items-center justify-center min-h-[50px] hover:bg-purple-100 hover:border-purple-400 transition-colors pointer-events-auto">
+              <span className="text-xs font-extrabold text-purple-900 pointer-events-none">{opt}</span>
             </div>
           ))}
         </div>
@@ -198,9 +202,9 @@ export default function LessonPage() {
   // State Pengurusan Video & Sistem Lock Misi 
   const [isImmersive, setIsImmersive] = useState(false);
   const [videoKey, setVideoKey] = useState(0);
-  const [isVideoCompleted, setIsVideoCompleted] = useState(false); // 🔒 State baharu untuk mengunci misi
+  const [isVideoCompleted, setIsVideoCompleted] = useState(false);
 
-  // Memaksa kitaran semula render iframe 300ms selepas fasa bertukar bagi membetulkan ralat Referrer (Error 153)
+  // Memaksa kitaran semula render iframe 300ms selepas fasa bertukar bagi membetulkan ralat Referrer
   useEffect(() => {
     if (currentPhase === 1) {
       const timer = setTimeout(() => {
@@ -213,12 +217,18 @@ export default function LessonPage() {
   // Mendengar signal status tamat tontonan daripada YouTube Player API
   useEffect(() => {
     const handleVideoEndMessage = (event) => {
+      if (!event.origin.includes("youtube.com")) return;
+
       try {
-        const data = JSON.parse(event.data);
-        // playerState === 0 bermaksud video telah tamat tontonan (ended)
-        if (data.event === "infoDelivery" && data.info && data.info.playerState === 0) {
-          setIsImmersive(false); // Auto-tutup modal skrin penuh
-          setIsVideoCompleted(true); // 🔑 Buka kunci butang misi seterusnya!
+        let data = event.data;
+        if (typeof data === "string") {
+          data = JSON.parse(data);
+        }
+
+        // Pengesanan berasaskan state onStateChange (0 = ENDED)
+        if (data.event === "onStateChange" && data.info === 0) {
+          setIsImmersive(false); 
+          setIsVideoCompleted(true); 
           confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
           
           setTimeout(() => {
@@ -226,13 +236,13 @@ export default function LessonPage() {
           }, 400);
         }
       } catch (e) {
-        // Abaikan mesej ralat rujukan luar
+        // Abaikan mesej bukan format JSON sah
       }
     };
 
     window.addEventListener("message", handleVideoEndMessage);
     return () => window.removeEventListener("message", handleVideoEndMessage);
-  }, [studentNickname, videoUrl]);
+  }, [studentNickname]);
 
   // Inisialisasi Data Misi
   useEffect(() => {
@@ -278,7 +288,6 @@ export default function LessonPage() {
   }, [subjectId, topicId]);
 
   const handleNextPhase = () => {
-    // Sekiranya berada di Fasa 1 (Video) dan video belum habis ditonton, sekat aksi klik.
     if (currentPhase === 1 && !isVideoCompleted) {
       alert("🔒 Sila tonton video tugasan sehingga tamat dahulu sebelum meneruskan misi!");
       return;
@@ -340,7 +349,7 @@ export default function LessonPage() {
       setExplanation(sampleExplanation);
       setVideoUrl(dynamicTopicVideo);
       setCurrentPhase(1);
-      setIsVideoCompleted(false); // Reset semula lock video untuk sesi baharu
+      setIsVideoCompleted(false); 
     } catch (e) {
       console.error(e);
     } finally { setStatus(p => ({ ...p, lesson: false })); }
@@ -363,12 +372,21 @@ export default function LessonPage() {
           difficulty: "easy",
           num_questions: 10,
         });
+        
+        // Pautan Dinamik Navigasi: Membuka QuizPage berpandukan kuiz ID baharu yang dijana
         navigate(`/quiz/${quiz.id}`);
       }
     } catch (err) { console.error(err); } finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
-  const securedVideoUrl = `${videoUrl}${videoUrl.includes('?') ? '&' : '?'}enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&controls=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1`;
+  // Formula Selamat untuk Pembinaan URL Komunikasi API YouTube JavaScript Player
+  const getSecuredUrl = (url) => {
+    if (!url) return "";
+    const cleanUrl = url.split("?")[0]; 
+    return `${cleanUrl}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&controls=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&widgetid=1`;
+  };
+
+  const securedVideoUrl = getSecuredUrl(videoUrl);
 
   if (loading) {
     return (
@@ -407,7 +425,7 @@ export default function LessonPage() {
           {/* TRACKER PROGRESS MISI */}
           <div className="bg-white p-4 rounded-2xl border text-xs space-y-2.5 font-black text-slate-700 shadow-sm">
             <div className="flex justify-between items-center">
-              <span>Misi Semasa: Peringkat {currentPhase} / 4</span>
+              <span>Misi Semasa: Peringrat {currentPhase} / 4</span>
               <span className="text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100 animate-pulse text-[10px]">
                 {currentPhase === 1 && "📺 Cabaran 1: Pawagam Minda"}
                 {currentPhase === 2 && "📖 Cabaran 2: Jejak Nota Bijak"}
@@ -454,9 +472,21 @@ export default function LessonPage() {
                     </div>
                   </div>
 
-                  {/* Indikator Status Tontonan Untuk Kanak-kanak */}
+                  {/* Indikator Status Tontonan & Butang Bantuan Kecemasan */}
                   <div className={`p-3 rounded-xl border text-center font-bold text-xs ${isVideoCompleted ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
-                    {isVideoCompleted ? "✅ Bagus! Tontonan selesai. Anda boleh teruskan perjalanan!" : "🔒 Sila tonton sehingga video tamat untuk membuka kunci misi seterusnya."}
+                    {isVideoCompleted ? (
+                      "✅ Bagus! Tontonan selesai. Anda boleh teruskan perjalanan!"
+                    ) : (
+                      <div className="space-y-2">
+                        <p>🔒 Sila tonton sehingga video tamat untuk membuka kunci misi seterusnya.</p>
+                        <button 
+                          onClick={() => setIsVideoCompleted(true)} 
+                          className="text-[10px] text-purple-600 underline block mx-auto font-medium hover:text-purple-800"
+                        >
+                          (Sudah selesai tonton? Klik sini jika butang masih dikunci)
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* OVERLAY MODAL SKRIN PENUH */}
@@ -493,7 +523,7 @@ export default function LessonPage() {
                           ></iframe>
                         </div>
 
-                        <p className="text-[10px] text-slate-400 mt-4 text-center font-medium">
+                        <p className="text-[10px] text-slate-400 mt-4 mt-4 text-center font-medium">
                           *Video dimainkan dengan selamat di dalam aplikasi. Sebaik sahaja tamat, skrin akan ditutup sendiri secara automatik!
                         </p>
                       </motion.div>
@@ -572,7 +602,6 @@ export default function LessonPage() {
             {currentPhase < 4 ? (
               <Button 
                 onClick={handleNextPhase} 
-                // 🔒 Butang digelapkan dan dikunci jika berada di fasa 1 dan video belum tamat ditonton
                 disabled={currentPhase === 1 && !isVideoCompleted}
                 className={`h-11 px-6 rounded-full font-black text-white text-xs shadow-md gap-1.5 transition-all duration-300 ${
                   currentPhase === 1 && !isVideoCompleted 
@@ -589,7 +618,7 @@ export default function LessonPage() {
                 )}
               </Button>
             ) : (
-              <span className="text-[10px] font-black text-orange-700 bg-orange-100 border border-orange-200 px-4 py-2 rounded-full animate-bounce">
+              <span className="text-[10px] font-black text-orange-700 bg-orange-100 border border-orange-200 px-4 py-2 rounded-full animate-bounce flex items-center justify-center shadow-sm">
                 PERLAWANAN KEMUNCAK! 🔥
               </span>
             )}
