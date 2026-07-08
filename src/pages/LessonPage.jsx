@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { CheckCircle2, Play, BookOpen, Gamepad2, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import QuizComponent from "./QuizComponent"; // Komponen kuiz dari Langkah 1 sebelum ini
+import QuizPage from "./QuizPage"; // Komponen kuiz dari Langkah 1 sebelum ini
 
 export default function LessonPage() {
   const { lessonId } = useParams();
