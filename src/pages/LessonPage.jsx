@@ -460,13 +460,13 @@ export default function LessonPage() {
                       >
                         <div className="w-full max-w-4xl flex items-center justify-between p-3 text-white">
                           <span className="text-xs font-black tracking-wide text-purple-300 animate-pulse bg-purple-950/50 px-3 py-1 rounded-full border border-purple-800">
-                            📺 MOD KEMBARA MINDA SELESA: JANGAN KELUAR YA!
+                            📺 MOD PENGEMBARAAN PEMBELAJARAN VIDEO: JANGAN KELUAR YA!
                           </span>
                           <Button 
                             onClick={() => setIsImmersive(false)}
                             className="bg-white/10 hover:bg-white/20 text-white rounded-full font-bold text-xs h-8 px-4 border border-white/20"
                           >
-                            Tutup Skrin ✕
+                            TUTUP SELEPAS SELESAI TONTON ✕
                           </Button>
                         </div>
 
@@ -484,7 +484,7 @@ export default function LessonPage() {
                         </div>
 
                         <p className="text-[10px] text-slate-400 mt-4 text-center font-medium">
-                          *Video dimainkan dengan selamat di dalam aplikasi. Sebaik sahaja tamat, skrin akan ditutup sendiri secara automatik!
+                          *Video dimainkan dengan selamat di dalam aplikasi. Sebaik sahaja tamat, TEKAN butang TUTUP SKRIN di atas!
                         </p>
                       </motion.div>
                     )}
