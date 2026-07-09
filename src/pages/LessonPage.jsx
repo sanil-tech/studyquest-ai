@@ -2,7 +2,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, Award, Compass, Tv, Check, CheckCircle2, AlertCircle } from "lucide-react";
+import { 
+  ArrowLeft, Play, Loader2, Trophy, Lock, Award, Compass, Tv, 
+  CheckCircle2, AlertCircle, Leaf, Sprout 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -11,11 +14,11 @@ import LessonContent from "@/components/lesson/LessonContent";
 import VoicePlayer from "@/components/lesson/VoicePlayer";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
+import LessonProgress from "@/components/lesson/LessonProgress"; // IMPORT KOMPONEN POKOK OTAN
 
 // ============================================================================
 // COMPONENT 1: YouTubeLesson 
 // ============================================================================
-// (Kekalkan fungsi YouTubeLesson yang sama seperti sebelum ini. Ia sudah stabil.)
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const playerRef = useRef(null);
@@ -32,7 +35,6 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
 
   useEffect(() => {
     if (!videoId) return;
-
     const handleAPIReady = () => { initPlayer(); };
 
     if (!window.YT) {
@@ -115,12 +117,12 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
 
   if (!videoId) {
     return (
-      <div className="p-6 text-center bg-amber-50 border-2 border-dashed border-amber-200 rounded-3xl">
+      <div className="p-6 text-center bg-amber-50 border border-amber-200 rounded-3xl">
         <p className="text-amber-700 font-bold text-sm">
-          🎬 Jom mulakan pengembaraan! Sila klik butang di bawah untuk melangkau video mockup dan membuka Nota Pintar!
+          🎬 Tiada video dijumpai. Sila klik butang di bawah untuk melangkau dan membuka misi seterusnya!
         </p>
-        <Button onClick={onCompleted} className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black rounded-full shadow-md px-6 py-5 border-b-4 border-orange-700">
-          Selesai Tonton & Unlock Nota 🚀
+        <Button onClick={onCompleted} className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black rounded-xl shadow-sm px-6 py-5 border-0">
+          Selesai Tonton & Panjat Pokok 🚀
         </Button>
       </div>
     );
@@ -128,108 +130,29 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="relative aspect-video rounded-[2rem] overflow-hidden border-4 border-cyan-400 shadow-xl bg-slate-900">
+      <div className="relative aspect-video rounded-[2rem] overflow-hidden border-4 border-[#5C3A21] shadow-xl bg-stone-900">
         <div id={`yt-player-${videoId}`} className="w-full h-full" />
       </div>
 
       {isCompleted ? (
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-emerald-50 border-2 border-emerald-200 p-5 rounded-3xl flex items-center gap-4 shadow-sm">
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-emerald-50 border border-emerald-200 p-5 rounded-[1.5rem] flex items-center gap-4 shadow-sm">
           <div className="p-3 bg-emerald-500 rounded-2xl text-white"><CheckCircle2 className="w-6 h-6" /></div>
           <div className="flex-1">
-            <h4 className="font-bold text-emerald-800 text-base">Syabas, Tugasan Selesai! 🎉</h4>
+            <h4 className="font-bold text-emerald-800 text-base">Syabas, Video Selesai! 🍃</h4>
             <p className="text-emerald-600 text-xs font-medium">Misi tontonan video telah diselesaikan.</p>
           </div>
-          <div className="bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 rounded-2xl text-white font-bold text-sm shadow-md flex items-center gap-1.5 animate-bounce">
-            <Award className="w-4 h-4" /> +{xpEarned || 10} XP
+          <div className="bg-lime-100 border border-lime-200 px-4 py-2 rounded-xl text-lime-700 font-black text-sm shadow-sm flex items-center gap-1.5 animate-bounce">
+            <Leaf className="w-4 h-4 fill-lime-500" /> +{xpEarned || 10} XP
           </div>
         </motion.div>
       ) : (
-        <div className="bg-cyan-50 border-2 border-cyan-100 p-4 rounded-2xl flex items-center gap-3">
-          <Tv className="w-5 h-5 text-cyan-600 animate-pulse shrink-0" />
-          <p className="text-cyan-800 text-xs sm:text-sm font-medium">
-            Tonton video pembelajaran ini sehingga 90% atau klik butang selesaikan di atas untuk membuka peringkat Nota Pintar! 🌟
+        <div className="bg-sky-50 border border-sky-100 p-4 rounded-2xl flex items-center gap-3">
+          <Tv className="w-5 h-5 text-sky-600 animate-pulse shrink-0" />
+          <p className="text-sky-800 text-xs sm:text-sm font-medium">
+            Tonton video ini sehingga tamat untuk membuka kunci dahan misi yang seterusnya! 🌿
           </p>
         </div>
       )}
-    </div>
-  );
-}
-
-// ============================================================================
-// COMPONENT 2: LearningPath
-// ============================================================================
-// (Kekalkan komponen LearningPath)
-function LearningPath({ stages, currentStage, progressState, activeTab, onSelectStage }) {
-  const getStageStatus = (stageId) => {
-    if (stageId === "video") return "unlocked";
-    if (stageId === "lesson") return progressState.video_completed ? "unlocked" : "locked";
-    if (stageId === "flashcard") return progressState.lesson_completed ? "unlocked" : "locked";
-    if (stageId === "mindmap") return progressState.flashcard_completed ? "unlocked" : "locked";
-    if (stageId === "quiz") {
-      return (progressState.video_completed && progressState.lesson_completed && progressState.flashcard_completed && progressState.mindmap_completed) ? "unlocked" : "locked";
-    }
-    return "locked";
-  };
-
-  return (
-    <div className="relative flex flex-col items-center py-8 max-w-md mx-auto">
-      <div className="absolute top-12 bottom-12 w-3 bg-gradient-to-b from-cyan-200 via-purple-200 to-orange-200 rounded-full -z-10" />
-
-      {stages.map((stage, index) => {
-        const status = getStageStatus(stage.id);
-        const isCompleted = progressState[`${stage.id}_completed`] || false;
-        const isCurrentActiveStage = currentStage === stage.id;
-        const sideOffset = index % 2 === 0 ? "sm:translate-x-12" : "sm:-translate-x-12";
-
-        const themeColors = {
-          video: "from-cyan-400 to-blue-500 border-cyan-600 shadow-cyan-200",
-          lesson: "from-emerald-400 to-teal-500 border-emerald-600 shadow-emerald-200",
-          flashcard: "from-purple-400 to-indigo-500 border-purple-600 shadow-purple-200",
-          mindmap: "from-pink-400 to-rose-500 border-pink-600 shadow-pink-200",
-          quiz: "from-amber-400 to-orange-500 border-amber-600 shadow-amber-200",
-        };
-
-        return (
-          <div key={stage.id} className={`w-full flex flex-col items-center my-6 relative ${sideOffset}`}>
-            {isCurrentActiveStage && status === "unlocked" && !isCompleted && (
-              <motion.div animate={{ y: [-5, 3, -5] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} className="absolute -top-10 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-md z-20 border border-orange-300 tracking-wider whitespace-nowrap">
-                MISI BARU! 🎯
-              </motion.div>
-            )}
-
-            <motion.button
-              whileHover={status === "unlocked" ? { scale: 1.1, y: -4 } : {}}
-              whileTap={status === "unlocked" ? { scale: 0.95 } : {}}
-              onClick={() => status === "unlocked" && onSelectStage(stage.id)}
-              disabled={status === "locked"}
-              className={`
-                w-20 h-20 rounded-full flex flex-col items-center justify-center border-b-8 relative transition-all duration-300 shadow-xl
-                ${status === "unlocked" 
-                  ? `bg-gradient-to-b ${themeColors[stage.id]} text-white active:border-b-0 active:translate-y-[6px]` 
-                  : "bg-slate-200 border-slate-400 text-slate-400 cursor-not-allowed shadow-none"
-                }
-              `}
-            >
-              {status === "locked" ? (
-                <Lock className="w-6 h-6" />
-              ) : isCompleted ? (
-                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-2 border-white shadow-md">
-                  <Check className="w-3.5 h-3.5 stroke-[4]" />
-                </div>
-              ) : null}
-
-              {status !== "locked" && <span className="text-3xl filter drop-shadow-sm">{stage.icon}</span>}
-            </motion.button>
-
-            <div className="text-center mt-2 bg-white/90 backdrop-blur-sm py-1 px-4 rounded-2xl border border-slate-100 shadow-sm max-w-[150px]">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Stage {index + 1}</p>
-              <p className={`text-xs font-black truncate ${status === 'locked' ? 'text-slate-400' : 'text-slate-800'}`}>
-                {stage.title}
-              </p>
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -297,7 +220,6 @@ const QUIZ_SCHEMA = {
   }
 };
 
-// PEMERKASAAN: Fungsi parse JSON yang kebal terhadap blok markdown (```json ... ```)
 const safeJsonParse = (str, fallback = []) => {
   if (!str) return fallback;
   try {
@@ -321,13 +243,8 @@ const shuffleArray = (array) => {
   return newArr;
 };
 
-const STAGES = [
-  { id: "video", title: "Video Guru", icon: "🎬" },
-  { id: "lesson", title: "Nota Pintar", icon: "📖" },
-  { id: "flashcard", title: "Kad Memori", icon: "🃏" },
-  { id: "mindmap", title: "Peta Minda", icon: "🧠" },
-  { id: "quiz", title: "Boss Quiz", icon: "⚔️" }
-];
+// Pastikan susunan ini sepadan dengan kunci dalam LessonProgress
+const STAGES_KEYS = ["video", "lesson", "flashcard", "mindmap", "quiz"]; 
 
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
@@ -340,7 +257,6 @@ export default function LessonPage() {
   const [loading, setLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
 
-  // PEMERKASAAN: Tambahan state error untuk paparan pengguna
   const [uiError, setUiError] = useState(null);
 
   const [explanation, setExplanation] = useState("");
@@ -462,10 +378,9 @@ export default function LessonPage() {
   const getLanguageMode = useCallback(() => subject?.name?.toLowerCase().includes("english") ? "en" : "ms", [subject]);
   
   const triggerConfetti = () => {
-    confetti({ particleCount: 140, spread: 70, origin: { y: 0.6 }, colors: ["#06b6d4", "#10b981", "#fbbf24", "#f43f5e"] });
+    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ["#10b981", "#84cc16", "#f59e0b", "#d97706"] });
   };
 
-  // PEMERKASAAN: Gunakan useCallback untuk elak fungsi dicipta berulang kali
   const updateStageProgress = useCallback(async (stageId, nextStage, xpAwarded) => {
     setProgressState(prev => {
       const updatedState = {
@@ -481,7 +396,6 @@ export default function LessonPage() {
       }
       return updatedState;
     });
-    
     triggerConfetti();
   }, []);
 
@@ -508,12 +422,10 @@ export default function LessonPage() {
         setActiveTab("map");
         return;
       } catch (err) { 
-        console.error(err);
         setUiError("Ralat semasa menyimpan kemajuan. Cuba sebentar lagi.");
         return;
       }
     }
-
     await updateStageProgress("video", "lesson", 10);
     setActiveTab("map");
   }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
@@ -524,22 +436,16 @@ export default function LessonPage() {
       setActiveTab("map");
       return;
     }
-
     setStatus(p => ({ ...p, lesson: true }));
     setUiError(null);
     try {
       const lang = getLanguageMode();
       const response = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash", 
-        add_context_from_internet: true,
+        model: "gemini_3_flash", add_context_from_internet: true,
         prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, studentNickname),
         response_json_schema: {
           type: "object",
-          properties: {
-            lesson_markdown: { type: "string" },
-            summary: { type: "string" },
-            keywords: { type: "array", items: { type: "string" } }
-          },
+          properties: { lesson_markdown: { type: "string" }, summary: { type: "string" }, keywords: { type: "array", items: { type: "string" } } },
           required: ["lesson_markdown", "summary", "keywords"]
         }
       });
@@ -558,19 +464,14 @@ export default function LessonPage() {
       if (currentSessionId) {
         await base44.entities.StudySession.update(currentSessionId, nextStatePayload);
       }
-      
       setProgressState(nextStatePayload);
       
-      // Fire and forget untuk mindmap
       base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash", 
-        prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang),
+        model: "gemini_3_flash", prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang),
         response_json_schema: MINDMAP_SCHEMA
       }).then(res => {
         if (res && Array.isArray(res)) {
-          if (currentSessionId) {
-            base44.entities.StudySession.update(currentSessionId, { mindmap_json: JSON.stringify(res) });
-          }
+          if (currentSessionId) base44.entities.StudySession.update(currentSessionId, { mindmap_json: JSON.stringify(res) });
           setMindMap(res);
         }
       }).catch(err => console.error("Ralat membina MindMap latar", err));
@@ -578,11 +479,8 @@ export default function LessonPage() {
       triggerConfetti();
       setActiveTab("map");
     } catch (e) { 
-      console.error("Generate Lesson Error:", e);
-      setUiError("Aduh! AI Tutor kita kepenatan. Sila cuba tekan butang jana sekali lagi. 🤖");
-    } finally { 
-      setStatus(p => ({ ...p, lesson: false })); 
-    }
+      setUiError("Aduh! Otan kepenatan. Sila cuba tekan butang jana sekali lagi. 🦧");
+    } finally { setStatus(p => ({ ...p, lesson: false })); }
   };
 
   const handleFlashcardStageCompleted = async () => {
@@ -600,7 +498,6 @@ export default function LessonPage() {
     if (flashcards && flashcards.length > 0) return;
     setStatus(p => ({ ...p, flashcards: true }));
     setUiError(null);
-    
     try {
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         const mapped = shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({
@@ -618,7 +515,6 @@ export default function LessonPage() {
       if (!res || !Array.isArray(res)) throw new Error("Format kad memori salah.");
       setFlashcards(res);
     } catch (err) {
-      console.error(err);
       setUiError("Gagal menyusun kad sakti. Sistem menyediakan kad sandaran.");
       setFlashcards([{ front: "Jom mulakan kuiz?", back: "Tekan sedia!" }]);
     } finally { setStatus(p => ({ ...p, flashcards: false })); }
@@ -639,7 +535,6 @@ export default function LessonPage() {
       if (!res || !Array.isArray(res)) throw new Error("Gagal melukis peta minda.");
       setMindMap(res);
     } catch (e) {
-      console.error("Ralat membina MindMap On-Demand", e);
       setUiError("Ops! Peta minda gagal dijana. Sila cuba sekali lagi.");
     } finally { setStatus(p => ({ ...p, mindmap: false })); }
   };
@@ -685,50 +580,40 @@ export default function LessonPage() {
         throw new Error("Soalan kuiz gagal dijana.");
       }
     } catch (e) { 
-      console.error(e); 
       setUiError("Kuiz Boss gagal diseru! Sila tarik nafas dan cuba lagi.");
-    } finally { 
-      setStatus(p => ({ ...p, quiz: false })); 
-    }
-  };
-
-  const hitungProgressPeratusan = () => {
-    const total = STAGES.length;
-    let completedCount = 0;
-    STAGES.forEach(s => { if (progressState[`${s.id}_completed`]) completedCount++; });
-    return Math.round((completedCount / total) * 100);
+    } finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
-        <Loader2 className="w-12 h-12 border-4 text-cyan-500 animate-spin mb-3" />
-        <p className="text-slate-500 text-sm font-bold">Membuka Gerbang Dunia Pembelajaran... 🗺️</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]">
+        <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+          <Leaf className="w-12 h-12 text-emerald-500" />
+        </motion.div>
+        <p className="text-sm font-bold text-emerald-700/60 uppercase tracking-widest">Merintis laluan misi...</p>
       </div>
     );
   }
 
-  const progressPercent = hitungProgressPeratusan();
-
   return (
-    <div className="px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-6 pb-28 font-sans bg-slate-50/30 min-h-screen">
+    <div className="px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-6 pb-28 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* HEADER BAR */}
-      <div className="bg-white rounded-[2rem] p-4 border-4 border-slate-100 shadow-sm flex items-center justify-between gap-4 sticky top-2 z-40 backdrop-blur-md bg-white/90">
-        <div className="flex items-center gap-3">
-          <Link to={`/study/${subjectId}`} className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200 hover:bg-slate-100 transition-all active:scale-95">
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
+      {/* HEADER BAR (Nature Aesthetic) */}
+      <div className="bg-white rounded-[1.5rem] p-4 border border-emerald-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-2 z-40 backdrop-blur-md bg-white/90">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Link to={`/study/${subjectId}`} className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-600 hover:bg-[#E3D9C6] transition-transform active:scale-95 shrink-0">
+            <ArrowLeft className="w-5 h-5" />
           </Link>
           <div className="min-w-0">
-            <h2 className="text-sm font-black text-slate-400 uppercase tracking-wide flex items-center gap-1">
-              <Compass className="w-3.5 h-3.5 text-cyan-500" /> {subject?.name}
+            <h2 className="text-xs font-black text-emerald-600 uppercase tracking-wider flex items-center gap-1">
+              <Compass className="w-3.5 h-3.5" /> {subject?.name}
             </h2>
-            <h1 className="text-base sm:text-lg font-black truncate text-slate-800">Misi: {topic?.name} 🌟</h1>
+            <h1 className="text-sm sm:text-base font-black truncate text-stone-800">Misi: {topic?.name}</h1>
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 rounded-2xl text-white font-black text-xs sm:text-sm shadow-md flex items-center gap-1.5 border-b-4 border-orange-600">
-          <Trophy className="w-4 h-4 fill-amber-200 text-amber-200" /> {progressState.xp_earned} XP
+        <div className="bg-gradient-to-r from-lime-400 to-emerald-500 px-4 py-2 rounded-xl text-white font-black text-xs sm:text-sm shadow-sm flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+          <Leaf className="w-4 h-4 fill-lime-200 text-lime-200" /> {progressState.xp_earned} XP
         </div>
       </div>
 
@@ -736,7 +621,7 @@ export default function LessonPage() {
       <AnimatePresence>
         {uiError && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} 
-            className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl flex items-start gap-3 shadow-sm">
+            className="bg-red-50 border border-red-200 p-4 rounded-[1.5rem] flex items-start gap-3 shadow-sm">
             <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-bold text-red-800">Alamak, ada masalah teknikal!</p>
@@ -747,46 +632,42 @@ export default function LessonPage() {
         )}
       </AnimatePresence>
 
-      {/* ADVENTURE PROGRESS SYSTEM BAR */}
-      <div className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-sm space-y-2">
-        <div className="flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-wide">
-          <span>Kemajuan Misi</span>
-          <span className="text-cyan-600 font-extrabold text-sm">{progressPercent}% Selesai</span>
-        </div>
-        <div className="w-full bg-slate-100 h-5 rounded-full overflow-hidden p-1 border border-slate-200/60 shadow-inner">
-          <motion.div initial={{ width: 0 }} animate={{ width: `${progressPercent}%` }} className="h-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 rounded-full" />
-        </div>
-      </div>
-
       {/* STAGE CONTAINER LAYER */}
       <AnimatePresence mode="wait">
+        
+        {/* VIEW 1: MAP (LessonProgress Tree) */}
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
-            <LearningPath 
-              stages={STAGES} currentStage={progressState.current_stage} progressState={progressState} activeTab={activeTab}
-              onSelectStage={(id) => {
-                if (id === "video") setActiveTab("video");
-                if (id === "lesson") setActiveTab("lesson");
-                if (id === "flashcard") loadFlashcardsOnDemand();
-                if (id === "mindmap") loadMindMapOnDemand();
-                if (id === "quiz") setActiveTab("quiz");
+            <LessonProgress 
+              steps={{
+                video: progressState.video_completed,
+                lesson: progressState.lesson_completed,
+                flashcard: progressState.flashcard_completed,
+                mindmap: progressState.mindmap_completed,
+                quiz: progressState.quiz_completed,
+              }} 
+              onStepClick={(stepKey) => {
+                if (stepKey === "video") setActiveTab("video");
+                if (stepKey === "lesson") setActiveTab("lesson");
+                if (stepKey === "flashcard") loadFlashcardsOnDemand();
+                if (stepKey === "mindmap") loadMindMapOnDemand();
+                if (stepKey === "quiz") setActiveTab("quiz");
               }}
             />
           </motion.div>
         )}
 
-        {/* ... (Kekalkan kod paparan Stage 1 hingga Stage 5 di sini) ... */}
         {/* STAGE 1: VIDEO */}
         {activeTab === "video" && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-xl space-y-6">
-            <div className="flex justify-between items-center border-b-2 border-slate-100 pb-4">
-              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">🎬 Stage 1: Video Pembelajaran</h3>
-              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-full text-xs font-bold text-slate-500">Peta Misi ✖</Button>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
+            <div className="flex justify-between items-center border-b border-stone-100 pb-4">
+              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🎬 Dahan 1: Video Guru</h3>
+              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
             </div>
             <YouTubeLesson videoUrl={topic?.video_url} isCompleted={progressState.video_completed} xpEarned={10} onCompleted={handleVideoStageCompleted} />
             {progressState.video_completed && (
-              <Button onClick={() => setActiveTab("map")} className="w-full h-14 bg-gradient-to-r from-cyan-500 to-blue-600 font-black rounded-2xl shadow-lg border-b-4 border-blue-800 text-white">
-                Kembali ke Laluan Misi 🚀
+              <Button onClick={() => setActiveTab("map")} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 font-black rounded-xl shadow-md text-white border-0 transition-colors">
+                Kembali Memanjat Pokok 🌳
               </Button>
             )}
           </motion.div>
@@ -794,44 +675,44 @@ export default function LessonPage() {
 
         {/* STAGE 2: NOTA AI */}
         {activeTab === "lesson" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-xl space-y-6">
-            <div className="flex justify-between items-center border-b-2 border-slate-100 pb-4">
-              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">📖 Stage 2: Nota Pintar AI</h3>
-              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-full text-xs font-bold text-slate-500">Peta Misi ✖</Button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
+            <div className="flex justify-between items-center border-b border-stone-100 pb-4">
+              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">📖 Dahan 2: Nota Pintar AI</h3>
+              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
             </div>
-            <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-100">
-              <span className="text-xs font-bold text-slate-600">Dengar audio penceritaan:</span>
+            <div className="flex items-center justify-between bg-stone-50 p-3 rounded-2xl border border-stone-100">
+              <span className="text-xs font-bold text-stone-600">Dengar penceritaan Otan:</span>
               {isPremium ? (
                 <VoicePlayer text={explanation || "Sila jana nota dahulu"} language={getLanguageMode() === "en" ? "en" : "ms"} />
               ) : (
-                <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-1 rounded-md font-bold">🔒 Premium Audio</span>
+                <span className="text-[10px] text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg font-bold border border-amber-200">🔒 Audio Premium</span>
               )}
             </div>
-            <div className="prose prose-sm max-w-none text-slate-700 max-h-[350px] overflow-y-auto p-3 border border-slate-100 rounded-xl bg-slate-50/50 leading-relaxed">
+            <div className="prose prose-sm max-w-none text-stone-700 max-h-[400px] overflow-y-auto p-4 border border-emerald-50 rounded-2xl bg-[#FAFAF7] leading-relaxed shadow-inner">
               {explanation ? <LessonContent content={explanation} /> : (
-                <div className="text-center py-10 font-bold text-slate-400 text-xs">Sila klik butang di bawah untuk membuka kunci Nota Pintar daripada AI Tutor!</div>
+                <div className="text-center py-12 font-bold text-stone-400 text-xs">Sila klik butang di bawah untuk membuka kunci Jurnal Ilmu Otan!</div>
               )}
             </div>
-            <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-600 font-black text-white rounded-2xl shadow-md border-b-4 border-teal-800">
-              {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Menulis Nota Ajaib... 🪄</> : explanation ? "Tanda Selesai & Ambil +15 XP! 🏆" : "Buka Misi Nota Pintar ✨"}
+            <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 bg-gradient-to-r from-lime-500 to-emerald-600 font-black text-white rounded-xl shadow-sm border-0">
+              {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Otan sedang menulis... 🦧</> : explanation ? "Tanda Selesai & Ambil +15 XP! 🍃" : "Buka Misi Nota Pintar ✨"}
             </Button>
           </motion.div>
         )}
 
         {/* STAGE 3: FLASHCARD */}
         {activeTab === "flashcard" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-xl space-y-6">
-            <div className="flex justify-between items-center border-b-2 border-slate-100 pb-4">
-              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">🃏 Stage 3: Kad Memori</h3>
-              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-full text-xs font-bold text-slate-500">Peta Misi ✖</Button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
+            <div className="flex justify-between items-center border-b border-stone-100 pb-4">
+              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🃏 Dahan 3: Kad Memori</h3>
+              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
             </div>
             {status.flashcards ? (
-              <div className="text-center py-12 text-xs font-bold text-purple-600"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-purple-400" /> Menyusun kad sakti...</div>
+              <div className="text-center py-12 text-xs font-bold text-emerald-600"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-emerald-400" /> Otan menyusun kad daun...</div>
             ) : (
               <>
                 <Flashcards flashcards={flashcards || []} />
-                <Button onClick={handleFlashcardStageCompleted} className="w-full h-14 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-black rounded-2xl border-b-4 border-indigo-800 shadow-md">
-                  Selesai Main Kad & Seterusnya! 🚀
+                <Button onClick={handleFlashcardStageCompleted} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl border-0 shadow-sm transition-colors">
+                  Selesai Main Kad & Memanjat! 🌳
                 </Button>
               </>
             )}
@@ -840,20 +721,20 @@ export default function LessonPage() {
 
         {/* STAGE 4: MINDMAP */}
         {activeTab === "mindmap" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-xl space-y-6">
-            <div className="flex justify-between items-center border-b-2 border-slate-100 pb-4">
-              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">🧠 Stage 4: Peta Minda</h3>
-              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-full text-xs font-bold text-slate-500">Peta Misi ✖</Button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
+            <div className="flex justify-between items-center border-b border-stone-100 pb-4">
+              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🧠 Dahan 4: Peta Minda</h3>
+              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
             </div>
             {status.mindmap ? (
-              <div className="text-center py-12 text-xs font-bold text-blue-600"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-400" /> Melukis peta minda...</div>
+              <div className="text-center py-12 text-xs font-bold text-emerald-600"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-emerald-400" /> Melukis peta hutan...</div>
             ) : (
               <>
-                <div className="min-h-[220px] bg-slate-50 rounded-2xl p-4 border shadow-inner overflow-x-auto">
+                <div className="min-h-[250px] bg-[#FAFAF7] rounded-2xl p-4 border border-emerald-50 shadow-inner overflow-x-auto">
                   <MindMap mindMap={{ central_topic: topic?.name || "Topik Utama", branches: mindMap || [] }} />
                 </div>
-                <Button onClick={handleMindMapStageCompleted} className="w-full h-14 bg-gradient-to-r from-pink-500 to-rose-600 text-white font-black rounded-2xl border-b-4 border-rose-800 shadow-md">
-                  Selesai Teroka & Seterusnya! 🚀
+                <Button onClick={handleMindMapStageCompleted} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl border-0 shadow-sm transition-colors">
+                  Selesai Teroka Peta! 🗺️
                 </Button>
               </>
             )}
@@ -862,21 +743,21 @@ export default function LessonPage() {
 
         {/* STAGE 5: FINAL BOSS CHALLENGE */}
         {activeTab === "quiz" && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2.5rem] p-6 border-4 border-yellow-200 shadow-xl relative overflow-hidden">
-            <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/40 rotate-12 -z-0" />
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 rounded-[2rem] p-6 border border-amber-200 shadow-xl relative overflow-hidden">
+            <Sprout className="absolute -bottom-6 -right-6 w-32 h-32 text-amber-500/10 rotate-12 -z-0" />
             <div className="relative z-10 space-y-5">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-black text-orange-950 flex items-center gap-2">⚔️ Stage 5: Final Boss Quiz!</h3>
-                <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-full text-xs font-bold text-orange-800 hover:bg-orange-200/50">Peta Misi ✖</Button>
+                <h3 className="text-xl font-black text-amber-950 flex items-center gap-2">⚔️ Puncak Pokok: Kuiz Boss!</h3>
+                <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-amber-800 hover:bg-amber-200/50">Tutup ✖</Button>
               </div>
-              <p className="text-xs sm:text-sm text-orange-800 font-medium leading-relaxed">
-                Hebatnya {studentNickname}! Anda telah berjaya melepasi semua cabaran video dan nota dengan cemerlang. Sekarang, jom tewaskan cabaran terakhir ini untuk menawan topik ini! 🏆
+              <p className="text-xs sm:text-sm text-amber-800 font-medium leading-relaxed">
+                Hebatnya {studentNickname}! Anda hampir sampai di kemuncak pokok ilmu ini. Sekarang, jom tewaskan cabaran terakhir ini untuk menawan dahan ini! 🏆
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-16 text-sm font-black rounded-2xl w-full border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-16 text-sm font-black rounded-xl w-full border-0 shadow-sm transition-colors">
                   {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Play className="w-4 h-4 mr-1 fill-current" />} Cabaran Pantas (10 Soalan)
                 </Button>
-                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-red-500 hover:bg-red-600 text-white h-16 text-sm font-black rounded-2xl w-full border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all">
+                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-16 text-sm font-black rounded-xl w-full border-0 shadow-sm transition-colors">
                   {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trophy className="w-4 h-4 mr-1" />} Ujian Boss Padu (20 Soalan)
                 </Button>
               </div>
