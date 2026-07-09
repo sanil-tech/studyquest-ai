@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { 
-  ArrowLeft, Sparkles, Loader2, Trophy, GitFork, Youtube, 
-  Star, Volume2, HelpCircle, RefreshCw, Lock, Heart, 
-  Tv, Layers, CheckCircle2, Award, Flame, Coins, Compass
-} from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Trophy, GitFork, Youtube, Star, Volume2, HelpCircle, RefreshCw, Lock, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -18,21 +14,27 @@ import MindMap from "@/components/lesson/MindMap";
 // ============================================================================
 const speakWithLove = (text) => {
   if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel(); // Sentiasa matikan pertindihan suara lama
+
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
 
+    // Tapis enjin suara terbaik mengikut peranti
     const malayVoice = voices.find(v => v.lang.includes('ms-MY') || v.lang.includes('ms_MY'));
     const googleIdVoice = voices.find(v => v.name.includes('Google') && (v.lang.includes('id') || v.lang.includes('ms')));
     const indonesianVoice = voices.find(v => v.lang.includes('id-ID') || v.lang.includes('id_ID'));
 
-    if (malayVoice) utterance.voice = malayVoice;
-    else if (googleIdVoice) utterance.voice = googleIdVoice;
-    else if (indonesianVoice) utterance.voice = indonesianVoice;
+    if (malayVoice) {
+      utterance.voice = malayVoice;
+    } else if (googleIdVoice) {
+      utterance.voice = googleIdVoice;
+    } else if (indonesianVoice) {
+      utterance.voice = indonesianVoice;
+    }
 
     utterance.lang = 'ms-MY';
-    utterance.rate = 0.83;  
-    utterance.pitch = 1.25; 
+    utterance.rate = 0.83;  // 🐢 Kelajuan dikurangkan sedikit lagi untuk kejelasan maksimum anak 7 tahun
+    utterance.pitch = 1.25; // 🎀 Nada lebih ceria & mesra seperti intonasi guru penyayang
     utterance.volume = 1.0; 
 
     window.speechSynthesis.speak(utterance);
@@ -48,6 +50,7 @@ const shuffleArray = (array) => {
   return newArr;
 };
 
+// Menjana soalan visual dengan format teks yang sangat minimum dan mudah untuk Game Padanan
 const generateKidsQuestions = (explanation, keywords, topicName) => {
   if (explanation && (explanation.includes("Banyak") || explanation.includes("Sedikit"))) {
     return [
@@ -79,7 +82,7 @@ const generateKidsQuestions = (explanation, keywords, topicName) => {
 };
 
 // ============================================================================
-// COMPONENT: ARENA PERMAINAN SERET (KAD MEMORI/PADANAN EMOJI)
+// COMPONENT: ARENA PERMAINAN SERET (MESRA ANAK 7 TAHUN)
 // ============================================================================
 function Year1InteractiveGame({ explanation, keywords, topicName, studentNickname, onComplete }) {
   const [questions, setQuestions] = useState([]);
@@ -95,9 +98,11 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
     }
   }, [explanation, keywords, topicName]);
 
+  // Automatik bersuara memandu anak setiap kali pusingan bertukar
   useEffect(() => {
     if (questions.length > 0 && !isFinished) {
       const q = questions[currentLevel];
+      // Tanda baca diletakkan strategik untuk intonasi manusia berhenti bernafas
       speakWithLove(`Pusingan nombor ${q.id}... ${q.text}... Sila pilih jawapan, banyak... atau... sedikit.`);
     }
   }, [currentLevel, questions, isFinished]);
@@ -155,8 +160,8 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
     return (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-b from-yellow-50 via-amber-100 to-amber-200 rounded-[2.5rem] p-6 border-4 border-amber-400 text-center space-y-4 shadow-xl">
         <div className="text-6xl animate-bounce">🏆</div>
-        <h4 className="text-xl font-black text-amber-950">YAY! MISI KAD MEMORI SELESAI!</h4>
-        <p className="text-xs text-amber-900 font-bold">Hebatnya wira cikgu ni, selesai semua pusingan dengan cemerlang! 😘</p>
+        <h4 className="text-xl font-black text-amber-950">YAY! AWAK DAPAT 10 BINTANG PENUH!</h4>
+        <p className="text-xs text-amber-900 font-bold">Hebatnya anak soleh dan solehah cikgu ni, selesai semua permainan dengan cemerlang! 😘</p>
         <Button onClick={() => { setCurrentLevel(0); setIsFinished(false); }} className="rounded-full bg-emerald-500 hover:bg-emerald-600 font-black text-xs text-white px-6 py-4 shadow-md mx-auto border-b-4 border-emerald-700 active:scale-95">
           <RefreshCw className="w-4 h-4 mr-1" /> Main Sekali Lagi
         </Button>
@@ -166,6 +171,8 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
 
   return (
     <div className="bg-gradient-to-b from-white to-purple-50 rounded-[2.5rem] p-5 border-4 border-purple-300 text-center space-y-4 shadow-md">
+      
+      {/* VISUAL LEVEL TRACKER */}
       <div className="flex items-center justify-between bg-purple-100/60 p-2 rounded-2xl">
         <span className="text-[11px] font-black text-purple-800">Pusingan {currentQuestion.id} daripada 10</span>
         <div className="flex gap-0.5">
@@ -175,6 +182,7 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
         </div>
       </div>
 
+      {/* RE-READ AUDIO BUTTON */}
       <button 
         onClick={() => speakWithLove(`${currentQuestion.text} Cuba pilih jawapan, banyak... atau... sedikit.`)}
         className="w-full p-3 bg-emerald-500 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-sm border-b-4 border-emerald-700 active:transform active:scale-95 transition-all"
@@ -182,6 +190,7 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
         <Volume2 className="w-5 h-5 animate-pulse" /> 🔊 CIKGU TOLONG BACAKAN SOALAN
       </button>
 
+      {/* LARGE GRAPHICAL CONTENT */}
       <div className="bg-white py-4 px-2 rounded-3xl border-2 border-purple-100 shadow-inner space-y-2">
         <div className="text-5xl my-2 select-none tracking-widest p-2 bg-slate-50 rounded-2xl inline-block max-w-full min-h-[75px] leading-tight">{currentQuestion.emoji}</div>
         <p className="text-xs font-black text-slate-700 leading-snug px-1">{currentQuestion.text}</p>
@@ -191,12 +200,13 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
         💌 {feedbackMessage}
       </div>
 
+      {/* INTERACTIVE DRAGGABLE OBJECT */}
       <div className="py-2 flex justify-center items-center min-h-[90px]">
         <motion.div
           key={currentQuestion.id} 
           drag 
           dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }} 
-          dragElastic={0.6} 
+          dragElastic = {0.6} 
           onDragEnd={handleDragEnd} 
           whileHover={{ scale: 1.1 }} 
           whileTap={{ scale: 0.9 }}
@@ -209,6 +219,7 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
 
       <div className="border-t-2 border-dashed border-purple-200 my-1" />
 
+      {/* DROP TARGET ZONE */}
       <div className="space-y-2">
         <p className="text-[10px] font-bold text-purple-400">👇 Jatuhkan kad kuning di dalam salah satu kotak betul di bawah:</p>
         <div className="grid grid-cols-2 gap-3">
@@ -222,7 +233,7 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
                   : "bg-pink-50 border-pink-300 text-pink-900 hover:bg-pink-100"
               }`}
             >
-              <span className="text-base font-black pointer-events-none">{opt === "Banyak" ? "Banyak ✨" : "Sedikit 🌸"}</span>
+              <span className="text-base font-black pointer-events-none">{opt === "Banyak" ? "เยอะ / Banyak 🍎" : "นิดเดียว / Sedikit 🍏"}</span>
               <span className="text-[10px] font-bold text-slate-400 pointer-events-none">Kotak {opt}</span>
             </div>
           ))}
@@ -233,7 +244,7 @@ function Year1InteractiveGame({ explanation, keywords, topicName, studentNicknam
 }
 
 // ============================================================================
-// MAIN PAGE COMPONENT (GAMIFIED ADVENTURE LEARNING)
+// MAIN PAGE COMPONENT
 // ============================================================================
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
@@ -250,15 +261,14 @@ export default function LessonPage() {
   const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
   const [mindMap, setMindMap] = useState(null);
 
-  // Menggunakan state fasa sikit demi sikit (1=Misi Bermula, 2=Video, 3=Kad Memori, 4=Boss Quiz, 5=Selesai)
   const [currentPhase, setCurrentPhase] = useState(1); 
   const [status, setStatus] = useState({ lesson: false, mindmap: false, quiz: false });
 
   const [isImmersive, setIsImmersive] = useState(false);
   const [videoKey, setVideoKey] = useState(0);
   const [isVideoCompleted, setIsVideoCompleted] = useState(false);
-  const [showMindMapEnd, setShowMindMapEnd] = useState(false);
 
+  // Pra-muat sistem suara latar peranti
   useEffect(() => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
@@ -269,7 +279,7 @@ export default function LessonPage() {
   }, []);
 
   useEffect(() => {
-    if (currentPhase === 2) {
+    if (currentPhase === 1) {
       const timer = setTimeout(() => {
         setVideoKey(prev => prev + 1);
       }, 300);
@@ -277,16 +287,15 @@ export default function LessonPage() {
     }
   }, [currentPhase]);
 
-  // Sebutan intonasi mengikut fasa baru yang telah diubahsuai susunannya
+  // Sebut ucapan penuh empati setiap kali fasa kembara berubah
   useEffect(() => {
-    if (explanation || currentPhase === 1) {
-      if (currentPhase === 1) speakWithLove(`Hai wira pintar ${studentNickname || "sayang"}! Selamat datang ke Pengembaraan Ilmu baru! Sila ketuk butang Mulakan Misi sekarang!`);
-      if (currentPhase === 2) speakWithLove(`Cabaran pertama sayang... Jom kita tengok video kartun seronok ini sampai habis dulu ya... nanti petunjuk rahsia akan terbuka.`);
-      if (currentPhase === 3) speakWithLove(`Cabaran kedua sayang... Mari melatih kuasa ingatan kamu dengan kad memori dan gambar comel ini.`);
-      if (currentPhase === 4) speakWithLove(`Cabaran ketiga... Ini pusingan Boss Besar! Jawab soalan mudah cikgu untuk kumpul markah piala emas! Kamu pasti boleh menang!`);
-      if (currentPhase === 5) speakWithLove(`Horey! Tahniah wira! Kamu berjaya menyelesaikan seluruh peta pengembaraan hari ini. Cikgu bangga dengan kamu!`);
+    if (explanation) {
+      if (currentPhase === 1) speakWithLove(`Langkah pertama sayang... Jom kita tengok video kartun seronok ini sampai habis dulu ya... nanti pintu kuiz rahsia akan terbuka sendiri.`);
+      if (currentPhase === 2) speakWithLove(`Langkah kedua sayang... Wah... jom kita tengok gambar-gambar nota berwarna-warni yang comel ini bersama-sama.`);
+      if (currentPhase === 3) speakWithLove(`Langkah ketiga sayang... Masa untuk main game padanan mencabar. Awak pasti boleh menang punya... jom mulakan!`);
+      if (currentPhase === 4) speakWithLove(`Langkah keempat... Hebatnya awak! Jom kita serang raja kuiz besar sekarang... jawab soalan mudah cikgu untuk kumpul markah piala emas!`);
     }
-  }, [currentPhase, explanation, studentNickname]);
+  }, [currentPhase, explanation]);
 
   useEffect(() => {
     const handleVideoEndMessage = (event) => {
@@ -300,7 +309,7 @@ export default function LessonPage() {
           setIsImmersive(false); 
           setIsVideoCompleted(true); 
           confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-          speakWithLove("Alhamdulillah tamat pun! Seronok kan? Sekarang... jom ketuk butang Misi Seterusnya untuk buka kad memori!");
+          speakWithLove("Alhamdulillah tamat pun! Seronok kan jalan cerita tadi? Sekarang... jom ketuk butang ungu Misi Seterusnya di bahagian bawah untuk main game!");
         }
       } catch (e) {}
     };
@@ -320,7 +329,7 @@ export default function LessonPage() {
         
         setSubject(sub);
         setTopic(top);
-        setStudentNickname(user?.nickname || user?.profile?.nickname || "Wira Comel");
+        setStudentNickname(user?.nickname || user?.profile?.nickname || "Si Comel");
 
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: user.id, topic_id: topicId },
@@ -349,15 +358,12 @@ export default function LessonPage() {
   }, [subjectId, topicId]);
 
   const handleNextPhase = () => {
-    if (currentPhase === 2 && !isVideoCompleted) {
+    if (currentPhase === 1 && !isVideoCompleted) {
       speakWithLove("Tonton video kartun dulu sayang... jangan kalut ya.");
       alert("🔒 Sila tonton video tugasan kartun sehingga tamat dahulu ya anak pintar!");
       return;
     }
-    if (currentPhase === 2) {
-      // Panggil prefetch secara malas tanpa ubah fungsi asal
-      loadMindMapOnDemand();
-    }
+    if (currentPhase === 1) loadMindMapOnDemand();
     setCurrentPhase(prev => prev + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     confetti({ particleCount: 40, spread: 30, origin: { y: 0.7 } });
@@ -386,7 +392,7 @@ export default function LessonPage() {
     setStatus(p => ({ ...p, lesson: true }));
     try {
       const user = await base44.auth.me();
-      const dynamicTopicVideo = topic?.video_url || topic?.youtube_url || "https://www.youtube.com/embed/-8OVG1zor8w";
+      const dynamicTopicVideo = topic?.video_url || "https://www.youtube.com/embed/-8OVG1zor8w";
 
       const sampleExplanation = `
 ### 🌟 Jom Belajar: Banyak & Sedikit\n\n👀 **Mari Tengok Gambar Comel Ini:**\n* 🍎🍎🍎🍎🍎 = **Kumpulan Banyak** (Penuh Melimpah!)\n* 🍎 = **Kumpulan Sedikit** (Tinggal Satu Sahaja, Sikit Kasihan...)\n\n⭐ **Pesanan Sayang Cikgu:**\n* Perkataan Banyak bermaksud ada benda bertimbun-timbun!\n* Perkataan Sedikit bermaksud sunyi tinggal sikit sahaja.
@@ -400,7 +406,7 @@ export default function LessonPage() {
         subject_name: subject.name,
         ai_explanation: JSON.stringify({ 
           lesson_markdown: sampleExplanation, 
-          summary: topic?.name || "Banyak dan Sedikit", 
+          summary: "Banyak dan Sedikit", 
           keywords: ["Banyak", "Sedikit"],
           video_url: dynamicTopicVideo 
         }),
@@ -410,15 +416,9 @@ export default function LessonPage() {
       setSessionId(session.id);
       setExplanation(sampleExplanation);
       setVideoUrl(dynamicTopicVideo);
-      
-      // Jika url video kosong/tiada, skip terus ke Kad Memori (Phase 3)
-      if (!dynamicTopicVideo || dynamicTopicVideo.includes("null")) {
-        setIsVideoCompleted(true);
-        setCurrentPhase(3);
-      } else {
-        setCurrentPhase(2);
-      }
+      setCurrentPhase(1);
       setIsVideoCompleted(false);
+      speakWithLove(`Selamat datang anak pintar ${user.nickname || "sayang"}! Jom kita mulakan pengembaraan... sila ketuk gambar televisyen besar di tengah skrin sekarang!`);
     } catch (e) {
       console.error(e);
     } finally { setStatus(p => ({ ...p, lesson: false })); }
@@ -443,14 +443,8 @@ export default function LessonPage() {
           num_questions: 10,
         });
         
-        // Pindah ke skrin Complete kembara secara interaktif
-        setCurrentPhase(5);
-        confetti({ particleCount: 150, spread: 80 });
-        
-        // Membuka navigasi kuiz sedia ada selepas delay seketika
-        setTimeout(() => {
-          navigate(`/quiz/${quiz.id}`);
-        }, 3000);
+        speakWithLove("Horey! Medan perlawanan kuiz gembira telah dibuka! Sedia... mula!");
+        navigate(`/quiz/${quiz.id}`);
       }
     } catch (err) {
       console.error(err);
@@ -468,326 +462,204 @@ export default function LessonPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-purple-50 text-purple-600 gap-2">
         <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
-        <span className="text-xs font-black animate-pulse text-purple-900">Membuka Peta Kembara Rahsia... ✨</span>
+        <span className="text-xs font-black animate-pulse text-purple-900">Tunggu kejap ya sayang, cikgu tengah kemas barang belajar... ✨</span>
       </div>
     );
   }
 
   return (
-    <div className="px-4 py-4 max-w-md mx-auto space-y-5 pb-28 bg-gradient-to-b from-amber-50/40 to-purple-50/40 min-h-screen select-none font-sans">
+    <div className="px-4 py-4 max-w-md mx-auto space-y-5 pb-28 bg-gradient-to-b from-amber-50/40 to-purple-50/40 min-h-screen select-none">
       
-      {/* HEADER GAMIFICATION BAR (ALA DUOLINGO) */}
+      {/* HEADER BAR INDAH */}
       <div className="flex items-center gap-3 bg-white p-3 rounded-[2rem] border-4 border-purple-200 shadow-sm">
         <Link to={`/study/${subjectId}`} className="p-2.5 bg-purple-100 hover:bg-purple-200 rounded-2xl transition-transform active:scale-90">
           <ArrowLeft className="w-5 h-5 text-purple-700" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-[11px] font-black text-slate-800 leading-tight truncate">
-            🏴‍☠️ Misi: {topic?.name || "Kembara Ilmu"}
-          </h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[9px] bg-amber-400 text-amber-950 font-extrabold px-1.5 py-0.5 rounded-md">
-              Level 1
-            </span>
-            <p className="text-[9px] text-purple-600 font-bold">{subject?.name || "Matematik"}</p>
-          </div>
+          <h1 className="text-xs font-black text-slate-800 leading-tight">Misi: {topic?.name || "Banyak & Sedikit"} 🎒</h1>
+          <p className="text-[10px] text-purple-600 font-bold">{subject?.name || "Matematik"} • Darjah 1 Paling Best</p>
         </div>
-        
-        {/* STATS BADGES */}
-        <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-full border border-slate-200">
-          <div className="flex items-center text-amber-500 text-xs font-black gap-0.5">
-            <Coins className="w-3.5 h-3.5 fill-amber-400" /> <span className="text-[10px]">50</span>
-          </div>
-          <div className="flex items-center text-red-500 text-xs font-black gap-0.5">
-            <Flame className="w-3.5 h-3.5 fill-red-400" /> <span className="text-[10px]">1</span>
-          </div>
-        </div>
+        <div className="text-2xl animate-bounce"><Heart className="w-6 h-6 fill-red-400 text-red-400" /></div>
       </div>
 
-      {/* PROGRESS TRACKER ADVENTURE PATTERN */}
-      <div className="bg-white p-3 rounded-2xl border-2 border-purple-100 shadow-sm">
-        <div className="flex justify-around items-center text-xl relative">
-          <div className="absolute top-1/2 left-4 right-4 h-1 bg-slate-100 -translate-y-1/2 z-0 rounded-full" />
-          
-          <span className={`relative z-10 p-2 rounded-full transition-all ${currentPhase === 1 ? "bg-purple-500 text-white scale-110 shadow-md ring-4 ring-purple-100" : currentPhase > 1 ? "bg-emerald-500 text-white" : "bg-slate-200 opacity-40"}`}>
-            {currentPhase > 1 ? <CheckCircle2 className="w-4 h-4" /> : "🏕️"}
-          </span>
-          <span className={`relative z-10 p-2 rounded-full transition-all ${currentPhase === 2 ? "bg-purple-500 text-white scale-110 shadow-md ring-4 ring-purple-100" : currentPhase > 2 ? "bg-emerald-500 text-white" : "bg-slate-200 opacity-40"}`}>
-            {currentPhase > 2 ? <CheckCircle2 className="w-4 h-4" /> : "🎬"}
-          </span>
-          <span className={`relative z-10 p-2 rounded-full transition-all ${currentPhase === 3 ? "bg-purple-500 text-white scale-110 shadow-md ring-4 ring-purple-100" : currentPhase > 3 ? "bg-emerald-500 text-white" : "bg-slate-200 opacity-40"}`}>
-            {currentPhase > 3 ? <CheckCircle2 className="w-4 h-4" /> : "🃏"}
-          </span>
-          <span className={`relative z-10 p-2 rounded-full transition-all ${currentPhase === 4 ? "bg-purple-500 text-white scale-110 shadow-md ring-4 ring-purple-100" : currentPhase > 4 ? "bg-emerald-500 text-white" : "bg-slate-200 opacity-40"}`}>
-            {currentPhase > 4 ? <CheckCircle2 className="w-4 h-4" /> : "🏆"}
-          </span>
-          <span className={`relative z-10 p-2 rounded-full transition-all ${currentPhase === 5 ? "bg-purple-500 text-white scale-110 shadow-md ring-4 ring-purple-100" : "bg-slate-200 opacity-40"}`}>
-            👑
-          </span>
+      {!explanation ? (
+        <div className="text-center py-10 px-5 bg-white border-4 border-dashed border-purple-300 rounded-[2.5rem] shadow-md space-y-4">
+          <div className="text-6xl animate-bounce">🚀</div>
+          <h2 className="text-lg font-black text-purple-950">Selamat Datang, {studentNickname}! 🥰</h2>
+          <p className="text-xs text-slate-500 font-bold px-2">Cikgu ada sediulan banyak bintang dan hadiah untuk awak hari ini tahu!</p>
+          <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 rounded-3xl text-sm font-black bg-gradient-to-r from-purple-500 to-indigo-600 border-b-4 border-indigo-800 text-white shadow-lg active:transform active:scale-95 transition-all">
+            {status.lesson ? "Membuka Pintu Kembara..." : "TEKAN SINI MAIN DENGAN CIKGU! 🌟"}
+          </Button>
         </div>
-        <p className="text-[10px] font-black text-center text-purple-700 uppercase tracking-wider mt-2">
-          {currentPhase === 1 && "🏕️ Misi 1: Selamat Datang, Wira!"}
-          {currentPhase === 2 && "🎬 Misi 2: Cabaran Video Rahsia"}
-          {currentPhase === 3 && "🃏 Misi 3: Cabaran Kad Memori"}
-          {currentPhase === 4 && "🏆 Misi 4: Pertempuran Boss Akhir"}
-          {currentPhase === 5 && "👑 Kembara Selesai: Juara Agung!"}
-        </p>
-      </div>
-
-      {/* CONTROLLER COMPONENT GRAPHICS BLOCK */}
-      <div className="min-h-[320px]">
-        <AnimatePresence mode="wait">
+      ) : (
+        <div className="space-y-4">
           
-          {/* PHASE 1: GREETING & WELCOME */}
-          {currentPhase === 1 && (
-            <motion.div key="phase1" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="text-center py-8 px-5 bg-white border-4 border-purple-300 rounded-[2.5rem] shadow-md space-y-4 relative overflow-hidden">
-              <div className="absolute -top-6 -right-6 w-16 h-16 bg-yellow-300 rounded-full blur-xl opacity-70" />
-              <div className="text-6xl animate-bounce">🦄</div>
-              <h2 className="text-lg font-black text-purple-950">Hai {studentNickname}! 🥰</h2>
-              <p className="text-xs text-slate-600 font-bold px-2 leading-relaxed">
-                Hari ini kamu akan memulakan satu **Pengembaraan Ilmu** yang sangat hebat. Selesaikan semua cabaran di bawah untuk raih ganjaran bertimbun!
-              </p>
+          {/* ANIMAL JOURNEY MAP */}
+          <div className="bg-white p-3 rounded-2xl border-2 border-purple-100 text-center space-y-1.5 shadow-sm">
+            <div className="flex justify-around items-center text-xl">
+              <span className={`p-1.5 rounded-full ${currentPhase === 1 ? "bg-purple-100 scale-125 border-2 border-purple-400 animate-pulse" : "opacity-30"}`}>📺 🐥</span>
+              <span className="text-xs text-slate-200">➔</span>
+              <span className={`p-1.5 rounded-full ${currentPhase === 2 ? "bg-purple-100 scale-125 border-2 border-purple-400" : "opacity-30"}`}>📖 🐱</span>
+              <span className="text-xs text-slate-200">➔</span>
+              <span className={`p-1.5 rounded-full ${currentPhase === 3 ? "bg-purple-100 scale-125 border-2 border-purple-400 animate-pulse" : "opacity-30"}`}>🎮 🐰</span>
+              <span className="text-xs text-slate-200">➔</span>
+              <span className={`p-1.5 rounded-full ${currentPhase === 4 ? "bg-purple-100 scale-125 border-2 border-purple-400" : "opacity-30"}`}>👑 🦁</span>
+            </div>
+            <p className="text-[10px] font-black text-purple-700 uppercase tracking-wider">
+              {currentPhase === 1 && "Fasa 1: Kedai Wayang Gambar Kartun"}
+              {currentPhase === 2 && "Fasa 2: Buku Nota Gambar Warna-Warni"}
+              {currentPhase === 3 && "Fasa 3: Taman Mainan Padanan Emoji"}
+              {currentPhase === 4 && "Fasa Kemuncak: Jom Serang Raja Kuiz"}
+            </p>
+          </div>
+
+          {/* DYNAMIC HUB GRAPHICS */}
+          <div className="min-h-[280px]">
+            <AnimatePresence mode="wait">
               
-              <div className="bg-purple-50 p-3 rounded-2xl border border-purple-100 grid grid-cols-3 gap-2 text-center">
-                <div className="flex flex-col items-center">
-                  <span className="text-sm font-black text-amber-600">+50</span>
-                  <span className="text-[9px] text-slate-400 font-bold">Syiling</span>
-                </div>
-                <div className="flex flex-col items-center border-x border-slate-200">
-                  <span className="text-sm font-black text-purple-600">+120</span>
-                  <span className="text-[9px] text-slate-400 font-bold">XP Wira</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-sm font-black text-red-500">🏅</span>
-                  <span className="text-[9px] text-slate-400 font-bold">Lencana</span>
-                </div>
-              </div>
-
-              <Button 
-                onClick={generateCoreLesson} 
-                disabled={status.lesson} 
-                className="w-full h-14 rounded-3xl text-xs font-black bg-gradient-to-r from-purple-500 to-indigo-600 border-b-4 border-indigo-800 text-white shadow-lg active:transform active:scale-95 transition-all"
-              >
-                {status.lesson ? "Membuka Peta Dunia..." : "ROKETKAN MISI SEKARANG! 🚀"}
-              </Button>
-            </motion.div>
-          )}
-
-          {/* PHASE 2: SECRET CINEMA PLAYER */}
-          {currentPhase === 2 && (
-            <motion.div key="phase2" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="bg-white rounded-3xl p-5 border shadow-sm space-y-4">
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1">
-                <div className="flex items-center gap-2 text-slate-700 font-black text-xs">
-                  <Tv className="w-4 h-4 text-purple-500" /> <span>Cabaran 1: Video Rahsia Guru</span>
-                </div>
-                <p className="text-[10px] text-slate-500 font-bold">
-                  Tonton video pembelajaran ini sehingga tamat untuk mendapatkan petunjuk kod rahsia ke tahap seterusnya!
-                </p>
-              </div>
-
-              <div 
-                onClick={() => setIsImmersive(true)}
-                className="group relative w-full rounded-2xl overflow-hidden aspect-video bg-slate-900 border-4 border-amber-300 shadow-md cursor-pointer"
-              >
-                <iframe 
-                  key={`mini-${videoKey}`}
-                  className="absolute inset-0 w-full h-full pointer-events-none" 
-                  src={securedVideoUrl}
-                  title="Kid Cinema Player"
-                ></iframe>
-                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                  <div className="bg-amber-400 text-slate-950 font-black text-[10px] px-4 py-2.5 rounded-full shadow-lg animate-pulse">
-                    ▶️ KETUK BUKA SKRIN BESAR
-                  </div>
-                </div>
-              </div>
-
-              <div className={`p-3 rounded-2xl border text-center font-black text-[11px] ${isVideoCompleted ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-amber-50 border-amber-300 text-amber-800"}`}>
-                {isVideoCompleted ? (
-                  "✅ Syabas! Video selesai! Jom ketuk butang ungu di bawah untuk ke Misi Flashcard!"
-                ) : (
-                  <div className="space-y-1">
-                    <p>🔒 Sila tonton sehingga habis untuk membuka kunci kotak permainan ya sayang.</p>
-                    <button onClick={() => setIsVideoCompleted(true)} className="text-[9px] text-purple-600 underline block mx-auto font-black">
-                      (Dah siap tengok? Klik cepat di sini untuk langkau)
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* OVERLAY LAYOUT FULLSCREEN */}
-              <AnimatePresence>
-                {isImmersive && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black z-[9999] flex flex-col items-center justify-center p-2">
-                    <div className="w-full max-w-2xl flex justify-between p-2 text-white items-center">
-                      <span className="text-[10px] font-black bg-purple-600 px-3 py-1 rounded-full text-white">📺 WAYANG KEMBARA SI COMEL</span>
-                      <Button onClick={() => setIsImmersive(false)} className="bg-red-500 text-white font-black h-8 px-3 rounded-xl text-xs">✕ Tutup TV</Button>
-                    </div>
-                    <div className="w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-black relative border-2 border-white/20">
-                      <iframe 
-                        key={`full-${videoKey}`}
-                        className="absolute inset-0 w-full h-full" 
-                        src={securedVideoUrl} 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <Button 
-                onClick={handleNextPhase}
-                disabled={!isVideoCompleted}
-                className="w-full h-12 rounded-2xl text-xs font-black bg-purple-600 hover:bg-purple-700 text-white shadow-md disabled:opacity-40"
-              >
-                SAYA DAH BERSEDIA! MARI KAD MEMORI ➡️
-              </Button>
-            </motion.div>
-          )}
-
-          {/* PHASE 3: INTERACTIVE FLASHCARDS */}
-          {currentPhase === 3 && (
-            <motion.div key="phase3" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} className="space-y-4">
-              <div className="bg-white rounded-3xl p-4 border shadow-sm space-y-2">
-                <div className="bg-purple-50 p-2.5 rounded-xl border border-purple-100">
-                  <h4 className="text-xs font-black text-purple-950 flex items-center gap-1.5">
-                    🃏 Cabaran 2: Kuasa Memori Ilmu
-                  </h4>
-                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                    Mari latih otak pintar kamu! Cuba ingat fakta penting di dalam kotak mainan emoji di bawah dengan tepat.
-                  </p>
-                </div>
-                
-                {/* Menjaga kandungan asal LessonContent di atas flashcard */}
-                <div className="prose prose-sm text-slate-800 text-xs font-bold leading-relaxed border-t pt-2 bg-amber-50/50 p-3 rounded-2xl border border-amber-100">
-                  <LessonContent content={explanation} />
-                </div>
-              </div>
-
-              {/* Komponen Permainan Interaktif Utama */}
-              <Year1InteractiveGame 
-                explanation={explanation}
-                keywords={metaData.keywords}
-                topicName={topic?.name || "Topik"}
-                studentNickname={studentNickname}
-                onComplete={() => console.log("Memory cards cleared successfully!")}
-              />
-
-              <Button 
-                onClick={handleNextPhase}
-                className="w-full h-12 rounded-2xl text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md"
-              >
-                💪 SAYA DAH HAFAL! JOM LAWAN BOSS
-              </Button>
-            </motion.div>
-          )}
-
-          {/* PHASE 4: THE BOSS BATTLE CHAMPIONSHIPS */}
-          {currentPhase === 4 && (
-            <motion.div key="phase4" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="bg-gradient-to-br from-purple-700 via-indigo-800 to-slate-900 rounded-[2.5rem] p-6 text-center text-white space-y-4 border-4 border-purple-400 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/20 rounded-full blur-xl" />
-              <div className="text-6xl animate-bounce">🦁</div>
-              <h3 className="text-lg font-black tracking-wide text-yellow-300">⚔️ PERTEMPURAN BOSS AKHIR!</h3>
-              <p className="text-xs text-purple-100 font-medium px-2 leading-relaxed">
-                Inilah masanya untuk membuktikan kamu wira sejati! Jawab semua soalan quiz istimewa cikgu dengan berani untuk rebut mahkota juara.
-              </p>
-
-              <div className="bg-black/30 p-4 rounded-2xl border border-white/10 space-y-2 text-left">
-                <p className="text-[10px] font-bold text-purple-300">Pilih Mod Serangan Wira:</p>
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="bg-white/10 p-2.5 rounded-xl flex items-center justify-between border border-white/5">
-                    <span className="text-[11px] font-black">👑 Cabaran Agung Boss</span>
-                    <span className="text-[9px] bg-yellow-400 text-slate-950 px-1.5 py-0.5 rounded font-extrabold">Recomended</span>
-                  </div>
-                  <div className="bg-white/5 p-2.5 rounded-xl flex items-center justify-between opacity-60">
-                    <span className="text-[11px] font-medium text-slate-300">⚡ Cabaran Pantas Kilat</span>
-                    <Lock className="w-3 h-3" />
-                  </div>
-                </div>
-              </div>
-
-              <Button 
-                onClick={runQuizGeneration} 
-                disabled={status.quiz}
-                className="w-full h-14 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black rounded-3xl text-xs border-b-4 border-amber-700 shadow-lg transition-transform active:scale-95"
-              >
-                {status.quiz ? "Menghidupkan Kuasa Quiz..." : "SERANG KOD BOSS SEKARANG! 🏆"}
-              </Button>
-            </motion.div>
-          )}
-
-          {/* PHASE 5: CELEBRATION COMPLETED SCREEN & MINDMAP OPTIONAL */}
-          {currentPhase === 5 && (
-            <motion.div key="phase5" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
-              <div className="bg-gradient-to-b from-yellow-50 via-amber-100 to-orange-100 rounded-[2.5rem] p-6 border-4 border-amber-400 text-center space-y-4 shadow-xl">
-                <div className="text-6xl animate-pulse">🎉</div>
-                <h4 className="text-xl font-black text-amber-950">MISI KEMBARA TAMAT!</h4>
-                <p className="text-xs text-amber-900 font-bold leading-relaxed px-2">
-                  Tahniah! Kamu telah berjaya menamatkan pengembaraan **{topic?.name || "Topik Ini"}** dengan cemerlang. Kamu memang seorang wira ilmu sejati! 🏅
-                </p>
-
-                <div className="bg-white/80 p-3 rounded-2xl border border-amber-200 flex justify-around items-center max-w-xs mx-auto">
-                  <div className="text-center">
-                    <span className="block text-base font-black text-amber-600">+100</span>
-                    <span className="text-[9px] font-bold text-slate-400">Bonus Syiling</span>
-                  </div>
-                  <div className="w-px h-8 bg-slate-200" />
-                  <div className="text-center">
-                    <span className="block text-base font-black text-purple-600">+200</span>
-                    <span className="text-[9px] font-bold text-slate-400">Bonus XP</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 pt-2">
-                  <Button 
-                    onClick={() => { setShowMindMapEnd(!showMindMapEnd); loadMindMapOnDemand(); }} 
-                    className="rounded-2xl bg-purple-600 hover:bg-purple-700 font-black text-xs text-white h-12 shadow-md border-b-2 border-purple-800"
+              {/* FASA 1: PAWAGAM VIDEO */}
+              {currentPhase === 1 && (
+                <motion.div key="p1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl p-4 border shadow-sm space-y-3">
+                  <button 
+                    onClick={() => speakWithLove("Ketuk gambar televisyen besar warna hitam di bawah untuk tonton kartun comel sehingga habis ya!")}
+                    className="w-full text-left bg-slate-50 p-2.5 rounded-2xl flex items-center gap-2 border"
                   >
-                    <Compass className="w-4 h-4 mr-1.5 animate-spin" /> {showMindMapEnd ? "Sorok Peta Minda" : "🗺️ Lihat Peta Minda Lukisan"}
-                  </Button>
-                </div>
-              </div>
+                    <span className="text-lg">🔊</span>
+                    <p className="text-[11px] font-bold text-slate-600">Ketuk TV bawah untuk tengok kartun gembira! 🍿</p>
+                  </button>
 
-              {/* Paparan MindMap bersyarat selepas tamat pengembaraan */}
-              {showMindMapEnd && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl p-4 border shadow-md space-y-2">
-                  <h3 className="font-black text-xs text-slate-800 flex items-center gap-1">🗺️ Peta Jalan Lukisan Visual</h3>
-                  {mindMap ? (
-                    <MindMap mindMap={{ central_topic: topic?.name || "Nota Pintar", branches: mindMap }} />
-                  ) : (
-                    <p className="text-center text-[10px] py-4 text-slate-400 animate-pulse">Tengah melukis gambaran peta minda...</p>
-                  )}
+                  <div 
+                    onClick={() => setIsImmersive(true)}
+                    className="group relative w-full rounded-2xl overflow-hidden aspect-video bg-slate-900 border-4 border-amber-300 shadow-md cursor-pointer"
+                  >
+                    <iframe 
+                      key={`mini-${videoKey}`}
+                      className="absolute inset-0 w-full h-full pointer-events-none" 
+                      src={securedVideoUrl}
+                      title="Kid Cinema Player"
+                    ></iframe>
+                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                      <div className="bg-amber-400 text-slate-950 font-black text-xs px-4 py-2.5 rounded-full shadow-lg animate-bounce">
+                        ▶️ KETUK BUKA TV BESAR
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`p-3 rounded-2xl border text-center font-black text-xs ${isVideoCompleted ? "bg-emerald-100 border-emerald-300 text-emerald-800" : "bg-amber-100 border-amber-300 text-amber-800"}`}>
+                    {isVideoCompleted ? (
+                      "✅ Alhamdulillah video dah habis! Jom tekan butang ungu bawah pergi ke kedai game!"
+                    ) : (
+                      <div className="space-y-1">
+                        <p>🔒 Tonton sehingga habis untuk buka kunci kotak permainan ya sayang.</p>
+                        <button onClick={() => setIsVideoCompleted(true)} className="text-[9px] text-purple-600 underline block mx-auto font-black">
+                          (Dah siap tengok? Klik sini jika terlekat)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* IMMERSIVE MODE LAYOVER */}
+                  <AnimatePresence>
+                    {isImmersive && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black z-[9999] flex flex-col items-center justify-center p-2">
+                        <div className="w-full max-w-2xl flex justify-between p-2 text-white items-center">
+                          <span className="text-[10px] font-black bg-purple-600 px-3 py-1 rounded-full text-white">📺 TELEVISYEN KEMBARA SI COMEL</span>
+                          <Button onClick={() => setIsImmersive(false)} className="bg-red-500 text-white font-black h-8 px-3 rounded-xl text-xs">✕ Tutup TV</Button>
+                        </div>
+                        <div className="w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-black relative border-2 border-white/20">
+                          <iframe 
+                            key={`full-${videoKey}`}
+                            className="absolute inset-0 w-full h-full" 
+                            src={securedVideoUrl} 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          ></iframe>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               )}
-            </motion.div>
-          )}
 
-        </AnimatePresence>
-      </div>
+              {/* FASA 2: BUKU NOTA GAMBAR */}
+              {currentPhase === 2 && (
+                <motion.div key="p2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+                  <div className="bg-white rounded-3xl p-5 border shadow-sm space-y-2">
+                    <button onClick={() => speakWithLove("Mari lihat contoh gambar apel yang manis ini. Ada epal yang penuh banyak... dan ada epal yang tinggal sedikit kesunyian.")} className="w-full text-left bg-purple-50 p-2.5 rounded-2xl flex items-center gap-2 border border-purple-200">
+                      <span className="text-base">🔊</span>
+                      <p className="text-[11px] font-black text-purple-950">Dengar penjelasan buku nota bergambar 📖</p>
+                    </button>
+                    <div className="prose prose-sm text-slate-800 text-xs font-bold leading-relaxed border-t pt-2">
+                      <LessonContent content={explanation} />
+                    </div>
+                  </div>
 
-      {/* FOOTER NAVIGATION SYSTEM CONTROL */}
-      {explanation && currentPhase < 5 && (
-        <div className="flex justify-between items-center pt-2 border-t border-dashed border-slate-200">
-          <Button 
-            onClick={handlePrevPhase} 
-            disabled={currentPhase === 1}
-            className="rounded-2xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-black px-4 h-10 disabled:opacity-30 transition-all"
-          >
-            ⬅️ Undur Balik
-          </Button>
-          
-          {currentPhase < 4 && (
-            <Button 
-              onClick={handleNextPhase}
-              className="rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black px-5 h-10 border-b-2 border-indigo-900 shadow-sm transition-transform active:scale-95"
-            >
-              Misi Seterusnya ➡️
+                  <div className="bg-white rounded-3xl p-3 border shadow-sm space-y-1">
+                    <h3 className="font-black text-xs text-slate-800 flex items-center gap-1">🗺️ Peta Jalan Lukisan Visual</h3>
+                    {mindMap ? <MindMap mindMap={{ central_topic: topic?.name || "Nota", branches: mindMap }} /> : <p className="text-center text-[10px] py-2 text-slate-400">Tengah melukis gambar...</p>}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* FASA 3: DRAG GAME PLAYGROUND */}
+              {currentPhase === 3 && (
+                <motion.div key="p3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                  <Year1InteractiveGame 
+                    explanation={explanation}
+                    keywords={metaData.keywords}
+                    topicName={topic?.name || "Topik"}
+                    studentNickname={studentNickname}
+                    onComplete={() => console.log("Game cleared!")}
+                  />
+                </motion.div>
+              )}
+
+              {/* FASA 4: SERANGAN KUIZ RAJA */}
+              {currentPhase === 4 && (
+                <motion.div key="p4" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+                  <div className="bg-gradient-to-br from-red-500 via-orange-500 to-yellow-400 rounded-[2.5rem] p-6 text-center text-white space-y-4 border-b-8 border-red-800 shadow-2xl">
+                    <div className="text-6xl animate-bounce">🦁</div>
+                    <h3 className="font-black text-lg uppercase tracking-wider">MASA SERANG RAJA KUIZ BESAR!</h3>
+                    <p className="text-xs font-bold text-yellow-100 px-2 leading-relaxed">
+                      Jawab 10 soalan kuiz bergambar yang senang sangat, kalahkan raksasa kuiz dan menangi pingat emas kejayaan awak! 🏅
+                    </p>
+                    <Button onClick={runQuizGeneration} disabled={status.quiz} className="bg-yellow-300 hover:bg-yellow-400 text-slate-950 font-black rounded-2xl text-xs w-full h-14 border-b-4 border-yellow-600 shadow-md transform active:scale-95 transition-all">
+                      {status.quiz ? "Menyusun Tapak Pertandingan..." : "JOM MULA KUIZ SEKARANG ⚔️💥"}
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+            </AnimatePresence>
+          </div>
+
+          {/* FLOATING CONTROL ACTION BOTTOM NAV BAR */}
+          <div className="fixed bottom-4 left-0 right-0 px-4 flex justify-between gap-4 max-w-md mx-auto z-40">
+            <Button onClick={handlePrevPhase} disabled={currentPhase === 1} className="h-14 px-5 rounded-3xl font-black bg-white text-slate-700 text-xs border-2 border-slate-300 border-b-4 border-slate-400 shadow-md active:scale-95 transition-all">
+              ⬅️ Patah Balik
             </Button>
-          )}
+            
+            {currentPhase < 4 ? (
+              <Button 
+                onClick={handleNextPhase} 
+                disabled={currentPhase === 1 && !isVideoCompleted}
+                className={`h-14 px-6 rounded-3xl font-black text-xs text-white shadow-lg flex items-center gap-1.5 transition-all ${
+                  currentPhase === 1 && !isVideoCompleted 
+                    ? "bg-slate-300 border-slate-400 text-slate-500 cursor-not-allowed opacity-70" 
+                    : "bg-gradient-to-r from-purple-500 to-pink-500 border-b-4 border-pink-700 active:scale-105"
+                }`}
+              >
+                {currentPhase === 1 && !isVideoCompleted ? "🔒 Tonton Dulu TV" : "Misi Seterusnya ➡️"}
+              </Button>
+            ) : (
+              <span className="text-[10px] font-black text-red-950 bg-yellow-300 border-2 border-yellow-500 px-4 py-3 rounded-full shadow-md animate-pulse flex items-center justify-center">
+                SERANG RAJA KUIZ! 🔥
+              </span>
+            )}
+          </div>
+
         </div>
       )}
-
     </div>
   );
 }
