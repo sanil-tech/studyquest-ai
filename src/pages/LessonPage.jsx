@@ -1,574 +1,582 @@
-// src/pages/LessonPage.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, HelpCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
-import confetti from "canvas-confetti";
+import { useParams, useNavigate } from "react-router-dom";
+import confetti from "canvas-competti";
 
-import LessonProgress from "@/components/lesson/LessonProgress";
-import LessonContent from "@/components/lesson/LessonContent";
-import VoicePlayer from "@/components/lesson/VoicePlayer";
-import Flashcards from "@/components/lesson/Flashcards";
-import MindMap from "@/components/lesson/MindMap";
+// Pastikan import Base44 global sepadan dengan persediaan sedia ada anda
+// import { base44 } from "../lib/base44"; 
 
-// ============================================================================
-// 1. HIGH-EFFICIENCY MICRO-PROMPT REGISTRY
-// ============================================================================
-const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
-
-const FORMAT_CONSTRAINTS = {
-  ms: "Tulis SELURUH kandungan dalam Bahasa Melayu sahaja. JANGAN gunakan perkataan Bahasa Inggeris.",
-  en: "Write the ENTIRE content in English only."
-};
-
-const LESSON_PROMPT = (topic, subject, level, lang, studentNickname) => `
-${BASE_SYSTEM_PROMPT}
-${FORMAT_CONSTRAINTS[lang]}
-Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
-
-CRITICAL TONE INSTRUCTION:
-The student's personalized friendly nickname is "${studentNickname}". 
-Your tone must be exceptionally warm, encouraging, cheerful, and affectionate—like a loving older sibling or a favorite supportive teacher. 
-Do NOT sound robotic or dry. Use words of encouragement frequently (e.g., "Wah, hebatnya!", "Bijak!", "Jom kita teroka sama-sama!").
-Address the student directly and personally by their nickname "${studentNickname}" naturally throughout the lesson, especially at the start of new concepts and during encouraging remarks.
-
-Generate a concise, highly engaging lesson (700-1000 words max). Use short paragraphs (2-3 sentences max for easy mobile reading), clear subheadings (###), and bold key terms.
-Incorporate 1-2 specialized info card markers directly in text: [REMEMBER]...[/REMEMBER] or [EXAMPLE]...[/EXAMPLE].
-Return JSON schema matching: { "lesson_markdown": "string", "summary": "string", "keywords": ["string"] }
-`;
-
-const MINDMAP_PROMPT = (summary, keywords, lang) => `
-${BASE_SYSTEM_PROMPT}
-${FORMAT_CONSTRAINTS[lang]}
-Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, create a mind map structure.
-Return JSON schema matching: [{ "label": "string", "children": ["string"] }]
-`;
-
-// Helper untuk merawakkan array (Fisher-Yates Shuffle Algorithm)
-const shuffleArray = (array) => {
-  const newArr = [...array];
-  for (let i = newArr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-  }
-  return newArr;
-};
-
-// ============================================================================
-// 2. DYNAMIC RESPONSIVE MAIN COMPONENT LAYER
-// ============================================================================
 export default function LessonPage() {
-  const { subjectId, topicId } = useParams();
+  const { sessionId } = useParams();
   const navigate = useNavigate();
-  
-  const [subject, setSubject] = useState(null);
-  const [topic, setTopic] = useState(null);
-  const [sessionId, setSessionId] = useState(null);
-  const [studentNickname, setStudentNickname] = useState(""); 
-  const [loading, setLoading] = useState(true);
-  
-  // Logik Premium Status
-  const [isPremium, setIsPremium] = useState(false);
 
-  // Cache States
-  const [explanation, setExplanation] = useState("");
-  const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
-  const [flashcards, setFlashcards] = useState(null);
-  const [mindMap, setMindMap] = useState(null);
+  // --- SISTEM STATE (MENGEKALKAN LOGIK PERNIAGAAN ASAL) ---
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
+  const [lesson, setLesson] = useState(null);
+  const [topic, setTopic] = useState(null);
+  const [subject, setSubject] = useState(null);
+  
+  // State Kandungan
+  const [lessonContent, setLessonContent] = useState("");
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  const [activeTab, setActiveTab] = useState("lesson"); 
-  const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
+  // State Kemajuan Misi & Gamifikasi
+  const [currentMission, setCurrentMission] = useState(1); // 1 hingga 4
+  const [unlockedMission, setUnlockedMission] = useState(1);
+  const [cluesFound, setCluesFound] = useState([]);
+  const [gameScore, setGameScore] = useState(0);
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [xp, setXp] = useState(0);
+  const [coins, setCoins] = useState(0);
+  const [showUnlockAnimation, setShowUnlockAnimation] = useState(false);
 
-  const studyStartRef = useRef(null);
-  const sessionRef = useRef(null);
+  // State Audio / Ucapan
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const synthRef = useRef(window.speechSynthesis);
 
-  useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
+  // --- STATE PERMAINAN PADANAN MEMORI (MISI 3) ---
+  const [cards, setCards] = useState([]);
+  const [flippedCards, setFlippedCards] = useState([]);
+  const [matchedCards, setMatchedCards] = useState([]);
 
-  const tentukanPanggilanMesra = (userObj, formLevel) => {
-    const customNickname = userObj?.nickname || userObj?.profile?.nickname;
-    if (customNickname?.trim()) return customNickname.trim();
-    const namaPenuh = userObj?.name || userObj?.display_name || userObj?.profile?.name;
-    if (namaPenuh?.trim()) {
-      const namaPertama = namaPenuh.trim().split(" ")[0];
-      if (namaPertama && !namaPertama.includes("@")) return namaPertama;
-    }
-    if (!formLevel) return "Kawan";
-    const level = formLevel.toLowerCase();
-    if (level.includes("tahun") || level.includes("standard") || level.includes("primary")) return "Bintang";
-    return "Sahabat";
-  };
-
+  // --- 1. AMBIL DATA AWAL & SEMAKAN KEUTAMAAN ---
   useEffect(() => {
-    const initializeLesson = async () => {
+    async function loadAdventureData() {
       try {
-        const [sub, top, user] = await Promise.all([
-          base44.entities.Subject.get(subjectId),
-          base44.entities.Topic.get(topicId),
-          base44.auth.me(),
-        ]);
-        setSubject(sub);
-        setTopic(top);
-        setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
-        
-        setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
+        setLoading(true);
+        // Ambil data StudySession sedia ada
+        const sessionData = await base44.entities.StudySession.get(sessionId);
+        setSession(sessionData);
 
-        // Tarik semua data kuiz/bank soalan dari database
-        const allQuizBanks = await base44.entities.Quiz.filter({});
+        if (sessionData?.lesson_id) {
+          const lessonData = await base44.entities.Lesson.get(sessionData.lesson_id);
+          setLesson(lessonData);
 
-        if (allQuizBanks && allQuizBanks.length > 0) {
-          const namaTopikSemasa = top.name.toLowerCase().trim();
-          
-          const foundBank = allQuizBanks.find(bank => {
-            const namaBankCsv = (bank.topic_name || "").toLowerCase().trim();
-            return namaBankCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(namaBankCsv);
-          });
+          if (lessonData?.topic_id) {
+            const topicData = await base44.entities.Topic.get(lessonData.topic_id);
+            setTopic(topicData);
 
-          if (foundBank) {
-            const parsedQs = JSON.parse(foundBank.questions_json || "[]");
-            setRawBankQuestions(parsedQs);
-            console.log(`🎯 Bank soalan dijumpai untuk topik ini! Sedia dengan ${parsedQs.length} soalan.`);
+            if (topicData?.subject_id) {
+              const subjData = await base44.entities.Subject.get(topicData.subject_id);
+              setSubject(subjData);
+            }
           }
-        }
 
-        const cachedSessions = await base44.entities.StudySession.filter(
-          { student_id: user.id, topic_id: topicId },
-          "-created_date",
-          1
-        );
-
-        if (cachedSessions.length > 0) {
-          const session = cachedSessions[0];
-          setSessionId(session.id);
+          // KEUTAMAAN 1: Semak nota sedia ada dalam Lesson atau StudySession
+          const existingNotes = lessonData.notes || sessionData.custom_notes || "";
           
-          if (session.ai_explanation) {
-            const parsed = JSON.parse(session.ai_explanation);
-            setExplanation(parsed.lesson_markdown);
-            setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+          if (existingNotes.trim().length > 10) {
+            // Guna nota sedia ada, elakkan panggilan AI
+            setLessonContent(existingNotes);
+            setIsAiGenerated(false);
+          } else {
+            // KEUTAMAAN 2: Tiada nota, panggil AI Sandaran (Ringkas & Mesra Kanak-kanak)
+            setIsAiGenerated(true);
+            const aiPrompt = `Sila hasilkan nota pembelajaran ringkas untuk kanak-kanak berumur 7-12 tahun tentang topik: "${topicData?.name || "Sains"}". 
+            Maksimum 250 patah perkataan. Gunakan ayat pendek, banyak emoji, dan nada seorang guru yang sangat penyayang. 
+            Mesti mengandungi: Ringkasan topik, 3 Isi penting, 1 Fakta Utama, dan 1 Tips Mengingati yang seronok.`;
             
-            if (session.mindmap_json) setMindMap(JSON.parse(session.mindmap_json));
+            const generatedText = await base44.ai.generateText({ prompt: aiPrompt });
+            setLessonContent(generatedText || "Wah hebat! Jom kita mulakan misi pembelajaran hari ini! 🌟");
+          }
+
+          // Muat Bank Soalan untuk Misi 4 (Cabaran Boss) tanpa ubah logik asal
+          if (topicData?.name) {
+            const allBanks = await base44.entities.QuizBank.list();
+            const foundBank = allBanks.find(b => b.topic_name === topicData.name);
+            if (foundBank) {
+              const parsedQs = JSON.parse(foundBank.questions_json || "[]");
+              setRawBankQuestions(parsedQs);
+            }
           }
         }
-      } catch (err) {
-        console.error("Cache initialization failed", err);
+      } catch (error) {
+        console.error("Gagal memuatkan misi pengembaraan:", error);
       } finally {
-        studyStartRef.current = Date.now();
         setLoading(false);
       }
+    }
+
+    loadAdventureData();
+  }, [sessionId]);
+
+  // Bersihkan audio jika menukar halaman
+  useEffect(() => {
+    return () => {
+      if (synthRef.current) synthRef.current.cancel();
     };
-    initializeLesson();
-  }, [subjectId, topicId]);
+  }, []);
 
-  const recordStudyTime = async () => {
-    if (!sessionRef.current || !studyStartRef.current) return;
-    const minutes = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
-    try { await base44.entities.StudySession.update(sessionRef.current, { duration_minutes: minutes }); } catch (err) { console.warn("Failed to record study time", err); }
-  };
+  // --- 2. PENUKAR TEKS KEPADA UCAPAN (WEB SPEECH API) ---
+  const speakText = (textToRead) => {
+    if (!synthRef.current) return;
 
-  useEffect(() => { return () => { recordStudyTime(); }; }, []);
-
-  const getLanguageMode = () => subject?.name?.toLowerCase().includes("english") ? "en" : "ms";
-
-  const getContextConfiguration = async () => {
-    const textbooks = await base44.entities.Textbook.filter({ subject_id: subjectId });
-    const matchingBook = textbooks.find(t => t.form_level === topic.form_level);
-    if (matchingBook && (!matchingBook.file_size || matchingBook.file_size <= 10 * 1024 * 1024)) {
-      return { urls: [matchingBook.file_url], useInternet: false };
+    if (isSpeaking) {
+      synthRef.current.cancel();
+      setIsSpeaking(false);
+      return;
     }
-    return { urls: undefined, useInternet: true };
+
+    // Bersihkan sebarang simbol markdown untuk pembacaan lancar
+    const cleanText = textToRead.replace(/[#*`]/g, "");
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    
+    // Cari suara Bahasa Melayu (ms-MY) terbaik, sandaran kepada Bahasa Inggeris
+    const voices = synthRef.current.getVoices();
+    const malayVoice = voices.find(v => v.lang.includes("ms") || v.lang.includes("MY")) || voices.find(v => v.lang.includes("en"));
+    
+    if (malayVoice) {
+      utterance.voice = malayVoice;
+    }
+    
+    utterance.rate = 0.95; // Diperlahankan sedikit untuk pemahaman kanak-kanak
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    synthRef.current.speak(utterance);
   };
 
-  const triggerConfetti = () => {
+  // --- 3. PENGESANAN & ANALISIS URL YOUTUBE ---
+  const getYouTubeEmbedUrl = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+  };
+
+  const videoUrl = lesson?.video_url || session?.video_url || null;
+  const embedUrl = getYouTubeEmbedUrl(videoUrl);
+
+  // --- 4. Ganjaran Kemajuan Misi ---
+  const handleMissionComplete = (missionNumber, xpReward, coinReward) => {
     confetti({
-      particleCount: 150,
-      spread: 80,
-      origin: { y: 0.6 },
-      colors: ['#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981']
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.7 }
     });
-  };
 
-  const generateCoreLesson = async () => {
-    setStatus(p => ({ ...p, lesson: true }));
-    try {
-      const user = await base44.auth.me();
-      const config = await getContextConfiguration();
-      const lang = getLanguageMode();
-
-      const response = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash", 
-        add_context_from_internet: config.useInternet,
-        file_urls: config.urls,
-        prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, studentNickname),
-        response_json_schema: {
-          type: "object",
-          properties: {
-            lesson_markdown: { type: "string" },
-            summary: { type: "string" },
-            keywords: { type: "array", items: { type: "string" } }
-          },
-          required: ["lesson_markdown", "summary", "keywords"]
-        }
-      });
-
-      const session = await base44.entities.StudySession.create({
-        student_id: user.id,
-        subject_id: subjectId,
-        topic_id: topicId,
-        topic_name: topic.name,
-        subject_name: subject.name,
-        ai_explanation: JSON.stringify(response),
-        duration_minutes: 0,
-      });
-
-      setSessionId(session.id);
-      setExplanation(response.lesson_markdown);
-      setMetaData({ summary: response.summary, keywords: response.keywords });
-      
-      triggerBackgroundPrefetch(response.summary, response.keywords, lang, session.id);
-      
-      // 🎉 Cetuskan animasi confetti apabila berjaya!
-      triggerConfetti();
-    } catch (e) {
-      console.error(e);
-    } finally { setStatus(p => ({ ...p, lesson: false })); }
-  };
-
-  const triggerBackgroundPrefetch = async (summary, keywords, lang, targetSessionId) => {
-    try {
-      base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        prompt: MINDMAP_PROMPT(summary, keywords, lang),
-      }).then(res => {
-        if (res && Array.isArray(res)) {
-          base44.entities.StudySession.update(targetSessionId, { mindmap_json: JSON.stringify(res) });
-          setMindMap(res);
-        }
-      });
-    } catch (e) {
-      console.warn("Background prefetch failed", e);
+    setXp(prev => prev + xpReward);
+    setCoins(prev => prev + coinReward);
+    
+    if (missionNumber === unlockedMission && unlockedMission < 4) {
+      const nextMission = unlockedMission + 1;
+      setUnlockedMission(nextMission);
+      setShowUnlockAnimation(true);
+      setTimeout(() => {
+        setShowUnlockAnimation(false);
+        setCurrentMission(nextMission);
+      }, 1200);
+    } else if (missionNumber < 4) {
+      setCurrentMission(missionNumber + 1);
     }
   };
 
-  const loadFlashcardsOnDemand = async () => {
-    if (flashcards && flashcards.length > 0) return;
-    if (status.flashcards) return;
-    
-    setStatus(p => ({ ...p, flashcards: true }));
-    
-    try {
-      if (rawBankQuestions && rawBankQuestions.length > 0) {
-        const shuffled = shuffleArray(rawBankQuestions);
-        const selectedQuestions = shuffled.slice(0, 8);
-
-        const mappedCards = selectedQuestions.map(q => ({
-          front: q.question,
-          back: `${q.correct_answer}\n\n${q.explanation || ""}`
-        }));
-
-        if (sessionId) {
-          try {
-            await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(mappedCards) });
-          } catch (dbErr) {
-            console.error("Gagal mengemas kini StudySession:", dbErr);
-          }
-        }
-        
-        setFlashcards(mappedCards);
-        setStatus(p => ({ ...p, flashcards: false }));
-        return; 
-      } 
+  // --- 5. PERSEDIAAN PERMAINAN MINI (MISI 3) ---
+  useEffect(() => {
+    if (currentMission === 3) {
+      const baseElements = ["🧠", "⭐", "🔮", "🚀", "💎", "🍀"];
+      const shuffledElements = [...baseElements, ...baseElements]
+        .sort(() => Math.random() - 0.5)
+        .map((element, index) => ({ id: index, val: element }));
       
-      const konteksRujukan = metaData?.summary || topic?.name || "Matematik Tahun 1";
-      const lang = getLanguageMode();
+      setCards(shuffledElements);
+      setFlippedCards([]);
+      setMatchedCards([]);
+      setGameCompleted(false);
+    }
+  }, [currentMission]);
 
-      const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        prompt: `Based on the topic/summary: "${konteksRujukan}", generate exactly 5 educational flashcards for a primary school student. The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}. Ensure high engagement. Return JSON schema matching: [{ "front": "string", "back": "string" }]`,
-      });
+  const handleCardClick = (id) => {
+    if (flippedCards.length === 2 || matchedCards.includes(id) || flippedCards.includes(id)) return;
+    
+    const newFlipped = [...flippedCards, id];
+    setFlippedCards(newFlipped);
 
-      if (res && Array.isArray(res) && res.length > 0) {
-        if (sessionId) {
-          try {
-            await base44.entities.StudySession.update(sessionId, { flashcards_json: JSON.stringify(res) });
-          } catch (dbErr) {
-            console.error("Gagal mengemas kini StudySession:", dbErr);
-          }
+    if (newFlipped.length === 2) {
+      const firstCard = cards.find(c => c.id === newFlipped[0]);
+      const secondCard = cards.find(c => c.id === newFlipped[1]);
+
+      if (firstCard.val === secondCard.val) {
+        setMatchedCards(prev => [...prev, newFlipped[0], newFlipped[1]]);
+        setFlippedCards([]);
+        if (matchedCards.length + 2 === cards.length) {
+          setGameCompleted(true);
         }
-        setFlashcards(res);
       } else {
-        const fallbackCards = [
-          { front: `Mari teroka topik ${topic?.name || "ini"} bersama-sama!`, back: "Hebat! Klik butang 'Seterusnya' untuk kad lain. ✨" },
-          { front: "Berapakah hasil 1 + 1?", back: "2\n\nBijak! 1 digabung dengan 1 menjadi dua. 🌟" },
-          { front: "Kumpulan yang mempunyai objek yang banyak dipanggil?", back: "Kumpulan Banyak\n\nSyabas! Anda memang pemenang. 🏆" }
-        ];
-        setFlashcards(fallbackCards);
+        setTimeout(() => setFlippedCards([]), 1000);
       }
-    } catch (err) {
-      console.error("Ralat kritikal dalam loadFlashcardsOnDemand:", err);
-      const errorFallback = [
-        { front: `Jom uji kefahaman tentang ${topic?.name || "topik ini"}!`, back: "Sedia! Tekan butang Kuiz di bawah untuk mula menjawab soalan. 🎯" }
+    }
+  };
+
+  // --- 6. MISI 4: CABARAN BOSS (MENGEKALKAN RUNQUIZGENERATION Sedia ada) ---
+  const startBossChallenge = async () => {
+    try {
+      setLoading(true);
+      
+      // Pembahagian kesukaran: 7 Mudah, 7 Sederhana, 6 Sukar (Jumlah 20 Soalan)
+      let selectedPool = [];
+      const easyQs = rawBankQuestions.filter(q => q.difficulty?.toLowerCase() === "easy" || q.difficulty?.toLowerCase() === "mudah" || !q.difficulty);
+      const mediumQs = rawBankQuestions.filter(q => q.difficulty?.toLowerCase() === "medium" || q.difficulty?.toLowerCase() === "sederhana");
+      const hardQs = rawBankQuestions.filter(q => q.difficulty?.toLowerCase() === "hard" || q.difficulty?.toLowerCase() === "sukar");
+
+      selectedPool = [
+        ...easyQs.sort(() => 0.5 - Math.random()).slice(0, 7),
+        ...mediumQs.sort(() => 0.5 - Math.random()).slice(0, 7),
+        ...hardQs.sort(() => 0.5 - Math.random()).slice(0, 6)
       ];
-      setFlashcards(errorFallback);
-    } finally { 
-      setStatus(p => ({ ...p, flashcards: false })); 
-    }
-  };
 
-  const runQuizGeneration = async (numQ) => {
-    await recordStudyTime();
-    setStatus(p => ({ ...p, quiz: true }));
-
-    const determinedDifficulty = numQ >= 20 ? "hard" : numQ >= 10 ? "medium" : "easy";
-
-    try {
-      if (rawBankQuestions && rawBankQuestions.length > 0) {
-        let filteredPool = [...rawBankQuestions];
-
-        if (determinedDifficulty === "hard") {
-          const hardQuestions = rawBankQuestions.filter(q => 
-            q.difficulty?.toLowerCase() === "hard" || q.difficulty?.toLowerCase() === "medium"
-          );
-          if (hardQuestions.length >= numQ) {
-            filteredPool = hardQuestions;
-          }
-        }
-
-        const shuffledQuestions = shuffleArray(filteredPool);
-        const selectedPool = shuffledQuestions.slice(0, Math.min(numQ, shuffledQuestions.length));
-
-        const quiz = await base44.entities.Quiz.create({
-          session_id: sessionId,
-          topic_name: topic.name,
-          subject_name: subject?.name || "Matematik",
-          questions_json: JSON.stringify(selectedPool),
-          difficulty: determinedDifficulty,
-          num_questions: selectedPool.length,
-        });
-        
-        navigate(`/quiz/${quiz.id}`);
-        return;
-      } 
-      else {
-        const lang = getLanguageMode();
-        
-        const res = await base44.integrations.Core.InvokeLLM({
-          model: "gemini_3_flash",
-          prompt: `Based on the topic: "${topic?.name}" and Summary: "${metaData.summary}", generate exactly ${numQ} multiple-choice questions for primary school students. 
-          Since this is an EXAM mode, the difficulty level must be "${determinedDifficulty}". Include higher-order thinking (KBAT) questions suitable for this level. 
-          The language must be ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.
-          Return JSON schema matching: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
-        });
-        
-        if (res && Array.isArray(res) && res.length > 0) {
-          const finalQuestions = res.slice(0, numQ);
-
-          const quiz = await base44.entities.Quiz.create({
-            session_id: sessionId,
-            topic_name: topic.name,
-            subject_name: subject?.name || "Matematik",
-            questions_json: JSON.stringify(finalQuestions),
-            difficulty: determinedDifficulty,
-            num_questions: finalQuestions.length,
-          });
-          navigate(`/quiz/${quiz.id}`);
-        }
+      if (selectedPool.length < 20) {
+        const remaining = rawBankQuestions.filter(q => !selectedPool.includes(q));
+        selectedPool = [...selectedPool, ...remaining.slice(0, 20 - selectedPool.length)];
       }
-    } catch (err) {
-      console.error("Gagal menjana kuiz exam:", err);
-    } finally {
-      setStatus(p => ({ ...p, quiz: false }));
-    }
-  };
 
-  const loadMindMapOnDemand = async () => {
-    if (mindMap && mindMap.length > 0) return;
-    if (status.mindmap) return;
+      if (selectedPool.length === 0) {
+        selectedPool = rawBankQuestions.slice(0, 20);
+      }
 
-    setStatus(p => ({ ...p, mindmap: true }));
-    try {
-      const lang = getLanguageMode();
-      const summary = metaData?.summary || topic?.name || "";
-      const keywords = metaData?.keywords || [];
-
-      const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        prompt: MINDMAP_PROMPT(summary, keywords, lang),
+      // Pendaftaran Pusingan Kuiz ke Base44
+      const quizInstance = await base44.entities.Quiz.create({
+        session_id: sessionId,
+        topic_name: topic?.name || "Misi Pengembaraan",
+        subject_name: subject?.name || "Matematik",
+        questions_json: JSON.stringify(selectedPool),
+        difficulty: "Campuran (Misi Boss)",
+        num_questions: selectedPool.length,
       });
 
-      if (res && Array.isArray(res)) {
-        if (sessionId) {
-          try {
-            await base44.entities.StudySession.update(sessionId, { mindmap_json: JSON.stringify(res) });
-          } catch (dbErr) {
-            console.error("Gagal mengemas kini StudySession untuk mindmap:", dbErr);
-          }
-        }
-        setMindMap(res);
-      }
+      navigate(`/quiz/${quizInstance.id}`);
     } catch (err) {
-      console.error("Ralat dalam loadMindMapOnDemand:", err);
+      console.error("Gagal melancarkan Cabaran Boss:", err);
+      alert("Alamak! Gagal bersedia untuk Cabaran Boss. Sila cuba lagi ya!");
     } finally {
-      setStatus(p => ({ ...p, mindmap: false }));
+      setLoading(false);
     }
-  };
-
-  const handlePremiumRedirect = () => {
-    alert("Opps! Ciri eksklusif ini hanya untuk ahli Premium sahaja. Jom langgan premium sekarang untuk belajar tanpa had! 🚀");
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-10 h-10 border-4 border-cyan-200 border-t-cyan-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-amber-50 flex flex-col items-center justify-center p-6">
+        <div className="animate-bounce text-6xl mb-4">🏕️</div>
+        <h2 className="text-2xl font-bold text-amber-900 text-center animate-pulse font-sans">
+          Membuka Peta Pengembaraan...
+        </h2>
       </div>
     );
   }
 
   return (
-    <div className="px-3 sm:px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-8 pb-24 font-sans bg-slate-50/50 min-h-screen">
+    <div className="min-h-screen bg-gradient-to-b from-blue-100 via-emerald-50 to-amber-50 font-sans pb-12 selection:bg-yellow-200">
       
-      {/* Top Header Row - Warna Cyan yang Ceria */}
-      <motion.div 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="flex items-center gap-4 bg-gradient-to-r from-cyan-100 to-blue-100 p-4 sm:p-5 rounded-3xl border-2 border-cyan-200 shadow-sm"
-      >
-        <Link to={`/study/${subjectId}`} className="p-3 bg-white rounded-2xl shadow-sm hover:shadow-md hover:bg-cyan-50 active:scale-90 transition-all">
-          <ArrowLeft className="w-6 h-6 text-cyan-600" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold truncate text-slate-800 tracking-tight">
-            {topic?.name} 🌟
-          </h1>
-          <p className="text-cyan-700 font-medium text-xs sm:text-sm truncate">
-            {subject?.icon} {subject?.name} • {topic?.form_level}
-          </p>
-        </div>
-      </motion.div>
-
-      {!explanation ? (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }} 
-          animate={{ opacity: 1, scale: 1 }} 
-          transition={{ type: "spring", bounce: 0.5 }}
-          className="text-center py-14 px-6 bg-white border-4 border-dashed border-primary/30 rounded-[2rem] shadow-xl shadow-primary/5 max-w-md mx-auto"
-        >
-          <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 flex items-center justify-center mx-auto mb-6 shadow-inner">
-            <Sparkles className="w-10 h-10 text-primary animate-pulse" />
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold mb-3 text-slate-800">
-            Hai {studentNickname}! 👋<br/>Sedia untuk belajar? 🚀
-          </h2>
-          <p className="text-slate-500 text-sm mb-8 max-w-xs mx-auto">
-            Jom kita teroka ilmu baru hari ini dengan nota yang super seronok!
-          </p>
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button onClick={generateCoreLesson} disabled={status.lesson} className="w-full h-14 rounded-full text-base font-bold shadow-lg shadow-primary/30 bg-primary hover:bg-primary/90">
-              {status.lesson ? <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Tunggu sekejap ya... 🪄</> : <><Sparkles className="w-5 h-5 mr-2"/> Mula Pengembaraan!</>}
-            </Button>
-          </motion.div>
-        </motion.div>
-      ) : (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+      {/* PAPARAN METER ATAS (HUD) */}
+      <div className="bg-white border-b-4 border-slate-200 sticky top-0 z-50 px-4 py-3 shadow-sm">
+        <div className="max-w-md mx-auto flex items-center justify-between">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="text-2xl p-1 hover:bg-slate-100 rounded-full transition-transform active:scale-95"
+            title="Kembali"
+          >
+            🔙
+          </button>
           
-          {/* Responsive Sticky Tabs - Gaya "Pill" Bubbly */}
-          <div className="sticky top-2 z-30 bg-white/80 backdrop-blur-xl p-2 rounded-full shadow-md border border-slate-200 flex gap-2 overflow-x-auto no-scrollbar md:grid md:grid-cols-3">
-            <Button size="sm" variant={activeTab === "lesson" ? "default" : "ghost"} onClick={() => setActiveTab("lesson")} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "lesson" ? "shadow-md bg-primary text-white" : "text-slate-500 hover:bg-slate-100"}`}>
-              <BookOpen className="w-5 h-5"/> Nota Pintar 📖
-            </Button>
-            <Button size="sm" variant={activeTab === "flashcards" ? "default" : "ghost"} onClick={() => { setActiveTab("flashcards"); loadFlashcardsOnDemand(); }} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "flashcards" ? "shadow-md bg-purple-500 hover:bg-purple-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
-              <Layers className="w-5 h-5"/> Kad Memori 🃏
-            </Button>
-            <Button size="sm" variant={activeTab === "mindmap" ? "default" : "ghost"} onClick={() => { setActiveTab("mindmap"); loadMindMapOnDemand(); }} className={`rounded-full shrink-0 md:w-full text-sm font-semibold gap-2 py-6 transition-all ${activeTab === "mindmap" ? "shadow-md bg-blue-500 hover:bg-blue-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
-              <GitFork className="w-5 h-5"/> Peta Minda 🧠
-            </Button>
-          </div>
-
-          {/* Dynamic Content Container */}
-          {activeTab === "lesson" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-5 sm:p-8 border-4 border-slate-100 shadow-lg space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-slate-100 pb-5">
-                <h2 className="font-bold text-xl text-slate-800 flex items-center gap-2">✨ Nota Ringkas</h2>
-                {isPremium ? (
-                  <div className="bg-primary/10 rounded-full pr-2">
-                     <VoicePlayer text={explanation} language={getLanguageMode() === "en" ? "en" : "ms"} />
-                  </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={handlePremiumRedirect} className="text-amber-600 border-amber-300 bg-amber-50 rounded-full text-xs font-bold gap-2 py-5 shadow-sm hover:bg-amber-100">
-                    <Lock className="w-4 h-4 text-amber-500" /> Dengar Audio Cerita 🎧
-                  </Button>
-                )}
-              </div>
-              <div className="prose prose-sm sm:prose-base max-w-none text-slate-700 leading-loose">
-                <LessonContent content={explanation} />
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === "flashcards" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] bg-purple-50/50 p-4 rounded-[2rem] border-2 border-purple-100">
-              {status.flashcards ? (
-                <div className="flex flex-col items-center justify-center py-16 text-sm text-purple-600 font-medium">
-                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-500" /> 🎮 Menyusun kad ajaib...
-                </div>
-              ) : <Flashcards flashcards={flashcards || []} />}
-            </motion.div>
-          )}
-
-          {activeTab === "mindmap" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-[250px] overflow-x-auto rounded-[2rem] bg-blue-50/30 border-2 border-blue-100 p-6 shadow-inner">
-              {status.mindmap ? (
-                <div className="flex flex-col items-center justify-center py-16 text-sm text-blue-600 font-medium">
-                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" /> Melukis peta harta karun... 🗺️
-                </div>
-              ) : mindMap ? <MindMap mindMap={{ central_topic: topic.name, branches: mindMap }} /> : null}
-            </motion.div>
-          )}
-
-          {/* Responsive Quiz Panel - Super Gamified */}
-          <div className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2rem] p-6 sm:p-8 border-4 border-yellow-200 shadow-lg relative overflow-hidden">
-            {/* Dekorasi Latar Belakang */}
-            <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/50 rotate-12" />
-            
-            <div className="relative z-10">
-              <h3 className="font-bold text-xl sm:text-2xl text-orange-900 mb-2">
-                Uji Minda, {studentNickname}! 🎯
-              </h3>
-              <p className="text-sm sm:text-base text-orange-700 mb-6 font-medium">
-                Kumpul Syiling 🪙, naik level, dan jadi juara kelas! Jom sahut cabaran!
-              </p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
-                  <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} size="lg" className="bg-orange-500 hover:bg-orange-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all">
-                    {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Play className="w-5 h-5 mr-2 fill-current" />} Cabaran Pantas (10 Soalan)
-                  </Button>
-                </motion.div>
-
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}>
-                  <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} size="lg" className="bg-red-500 hover:bg-red-600 text-white h-16 text-sm font-bold rounded-2xl w-full border-b-4 border-red-700 active:border-b-0 active:translate-y-1 transition-all">
-                    {status.quiz ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Trophy className="w-5 h-5 mr-2" />} Ujian Boss (20 Soalan)
-                  </Button>
-                </motion.div>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-100 border-2 border-amber-400 px-3 py-1 rounded-full flex items-center gap-1 font-bold text-amber-800 text-sm">
+              ⭐ <span>{xp} XP</span>
+            </div>
+            <div className="bg-yellow-100 border-2 border-yellow-400 px-3 py-1 rounded-full flex items-center gap-1 font-bold text-yellow-800 text-sm">
+              🪙 <span>{coins} Syiling</span>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Ciri Premium */}
-          {isPremium ? (
-             <Button variant="ghost" size="sm" onClick={generateCoreLesson} disabled={status.lesson} className="w-full text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-100 py-3 rounded-full transition-colors">
-               {status.lesson ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />} Tulis semula nota ini
-             </Button>
-           ) : (
-             <Button variant="ghost" size="sm" onClick={handlePremiumRedirect} className="w-full text-sm font-medium text-amber-600 bg-amber-50/50 hover:bg-amber-100 py-3 rounded-full border-2 border-dashed border-amber-200 transition-colors">
-               <Lock className="w-4 h-4 mr-2 text-amber-500" /> Ciri Premium: Jana Semula Nota 🌟
-             </Button>
-           )}
-           
-        </motion.div>
-      )}
+      <div className="max-w-md mx-auto px-4 mt-6">
+        
+        {/* SEPANDUK UTAMA TOPIK */}
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-5 text-white shadow-lg text-center mb-6 border-b-8 border-indigo-800">
+          <span className="text-xs font-black tracking-widest uppercase bg-purple-700 bg-opacity-50 px-3 py-1 rounded-full">
+            {subject?.name || "Wira Ilmu"}
+          </span>
+          <h1 className="text-2xl font-black mt-2 tracking-tight">
+            {topic?.name || "Misi Pembelajaran"}
+          </h1>
+          <p className="text-purple-100 text-xs mt-1 font-medium">
+            Selesaikan 4 misi untuk menewaskan Boss! 👑
+          </p>
+        </div>
+
+        {/* PETA KEMAJUAN MISI */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-slate-200 mb-6">
+          <div className="flex items-center justify-between relative px-2">
+            
+            {/* Garisan Latar Belakang */}
+            <div className="absolute left-6 right-6 top-1/2 h-2 bg-slate-200 -translate-y-1/2 z-0"></div>
+            <div 
+              className="absolute left-6 top-1/2 h-2 bg-gradient-to-r from-emerald-400 to-emerald-500 -translate-y-1/2 z-0 transition-all duration-500"
+              style={{ width: `${((unlockedMission - 1) / 3) * 100}%` }}
+            ></div>
+
+            {/* Butang Misi */}
+            {[
+              { num: 1, icon: "🎬", label: "Video" },
+              { num: 2, icon: "🔎", label: "Klu" },
+              { num: 3, icon: "🎮", label: "Game" },
+              { num: 4, icon: "👑", label: "Boss" }
+            ].map((m) => {
+              const isCurrent = currentMission === m.num;
+              const isLocked = m.num > unlockedMission;
+              
+              return (
+                <button
+                  key={m.num}
+                  disabled={m.num > unlockedMission}
+                  onClick={() => {
+                    if (synthRef.current) synthRef.current.cancel();
+                    setIsSpeaking(false);
+                    setCurrentMission(m.num);
+                  }}
+                  className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all font-bold shadow-md
+                    ${isCurrent ? "bg-amber-400 border-4 border-white ring-4 ring-amber-400 scale-110" : ""}
+                    ${!isCurrent && !isLocked ? "bg-emerald-400 text-white hover:bg-emerald-500" : ""}
+                    ${isLocked ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none" : ""}
+                  `}
+                >
+                  {isLocked ? "🔒" : m.icon}
+                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                    {m.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="h-4"></div>
+        </div>
+
+        {/* ANIMASI BUKA MISI BARU */}
+        {showUnlockAnimation && (
+          <div className="bg-emerald-500 text-white p-4 rounded-xl text-center font-bold text-sm mb-4 animate-bounce border-b-4 border-emerald-700">
+            🎉 Misi Seterusnya Berjaya Dibuka! Jom Maju! 🚀
+          </div>
+        )}
+
+        {/* --- PAPARAN KANDUNGAN MISI AKTIF --- */}
+        <div className="bg-white rounded-3xl p-6 shadow-md border-4 border-slate-200 min-h-[360px] flex flex-col justify-between transition-all">
+          
+          {/* BUTANG BANTUAN SUARA */}
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => {
+                let textContent = "";
+                if (currentMission === 1) textContent = "Professor StudyQuest telah meninggalkan satu video rahsia. Tonton video ini untuk mendapatkan petunjuk pertama.";
+                if (currentMission === 2) textContent = lessonContent;
+                if (currentMission === 3) textContent = "Misi Tiga: Permainan Mini Interaktif. Padankan simbol misteri yang serupa di bawah untuk mengaktifkan portal ilmu.";
+                if (currentMission === 4) textContent = "Misi Terakhir: Cabaran Boss! Sedia wira? Kita ada dua puluh soalan penting untuk diselesaikan.";
+                speakText(textContent);
+              }}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs shadow-sm transition-all border
+                ${isSpeaking ? "bg-red-100 border-red-300 text-red-600 animate-pulse" : "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"}`}
+            >
+              <span>{isSpeaking ? "⏹️ Henti" : "🔊 Dengar"}</span>
+            </button>
+          </div>
+
+          {/* MISI 1: TONTON VIDEO */}
+          {currentMission === 1 && (
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 mb-2 flex items-center gap-2">
+                  <span>🎬</span> Misi 1: Video Rahsia
+                </h3>
+                <p className="text-slate-600 text-sm font-medium leading-relaxed mb-4">
+                  Professor StudyQuest telah meninggalkan satu video rahsia. Tonton video ini untuk mendapatkan petunjuk pertama. ✨
+                </p>
+
+                {embedUrl ? (
+                  <div className="w-full aspect-video rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner mb-4">
+                    <iframe
+                      src={embedUrl}
+                      title="Video misi rahsia YouTube"
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50 border-2 border-dashed border-blue-300 p-6 rounded-2xl text-center text-sm text-blue-700 font-bold mb-4">
+                    🔍 Tiada video rahsia dikesan. Misi ini diluluskan secara automatik oleh Professor!
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => handleMissionComplete(1, 50, 10)}
+                className="w-full bg-emerald-400 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl text-lg shadow-md border-b-4 border-emerald-600 transition-all active:translate-y-1 active:border-b-0 mt-2"
+              >
+                Saya Dah Tonton! 👍
+              </button>
+            </div>
+          )}
+
+          {/* MISI 2: MENCARI KLU NOTA */}
+          {currentMission === 2 && (
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 mb-2 flex items-center gap-2">
+                  <span>🔎</span> Misi 2: Klu Tersembunyi
+                </h3>
+                <p className="text-slate-600 text-sm font-medium leading-relaxed mb-4">
+                  Sebelum meneruskan misi, cuba cari 3 petunjuk tersembunyi di dalam nota di bawah. Tekan bahagian butang klu!
+                </p>
+
+                {/* Barisan Lencana Klu */}
+                <div className="flex gap-2 mb-4 overflow-x-auto py-1">
+                  {[1, 2, 3].map((num) => (
+                    <span 
+                      key={num} 
+                      className={`text-xs px-2.5 py-1 rounded-full font-bold border transition-all shrink-0
+                        ${cluesFound.includes(num) 
+                          ? "bg-yellow-400 border-yellow-500 text-yellow-950 animate-bounce" 
+                          : "bg-slate-100 border-slate-200 text-slate-400"}`}
+                    >
+                      {cluesFound.includes(num) ? "🔍 Klu Dijumpai!" : `❓ Klu ${num}`}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Ruangan Kandungan Nota */}
+                <div className="bg-amber-50 rounded-2xl p-4 border-2 border-amber-200 text-slate-800 text-sm leading-relaxed max-h-48 overflow-y-auto mb-4 whitespace-pre-line prose font-medium">
+                  {lessonContent}
+                </div>
+
+                {/* Butang Interaktif Mengumpul Klu */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {[1, 2, 3].map((i) => (
+                    <button
+                      key={i}
+                      disabled={cluesFound.includes(i)}
+                      onClick={() => setCluesFound(p => [...p, i])}
+                      className={`p-2.5 text-xs font-bold rounded-xl border transition-all text-center
+                        ${cluesFound.includes(i) 
+                          ? "bg-emerald-100 border-emerald-300 text-emerald-700" 
+                          : "bg-orange-50 border-orange-200 text-orange-700 hover:scale-105 active:scale-95"}`}
+                    >
+                      {cluesFound.includes(i) ? "✅ Siap" : `Cari Klu ${i}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (cluesFound.length < 3) {
+                    alert("Sila cari ketiga-tiga klu rahsia dalam nota terlebih dahulu ya!");
+                    return;
+                  }
+                  handleMissionComplete(2, 60, 15);
+                }}
+                className={`w-full font-black py-4 rounded-2xl text-lg shadow-md border-b-4 transition-all mt-2
+                  ${cluesFound.length === 3 
+                    ? "bg-emerald-400 hover:bg-emerald-500 text-white border-emerald-600 active:translate-y-1 active:border-b-0" 
+                    : "bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed"}`}
+              >
+                Saya Jumpa Semua Klu! 🎒
+              </button>
+            </div>
+          )}
+
+          {/* MISI 3: PERMAINAN MINI */}
+          {currentMission === 3 && (
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 mb-1 flex items-center gap-2">
+                  <span>🎮</span> Misi 3: Padanan Memori
+                </h3>
+                <p className="text-slate-600 text-xs font-medium leading-relaxed mb-4">
+                  Sentuh dan cari sepasang simbol misteri yang serupa di bawah untuk mengaktifkan portal kuiz! ⚡
+                </p>
+
+                {/* Grid Kad Permainan */}
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {cards.map((card) => {
+                    const isFlipped = flippedCards.includes(card.id) || matchedCards.includes(card.id);
+                    return (
+                      <button
+                        key={card.id}
+                        onClick={() => handleCardClick(card.id)}
+                        className={`aspect-square rounded-xl text-xl font-bold flex items-center justify-center transition-all shadow-sm border-2
+                          ${isFlipped ? "bg-yellow-100 border-yellow-400 scale-95" : "bg-indigo-500 border-indigo-700 text-indigo-500 hover:bg-indigo-600"}`}
+                      >
+                        {isFlipped ? card.val : "❓"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (!gameCompleted) {
+                    alert("Selesaikan permainan padanan kad dahulu untuk meneruskan misi!");
+                    return;
+                  }
+                  handleMissionComplete(3, 80, 20);
+                }}
+                className={`w-full font-black py-4 rounded-2xl text-lg shadow-md border-b-4 transition-all mt-2
+                  ${gameCompleted 
+                    ? "bg-emerald-400 hover:bg-emerald-500 text-white border-emerald-600 active:translate-y-1 active:border-b-0" 
+                    : "bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed"}`}
+              >
+                {gameCompleted ? "Permainan Selesai! Maju ➡️" : "Padankan Semua Kad 🧩"}
+              </button>
+            </div>
+          )}
+
+          {/* MISI 4: CABARAN BOSS */}
+          {currentMission === 4 && (
+            <div className="flex-1 flex flex-col justify-between text-center py-4">
+              <div>
+                <div className="text-6xl mb-3 animate-pulse">👑</div>
+                <h3 className="text-2xl font-black text-red-600 mb-2">
+                  Misi 4: Cabaran Boss Besar!
+                </h3>
+                <p className="text-slate-700 text-sm font-semibold max-w-xs mx-auto leading-relaxed mb-6">
+                  Sedia wira? Kita ada 20 soalan penting untuk diselesaikan (7 Mudah, 7 Sederhana, dan 6 Sukar)! 🔥
+                </p>
+                
+                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-3 inline-flex items-center gap-3 text-xs font-bold text-red-800 mb-6">
+                  <span>🟢 x7 Mudah</span>
+                  <span>🟡 x7 Sederhana</span>
+                  <span>🔴 x6 Sukar</span>
+                </div>
+              </div>
+
+              <button
+                onClick={startBossChallenge}
+                className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-black py-4 rounded-2xl text-xl shadow-lg border-b-4 border-red-700 transition-all active:translate-y-1 active:border-b-0"
+              >
+                MASUK CABARAN BOSS ⚔️
+              </button>
+            </div>
+          )}
+
+        </div>
+
+        {/* MASKOT / NASIHAT BAWAH */}
+        <div className="mt-6 bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-slate-200">
+          <div className="text-4xl">🦉</div>
+          <div className="flex-1">
+            <p className="text-slate-800 text-xs font-black">Pesanan Professor StudyQuest:</p>
+            <p className="text-slate-500 text-[11px] font-medium leading-tight mt-0.5">
+              {currentMission === 1 && "Pastikan bunyi pembesar suara gajet anda dibuka ya!"}
+              {currentMission === 2 && "Baca dengan teliti, klu rahsia boleh berada di mana-mana!"}
+              {currentMission === 3 && "Latihan memori membantu otak anda menjadi lebih cerdas!"}
+              {currentMission === 4 && "Jangan gopoh semasa menjawab nanti. Awak pasti boleh buat!"}
+            </p>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
