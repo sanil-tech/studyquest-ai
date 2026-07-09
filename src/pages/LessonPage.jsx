@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import confetti from "canvas-competti";
+import confetti from "canvas-confetti";
 
 // Pastikan import Base44 global sepadan dengan persediaan sedia ada anda
 // import { base44 } from "../lib/base44"; 
