@@ -1,8 +1,8 @@
 // src/pages/LessonPage.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, Award, Compass, Tv, Check, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Play, Loader2, Trophy, BookOpen, Layers, GitFork, Lock, Award, Compass, Tv, Check, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -13,8 +13,9 @@ import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 
 // ============================================================================
-// MOCKUP COMPONENT 1: YouTubeLesson (Disatukan di dalam fail utama)
+// COMPONENT 1: YouTubeLesson 
 // ============================================================================
+// (Kekalkan fungsi YouTubeLesson yang sama seperti sebelum ini. Ia sudah stabil.)
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const playerRef = useRef(null);
@@ -30,26 +31,55 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
   const videoId = getYouTubeId(videoUrl);
 
   useEffect(() => {
-    // Memuat turun YouTube API secara dinamik
+    if (!videoId) return;
+
+    const handleAPIReady = () => { initPlayer(); };
+
     if (!window.YT) {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      const scriptId = "youtube-iframe-api-script";
+      let scriptTag = document.getElementById(scriptId);
+      
+      if (!scriptTag) {
+        const tag = document.createElement("script");
+        tag.id = scriptId;
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName("script")[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      }
+      
+      const oldReady = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (oldReady) oldReady();
+        window.dispatchEvent(new Event('YTAPIReady'));
+      };
+      
+      window.addEventListener('YTAPIReady', handleAPIReady);
+    } else if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      window.addEventListener('YTAPIReady', handleAPIReady);
     }
 
-    window.onYouTubeIframeAPIReady = () => { initPlayer(); };
-    if (window.YT && window.YT.Player) { initPlayer(); }
-
-    return () => { clearInterval(checkIntervalRef.current); };
+    return () => {
+      clearInterval(checkIntervalRef.current);
+      window.removeEventListener('YTAPIReady', handleAPIReady);
+      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
   }, [videoId]);
 
   const initPlayer = () => {
     if (!videoId || playerRef.current) return;
-    playerRef.current = new window.YT.Player(`yt-player-${videoId}`, {
-      videoId: videoId,
-      events: { onStateChange: handlePlayerStateChange },
-    });
+    try {
+      playerRef.current = new window.YT.Player(`yt-player-${videoId}`, {
+        videoId: videoId,
+        events: { onStateChange: handlePlayerStateChange },
+      });
+    } catch (error) {
+      console.error("Gagal memulakan YT Player:", error);
+    }
   };
 
   const handlePlayerStateChange = (event) => {
@@ -126,8 +156,9 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
 }
 
 // ============================================================================
-// MOCKUP COMPONENT 2: LearningPath (Duolingo Style Zigzag Path)
+// COMPONENT 2: LearningPath
 // ============================================================================
+// (Kekalkan komponen LearningPath)
 function LearningPath({ stages, currentStage, progressState, activeTab, onSelectStage }) {
   const getStageStatus = (stageId) => {
     if (stageId === "video") return "unlocked";
@@ -142,7 +173,6 @@ function LearningPath({ stages, currentStage, progressState, activeTab, onSelect
 
   return (
     <div className="relative flex flex-col items-center py-8 max-w-md mx-auto">
-      {/* Garis Vertikal Latar Belakang Laluan Misi */}
       <div className="absolute top-12 bottom-12 w-3 bg-gradient-to-b from-cyan-200 via-purple-200 to-orange-200 rounded-full -z-10" />
 
       {stages.map((stage, index) => {
@@ -205,7 +235,7 @@ function LearningPath({ stages, currentStage, progressState, activeTab, onSelect
 }
 
 // ============================================================================
-// 3. MAIN COMPONENT LAYER: LessonPage
+// MAIN COMPONENT: LessonPage
 // ============================================================================
 const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
 
@@ -235,8 +265,51 @@ Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, create
 Return JSON schema matching: [{ "label": "string", "children": ["string"] }]
 `;
 
+const MINDMAP_SCHEMA = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } },
+    required: ["label", "children"]
+  }
+};
+
+const FLASHCARD_SCHEMA = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: { front: { type: "string" }, back: { type: "string" } },
+    required: ["front", "back"]
+  }
+};
+
+const QUIZ_SCHEMA = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: {
+      question: { type: "string" },
+      options: { type: "array", items: { type: "string" } },
+      correct_answer: { type: "string" },
+      explanation: { type: "string" }
+    },
+    required: ["question", "options", "correct_answer", "explanation"]
+  }
+};
+
+// PEMERKASAAN: Fungsi parse JSON yang kebal terhadap blok markdown (```json ... ```)
 const safeJsonParse = (str, fallback = []) => {
-  try { return str ? JSON.parse(str) : fallback; } catch (e) { return fallback; }
+  if (!str) return fallback;
+  try {
+    let cleanStr = str;
+    if (typeof str === "string") {
+      cleanStr = str.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
+    }
+    return JSON.parse(cleanStr);
+  } catch (e) {
+    console.error("Gagal parse JSON:", e, "Raw data:", str);
+    return fallback;
+  }
 };
 
 const shuffleArray = (array) => {
@@ -267,13 +340,15 @@ export default function LessonPage() {
   const [loading, setLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
 
+  // PEMERKASAAN: Tambahan state error untuk paparan pengguna
+  const [uiError, setUiError] = useState(null);
+
   const [explanation, setExplanation] = useState("");
   const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  // GAMIFICATION TRACKING LAYER
   const [activeTab, setActiveTab] = useState("map"); 
   const [progressState, setProgressState] = useState({
     video_completed: false,
@@ -339,6 +414,7 @@ export default function LessonPage() {
         if (isMounted && cachedSessions.length > 0) {
           const session = cachedSessions[0];
           setSessionId(session.id);
+          sessionRef.current = session.id;
           
           setProgressState({
             video_completed: session.video_completed || false,
@@ -361,6 +437,7 @@ export default function LessonPage() {
         }
       } catch (err) {
         console.error("Gagal memulihkan progress", err);
+        if (isMounted) setUiError("Gagal memuat turun data topik. Sila muat semula halaman.");
       } finally {
         if (isMounted) {
           studyStartRef.current = Date.now();
@@ -382,35 +459,39 @@ export default function LessonPage() {
 
   useEffect(() => { return () => { recordStudyTime(); }; }, []);
 
-  const getLanguageMode = () => subject?.name?.toLowerCase().includes("english") ? "en" : "ms";
+  const getLanguageMode = useCallback(() => subject?.name?.toLowerCase().includes("english") ? "en" : "ms", [subject]);
   
   const triggerConfetti = () => {
     confetti({ particleCount: 140, spread: 70, origin: { y: 0.6 }, colors: ["#06b6d4", "#10b981", "#fbbf24", "#f43f5e"] });
   };
 
-  const updateStageProgress = async (stageId, nextStage, xpAwarded) => {
-    const updatedState = {
-      ...progressState,
-      [`${stageId}_completed`]: true,
-      current_stage: progressState[`${nextStage}_completed`] ? progressState.current_stage : nextStage,
-      xp_earned: progressState.xp_earned + xpAwarded
-    };
-
-    setProgressState(updatedState);
+  // PEMERKASAAN: Gunakan useCallback untuk elak fungsi dicipta berulang kali
+  const updateStageProgress = useCallback(async (stageId, nextStage, xpAwarded) => {
+    setProgressState(prev => {
+      const updatedState = {
+        ...prev,
+        [`${stageId}_completed`]: true,
+        current_stage: prev[`${nextStage}_completed`] ? prev.current_stage : nextStage,
+        xp_earned: prev.xp_earned + xpAwarded
+      };
+      
+      const currentSessionId = sessionRef.current;
+      if (currentSessionId) {
+        base44.entities.StudySession.update(currentSessionId, updatedState).catch(console.error);
+      }
+      return updatedState;
+    });
+    
     triggerConfetti();
+  }, []);
 
-    if (sessionId) {
-      try { await base44.entities.StudySession.update(sessionId, updatedState); } catch (e) { console.error(e); }
-    }
-  };
-
-  const handleVideoStageCompleted = async () => {
+  const handleVideoStageCompleted = useCallback(async () => {
     if (progressState.video_completed) {
       setActiveTab("map");
       return;
     }
 
-    let currentId = sessionId;
+    let currentId = sessionRef.current;
     if (!currentId) {
       try {
         const user = await base44.auth.me();
@@ -419,17 +500,23 @@ export default function LessonPage() {
           topic_name: topic.name, subject_name: subject.name, duration_minutes: 0,
           ...progressState, video_completed: true, current_stage: "lesson", xp_earned: 10
         });
+        
         setSessionId(newSession.id);
+        sessionRef.current = newSession.id;
         setProgressState(p => ({ ...p, video_completed: true, current_stage: "lesson", xp_earned: 10 }));
         triggerConfetti();
         setActiveTab("map");
         return;
-      } catch (err) { console.error(err); }
+      } catch (err) { 
+        console.error(err);
+        setUiError("Ralat semasa menyimpan kemajuan. Cuba sebentar lagi.");
+        return;
+      }
     }
 
     await updateStageProgress("video", "lesson", 10);
     setActiveTab("map");
-  };
+  }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
 
   const generateCoreLesson = async () => {
     if (explanation) {
@@ -439,6 +526,7 @@ export default function LessonPage() {
     }
 
     setStatus(p => ({ ...p, lesson: true }));
+    setUiError(null);
     try {
       const lang = getLanguageMode();
       const response = await base44.integrations.Core.InvokeLLM({
@@ -456,6 +544,8 @@ export default function LessonPage() {
         }
       });
 
+      if (!response || !response.lesson_markdown) throw new Error("AI gagal memulangkan teks nota.");
+
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
 
@@ -464,21 +554,35 @@ export default function LessonPage() {
         xp_earned: progressState.xp_earned + 15, ai_explanation: JSON.stringify(response)
       };
 
-      await base44.entities.StudySession.update(sessionId, nextStatePayload);
+      const currentSessionId = sessionRef.current;
+      if (currentSessionId) {
+        await base44.entities.StudySession.update(currentSessionId, nextStatePayload);
+      }
+      
       setProgressState(nextStatePayload);
       
+      // Fire and forget untuk mindmap
       base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash", prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang),
+        model: "gemini_3_flash", 
+        prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang),
+        response_json_schema: MINDMAP_SCHEMA
       }).then(res => {
         if (res && Array.isArray(res)) {
-          base44.entities.StudySession.update(sessionId, { mindmap_json: JSON.stringify(res) });
+          if (currentSessionId) {
+            base44.entities.StudySession.update(currentSessionId, { mindmap_json: JSON.stringify(res) });
+          }
           setMindMap(res);
         }
-      });
+      }).catch(err => console.error("Ralat membina MindMap latar", err));
 
       triggerConfetti();
       setActiveTab("map");
-    } catch (e) { console.error(e); } finally { setStatus(p => ({ ...p, lesson: false })); }
+    } catch (e) { 
+      console.error("Generate Lesson Error:", e);
+      setUiError("Aduh! AI Tutor kita kepenatan. Sila cuba tekan butang jana sekali lagi. 🤖");
+    } finally { 
+      setStatus(p => ({ ...p, lesson: false })); 
+    }
   };
 
   const handleFlashcardStageCompleted = async () => {
@@ -495,6 +599,7 @@ export default function LessonPage() {
     setActiveTab("flashcard");
     if (flashcards && flashcards.length > 0) return;
     setStatus(p => ({ ...p, flashcards: true }));
+    setUiError(null);
     
     try {
       if (rawBankQuestions && rawBankQuestions.length > 0) {
@@ -507,10 +612,14 @@ export default function LessonPage() {
       const lang = getLanguageMode();
       const res = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
-        prompt: `Based on summary: "${metaData.summary || topic.name}", generate 5 primary flashcards in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}. Return JSON: [{ "front": "string", "back": "string" }]`,
+        prompt: `Based on summary: "${metaData.summary || topic.name}", generate 5 primary flashcards in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.`,
+        response_json_schema: FLASHCARD_SCHEMA
       });
-      setFlashcards(res && Array.isArray(res) ? res : []);
+      if (!res || !Array.isArray(res)) throw new Error("Format kad memori salah.");
+      setFlashcards(res);
     } catch (err) {
+      console.error(err);
+      setUiError("Gagal menyusun kad sakti. Sistem menyediakan kad sandaran.");
       setFlashcards([{ front: "Jom mulakan kuiz?", back: "Tekan sedia!" }]);
     } finally { setStatus(p => ({ ...p, flashcards: false })); }
   };
@@ -519,28 +628,39 @@ export default function LessonPage() {
     setActiveTab("mindmap");
     if (mindMap && mindMap.length > 0) return;
     setStatus(p => ({ ...p, mindmap: true }));
+    setUiError(null);
     try {
       const lang = getLanguageMode();
       const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash", prompt: MINDMAP_PROMPT(metaData.summary || topic.name, metaData.keywords, lang),
+        model: "gemini_3_flash", 
+        prompt: MINDMAP_PROMPT(metaData.summary || topic.name, metaData.keywords, lang),
+        response_json_schema: MINDMAP_SCHEMA
       });
-      if (res && Array.isArray(res)) setMindMap(res);
-    } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); }
+      if (!res || !Array.isArray(res)) throw new Error("Gagal melukis peta minda.");
+      setMindMap(res);
+    } catch (e) {
+      console.error("Ralat membina MindMap On-Demand", e);
+      setUiError("Ops! Peta minda gagal dijana. Sila cuba sekali lagi.");
+    } finally { setStatus(p => ({ ...p, mindmap: false })); }
   };
 
   const runQuizGeneration = async (numQ) => {
     await recordStudyTime();
     setStatus(p => ({ ...p, quiz: true }));
+    setUiError(null);
     const diff = numQ >= 20 ? "hard" : "medium";
+    const currentSessionId = sessionRef.current;
 
     try {
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         const pool = shuffleArray(rawBankQuestions).slice(0, numQ);
         const quiz = await base44.entities.Quiz.create({
-          session_id: sessionId, topic_name: topic.name, subject_name: subject?.name,
+          session_id: currentSessionId, topic_name: topic.name, subject_name: subject?.name,
           questions_json: JSON.stringify(pool), difficulty: diff, num_questions: pool.length
         });
-        await base44.entities.StudySession.update(sessionId, { quiz_completed: true, current_stage: "quiz" });
+        if (currentSessionId) {
+          await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
+        }
         navigate(`/quiz/${quiz.id}`);
         return;
       }
@@ -548,18 +668,28 @@ export default function LessonPage() {
       const lang = getLanguageMode();
       const res = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
-        prompt: `Based on topic: "${topic.name}", generate ${numQ} MCQs in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}. Return JSON: [{ "question": "string", "options": ["string"], "correct_answer": "string", "explanation": "string" }]`,
+        prompt: `Based on topic: "${topic.name}", generate ${numQ} MCQs in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.`,
+        response_json_schema: QUIZ_SCHEMA
       });
       
       if (res && Array.isArray(res)) {
         const quiz = await base44.entities.Quiz.create({
-          session_id: sessionId, topic_name: topic.name, subject_name: subject?.name,
+          session_id: currentSessionId, topic_name: topic.name, subject_name: subject?.name,
           questions_json: JSON.stringify(res.slice(0, numQ)), difficulty: diff, num_questions: res.length
         });
-        await base44.entities.StudySession.update(sessionId, { quiz_completed: true, current_stage: "quiz" });
+        if (currentSessionId) {
+          await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
+        }
         navigate(`/quiz/${quiz.id}`);
+      } else {
+        throw new Error("Soalan kuiz gagal dijana.");
       }
-    } catch (e) { console.error(e); } finally { setStatus(p => ({ ...p, quiz: false })); }
+    } catch (e) { 
+      console.error(e); 
+      setUiError("Kuiz Boss gagal diseru! Sila tarik nafas dan cuba lagi.");
+    } finally { 
+      setStatus(p => ({ ...p, quiz: false })); 
+    }
   };
 
   const hitungProgressPeratusan = () => {
@@ -583,7 +713,7 @@ export default function LessonPage() {
   return (
     <div className="px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-6 pb-28 font-sans bg-slate-50/30 min-h-screen">
       
-      {/* DUOLINGO STYLE HEADER BAR */}
+      {/* HEADER BAR */}
       <div className="bg-white rounded-[2rem] p-4 border-4 border-slate-100 shadow-sm flex items-center justify-between gap-4 sticky top-2 z-40 backdrop-blur-md bg-white/90">
         <div className="flex items-center gap-3">
           <Link to={`/study/${subjectId}`} className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200 hover:bg-slate-100 transition-all active:scale-95">
@@ -601,6 +731,21 @@ export default function LessonPage() {
           <Trophy className="w-4 h-4 fill-amber-200 text-amber-200" /> {progressState.xp_earned} XP
         </div>
       </div>
+
+      {/* ERROR TOAST NOTIFICATION */}
+      <AnimatePresence>
+        {uiError && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} 
+            className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl flex items-start gap-3 shadow-sm">
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-800">Alamak, ada masalah teknikal!</p>
+              <p className="text-xs text-red-600 font-medium">{uiError}</p>
+            </div>
+            <button onClick={() => setUiError(null)} className="text-red-400 hover:text-red-600 font-bold text-xs">Tutup</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ADVENTURE PROGRESS SYSTEM BAR */}
       <div className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-sm space-y-2">
@@ -630,7 +775,8 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 1 INTERFACE: VIDEO */}
+        {/* ... (Kekalkan kod paparan Stage 1 hingga Stage 5 di sini) ... */}
+        {/* STAGE 1: VIDEO */}
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-xl space-y-6">
             <div className="flex justify-between items-center border-b-2 border-slate-100 pb-4">
@@ -646,7 +792,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 2 INTERFACE: NOTA AI */}
+        {/* STAGE 2: NOTA AI */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-xl space-y-6">
             <div className="flex justify-between items-center border-b-2 border-slate-100 pb-4">
@@ -672,7 +818,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 3 INTERFACE: FLASHCARD */}
+        {/* STAGE 3: FLASHCARD */}
         {activeTab === "flashcard" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-xl space-y-6">
             <div className="flex justify-between items-center border-b-2 border-slate-100 pb-4">
@@ -692,7 +838,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 4 INTERFACE: MINDMAP */}
+        {/* STAGE 4: MINDMAP */}
         {activeTab === "mindmap" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2.5rem] p-6 border-4 border-slate-100 shadow-xl space-y-6">
             <div className="flex justify-between items-center border-b-2 border-slate-100 pb-4">
@@ -714,7 +860,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 5 INTERFACE: FINAL BOSS CHALLENGE */}
+        {/* STAGE 5: FINAL BOSS CHALLENGE */}
         {activeTab === "quiz" && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-yellow-100 via-orange-50 to-orange-100 rounded-[2.5rem] p-6 border-4 border-yellow-200 shadow-xl relative overflow-hidden">
             <Trophy className="absolute -bottom-6 -right-6 w-32 h-32 text-orange-200/40 rotate-12 -z-0" />
