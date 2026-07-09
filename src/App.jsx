@@ -46,12 +46,18 @@ const ParentApprovals = React.lazy(() => import('@/pages/ParentApprovals'));
 // Admin Pages
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
 
-// Common Loading Fallback Component (Fixed to Pure JavaScript)
-const LoadingSpinner = ({ message = "Loading StudyQuest...", "data-collection-item-id": __dataCollectionItemId }) => (
-  <div data-collection-item-id={__dataCollectionItemId} className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-pink-50">
-    <div className="text-center">
-      <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" />
-      <p className="text-sm text-muted-foreground">{message}</p>
+// ============================================================================
+// LOADING SPINNER BERTERASKAN TEMA ALAM & OTAN 🦧
+// ============================================================================
+const LoadingSpinner = ({ message = "Otan sedang bersiap...", "data-collection-item-id": __dataCollectionItemId }) => (
+  <div data-collection-item-id={__dataCollectionItemId} className="fixed inset-0 flex items-center justify-center bg-[#FAFAF7] z-50">
+    <div className="text-center flex flex-col items-center">
+      <div className="text-5xl animate-bounce mb-3 shadow-sm rounded-full bg-white/50 w-20 h-20 flex items-center justify-center border border-emerald-100">
+        🦧
+      </div>
+      <p className="text-xs font-bold text-emerald-700/60 uppercase tracking-widest animate-pulse">
+        {message}
+      </p>
     </div>
   </div>
 );
@@ -60,7 +66,7 @@ const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
-    return <LoadingSpinner message="Loading StudyQuest..." />;
+    return <LoadingSpinner message="Membuka pintu akademi..." />;
   }
 
   if (authError && authError.type === 'user_not_registered') {
@@ -68,7 +74,7 @@ const AuthenticatedApp = () => {
   }
 
   return (
-    <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
+    <Suspense fallback={<LoadingSpinner message="Melompat ke dahan baru..." />}>
       <Routes>
         {/* Public auth routes */}
         <Route path="/login" element={<Login />} />
