@@ -1,32 +1,21 @@
-[
-  {
-    "name": "Mathematics",
-    "icon": "\ud83e\udded",
-    "color": "#D97706"
+{
+  "name": "Subject",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Subject name (e.g. Mathematics, English, Science)"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji icon for the subject"
+    },
+    "color": {
+      "type": "string",
+      "description": "Hex color for subject card"
+    }
   },
-  {
-    "name": "English",
-    "icon": "\ud83e\udd9c",
-    "color": "#F43F5E"
-  },
-  {
-    "name": "Science",
-    "icon": "\ud83e\udd8b",
-    "color": "#10B981"
-  },
-  {
-    "name": "History",
-    "icon": "\ud83e\udeb5",
-    "color": "#78716C"
-  },
-  {
-    "name": "Geography",
-    "icon": "\ud83c\udfd4\ufe0f",
-    "color": "#0EA5E9"
-  },
-  {
-    "name": "Bahasa Melayu",
-    "icon": "\ud83c\udf3a",
-    "color": "#8B5CF6"
-  }
-]
+  "required": [
+    "name"
+  ]
+}
