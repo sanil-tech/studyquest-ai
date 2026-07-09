@@ -1,12 +1,14 @@
 import React from "react";
-import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Lock, Play, Star, Leaf, Cloud } from "lucide-react";
-import { motion } from "framer-motion";
+import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Lock, Play, Star, Leaf, Cloud, Tv } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
+// SANGAT PENTING: Kekunci (key) di sini WAJIB sama dengan logik di LessonPage.jsx
 const STEPS = [
+  { key: "video", label: "Video Guru", icon: Tv },
   { key: "lesson", label: "Nota Pintar", icon: BookOpen },
-  { key: "flashcards", label: "Kad Memori", icon: Layers },
+  { key: "flashcard", label: "Kad Memori", icon: Layers },
   { key: "mindmap", label: "Peta Minda", icon: Network },
-  { key: "activity", label: "Cabaran Boss", icon: Gamepad2 },
+  { key: "quiz", label: "Kuiz Boss", icon: Gamepad2 },
 ];
 
 export default function LessonProgress({ steps, onStepClick }) {
@@ -16,11 +18,11 @@ export default function LessonProgress({ steps, onStepClick }) {
   const isAllComplete = percent === 100;
 
   return (
-    <div className="relative bg-gradient-to-b from-sky-300 via-sky-100 to-lime-100 rounded-[2.5rem] border-4 border-sky-200 shadow-xl overflow-hidden p-6 sm:p-8 min-h-[500px]">
+    <div className="relative bg-gradient-to-b from-sky-300 via-sky-100 to-lime-100 rounded-[2.5rem] border-4 border-sky-200 shadow-xl overflow-hidden p-6 sm:p-8 min-h-[600px]">
       
       {/* 1. ELEMEN LATAR BELAKANG (Awan & Dedaun) */}
       <div className="absolute top-4 right-4 text-white/50 z-0"><Cloud className="w-20 h-20 fill-white" /></div>
-      <div className="absolute top-24 -left-10 text-white/40 z-0"><Cloud className="w-32 h-32 fill-white" /></div>
+      <div className="absolute top-32 -left-10 text-white/40 z-0"><Cloud className="w-32 h-32 fill-white" /></div>
       <div className="absolute -bottom-10 -right-10 text-emerald-500/20 z-0"><Leaf className="w-48 h-48 transform -rotate-45" /></div>
 
       {/* 2. BATANG POKOK UTAMA (Trunk) */}
@@ -72,16 +74,16 @@ export default function LessonProgress({ steps, onStepClick }) {
           >
             <div className="text-5xl animate-bounce filter drop-shadow-lg transform -scale-x-100">🦧</div>
             <div className="bg-white px-3 py-1 rounded-xl text-[10px] font-black text-emerald-600 shadow-md border-b-2 border-emerald-200 -mt-1 ml-4">
-              Tahniah! 🎉
+              Hebat! 🎉
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* 4. TANGGA MISI (Steps) - Menggunakan flex-col-reverse supaya bermula dari bawah */}
-      <div className="relative z-10 flex flex-col-reverse gap-8 pb-4 w-full">
+      <div className="relative z-10 flex flex-col-reverse gap-6 pb-4 w-full">
         {STEPS.map((step, index) => {
-          const isDone = steps[step.key];
+          const isDone = steps[step.key] || false;
           // Misi dikunci jika misi sebelumnya belum siap (Kecuali indeks 0 sentiasa buka)
           const isLocked = index > 0 && !steps[STEPS[index - 1].key];
           const isCurrent = !isDone && !isLocked;
@@ -135,7 +137,7 @@ export default function LessonProgress({ steps, onStepClick }) {
                   
                   <div className="text-left">
                     <span className="block text-[9px] sm:text-[10px] uppercase tracking-widest opacity-90 font-bold mb-0.5">
-                      Tahap {index + 1}
+                      Dahan {index + 1}
                     </span>
                     <span className="block text-sm sm:text-base font-black tracking-tight leading-none drop-shadow-sm">
                       {step.label}
