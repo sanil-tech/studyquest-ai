@@ -1,3 +1,4 @@
+// src/pages/QuizPage.jsx
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
@@ -16,11 +17,27 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.Quiz.get(quizId).then(q => {
-      setQuiz(q);
-      setQuestions(JSON.parse(q.questions_json));
-      setLoading(false);
-    });
+    base44.entities.Quiz.get(quizId)
+      .then(q => {
+        if (q) {
+          setQuiz(q);
+          try {
+            // Memastikan penukaran teks JSON ke objek berjalan selamat
+            const rawQuestions = typeof q.questions_json === "string" 
+              ? JSON.parse(q.questions_json) 
+              : q.questions_json;
+            setQuestions(Array.isArray(rawQuestions) ? rawQuestions : []);
+          } catch (e) {
+            console.error("Ralat membaca data soalan kuiz:", e);
+            setQuestions([]);
+          }
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Gagal mendapatkan kuiz:", err);
+        setLoading(false);
+      });
   }, [quizId]);
 
   const handleAnswer = (qIndex, answer) => {
@@ -29,33 +46,39 @@ export default function QuizPage() {
   };
 
   const handleSubmit = async () => {
+    if (questions.length === 0) return;
     setSubmitted(true);
-    const user = await base44.auth.me();
+    
+    try {
+      const user = await base44.auth.me();
+      if (!user) throw new Error("Pengguna tidak ditemui.");
 
-    // Calculate score
-    let correct = 0;
-    questions.forEach((q, i) => {
-      if (answers[i] === q.correct_answer) correct++;
-    });
-    const score = Math.round((correct / questions.length) * 100);
+      // Calculate score
+      let correct = 0;
+      questions.forEach((q, i) => {
+        if (answers[i] === q.correct_answer) correct++;
+      });
+      const score = Math.round((correct / questions.length) * 100);
 
-    // Calculate coins — 10 per correct answer, bonus 50 for perfect score
-    let coins = correct * 10;
-    if (score === 100) coins += 50;
+      // Calculate coins — 10 per correct answer, bonus 50 for perfect score
+      let coins = correct * 10;
+      if (score === 100) coins += 50;
 
-    // XP earned — 5 per correct answer
-    const xpEarned = correct * 5;
+      // XP earned — 5 per correct answer
+      const xpEarned = correct * 5;
 
-    // Generate AI feedback
-    const feedbackResult = await base44.integrations.Core.InvokeLLM({
-      prompt: `A student scored ${score}% on a quiz about "${quiz.topic_name}". They got ${correct}/${questions.length} correct.
+      // Generate AI feedback
+      let feedbackResult = "Syabas atas usaha anda!";
+      try {
+        feedbackResult = await base44.integrations.Core.InvokeLLM({
+          prompt: `A student scored ${score}% on a quiz about "${quiz?.topic_name || 'Topic'}". They got ${correct}/${questions.length} correct.
 
 Their answers: ${JSON.stringify(questions.map((q, i) => ({
-  question: q.question,
-  student_answer: answers[i] || "No answer",
-  correct_answer: q.correct_answer,
-  is_correct: answers[i] === q.correct_answer
-})))}
+            question: q.question,
+            student_answer: answers[i] || "No answer",
+            correct_answer: q.correct_answer,
+            is_correct: answers[i] === q.correct_answer
+          })))}
 
 Provide brief, encouraging feedback:
 1. Score summary
@@ -64,70 +87,115 @@ Provide brief, encouraging feedback:
 4. Suggested next topic
 
 Keep it short and motivating. Use lots of emojis and celebrate their effort (e.g. "Hebat! ⭐", "Tabik spring! 👏"). Be warm and playful like a friendly teacher cheering on a young learner.`,
-    });
+        });
+      } catch (llmErr) {
+        console.warn("Gagal mendapatkan maklum balas AI LLM:", llmErr);
+      }
 
-    // Create quiz attempt
-    const attempt = await base44.entities.QuizAttempt.create({
-      student_id: user.id,
-      quiz_id: quizId,
-      topic_name: quiz.topic_name,
-      subject_name: quiz.subject_name,
-      answers_json: JSON.stringify(answers),
-      score,
-      coins_earned: coins,
-      feedback_text: feedbackResult,
-    });
-
-    // Update wallet
-    const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
-    if (wallets.length > 0) {
-      await base44.entities.Wallet.update(wallets[0].id, { balance: wallets[0].balance + coins });
-    }
-
-    // Log transaction
-    await base44.entities.Transaction.create({
-      student_id: user.id,
-      type: "earn",
-      amount: coins,
-      reason: `Quiz completed: ${quiz.topic_name} (Score: ${score}%)`,
-      reference_id: attempt.id,
-    });
-
-    // Update progress
-    const progresses = await base44.entities.Progress.filter({ student_id: user.id });
-    if (progresses.length > 0) {
-      const p = progresses[0];
-      const newXP = (p.total_xp || 0) + xpEarned;
-      const newLevel = Math.floor(newXP / 200) + 1;
-      const today = new Date().toISOString().split("T")[0];
-      const isNewDay = p.last_study_date !== today;
-      const isConsecutive = p.last_study_date && 
-        new Date(today) - new Date(p.last_study_date) <= 86400000 * 1.5;
-      
-      await base44.entities.Progress.update(p.id, {
-        total_xp: newXP,
-        level: newLevel,
-        streak_days: isNewDay ? (isConsecutive ? (p.streak_days || 0) + 1 : 1) : p.streak_days,
-        last_study_date: today,
+      // Create quiz attempt
+      const attempt = await base44.entities.QuizAttempt.create({
+        student_id: user.id,
+        quiz_id: quizId,
+        topic_name: quiz?.topic_name || "Topik",
+        subject_name: quiz?.subject_name || "Subjek",
+        answers_json: JSON.stringify(answers),
+        score,
+        coins_earned: coins,
+        feedback_text: typeof feedbackResult === "object" ? JSON.stringify(feedbackResult) : feedbackResult,
       });
+
+      // PENCEGAHAN: Tangkap ID Sesi Percubaan sama ada berbentuk Array mahupun Objek terus
+      const finalAttemptId = Array.isArray(attempt) ? attempt[0]?.id : attempt?.id;
+      if (!finalAttemptId) throw new Error("Gagal menyimpan rekod cubaan kuiz.");
+
+      // Update wallet
+      try {
+        const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
+        const targetWallet = Array.isArray(wallets) ? wallets[0] : wallets;
+        if (targetWallet?.id) {
+          await base44.entities.Wallet.update(targetWallet.id, { balance: (targetWallet.balance || 0) + coins });
+        }
+      } catch (walletErr) {
+        console.warn("Gagal mengemas kini dompet digital:", walletErr);
+      }
+
+      // Log transaction
+      try {
+        await base44.entities.Transaction.create({
+          student_id: user.id,
+          type: "earn",
+          amount: coins,
+          reason: `Quiz completed: ${quiz?.topic_name || 'Topic'} (Score: ${score}%)`,
+          reference_id: finalAttemptId,
+        });
+      } catch (txErr) {
+        console.warn("Gagal log transaksi kewangan:", txErr);
+      }
+
+      // Update progress
+      try {
+        const progresses = await base44.entities.Progress.filter({ student_id: user.id });
+        const targetProgress = Array.isArray(progresses) ? progresses[0] : progresses;
+        if (targetProgress?.id) {
+          const newXP = (targetProgress.total_xp || 0) + xpEarned;
+          const newLevel = Math.floor(newXP / 200) + 1;
+          const today = new Date().toISOString().split("T")[0];
+          const isNewDay = targetProgress.last_study_date !== today;
+          const isConsecutive = targetProgress.last_study_date && 
+            (new Date(today) - new Date(targetProgress.last_study_date)) <= 86400000 * 1.5;
+          
+          await base44.entities.Progress.update(targetProgress.id, {
+            total_xp: newXP,
+            level: newLevel,
+            streak_days: isNewDay ? (isConsecutive ? (targetProgress.streak_days || 0) + 1 : 1) : targetProgress.streak_days,
+            last_study_date: today,
+          });
+        }
+      } catch (progErr) {
+        console.warn("Gagal mengemas kini rekod markah XP:", progErr);
+      }
+
+      // Create notifications
+      try {
+        await base44.entities.Notification.create({
+          user_id: user.id,
+          title: "Quiz Complete! 🎉",
+          message: `You scored ${score}% and earned ${coins} coins!`,
+          type: "quiz_complete",
+          reference_id: finalAttemptId,
+        });
+      } catch (notifErr) {
+        console.warn("Gagal menghantar notifikasi:", notifErr);
+      }
+
+      // Menuju ke halaman keputusan dengan ID yang sah
+      navigate(`/quiz-result/${finalAttemptId}`);
+
+    } catch (err) {
+      console.error("Ralat semasa menghantar kuiz:", err);
+      setSubmitted(false);
+      alert("Gagal menghantar keputusan kuiz. Sila cuba sekali lagi.");
     }
-
-    // Create notifications
-    await base44.entities.Notification.create({
-      user_id: user.id,
-      title: "Quiz Complete! 🎉",
-      message: `You scored ${score}% and earned ${coins} coins!`,
-      type: "quiz_complete",
-      reference_id: attempt.id,
-    });
-
-    navigate(`/quiz-result/${attempt.id}`);
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center py-20 bg-[#FAFAF7] min-h-[50vh] space-y-3">
+        <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <p className="text-xs font-bold text-stone-500">Menyediakan kertas soalan Kuiz Boss... ⚔️</p>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="p-6 text-center bg-red-50 border border-red-200 rounded-3xl max-w-md mx-auto my-10 space-y-3">
+        <p className="text-red-700 font-bold text-sm">
+          ❌ Tiada soalan kuiz ditemui untuk topik ini atau format data salah.
+        </p>
+        <Button onClick={() => navigate(-1)} className="bg-stone-600 text-white rounded-xl">
+          Kembali ke Menu
+        </Button>
       </div>
     );
   }
@@ -137,55 +205,59 @@ Keep it short and motivating. Use lots of emojis and celebrate their effort (e.g
   const allAnswered = Object.keys(answers).length === questions.length;
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 font-sans bg-[#FAFAF7] min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
         <div>
-          <h1 className="text-lg font-heading font-bold">{quiz?.topic_name} Quiz</h1>
-          <p className="text-muted-foreground text-sm">{quiz?.subject_name}</p>
+          <h1 className="text-base sm:text-lg font-black text-stone-800">{quiz?.topic_name} Quiz</h1>
+          <p className="text-stone-400 text-xs font-bold uppercase tracking-wider">{quiz?.subject_name}</p>
         </div>
-        <span className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
-          {currentQ + 1} / {questions.length}
+        <span className="text-xs font-black bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full">
+          {currentQ + 1} / {questions.length} Soalan
         </span>
       </div>
 
       {/* Progress bar */}
-      <div className="h-2 bg-muted rounded-full overflow-hidden">
+      <div className="h-3 bg-stone-200 rounded-full overflow-hidden border border-stone-300 shadow-inner">
         <motion.div
           animate={{ width: `${((currentQ + 1) / questions.length) * 100}%` }}
-          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+          className="h-full bg-gradient-to-r from-lime-400 to-emerald-600 rounded-full"
           transition={{ duration: 0.3 }}
         />
       </div>
 
-      {/* Question */}
+      {/* Question Container */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentQ}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className="bg-white rounded-2xl p-6 border border-border/50"
+          className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-md space-y-4"
         >
-          <h2 className="text-base font-semibold mb-4 leading-relaxed">{q.question}</h2>
-          <div className="space-y-2">
-            {q.options.map((option, i) => {
+          <h2 className="text-sm sm:text-base font-bold text-stone-800 leading-relaxed bg-stone-50 p-4 rounded-xl border border-stone-100 shadow-inner">
+            {q?.question}
+          </h2>
+          <div className="space-y-2.5">
+            {q?.options?.map((option, i) => {
               const isSelected = selectedAnswer === option;
               return (
                 <button
                   key={i}
                   onClick={() => handleAnswer(currentQ, option)}
                   disabled={submitted}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all text-sm ${
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-transform active:scale-[0.99] text-xs sm:text-sm flex items-center ${
                     isSelected
-                      ? "border-primary bg-primary/5 font-medium"
-                      : "border-border/50 hover:border-primary/30 hover:bg-muted/50"
+                      ? "border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold"
+                      : "border-stone-200 hover:border-emerald-200 hover:bg-stone-50 text-stone-700"
                   }`}
                 >
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-xs font-bold mr-3">
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-black mr-3 shadow-sm shrink-0 ${
+                    isSelected ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-500"
+                  }`}>
                     {String.fromCharCode(65 + i)}
                   </span>
-                  {option}
+                  <span className="flex-1">{option}</span>
                 </button>
               );
             })}
@@ -193,55 +265,55 @@ Keep it short and motivating. Use lots of emojis and celebrate their effort (e.g
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation */}
+      {/* Navigation Controls */}
       <div className="flex items-center gap-3">
         {currentQ > 0 && (
           <Button
             variant="outline"
             onClick={() => setCurrentQ(currentQ - 1)}
-            className="flex-1 rounded-xl h-12"
+            className="flex-1 rounded-xl h-12 text-xs font-bold border-stone-300 text-stone-600 hover:bg-stone-100"
           >
-            Previous
+            Sebelumnya
           </Button>
         )}
         {currentQ < questions.length - 1 ? (
           <Button
             onClick={() => setCurrentQ(currentQ + 1)}
             disabled={!selectedAnswer}
-            className="flex-1 rounded-xl h-12"
+            className="flex-1 rounded-xl h-12 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           >
-            Next
+            Seterusnya
           </Button>
         ) : (
           <Button
             onClick={handleSubmit}
             disabled={!allAnswered || submitted}
-            className="flex-1 rounded-xl h-12 bg-emerald-600 hover:bg-emerald-700"
+            className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md"
           >
             {submitted ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Grading...
+                Memeriksa Jawapan...
               </>
             ) : (
-              "Submit Quiz ✅"
+              "Hantar Kuiz Boss! ⚔️"
             )}
           </Button>
         )}
       </div>
 
-      {/* Question dots */}
-      <div className="flex items-center justify-center gap-2">
+      {/* Question dots tracker */}
+      <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
         {questions.map((_, i) => (
           <button
             key={i}
             onClick={() => setCurrentQ(i)}
             className={`w-3 h-3 rounded-full transition-all ${
               i === currentQ
-                ? "bg-primary scale-125"
+                ? "bg-emerald-600 scale-125 ring-2 ring-emerald-200"
                 : answers[i]
-                  ? "bg-primary/40"
-                  : "bg-muted"
+                  ? "bg-emerald-400/50"
+                  : "bg-stone-300"
             }`}
           />
         ))}
