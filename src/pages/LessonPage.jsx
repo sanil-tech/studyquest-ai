@@ -14,7 +14,7 @@ import LessonContent from "@/components/lesson/LessonContent";
 import VoicePlayer from "@/components/lesson/VoicePlayer";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
-import LessonProgress from "@/components/lesson/LessonProgress"; // IMPORT KOMPONEN POKOK OTAN
+import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
 // COMPONENT 1: YouTubeLesson 
@@ -243,9 +243,6 @@ const shuffleArray = (array) => {
   return newArr;
 };
 
-// Pastikan susunan ini sepadan dengan kunci dalam LessonProgress
-const STAGES_KEYS = ["video", "lesson", "flashcard", "mindmap", "quiz"]; 
-
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
   const navigate = useNavigate();
@@ -382,6 +379,8 @@ export default function LessonPage() {
   };
 
   const updateStageProgress = useCallback(async (stageId, nextStage, xpAwarded) => {
+    let currentSessionId = sessionRef.current;
+    
     setProgressState(prev => {
       const updatedState = {
         ...prev,
@@ -390,7 +389,6 @@ export default function LessonPage() {
         xp_earned: prev.xp_earned + xpAwarded
       };
       
-      const currentSessionId = sessionRef.current;
       if (currentSessionId) {
         base44.entities.StudySession.update(currentSessionId, updatedState).catch(console.error);
       }
@@ -544,18 +542,40 @@ export default function LessonPage() {
     setStatus(p => ({ ...p, quiz: true }));
     setUiError(null);
     const diff = numQ >= 20 ? "hard" : "medium";
-    const currentSessionId = sessionRef.current;
+    
+    let currentSessionId = sessionRef.current;
 
     try {
+      // PENCEGAHAN SEKATAN: Jika session belum ada, kita jana session on-the-fly untuk mengelakkan ralat kekunci asing DB
+      if (!currentSessionId) {
+        const user = await base44.auth.me();
+        const newSession = await base44.entities.StudySession.create({
+          student_id: user.id, 
+          subject_id: subjectId, 
+          topic_id: topicId,
+          topic_name: topic.name, 
+          subject_name: subject.name, 
+          duration_minutes: 0,
+          ...progressState, 
+          current_stage: "quiz"
+        });
+        currentSessionId = newSession.id;
+        setSessionId(newSession.id);
+        sessionRef.current = newSession.id;
+      }
+
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         const pool = shuffleArray(rawBankQuestions).slice(0, numQ);
         const quiz = await base44.entities.Quiz.create({
-          session_id: currentSessionId, topic_name: topic.name, subject_name: subject?.name,
-          questions_json: JSON.stringify(pool), difficulty: diff, num_questions: pool.length
+          session_id: currentSessionId, 
+          topic_name: topic.name, 
+          subject_name: subject?.name,
+          questions_json: JSON.stringify(pool), 
+          difficulty: diff, 
+          num_questions: pool.length
         });
-        if (currentSessionId) {
-          await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
-        }
+        
+        await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
         navigate(`/quiz/${quiz.id}`);
         return;
       }
@@ -569,19 +589,25 @@ export default function LessonPage() {
       
       if (res && Array.isArray(res)) {
         const quiz = await base44.entities.Quiz.create({
-          session_id: currentSessionId, topic_name: topic.name, subject_name: subject?.name,
-          questions_json: JSON.stringify(res.slice(0, numQ)), difficulty: diff, num_questions: res.length
+          session_id: currentSessionId, 
+          topic_name: topic.name, 
+          subject_name: subject?.name,
+          questions_json: JSON.stringify(res.slice(0, numQ)), 
+          difficulty: diff, 
+          num_questions: res.length
         });
-        if (currentSessionId) {
-          await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
-        }
+        
+        await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
         navigate(`/quiz/${quiz.id}`);
       } else {
-        throw new Error("Soalan kuiz gagal dijana.");
+        throw new Error("Soalan kuiz gagal dijana oleh LLM.");
       }
     } catch (e) { 
+      console.error("🚨 Otan Error Log -> Kegagalan Penjanaan Kuiz:", e);
       setUiError("Kuiz Boss gagal diseru! Sila tarik nafas dan cuba lagi.");
-    } finally { setStatus(p => ({ ...p, quiz: false })); }
+    } finally { 
+      setStatus(p => ({ ...p, quiz: false })); 
+    }
   };
 
   if (loading) {
