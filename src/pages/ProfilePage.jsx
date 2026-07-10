@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, Sparkles } from "lucide-react";
+import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, Sparkles, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -308,7 +308,7 @@ export default function ProfilePage() {
                 ) : (
                   <Pen className="w-3.5 h-3.5 mr-1.5" />
                 )}
-                {saving ? "Saving..." : editing ? "Simpan Data" : "Edit Profil"}
+                {saving ? "Saving..." : editing ? "Simpan Data" : "Kemaskini Profil"}
               </Button>
             </div>
           )}
@@ -366,8 +366,7 @@ export default function ProfilePage() {
               <StudentIdSection user={user} />
             </div>
           )}
-
-         
+          
           {/* Admin Tools Links */}
           {user?.role === "admin" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -383,16 +382,6 @@ export default function ProfilePage() {
               </Link>
             </motion.div>
           )}
-
-          {/* Sign Out Action Button */}
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="w-full rounded-2xl h-12 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors font-medium text-sm"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out of Account
-          </Button>
         </div>
 
         {/* Right Hand / Main Content Columns */}
@@ -420,19 +409,63 @@ export default function ProfilePage() {
             )}
           </AnimatePresence>
 
-          {/* Main Core Form Inputs */}
+          {/* Kondisi UI: Papar Ringkasan VS Papar Borang Kemaskini */}
           {(isStudent || isParent) && (
-            <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
-              <CardContent className="p-6 md:p-8">
-                <ProfileForm
-                  user={user}
-                  editing={editing}
-                  formData={formData}
-                  setFormData={setFormData}
-                  isStudent={isStudent}
-                />
-              </CardContent>
-            </Card>
+            <>
+              {!editing ? (
+                /* 1. Paparan Ringkas Semasa Mod Read-Only */
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                  <Card className="border-border/60 shadow-xs rounded-2xl bg-card">
+                    <CardContent className="p-6 md:p-8 space-y-6">
+                      <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+                        <User className="w-5 h-5 text-primary" />
+                        <h3 className="font-bold text-base text-foreground">Maklumat Profil Ringkas</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                        <div>
+                          <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider">Nama Penuh</p>
+                          <p className="font-semibold text-foreground mt-1">{user?.full_name || "-"}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider">Nama Panggilan</p>
+                          <p className="font-semibold text-foreground mt-1">{user?.nickname || "-"}</p>
+                        </div>
+                        {isStudent && (
+                          <>
+                            <div>
+                              <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider">Nama Sekolah</p>
+                              <p className="font-semibold text-foreground mt-1">{user?.school_name || "-"}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider">Tahun / Tingkatan & Kelas</p>
+                              <p className="font-semibold text-foreground mt-1">
+                                {user?.class_name ? `${user.class_name} (${user.school_year || ''})` : "-"}
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : (
+                /* 2. Hanya Keluar Apabila Butang "Kemaskini Profil" Ditekan */
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                  <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
+                    <CardContent className="p-6 md:p-8">
+                      <ProfileForm
+                        user={user}
+                        editing={editing}
+                        formData={formData}
+                        setFormData={setFormData}
+                        isStudent={isStudent}
+                      />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </>
           )}
 
           {/* Notifications Form Blocks */}
@@ -476,6 +509,19 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Butang Log Keluar Di Bawah Sekali */}
+      <div className="pt-6 border-t border-border/60 flex justify-center">
+        <Button
+          variant="outline"
+          onClick={handleLogout}
+          className="w-full sm:w-auto sm:px-12 rounded-2xl h-12 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors font-medium text-sm"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Sign Out of Account
+        </Button>
+      </div>
+
     </div>
   );
 }
