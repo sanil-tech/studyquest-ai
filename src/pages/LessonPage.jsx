@@ -34,6 +34,112 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
   const videoId = getYouTubeId(videoUrl);
 
   useEffect(() => {
+    useEffect(() => {
+    let isMounted = true;
+    const initializeLesson = async () => {
+      try {
+        // KITA ASINGKAN SATU PER SATU UNTUK TAHU MANA YANG GAGAL
+        
+        // 1. Semak User Auth
+        let user;
+        try {
+          user = await base44.auth.me();
+        } catch (e) {
+          throw new Error("Sesi log masuk telah tamat atau tidak sah. Sila log masuk semula.");
+        }
+
+        // 2. Semak Subject
+        let sub;
+        try {
+          if (!subjectId) throw new Error("ID Subjek tiada dalam URL.");
+          sub = await base44.entities.Subject.get(subjectId);
+        } catch (e) {
+          throw new Error(`Gagal mencari Subjek dengan ID: ${subjectId}.`);
+        }
+
+        // 3. Semak Topic
+        let top;
+        try {
+          if (!topicId) throw new Error("ID Topik tiada dalam URL.");
+          top = await base44.entities.Topic.get(topicId);
+        } catch (e) {
+          throw new Error(`Gagal mencari Topik dengan ID: ${topicId}.`);
+        }
+        
+        if (!isMounted) return;
+        setSubject(sub);
+        setTopic(top);
+        setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
+        setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
+
+        // Misi 2: Muat turun bank soalan sedia ada
+        try {
+          const allQuizBanks = await base44.entities.Quiz.filter({});
+          if (isMounted && allQuizBanks?.length > 0) {
+            const namaTopikSemasa = top.name.toLowerCase().trim();
+            const foundBank = allQuizBanks.find(b => {
+              const nameCsv = (b.topic_name || "").toLowerCase().trim();
+              return nameCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(nameCsv);
+            });
+            if (foundBank) {
+              setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
+            }
+          }
+        } catch (quizBankErr) {
+          console.warn("⚠️ Amaran: Bank soalan tidak dapat dimuatkan", quizBankErr);
+        }
+
+        // Misi 3: Ambil progress sesi pengajian lama
+        try {
+          const cachedSessions = await base44.entities.StudySession.filter(
+            { student_id: user.id, topic_id: topicId },
+            "-created_date",
+            1
+          );
+
+          if (isMounted && cachedSessions.length > 0) {
+            const session = cachedSessions[0];
+            setSessionId(session.id);
+            sessionRef.current = session.id;
+            
+            setProgressState({
+              video_completed: session.video_completed || false,
+              lesson_completed: session.lesson_completed || false,
+              flashcard_completed: session.flashcard_completed || false,
+              mindmap_completed: session.mindmap_completed || false,
+              quiz_completed: session.quiz_completed || false,
+              current_stage: session.current_stage || "video",
+              xp_earned: session.xp_earned || 0
+            });
+
+            if (session.ai_explanation) {
+              const parsed = safeJsonParse(session.ai_explanation, null);
+              if (parsed) {
+                setExplanation(parsed.lesson_markdown || "");
+                setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+              }
+              if (session.mindmap_json) setMindMap(safeJsonParse(session.mindmap_json, null));
+            }
+          }
+        } catch (sessionErr) {
+          console.warn("⚠️ Amaran: Gagal memuatkan rekod progress", sessionErr);
+        }
+
+      } catch (err) {
+        console.error("🔴 Ralat Utama Semasa Initialize Halaman:", err);
+        // TAMPILKAN MESEJ RALAT SPESIFIK KE SKRIN KEPADA USER
+        if (isMounted) setUiError(err.message || "Ralat yang tidak diketahui berlaku.");
+      } finally {
+        if (isMounted) {
+          studyStartRef.current = Date.now();
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeLesson();
+    return () => { isMounted = false; };
+  }, [subjectId, topicId]);
     if (!videoId) return;
     const handleAPIReady = () => { initPlayer(); };
 
