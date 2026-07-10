@@ -17,17 +17,18 @@ const getDisplayName = (user) => {
 
 function DetailedChildCard({ child, onOpenReport }) {
   const sessionData = child.latestSession || {};
-  // 🔗 DIKEMASKINI: Membaca data XP, Streak & Level daripada entiti Progress sepadan dengan StatsBar anak
   const progressData = child.realProgress || {};
   
   const currentXP = progressData.total_xp || 0; 
   const xpForNext = progressData.level ? progressData.level * 200 : 200;
-  const xpPercentage = Math.min(Math.round(((currentXP % xpForNext) / xpForNext) * 100), 100);
+  
+  // Pengiraan peratusan XP yang selamat bagi mengelakkan isu NaN atau Pembahagian Sifar
+  const rawPercentage = xpForNext > 0 ? Math.round(((currentXP % xpForNext) / xpForNext) * 100) : 0;
+  const xpPercentage = Math.min(Math.max(rawPercentage, 0), 100);
   
   const streakDays = progressData.streak_days || 0;
   const currentCoins = child.wallet?.balance || 0;
   
-  // Membaca topik & masa dari StudySession
   const currentTopic = sessionData.topic_name || "Misi Belum Mula"; 
   const totalStudyMinutes = sessionData.duration_minutes || 0; 
   
@@ -67,13 +68,13 @@ function DetailedChildCard({ child, onOpenReport }) {
         </div>
       </div>
 
-      {/* Kemajuan XP (Formulasi diselaraskan dengan StatsBar anak) */}
+      {/* Kemajuan XP */}
       <div className="space-y-1 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
         <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
           <span className="flex items-center gap-0.5"><Zap className="w-3 h-3 text-purple-500" /> XP TERKUMPUL</span>
-          <span>{currentXP} XP</span>
+          <span>{currentXP} XP ({xpPercentage}%)</span>
         </div>
-        <ProgressBar value={isNaN(xpPercentage) ? 0 : xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
+        <ProgressBar value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
       </div>
 
       {/* Grid Status Ringkas */}
@@ -173,12 +174,11 @@ export default function MyChildrenPage() {
       const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
       if (!rel?.length) {
         setChildren([]);
-        return setLoading(false);
+        return;
       }
       
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        // ⚡ MULTI-FILTER: Membaca StudySession DAN Progress serentak untuk satukan data
         const [studySessionRes, progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
           base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
           base44.entities.Progress.filter({ student_id: id }).catch(() => []),
@@ -196,7 +196,6 @@ export default function MyChildrenPage() {
           latestSession = sortedSessions[0];
         }
 
-        // 🌟 MENYIKRONKAN DATA XP DARI ENTITI PROGRESS
         let realProgress = { total_xp: 0, streak_days: 0, level: 1 };
         if (progressRes && progressRes?.length > 0) {
           const sortedProgress = [...progressRes].sort((a, b) => 
@@ -225,7 +224,7 @@ export default function MyChildrenPage() {
           allAttempts, 
           allSessions: sortedSessions, 
           latestSession,
-          realProgress, // Membawa objek progress tulen ke paparan kad UI
+          realProgress, 
           quiz: {
             quiz_score: latestQuizScore
           }
@@ -239,7 +238,18 @@ export default function MyChildrenPage() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { 
+    loadData(); 
+  }, []);
+
+  // UI Memuatkan Halaman Asal yang Selamat
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32 min-h-screen">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 space-y-4 max-w-7xl mx-auto bg-slate-50/30 min-h-screen">
@@ -251,13 +261,19 @@ export default function MyChildrenPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {children.map((child) => (
-          <DetailedChildCard 
-            key={child.id} 
-            child={child} 
-            onOpenReport={(c) => { setSelectedChild(c); setIsModalOpen(true); }} 
-          />
-        ))}
+        {children.length === 0 ? (
+          <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white col-span-full">
+            <p className="text-sm text-slate-500 font-medium">Tiada akaun anak yang dihubungkan di bawah kawalan anda buat masa ini.</p>
+          </Card>
+        ) : (
+          children.map((child) => (
+            <DetailedChildCard 
+              key={child.id} 
+              child={child} 
+              onOpenReport={(c) => { setSelectedChild(c); setIsModalOpen(true); }} 
+            />
+          ))
+        )}
       </div>
 
       {/* MODAL POPUP: LAPORAN PENUH */}
@@ -272,7 +288,7 @@ export default function MyChildrenPage() {
           {selectedChild && (
             <div className="space-y-6 mt-4">
               
-              {/* Seksyen 1: Nota Pelajaran dari StudySession */}
+              {/* Seksyen 1: Nota Pelajaran */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
