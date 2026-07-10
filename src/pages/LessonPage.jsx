@@ -34,112 +34,6 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
   const videoId = getYouTubeId(videoUrl);
 
   useEffect(() => {
-    useEffect(() => {
-    let isMounted = true;
-    const initializeLesson = async () => {
-      try {
-        // KITA ASINGKAN SATU PER SATU UNTUK TAHU MANA YANG GAGAL
-        
-        // 1. Semak User Auth
-        let user;
-        try {
-          user = await base44.auth.me();
-        } catch (e) {
-          throw new Error("Sesi log masuk telah tamat atau tidak sah. Sila log masuk semula.");
-        }
-
-        // 2. Semak Subject
-        let sub;
-        try {
-          if (!subjectId) throw new Error("ID Subjek tiada dalam URL.");
-          sub = await base44.entities.Subject.get(subjectId);
-        } catch (e) {
-          throw new Error(`Gagal mencari Subjek dengan ID: ${subjectId}.`);
-        }
-
-        // 3. Semak Topic
-        let top;
-        try {
-          if (!topicId) throw new Error("ID Topik tiada dalam URL.");
-          top = await base44.entities.Topic.get(topicId);
-        } catch (e) {
-          throw new Error(`Gagal mencari Topik dengan ID: ${topicId}.`);
-        }
-        
-        if (!isMounted) return;
-        setSubject(sub);
-        setTopic(top);
-        setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
-        setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
-
-        // Misi 2: Muat turun bank soalan sedia ada
-        try {
-          const allQuizBanks = await base44.entities.Quiz.filter({});
-          if (isMounted && allQuizBanks?.length > 0) {
-            const namaTopikSemasa = top.name.toLowerCase().trim();
-            const foundBank = allQuizBanks.find(b => {
-              const nameCsv = (b.topic_name || "").toLowerCase().trim();
-              return nameCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(nameCsv);
-            });
-            if (foundBank) {
-              setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
-            }
-          }
-        } catch (quizBankErr) {
-          console.warn("⚠️ Amaran: Bank soalan tidak dapat dimuatkan", quizBankErr);
-        }
-
-        // Misi 3: Ambil progress sesi pengajian lama
-        try {
-          const cachedSessions = await base44.entities.StudySession.filter(
-            { student_id: user.id, topic_id: topicId },
-            "-created_date",
-            1
-          );
-
-          if (isMounted && cachedSessions.length > 0) {
-            const session = cachedSessions[0];
-            setSessionId(session.id);
-            sessionRef.current = session.id;
-            
-            setProgressState({
-              video_completed: session.video_completed || false,
-              lesson_completed: session.lesson_completed || false,
-              flashcard_completed: session.flashcard_completed || false,
-              mindmap_completed: session.mindmap_completed || false,
-              quiz_completed: session.quiz_completed || false,
-              current_stage: session.current_stage || "video",
-              xp_earned: session.xp_earned || 0
-            });
-
-            if (session.ai_explanation) {
-              const parsed = safeJsonParse(session.ai_explanation, null);
-              if (parsed) {
-                setExplanation(parsed.lesson_markdown || "");
-                setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
-              }
-              if (session.mindmap_json) setMindMap(safeJsonParse(session.mindmap_json, null));
-            }
-          }
-        } catch (sessionErr) {
-          console.warn("⚠️ Amaran: Gagal memuatkan rekod progress", sessionErr);
-        }
-
-      } catch (err) {
-        console.error("🔴 Ralat Utama Semasa Initialize Halaman:", err);
-        // TAMPILKAN MESEJ RALAT SPESIFIK KE SKRIN KEPADA USER
-        if (isMounted) setUiError(err.message || "Ralat yang tidak diketahui berlaku.");
-      } finally {
-        if (isMounted) {
-          studyStartRef.current = Date.now();
-          setLoading(false);
-        }
-      }
-    };
-
-    initializeLesson();
-    return () => { isMounted = false; };
-  }, [subjectId, topicId]);
     if (!videoId) return;
     const handleAPIReady = () => { initPlayer(); };
 
@@ -400,7 +294,6 @@ export default function LessonPage() {
     let isMounted = true;
     const initializeLesson = async () => {
       try {
-        // Misi 1: Muat turun data teras yang wajib ada
         const [sub, top, user] = await Promise.all([
           base44.entities.Subject.get(subjectId),
           base44.entities.Topic.get(topicId),
@@ -413,7 +306,6 @@ export default function LessonPage() {
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        // Misi 2: Muat turun bank soalan sedia ada (Isolasi jika database Quiz kosong/error)
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
           if (isMounted && allQuizBanks?.length > 0) {
@@ -427,10 +319,9 @@ export default function LessonPage() {
             }
           }
         } catch (quizBankErr) {
-          console.warn("⚠️ Amaran: Bank soalan tidak dapat dimuatkan (Mungkin tiada data terakam):", quizBankErr);
+          console.warn("⚠️ Amaran: Bank soalan tidak dapat dimuatkan:", quizBankErr);
         }
 
-        // Misi 3: Ambil progress sesi pengajian lama (Isolasi ralat)
         try {
           const cachedSessions = await base44.entities.StudySession.filter(
             { student_id: user.id, topic_id: topicId },
@@ -508,7 +399,6 @@ export default function LessonPage() {
       };
       
       if (currentSessionId) {
-        // Melakukan kemas kini secara asynchronous tersendiri bagi mengelakkan pertindihan render StrictMode
         setTimeout(() => {
           base44.entities.StudySession.update(currentSessionId, updatedState).catch(console.error);
         }, 0);
@@ -534,8 +424,9 @@ export default function LessonPage() {
           ...progressState, video_completed: true, current_stage: "lesson", xp_earned: 10
         });
         
-        setSessionId(newSession.id);
-        sessionRef.current = newSession.id;
+        const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
+        setSessionId(validId);
+        sessionRef.current = validId;
         setProgressState(p => ({ ...p, video_completed: true, current_stage: "lesson", xp_earned: 10 }));
         triggerConfetti();
         setActiveTab("map");
@@ -667,65 +558,73 @@ export default function LessonPage() {
     let currentSessionId = sessionRef.current;
 
     try {
-      // PENCEGAHAN SEKATAN: Jika session belum ada, kita jana session baru secara on-the-fly
       if (!currentSessionId) {
         const user = await base44.auth.me();
+        if (!user) throw new Error("Pengguna tidak dijumpai (Sila log masuk semula).");
+        
         const newSession = await base44.entities.StudySession.create({
           student_id: user.id, 
           subject_id: subjectId, 
           topic_id: topicId,
-          topic_name: topic.name, 
-          subject_name: subject.name, 
+          topic_name: topic?.name || "Topik Rawak", 
+          subject_name: subject?.name || "Subjek Rawak", 
           duration_minutes: 0,
           ...progressState, 
           current_stage: "quiz"
         });
-        currentSessionId = newSession.id;
-        setSessionId(newSession.id);
-        sessionRef.current = newSession.id;
+        
+        currentSessionId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
+        if (!currentSessionId) throw new Error("Gagal mencipta ID Sesi Pengajian baru.");
+        
+        setSessionId(currentSessionId);
+        sessionRef.current = currentSessionId;
       }
+
+      let quizData;
 
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         const pool = shuffleArray(rawBankQuestions).slice(0, numQ);
-        const quiz = await base44.entities.Quiz.create({
+        quizData = await base44.entities.Quiz.create({
           session_id: currentSessionId, 
-          topic_name: topic.name, 
-          subject_name: subject?.name,
+          topic_name: topic?.name || "Topik", 
+          subject_name: subject?.name || "Subjek",
           questions_json: JSON.stringify(pool), 
           difficulty: diff, 
           num_questions: pool.length
         });
+      } else {
+        const lang = getLanguageMode();
+        const res = await base44.integrations.Core.InvokeLLM({
+          model: "gemini_3_flash",
+          prompt: `Based on topic: "${topic?.name || 'General'}", generate ${numQ} MCQs in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.`,
+          response_json_schema: QUIZ_SCHEMA
+        });
         
-        await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
-        navigate(`/quiz/${quiz.id}`);
-        return;
-      }
-      
-      const lang = getLanguageMode();
-      const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        prompt: `Based on topic: "${topic.name}", generate ${numQ} MCQs in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.`,
-        response_json_schema: QUIZ_SCHEMA
-      });
-      
-      if (res && Array.isArray(res)) {
-        const quiz = await base44.entities.Quiz.create({
+        if (!res || !Array.isArray(res)) {
+          throw new Error("Format jawapan AI tidak sah. AI gagal memulangkan senarai soalan.");
+        }
+        
+        quizData = await base44.entities.Quiz.create({
           session_id: currentSessionId, 
-          topic_name: topic.name, 
-          subject_name: subject?.name,
+          topic_name: topic?.name || "Topik", 
+          subject_name: subject?.name || "Subjek",
           questions_json: JSON.stringify(res.slice(0, numQ)), 
           difficulty: diff, 
           num_questions: res.length
         });
-        
-        await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
-        navigate(`/quiz/${quiz.id}`);
-      } else {
-        throw new Error("Soalan kuiz gagal dijana oleh LLM.");
       }
+
+      const finalQuizId = Array.isArray(quizData) ? quizData[0]?.id : quizData?.id;
+      if (!finalQuizId) {
+        throw new Error("Kuiz berjaya dicipta tetapi tiada ID kuiz dipulangkan oleh pangkalan data.");
+      }
+
+      await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
+      navigate(`/quiz/${finalQuizId}`);
+
     } catch (e) { 
       console.error("🚨 Otan Error Log -> Kegagalan Penjanaan Kuiz:", e);
-      setUiError("Kuiz Boss gagal diseru! Sila tarik nafas dan cuba lagi.");
+      setUiError(`Kuiz Boss gagal diseru: ${e.message || "Ralat API pangkalan data."}`);
     } finally { 
       setStatus(p => ({ ...p, quiz: false })); 
     }
