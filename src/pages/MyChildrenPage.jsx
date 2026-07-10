@@ -32,8 +32,9 @@ function DetailedChildCard({ child, onOpenReport }) {
   const currentTopic = sessionData.topic_name || "Misi Belum Mula"; 
   const totalStudyMinutes = sessionData.duration_minutes || 0; 
   
-  const lastActiveTime = sessionData.updated_date 
-    ? `Belajar Terakhir: ${moment(sessionData.updated_date).format("DD/MM/YYYY")}` 
+  // 🔗 DISUBARUKAN: Membaca medan metadata standard 'updated_at' dari database
+  const lastActiveTime = sessionData.updated_at 
+    ? `Belajar Terakhir: ${moment(sessionData.updated_at).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
 
   const quizScore = child.quiz?.quiz_score || null;
@@ -190,8 +191,9 @@ export default function MyChildrenPage() {
         let latestSession = {};
         let sortedSessions = [];
         if (studySessionRes && studySessionRes?.length > 0) {
+          // 🔗 DISUBARUKAN: Mengisih mengikut track standard metadata 'updated_at' & 'created_at'
           sortedSessions = [...studySessionRes].sort((a, b) => 
-            new Date(b.updated_date || b.created_date || 0) - new Date(a.updated_date || a.created_date || 0)
+            new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
           );
           latestSession = sortedSessions[0];
         }
