@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, Calendar, Zap
+  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2
 } from "lucide-react";
 import moment from "moment";
 import { Card } from "@/components/ui/card";
@@ -15,14 +15,13 @@ const getDisplayName = (user) => {
   return user.nickname || user.username || user.email || "Pelajar";
 };
 
-function DetailedChildCard({ child, onOpenReport }) {
+function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
   const sessionData = child.latestSession || {};
   const progressData = child.realProgress || {};
   
   const currentXP = progressData.total_xp || 0; 
   const xpForNext = progressData.level ? progressData.level * 200 : 200;
   
-  // Pengiraan peratusan XP yang selamat bagi mengelakkan isu NaN atau Pembahagian Sifar
   const rawPercentage = xpForNext > 0 ? Math.round(((currentXP % xpForNext) / xpForNext) * 100) : 0;
   const xpPercentage = Math.min(Math.max(rawPercentage, 0), 100);
   
@@ -32,7 +31,6 @@ function DetailedChildCard({ child, onOpenReport }) {
   const currentTopic = sessionData.topic_name || "Misi Belum Mula"; 
   const totalStudyMinutes = sessionData.duration_minutes || 0; 
   
-  // 🔗 DISUBARUKAN: Membaca medan metadata standard 'updated_at' dari database
   const lastActiveTime = sessionData.updated_at 
     ? `Belajar Terakhir: ${moment(sessionData.updated_at).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
@@ -141,13 +139,23 @@ function DetailedChildCard({ child, onOpenReport }) {
         </div>
       </div>
 
-      {/* Butang Lihat Laporan Penuh */}
-      <Button 
-        onClick={() => onOpenReport(child)}
-        className="w-full h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5"
-      >
-        <BarChart3 className="w-4 h-4" /> Lihat Laporan Penuh Topik
-      </Button>
+      {/* Kumpulan Butang Tindakan & Analisis */}
+      <div className="space-y-2 pt-1">
+        <Button 
+          onClick={() => onOpenReport(child)}
+          className="w-full h-9 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl flex items-center justify-center gap-1.5 border border-slate-200/50 shadow-none transition-all"
+        >
+          <BarChart3 className="w-4 h-4 text-slate-500" /> Laporan Manual Topik
+        </Button>
+
+        {/* 🤖 BUTANG DIJANA AI BAHARU */}
+        <Button 
+          onClick={() => onOpenAiAnalysis(child)}
+          className="w-full h-9 text-xs font-bold bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:opacity-95 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" /> Analisis Pembelajaran AI
+        </Button>
+      </div>
 
       {/* Butang Pengurusan */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
@@ -165,8 +173,16 @@ function DetailedChildCard({ child, onOpenReport }) {
 export default function MyChildrenPage() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // State Laporan Manual
   const [selectedChild, setSelectedChild] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // State Diagnosis AI Baharu
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiChild, setAiChild] = useState(null);
+  const [aiResult, setAiResult] = useState("");
+  const [loadingAi, setLoadingAi] = useState(false);
 
   const loadData = async () => {
     try {
@@ -191,7 +207,6 @@ export default function MyChildrenPage() {
         let latestSession = {};
         let sortedSessions = [];
         if (studySessionRes && studySessionRes?.length > 0) {
-          // 🔗 DISUBARUKAN: Mengisih mengikut track standard metadata 'updated_at' & 'created_at'
           sortedSessions = [...studySessionRes].sort((a, b) => 
             new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
           );
@@ -240,11 +255,72 @@ export default function MyChildrenPage() {
     }
   };
 
+  // 🤖 FUNGSI PENGIRAAN DAN PANGGILAN KECERDIKAN BUATAN (AI ANALYSIS)
+  const handleOpenAiAnalysis = async (child) => {
+    setAiChild(child);
+    setAiModalOpen(true);
+    setLoadingAi(true);
+    setAiResult("");
+
+    try {
+      // Menyusun data kontekstual penuh sebagai bahan rujukan ketat untuk AI
+      const displayKidsName = getDisplayName(child);
+      const totalXp = child.realProgress?.total_xp || 0;
+      const level = child.realProgress?.level || 1;
+      const streak = child.realProgress?.streak_days || 0;
+      const coinBalance = child.wallet?.balance || 0;
+      
+      const sessionSummary = child.allSessions?.length > 0 
+        ? child.allSessions.map(s => `- Topik: "${s.topic_name || 'Umum'}" (${s.duration_minutes || 0} Minit Pelajaran)`).join("\n")
+        : "Tiada rekod pembacaan nota lagi.";
+
+      const quizSummary = child.allAttempts?.length > 0
+        ? child.allAttempts.map(q => `- Topik Kuiz: "${q.topic_name || 'Ujian'}", Markah Dicapai: ${q.score}%`).join("\n")
+        : "Pelajar belum menduduki sebarang ujian kuiz.";
+
+      // Menjana sistem arahan profesional berasaskan profil murid Malaysia
+      const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar. Sila berikan analisis prestasi profil murid bernama ${displayKidsName} berdasarkan data ekosistem pembelajaran berikut:
+
+METRIK UTAMA:
+- Tahap Aktif Semasa: Level ${level}
+- Mata Pengalaman (XP): ${totalXp} XP
+- Konsistensi Belajar: ${streak} Hari Streak Berturut-turut
+- Dompet Syiling Ganjaran: ${coinBalance} Syiling
+
+REKOD BACAAN NOTA AKADEMIK (DURASI MINIT):
+${sessionSummary}
+
+SEJARAH KEPUTUSAN KUIZ:
+${quizSummary}
+
+Sila gubal satu laporan berstruktur berwibawa, profesional tetapi mesra dalam Bahasa Melayu. Rangkumkan maklum balas anda menggunakan tajuk utama yang jelas seperti berikut:
+### 📈 1. Diagnosis Prestasi Keseluruhan
+*(Sintesis prestasi murid menggunakan perbandingan data XP, kestabilan emosi belajar melalui streak hari dan purata markah)*
+
+### 🌟 2. Kekuatan & Minat Utama Murid
+*(Kenal pasti topik yang paling cemerlang daripada markah kuiz atau topik yang paling tekun dibaca lama oleh murid)*
+
+### ⚠️ 3. Ruang Pembetulan & Cabaran Pelajar
+*(Kenal pasti topik yang mendapat markah kuiz rendah atau subjek akademik yang kelihatan terabai daripada durasi minit)*
+
+### 🎯 4. Pelan Tindakan & Strategi Ibu Bapa
+*(Berikan langkah intervensi praktikal berasaskan rumah, cadangan insentif syiling ganjaran, serta topik yang perlu dipaksa/dibimbing malam ini)*`;
+
+      // Melakukan panggilan integrasi AI Core Chat
+      const response = await base44.integrations.Core.Chat({ message: systemPrompt });
+      setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana namun format respon tidak disokong.");
+    } catch (err) {
+      console.error("Gagal menjana analisis AI:", err);
+      setAiResult("⚠️ Maaf, sistem gagal menghubungi enjin AI untuk menganalisis data pada waktu ini. Sila cuba sebentar lagi.");
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
   useEffect(() => { 
     loadData(); 
   }, []);
 
-  // UI Memuatkan Halaman Asal yang Selamat
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32 min-h-screen">
@@ -273,12 +349,13 @@ export default function MyChildrenPage() {
               key={child.id} 
               child={child} 
               onOpenReport={(c) => { setSelectedChild(c); setIsModalOpen(true); }} 
+              onOpenAiAnalysis={handleOpenAiAnalysis}
             />
           ))
         )}
       </div>
 
-      {/* MODAL POPUP: LAPORAN PENUH */}
+      {/* MODAL 1: LAPORAN MANUAL PENUH TOPIK */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
           <DialogHeader className="border-b pb-3">
@@ -289,8 +366,6 @@ export default function MyChildrenPage() {
 
           {selectedChild && (
             <div className="space-y-6 mt-4">
-              
-              {/* Seksyen 1: Nota Pelajaran */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
@@ -314,7 +389,6 @@ export default function MyChildrenPage() {
                 )}
               </div>
 
-              {/* Seksyen 2: Sejarah Kuiz */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
@@ -339,11 +413,44 @@ export default function MyChildrenPage() {
                   </div>
                 )}
               </div>
-
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* MODAL 2: 🤖 DIAGNOSIS KECERDIKAN BUATAN (AI ANALYSIS DIALOG) */}
+      <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-900 text-white p-6 border border-slate-800">
+          <DialogHeader className="border-b border-slate-800 pb-3">
+            <DialogTitle className="text-base font-black flex items-center gap-2 text-indigo-400">
+              <Brain className="w-5 h-5 text-indigo-400 animate-pulse" /> Diagnosis Pembelajaran Pintar AI: {aiChild ? getDisplayName(aiChild) : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            {loadingAi ? (
+              <div className="flex flex-col items-center justify-center py-16 space-y-3 text-center">
+                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                <p className="text-xs font-bold text-slate-400 tracking-wide uppercase">Enjin AI sedang menyemak pangkalan data & menyusun laporan...</p>
+              </div>
+            ) : (
+              <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 text-sm leading-relaxed whitespace-pre-line text-slate-200 font-medium font-sans">
+                {aiResult}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex justify-end border-t border-slate-800 pt-4">
+            <Button 
+              onClick={() => setAiModalOpen(false)}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs h-9 px-5"
+            >
+              Tutup Analisis
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
