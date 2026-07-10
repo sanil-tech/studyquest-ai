@@ -10,8 +10,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-// 💡 Import komponen modal yang telah kita baiki tadi
-import AddChildModal from "@/components/parent/AddChildModal"; // Pastikan laluan (path) fail ini betul mengikut struktur projek anda
+// Import komponen modal
+import AddChildModal from "@/components/parent/AddChildModal"; 
 
 // Pembantu: Mengutamakan nickname, kemudian e-mel
 const getDisplayName = (user) => {
@@ -51,7 +51,10 @@ function CompactChildCard({ child }) {
   const currentXP = child.progress?.total_xp || 0;
   const currentLevel = child.progress?.level || 1;
   const xpForNext = currentLevel ? currentLevel * 200 : 200;
-  const xpPercentage = Math.min(Math.round(((currentXP % xpForNext) / xpForNext) * 100), 100);
+  
+  // Logik peratusan yang lebih selamat bagi mengelakkan isu NaN
+  const calculatedPercentage = Math.min(Math.round((currentXP / xpForNext) * 100), 100);
+  const xpPercentage = isNaN(calculatedPercentage) ? 0 : calculatedPercentage;
   
   const displayName = getDisplayName(child); 
   
@@ -92,9 +95,9 @@ function CompactChildCard({ child }) {
         <div className="space-y-1 pt-1">
           <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
             <span>TAHAP {currentLevel}</span>
-            <span className="text-slate-600">{isNaN(xpPercentage) ? 0 : xpPercentage}%</span>
+            <span className="text-slate-600">{xpPercentage}%</span>
           </div>
-          <Progress value={isNaN(xpPercentage) ? 0 : xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
+          <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
         </div>
       </div>
     </Card>
@@ -119,8 +122,9 @@ export default function ParentDashboard() {
   const fetchWeatherAndForecast = async (lat, lon, name) => {
     try {
       setLoadingWeather(true);
+      // Ditambah &timezone=auto supaya Open-Meteo memulangkan data mengikut zon masa peranti pengguna
       const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,weathercode`
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,weathercode&timezone=auto`
       );
       const data = await res.json();
       
@@ -223,7 +227,6 @@ export default function ParentDashboard() {
         </div>
         
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {/* 💡 Butang Tambah Anak yang memicu state modal menjadi true */}
           <Button 
             className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-sm transition-all active:scale-95"
             onClick={() => setIsAddModalOpen(true)}
@@ -336,11 +339,11 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* 💡 KAWALAN MODAL: Disuntik di sini supaya boleh dipaparkan secara dinamik di atas dashboard */}
+      {/* KAWALAN MODAL */}
       <AddChildModal 
         open={isAddModalOpen} 
         onOpenChange={setIsAddModalOpen}
-        onChildAdded={() => loadData()} // Automatik panggil fungsi muat semula data anak apabila akaun baharu disahkan
+        onChildAdded={() => loadData()} 
       />
     </div>
   );
