@@ -294,6 +294,7 @@ export default function LessonPage() {
     let isMounted = true;
     const initializeLesson = async () => {
       try {
+        // Misi 1: Muat turun data teras yang wajib ada
         const [sub, top, user] = await Promise.all([
           base44.entities.Subject.get(subjectId),
           base44.entities.Topic.get(topicId),
@@ -306,50 +307,61 @@ export default function LessonPage() {
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
-        const allQuizBanks = await base44.entities.Quiz.filter({});
-        if (isMounted && allQuizBanks?.length > 0) {
-          const namaTopikSemasa = top.name.toLowerCase().trim();
-          const foundBank = allQuizBanks.find(b => {
-            const nameCsv = (b.topic_name || "").toLowerCase().trim();
-            return nameCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(nameCsv);
-          });
-          if (foundBank) {
-            setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
-          }
-        }
-
-        const cachedSessions = await base44.entities.StudySession.filter(
-          { student_id: user.id, topic_id: topicId },
-          "-created_date",
-          1
-        );
-
-        if (isMounted && cachedSessions.length > 0) {
-          const session = cachedSessions[0];
-          setSessionId(session.id);
-          sessionRef.current = session.id;
-          
-          setProgressState({
-            video_completed: session.video_completed || false,
-            lesson_completed: session.lesson_completed || false,
-            flashcard_completed: session.flashcard_completed || false,
-            mindmap_completed: session.mindmap_completed || false,
-            quiz_completed: session.quiz_completed || false,
-            current_stage: session.current_stage || "video",
-            xp_earned: session.xp_earned || 0
-          });
-
-          if (session.ai_explanation) {
-            const parsed = safeJsonParse(session.ai_explanation, null);
-            if (parsed) {
-              setExplanation(parsed.lesson_markdown || "");
-              setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+        // Misi 2: Muat turun bank soalan sedia ada (Isolasi jika database Quiz kosong/error)
+        try {
+          const allQuizBanks = await base44.entities.Quiz.filter({});
+          if (isMounted && allQuizBanks?.length > 0) {
+            const namaTopikSemasa = top.name.toLowerCase().trim();
+            const foundBank = allQuizBanks.find(b => {
+              const nameCsv = (b.topic_name || "").toLowerCase().trim();
+              return nameCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(nameCsv);
+            });
+            if (foundBank) {
+              setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
             }
-            if (session.mindmap_json) setMindMap(safeJsonParse(session.mindmap_json, null));
           }
+        } catch (quizBankErr) {
+          console.warn("⚠️ Amaran: Bank soalan tidak dapat dimuatkan (Mungkin tiada data terakam):", quizBankErr);
         }
+
+        // Misi 3: Ambil progress sesi pengajian lama (Isolasi ralat)
+        try {
+          const cachedSessions = await base44.entities.StudySession.filter(
+            { student_id: user.id, topic_id: topicId },
+            "-created_date",
+            1
+          );
+
+          if (isMounted && cachedSessions.length > 0) {
+            const session = cachedSessions[0];
+            setSessionId(session.id);
+            sessionRef.current = session.id;
+            
+            setProgressState({
+              video_completed: session.video_completed || false,
+              lesson_completed: session.lesson_completed || false,
+              flashcard_completed: session.flashcard_completed || false,
+              mindmap_completed: session.mindmap_completed || false,
+              quiz_completed: session.quiz_completed || false,
+              current_stage: session.current_stage || "video",
+              xp_earned: session.xp_earned || 0
+            });
+
+            if (session.ai_explanation) {
+              const parsed = safeJsonParse(session.ai_explanation, null);
+              if (parsed) {
+                setExplanation(parsed.lesson_markdown || "");
+                setMetaData({ summary: parsed.summary || "", keywords: parsed.keywords || [] });
+              }
+              if (session.mindmap_json) setMindMap(safeJsonParse(session.mindmap_json, null));
+            }
+          }
+        } catch (sessionErr) {
+          console.warn("⚠️ Amaran: Gagal memuatkan rekod progress sesi lama:", sessionErr);
+        }
+
       } catch (err) {
-        console.error("Gagal memulihkan progress", err);
+        console.error("🔴 Ralat Utama Semasa Initialize Halaman:", err);
         if (isMounted) setUiError("Gagal memuat turun data topik. Sila muat semula halaman.");
       } finally {
         if (isMounted) {
@@ -390,7 +402,10 @@ export default function LessonPage() {
       };
       
       if (currentSessionId) {
-        base44.entities.StudySession.update(currentSessionId, updatedState).catch(console.error);
+        // Melakukan kemas kini secara asynchronous tersendiri bagi mengelakkan pertindihan render StrictMode
+        setTimeout(() => {
+          base44.entities.StudySession.update(currentSessionId, updatedState).catch(console.error);
+        }, 0);
       }
       return updatedState;
     });
@@ -546,7 +561,7 @@ export default function LessonPage() {
     let currentSessionId = sessionRef.current;
 
     try {
-      // PENCEGAHAN SEKATAN: Jika session belum ada, kita jana session on-the-fly untuk mengelakkan ralat kekunci asing DB
+      // PENCEGAHAN SEKATAN: Jika session belum ada, kita jana session baru secara on-the-fly
       if (!currentSessionId) {
         const user = await base44.auth.me();
         const newSession = await base44.entities.StudySession.create({
@@ -624,7 +639,7 @@ export default function LessonPage() {
   return (
     <div className="px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-6 pb-28 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* HEADER BAR (Nature Aesthetic) */}
+      {/* HEADER BAR */}
       <div className="bg-white rounded-[1.5rem] p-4 border border-emerald-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-2 z-40 backdrop-blur-md bg-white/90">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <Link to={`/study/${subjectId}`} className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-600 hover:bg-[#E3D9C6] transition-transform active:scale-95 shrink-0">
@@ -661,7 +676,7 @@ export default function LessonPage() {
       {/* STAGE CONTAINER LAYER */}
       <AnimatePresence mode="wait">
         
-        {/* VIEW 1: MAP (LessonProgress Tree) */}
+        {/* VIEW 1: MAP */}
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
             <LessonProgress 
