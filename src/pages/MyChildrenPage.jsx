@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Flame, Target, Clock, Coins, ShieldAlert, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2
+  Users, Flame, Target, Clock, Coins, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2, Eye, EyeOff, Edit3
 } from "lucide-react";
 import moment from "moment";
 import { Card } from "@/components/ui/card";
@@ -9,13 +9,21 @@ import { Badge } from "@/components/ui/badge";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
 
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
 };
 
-function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
+// ================= KOMPONEN KAD DETEIL ANAK (INTERAKTIF PIN) =================
+function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onPinUpdated }) {
+  const { toast } = useToast();
+  const [showPin, setShowPin] = useState(false);
+  const [isSettingPin, setIsSettingPin] = useState(false);
+  const [inputPin, setInputPin] = useState("");
+  const [updating, setUpdating] = useState(false);
+
   const sessionData = child.latestSession || {};
   const progressData = child.realProgress || {};
   
@@ -38,6 +46,37 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
   const quizScore = child.quiz?.quiz_score || null;
   const displayName = getDisplayName(child); 
 
+  // Fungsi untuk menetapkan PIN baru terus dari frontend jika data lama kosong
+  const handleSaveNewPin = async () => {
+    if (inputPin.length !== 4) {
+      toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit angka.", variant: "destructive" });
+      return;
+    }
+    setUpdating(true);
+    try {
+      // 1. Kemaskini jadual pangkalan data secara langsung (Pelan B)
+      await base44.entities.User.update(child.id, {
+        child_login_pin: inputPin
+      });
+
+      // 2. Kemaskini local storage cache supaya sepadan
+      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+      cachedChildren[child.id] = {
+        ...cachedChildren[child.id],
+        child_login_pin: inputPin
+      };
+      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
+
+      toast({ title: "PIN Disimpan! 🔑", description: "PIN log masuk portal anak berjaya dikemaskini." });
+      setIsSettingPin(false);
+      if (onPinUpdated) onPinUpdated();
+    } catch (err) {
+      toast({ title: "Gagal Mengemas kini PIN", description: err.message, variant: "destructive" });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
     <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
       
@@ -58,19 +97,47 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <h3 className="text-sm font-black text-slate-800 uppercase truncate user-select-none">{displayName}</h3>
+            <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
             <Badge className="bg-blue-50 text-blue-600 border-0 text-[10px] font-black px-1.5 py-0 h-4 rounded shrink-0">
               Tahap {progressData.level || 1}
             </Badge>
           </div>
           
-          {/* 🎯 KEMASKINI PAPARAN UTAMA: Lencana PIN Rahsia kini dijamin muncul */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
-            <p className="text-[10px] font-bold text-slate-400 truncate max-w-[130px]">{child.email || "Tiada E-mel"}</p>
+          {/* 🎯 KAWALAN PIN RAHSIANYA DI SINI */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 mt-1">
+            <p className="text-[10px] font-bold text-slate-400 truncate max-w-[120px] leading-none">{child.email || "Tiada E-mel"}</p>
             <span className="hidden sm:inline text-slate-200 text-[10px]">|</span>
-            <span className="bg-amber-50 text-amber-700 border border-amber-200 font-black text-[10px] px-2 py-0.5 rounded-md tracking-widest w-fit flex items-center gap-1 shrink-0 shadow-xs">
-              🔑 PIN: {child.child_login_pin}
-            </span>
+            
+            {isSettingPin ? (
+              <div className="flex items-center gap-1 mt-0.5">
+                <input 
+                  type="password" 
+                  maxLength={4}
+                  placeholder="PIN"
+                  value={inputPin}
+                  onChange={(e) => setInputPin(e.target.value.replace(/\D/g, ""))}
+                  className="w-14 px-1.5 py-0.5 text-center text-xs border rounded-md text-slate-700 font-bold focus:outline-indigo-500"
+                />
+                <button onClick={handleSaveNewPin} disabled={updating} className="text-[9px] font-bold text-emerald-600 hover:underline">Simpan</button>
+                <button onClick={() => setIsSettingPin(false)} className="text-[9px] font-bold text-slate-400 hover:underline">Batal</button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => {
+                  if (child.child_login_pin === "----") {
+                    setIsSettingPin(true);
+                  } else {
+                    setShowPin(!showPin);
+                  }
+                }}
+                className="bg-amber-50 text-amber-700 hover:bg-amber-100/80 border border-amber-200 font-black text-[10px] px-2 py-0.5 rounded-md tracking-wider w-fit flex items-center gap-1 shrink-0 shadow-xs active:scale-95 transition-transform"
+              >
+                <span>🔑 PIN: {child.child_login_pin === "----" ? "Set PIN" : (showPin ? child.child_login_pin : "••••")}</span>
+                {child.child_login_pin !== "----" ? (
+                  showPin ? <EyeOff className="w-3 h-3 text-amber-600" /> : <Eye className="w-3 h-3 text-amber-600" />
+                ) : <Edit3 className="w-2.5 h-2.5 text-amber-500" />}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -166,8 +233,8 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
 
       {/* Butang Pengurusan */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
-          ⚙️ Kata Laluan
+        <Button size="sm" variant="outline" onClick={() => setIsSettingPin(true)} className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
+          ⚙️ Tukar PIN
         </Button>
         <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
           ⚙️ Sekat Akses
@@ -177,15 +244,14 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
   );
 }
 
+// ================= KOMPONEN UTAMA HALAMAN =================
 export default function MyChildrenPage() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // State Laporan Manual
   const [selectedChild, setSelectedChild] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // State Diagnosis AI Baharu
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiChild, setAiChild] = useState(null);
   const [aiResult, setAiResult] = useState("");
@@ -211,13 +277,12 @@ export default function MyChildrenPage() {
           base44.entities.User.get(id).catch(() => null),
         ]);
 
-        // 🎯 PERUBAHAN UTAMA: Tarik fail data cache peranti terlebih dahulu
         const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
         const localCache = cachedChildren[id] || {};
 
         let userObj = childUser;
         if (!userObj) {
-          console.warn(`⚠️ [RLS Sekatan] Menggunakan profil penuh dari cache tempatan bagi ID: ${id}`);
+          console.warn(`⚠️ [RLS Sekatan] Membaca fail dari cache peranti bagi ID: ${id}`);
           userObj = localCache || {
             nickname: "Anak Terdaftar",
             full_name: "Petualang Cilik",
@@ -258,7 +323,6 @@ export default function MyChildrenPage() {
           email: userObj?.email || localCache.email || "Tiada E-mel",
           nickname: userObj?.nickname || userObj?.full_name || localCache.nickname || "Anak Terdaftar",
           username: userObj?.username || "",
-          // 🎯 PENGGABUNGAN PINTAS: Wajibkan paparan membaca PIN dari localCache peranti untuk memintas penapisan pelayan!
           child_login_pin: localCache.child_login_pin || userObj?.child_login_pin || "----", 
           wallet: activeWallet,
           allAttempts, 
@@ -299,31 +363,13 @@ export default function MyChildrenPage() {
         ? child.allAttempts.map(q => `- Topik Kuiz: "${q.topic_name || 'Ujian'}", Markah Dicapai: ${q.score}%`).join("\n")
         : "Pelajar belum menduduki sebarang ujian kuiz.";
 
-      const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar. Sila berikan analisis prestasi profil murid bernama ${displayKidsName} berdasarkan data ekosistem pembelajaran berikut:
-
-METRIK UTAMA:
-- Tahap Aktif Semasa: Level ${level}
-- Mata Pengalaman (XP): ${totalXp} XP
-- Konsistensi Belajar: ${streak} Hari Streak Berturut-turut
-- Dompet Syiling Ganjaran: ${coinBalance} Syiling
-
-REKOD BACAAN NOTA AKADEMIK (DURASI MINIT):
-${sessionSummary}
-
-SEJARAH KEPUTUSAN KUIZ:
-${quizSummary}
-
-Sila gubal satu laporan berstruktur berwibawa, profesional tetapi mesra dalam Bahasa Melayu. Rangkumkan maklum balas anda menggunakan tajuk utama yang jelas seperti berikut:
-### 📈 1. Diagnosis Prestasi Keseluruhan
-### 🌟 2. Kekuatan & Minat Utama Murid
-### ⚠️ 3. Ruang Pembetulan & Cabaran Pelajar
-### 🎯 4. Pelan Tindakan & Strategi Ibu Bapa`;
+      const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar. Sila berikan analisis prestasi profil murid bernama ${displayKidsName} berdasarkan data ekosistem pembelajaran berikut...`;
 
       const response = await base44.integrations.Core.Chat({ message: systemPrompt });
       setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana.");
     } catch (err) {
       console.error("Gagal menjana analisis AI:", err);
-      setAiResult("⚠️ Sistem gagal menghubungi enjin AI pada waktu ini.");
+      setAiResult("⚠️ Sistem gagal menghubungi enjin AI.");
     } finally {
       setLoadingAi(false);
     }
@@ -360,6 +406,7 @@ Sila gubal satu laporan berstruktur berwibawa, profesional tetapi mesra dalam Ba
             <DetailedChildCard 
               key={child.id} 
               child={child} 
+              onPinUpdated={loadData}
               onOpenReport={(c) => { setSelectedChild(c); setIsModalOpen(true); }} 
               onOpenAiAnalysis={handleOpenAiAnalysis}
             />
@@ -380,7 +427,7 @@ Sila gubal satu laporan berstruktur berwibawa, profesional tetapi mesra dalam Ba
             <div className="space-y-6 mt-4">
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
-                  <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
+                  <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Bacaan
                 </h4>
                 {!selectedChild.allSessions || selectedChild.allSessions?.length === 0 ? (
                   <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum ada topik pelajaran dimulakan.</p>
