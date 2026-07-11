@@ -4,13 +4,13 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { GraduationCap, Lock, Loader2, ArrowLeft, User } from "lucide-react";
+import { GraduationCap, KeyRound, Loader2, ArrowLeft, User } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 
 export default function ChildLogin() {
   const navigate = useNavigate();
   const [usernameInput, setUsernameInput] = useState("");
-  const [password, setPassword] = useState("");
+  const [pin, setPin] = useState(""); // 🎯 Ditukar daripada password kepada pin
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,42 +25,45 @@ export default function ChildLogin() {
       if (!inputVal) {
         throw new Error("Sila masukkan Username anda.");
       }
-
-      // Tukar input kepada format e-mel maya yang sepadan dengan sistem Edge Function
-      const fakeEmail = inputVal.includes("@") 
-        ? inputVal 
-        : `child-${inputVal}@studyquest.local`;
-
-      // Log masuk ke dalam sistem Auth rasmi Base44
-      await base44.auth.loginViaEmailPassword(fakeEmail, password);
-
-      // Ambil data maklumat murid untuk mengesahkan sesi aktif
-      const user = await base44.auth.me();
-
-      if (user) {
-        window.location.href = "/dashboard";
-      } else {
-        throw new Error("Gagal memuatkan profil murid.");
+      if (pin.length !== 4) {
+        throw new Error("PIN mestilah tepat 4 digit angka.");
       }
+
+      console.log(`🔎 Menyemak kredensial murid bagi username: ${inputVal}...`);
+
+      // 1. Tapis pangkalan data terus untuk mencari User dengan username tersebut
+      const matchingUsers = await base44.entities.User.filter({
+        username: inputVal,
+        app_role: "student"
+      });
+
+      // 2. Semak jika pengguna wujud
+      if (!matchingUsers || matchingUsers.length === 0) {
+        throw new Error("Username tidak ditemui. Sila semak ejaan nama pengguna pada portal Ibu Bapa.");
+      }
+
+      const childAccount = matchingUsers[0];
+
+      // 3. Sahkan padanan PIN menggunakan medan pin_hash daripada Skema JSON
+      if (childAccount.pin_hash !== pin) {
+        throw new Error("PIN Rahsia salah. Sila masukkan kod PIN yang betul.");
+      }
+
+      // 4. Set Sesi Aktif Murid ke dalam memori aplikasi
+      localStorage.setItem("active_student_id", childAccount.id);
+      localStorage.setItem("active_student_name", childAccount.nickname || childAccount.full_name || "Murid");
+
+      // Log masuk berjaya, bawa ke dashboard utama pelajar
+      window.location.href = "/dashboard";
+
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
       
-      // 💡 DIBAIKI: Mengekstrak teks ralat secara selamat untuk mengelakkan ralat 'Object to primitive value'
-      let safeErrorMessage = "Username atau kata laluan salah. Sila semak semula.";
-      
-      if (err) {
-        if (typeof err === "string") {
-          safeErrorMessage = err;
-        } else if (err.message && typeof err.message === "string") {
-          safeErrorMessage = err.message;
-        } else {
-          try {
-            // Jika ia adalah objek ralat yang kompleks, tukar kepada string
-            safeErrorMessage = err.message ? String(err.message) : JSON.stringify(err);
-          } catch (e) {
-            safeErrorMessage = "Ralat sistem semasa mendaftar masuk.";
-          }
-        }
+      let safeErrorMessage = "Username atau PIN salah. Sila semak semula.";
+      if (typeof err === "string") {
+        safeErrorMessage = err;
+      } else if (err.message && typeof err.message === "string") {
+        safeErrorMessage = err.message;
       }
       
       setError(safeErrorMessage);
@@ -73,7 +76,7 @@ export default function ChildLogin() {
     <AuthLayout
       icon={GraduationCap}
       title="Portal Murid StudyQuest 🚀"
-      subtitle="Masukkan Username dan Kata Laluan anda untuk mula belajar"
+      subtitle="Masukkan Username dan PIN anda untuk mula belajar"
       footer={
         <Link to="/login" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Log Masuk Ibu Bapa
@@ -87,6 +90,7 @@ export default function ChildLogin() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* INPUT 1: USERNAME */}
         <div className="space-y-2">
           <Label htmlFor="username" className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Username / Nama Pengguna
@@ -96,7 +100,7 @@ export default function ChildLogin() {
             <Input
               id="username"
               type="text"
-              placeholder="Contoh: morry2"
+              placeholder="Contoh: ali_4021"
               value={usernameInput}
               onChange={(e) => setUsernameInput(e.target.value)}
               className="pl-10 h-12 rounded-xl border-slate-200 text-sm font-medium"
@@ -106,24 +110,27 @@ export default function ChildLogin() {
           </div>
         </div>
 
+        {/* INPUT 2: PIN 4-DIGIT */}
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Kata Laluan
+          <Label htmlFor="pin" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            PIN Rahsia (4-Digit)
           </Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              id="password"
+              id="pin"
               type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12 rounded-xl border-slate-200 text-sm"
+              maxLength={4}
+              placeholder="••••"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} // Hanya terima angka
+              className="pl-10 h-12 rounded-xl border-slate-200 text-sm tracking-widest"
               required
             />
           </div>
         </div>
 
+        {/* BUTANG HANTAR */}
         <Button 
           type="submit" 
           className="w-full h-12 font-bold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-md mt-2" 
@@ -132,7 +139,7 @@ export default function ChildLogin() {
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Memproses Masuk...
+              Mengesahkan Kod Portal Murid...
             </>
           ) : (
             "Mula Belajar Sekarang ✨"
