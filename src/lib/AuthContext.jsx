@@ -91,12 +91,11 @@ export const AuthProvider = ({ children }) => {
           const session = JSON.parse(sessionData);
           const parsedUser = JSON.parse(storedUser);
           
-          // 💡 DIBAIKI: Sokong kedua-dua kekunci userId atau id untuk mengelakkan ralat undefined
+          // Menyokong semakan fleksibel berdasarkan kedua-dua variasi struktur id
           const targetId = session.userId || session.id;
           
           let verifiedUser = null;
           if (targetId) {
-            // Memanggil entiti secara klien biasa untuk pengesahan ID anak
             verifiedUser = await base44.entities.User.get(targetId).catch(() => null);
           }
           
@@ -116,12 +115,13 @@ export const AuthProvider = ({ children }) => {
             return;
           }
         } catch (sessionError) {
-          console.error('Ralat membaca sesi tempatan:', sessionError);
+          console.error('Gagal memulihkan sesi simpanan:', sessionError);
           localStorage.removeItem('studyquest_session');
           localStorage.removeItem('studyquest_user');
         }
       }
       
+      // Semakan fallback sekiranya token native diaktifkan melalui pembekal utama
       if (appParams.token) {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
@@ -148,6 +148,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
+    // Kosongkan semua simpanan sesi peranti untuk mengelakkan pencemaran peranan pengguna
     localStorage.removeItem('studyquest_session');
     localStorage.removeItem('studyquest_user');
     
