@@ -1,0 +1,68 @@
+import { createClientFromRequest } from "npm:@base44/sdk@0.8.31";
+
+// Fungsi pembantu mengekstrak 11 aksara YouTube Video ID menggunakan regex
+const extractYouTubeId = (url: string): string | null => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+};
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    
+    // 1. Semakan pengesahan hak akses pengguna
+    const currentUser = await base44.auth.me();
+    if (!currentUser) {
+      return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Membenarkan guru atau ibu bapa sahaja untuk mencipta tugasan video
+    if (!["teacher", "parent", "admin"].includes(currentUser.app_role)) {
+      return Response.json({ success: false, error: "Hanya guru atau ibu bapa boleh menambah misi video." }, { status: 403 });
+    }
+
+    const { title, videoUrl, xpReward, educationLevel } = await req.json();
+
+    if (!title || !videoUrl) {
+      return Response.json({ success: false, error: "Tajuk dan Pautan Video wajib diisi." }, { status: 400 });
+    }
+
+    // 2. Ekstrak dan sahkan ID YouTube
+    const youtubeId = extractYouTubeId(videoUrl);
+    if (!youtubeId) {
+      return Response.json({ success: false, error: "Pautan YouTube tidak sah. Sila masukkan URL YouTube yang betul." }, { status: 400 });
+    }
+
+    // 3. Tulis data entiti Lesson/Mission menggunakan Service Role
+    const lessonPayload: Record<string, unknown> = {
+      title: title.trim(),
+      video_url: videoUrl.trim(),
+      youtube_id: youtubeId,
+      xp_reward: Number(xpReward) || 20,
+      education_level: educationLevel || "Primary",
+      created_by: currentUser.id,
+      mission_type: "watch_video",
+      status: "active",
+      created_at: new Date().toISOString()
+    };
+
+    // Diandaikan jadual entiti anda dinamakan 'Lesson'
+    const newLesson = await base44.asServiceRole.entities.Lesson.create(lessonPayload);
+
+    return Response.json({
+      success: true,
+      message: "Misi video YouTube berjaya didaftarkan!",
+      lesson: {
+        id: newLesson.id,
+        title: newLesson.title,
+        youtube_id: newLesson.youtube_id
+      }
+    });
+
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("Ralat addVideoMission:", errorMsg);
+    return Response.json({ success: false, error: `Ralat Pelayan: ${errorMsg}` }, { status: 500 });
+  }
+});
