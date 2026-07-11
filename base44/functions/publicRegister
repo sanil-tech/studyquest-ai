@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const { username: rawUsername, password, role } = await req.json();
 
-    // 1. Sanitasi dan semakan input
+    // 1. Sanitasi input username
     const username = rawUsername?.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     
     if (!username) {
@@ -21,52 +21,36 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: "Peranan tidak sah." }, { status: 400 });
     }
 
-    // 2. Semak jika username entiti sudah wujud
+    // 2. Semak jika username sudah wujud dalam pangkalan data
     const existing = await base44.asServiceRole.entities.User.filter({ username });
     if (existing.length > 0) {
       return Response.json({ success: false, error: "Username telah digunakan. Sila pilih nama lain." }, { status: 400 });
     }
 
-    // Bina e-mel maya
     const childEmail = `${username}@studyquest.local`;
     const passwordHash = hashPassword(password);
     const studentId = "SQ" + Math.floor(100000 + Math.random() * 900000);
 
-    // 3. Daftarkan akaun ke dalam Native Auth dengan status Terlanjur Sah (Bypass OTP)
-    const authUser = await base44.asServiceRole.auth.createUser({
-      email: childEmail,
-      password: password,
-      email_confirmed: true
-    });
-
-    if (!authUser || !authUser.id) {
-      throw new Error("Gagal mendaftarkan kredensial pada auth provider.");
-    }
-
-    // 4. Cipta Profil Entiti Pengguna
-    const userPayload: any = {
-      id: authUser.id,
+    // 3. 🔄 CIPTA ENTITI PENGGUNA TERUS KE DALAM DATABASE (Sama seperti aliran createChildAccount)
+    const newUser = await base44.asServiceRole.entities.User.create({
       role: "user",
       email: childEmail,
       full_name: username,
       app_role: role,
       username,
       password_hash: passwordHash,
-      login_method: "username_password",
+      student_id: role === "student" ? studentId : "",
+      login_method: "password",
       is_child_account: role === "student",
       profile_completed: false,
-      country: "Malaysia",
+      pin_enabled: false,
+      failed_login_attempts: 0,
       account_locked: false,
-      failed_login_attempts: 0
-    };
+      country: "Malaysia",
+      linked_student_ids: []
+    });
 
-    if (role === "student") {
-      userPayload.student_id = studentId;
-    }
-
-    const newUser = await base44.asServiceRole.entities.User.create(userPayload);
-
-    // 5. Sediakan Wallet & Progress jika mendaftar sebagai murid
+    // 4. Sediakan Wallet & Progress jika mendaftar sebagai murid
     if (role === "student") {
       await base44.asServiceRole.entities.Wallet.create({ student_id: newUser.id, balance: 0 });
       await base44.asServiceRole.entities.Progress.create({ 
@@ -78,7 +62,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({ success: true, username: newUser.username });
+    // Kembalikan data lengkap untuk kegunaan auto-login di frontend
+    return Response.json({ 
+      success: true, 
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        student_id: newUser.student_id || "",
+        app_role: newUser.app_role,
+        profile_completed: newUser.profile_completed
+      }
+    });
   } catch (err) {
     console.error("Ralat publicRegister:", err);
     return Response.json({ success: false, error: err.message }, { status: 500 });
