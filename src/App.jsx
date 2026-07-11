@@ -19,6 +19,10 @@ import LessonResources from "@/pages/LessonResources";
 
 // 2. Hubungkan ke dalam senarai laluan komponen <Routes>
 <Route path="/admin/lesson-resources" element={<LessonResources />} />
+import EditLessonResources from "@/pages/EditLessonResources";
+
+// Dalam blok <Routes>:
+<Route path="/admin/edit-lesson" element={<EditLessonResources />} />
 
 // Lazy-loaded pages for better bundle size and performance
 const Login = React.lazy(() => import('@/pages/Login'));
