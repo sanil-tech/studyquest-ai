@@ -1,0 +1,23 @@
+import { Navigate, Outlet } from "react-router-dom";
+
+export default function RoleGuard({ allowedRoles }) {
+  // 1. Ambil data sesi pengguna daripada localStorage
+  const storedUser = localStorage.getItem("studyquest_user");
+  
+  if (!storedUser) {
+    // Tendang ke halaman login jika langsung tidak log masuk
+    return <Navigate to="/login" replace />;
+  }
+
+  const user = JSON.parse(storedUser);
+  const currentRole = user.app_role;
+
+  // 2. Semak jika peranan pengguna tersenarai di dalam peranan yang dibenarkan
+  if (!allowedRoles.includes(currentRole)) {
+    // Jika tersalah masuk portal, hantar ke halaman akses disekat atau home
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // 3. Jika lulus sekatan, benarkan akses ke komponen dalaman
+  return <Outlet />;
+}
