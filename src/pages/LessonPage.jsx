@@ -160,10 +160,30 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
 // ============================================================================
 // MAIN COMPONENT: LessonPage
 // ============================================================================
-const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required.`;
+const BASE_SYSTEM_PROMPT = `You are an expert AI tutor for Malaysian school students. Strict compliance with KPM curriculum standards (KSSR for primary, KSSM for secondary) is required. Ensure all names, places, and examples reflect local Malaysian contexts (RM currency, local foods like nasi lemak, cultural festivals).`;
+
+const FORMAT_CONSTRAINTS = {
+  ms: "Tulis SELURUH kandungan dalam Bahasa Melayu sahaja. JANGAN gunakan perkataan Bahasa Inggeris.",
+  en: "Write the ENTIRE content in English only."
+};
+
+const LESSON_PROMPT = (topic, subject, level, lang, studentNickname) => `
+${BASE_SYSTEM_PROMPT}
+${FORMAT_CONSTRAINTS[lang]}
+Target: Malaysian ${level}. Subject: ${subject}. Topic: "${topic}".
+
+CRITICAL TONE INSTRUCTION:
+The student's personalized friendly nickname is "${studentNickname}". 
+Your tone must be exceptionally warm, encouraging, cheerful, and affectionate. Use words of encouragement frequently.
+Address the student directly and personally by their nickname "${studentNickname}" naturally throughout the lesson.
+
+Generate a concise, highly engaging lesson (700-1000 words max). Use short paragraphs, clear subheadings (###), and bold key terms.
+Return JSON schema matching: { "lesson_markdown": "string", "summary": "string", "keywords": ["string"] }
+`;
 
 const MINDMAP_PROMPT = (summary, keywords, lang) => `
 ${BASE_SYSTEM_PROMPT}
+${FORMAT_CONSTRAINTS[lang]}
 Based on Summary: "${summary}" and Keywords: ${JSON.stringify(keywords)}, create a mind map structure.
 Return JSON schema matching: [{ "label": "string", "children": ["string"] }]
 `;
@@ -303,7 +323,7 @@ export default function LessonPage() {
         }
 
         // ========================================================================
-        // 🌟 LOGIK BERTINGKAT: PADANAN NOTA DARIPADA REKOD STUDYSESSION (CSV & LIVE)
+        // 🌟 STRATEGI HIBRID: CARI DATA SEDIA ADA (CSV/LIVE) SEBELUM GUNA AI
         // ========================================================================
         try {
           // Tahap 1: Cari sesi tempatan pelajar aktif menggunakan topic_id
@@ -313,7 +333,7 @@ export default function LessonPage() {
             1
           );
 
-          // Tahap 2: Sandaran tempatan pelajar aktif menggunakan rentetan topic_name
+          // Tahap 2: Sandaran tempatan pelajar menggunakan rentetan topic_name
           if (isMounted && cachedSessions.length === 0 && top?.name) {
             cachedSessions = await base44.entities.StudySession.filter(
               { student_id: user.id, topic_name: top.name },
@@ -324,8 +344,7 @@ export default function LessonPage() {
 
           let sessionWithNotes = cachedSessions[0] || null;
 
-          // Tahap 3: Sandaran Global (Kritikal untuk import CSV). Jika rekod aktif tiada nota,
-          // pinjam data nota 'ai_explanation' dari mana-mana rekod StudySession bertopik sama di sistem.
+          // Tahap 3: Sandaran Global (CSV). Cari mana-mana sesi bertopik sama yang ada ai_explanation
           if (isMounted && (!sessionWithNotes || !sessionWithNotes.ai_explanation) && top?.name) {
             const globalSessions = await base44.entities.StudySession.filter(
               { topic_name: top.name },
@@ -345,7 +364,7 @@ export default function LessonPage() {
           }
 
           if (isMounted && sessionWithNotes) {
-            // Hanya simpan rujukan ID jika sesi tersebut milik sah pelajar aktif semasa
+            // Hanya pasang rujukan ID jika sesi ini adalah milik mutlak pelajar aktif semasa
             if (sessionWithNotes.student_id === user.id) {
               setSessionId(sessionWithNotes.id);
               sessionRef.current = sessionWithNotes.id;
@@ -361,7 +380,7 @@ export default function LessonPage() {
               });
             }
 
-            // Dekod teks markdown nota pintar KPM daripada medan JSON string
+            // Dekod data JSON string ai_explanation untuk dipaparkan pada nota
             if (sessionWithNotes.ai_explanation) {
               const parsed = safeJsonParse(sessionWithNotes.ai_explanation, null);
               if (parsed) {
@@ -462,17 +481,11 @@ export default function LessonPage() {
   }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
 
   // ========================================================================
-  // 🌟 LOGIK SIMPAN PROGRESS NOTA (BACA DARI DATABASE, TIADA JANA AI)
+  // 🌟 LALUAN A: BILA NOTA WUJUD (Hanya Tanda Selesai & Ambil XP)
   // ========================================================================
   const handleLessonStageCompleted = async () => {
-    if (!explanation) {
-      setUiError("Nota tidak ditemui. Dahan misi ini dikunci sehingga kandungan nota tersedia.");
-      return;
-    }
-
     setStatus(p => ({ ...p, lesson: true }));
     setUiError(null);
-
     try {
       let currentSessionId = sessionRef.current;
       const nextStatePayload = {
@@ -482,16 +495,11 @@ export default function LessonPage() {
         xp_earned: progressState.xp_earned + 15
       };
 
-      // Bina sesi baharu khusus untuk pelajar jika mereka melangkau terus ke tab nota tanpa id sesi aktif
       if (!currentSessionId) {
         const user = await base44.auth.me();
         const newSession = await base44.entities.StudySession.create({
-          student_id: user.id,
-          subject_id: subjectId,
-          topic_id: topicId,
-          topic_name: topic.name,
-          subject_name: subject.name,
-          duration_minutes: 0,
+          student_id: user.id, subject_id: subjectId, topic_id: topicId,
+          topic_name: topic.name, subject_name: subject.name, duration_minutes: 0,
           ...nextStatePayload
         });
         const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
@@ -505,10 +513,94 @@ export default function LessonPage() {
       triggerConfetti();
       setActiveTab("map");
     } catch (e) {
-      console.error("🚨 Ralat semasa menyimpan data penandaan kemajuan nota:", e);
-      setUiError("Alamak, gagal merekodkan kemajuan misi. Sila cuba lagi.");
+      console.error("🚨 Gagal menanda kemajuan nota:", e);
+      setUiError("Gagal merekodkan kemajuan dahan nota. Sila cuba lagi.");
     } finally {
       setStatus(p => ({ ...p, lesson: false }));
+    }
+  };
+
+  // ========================================================================
+  // 🌟 LALUAN B: SANDARAN KEDUA (Nota Tiada -> AI Jana & Simpan Automatik)
+  // ========================================================================
+  const generateCoreLesson = async () => {
+    setStatus(p => ({ ...p, lesson: true }));
+    setUiError(null);
+    try {
+      const lang = getLanguageMode();
+      if (!topic || !subject) {
+        throw new Error("Data subjek/topik belum selesai dimuatkan.");
+      }
+
+      // Seru fungsi LLM Gemini 3 Flash untuk menjana nota pintar tersuai
+      const response = await base44.integrations.Core.InvokeLLM({
+        model: "gemini_3_flash",
+        add_context_from_internet: true,
+        prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, studentNickname),
+        response_json_schema: {
+          type: "object",
+          properties: { 
+            lesson_markdown: { type: "string" }, 
+            summary: { type: "string" }, 
+            keywords: { type: "array", items: { type: "string" } } 
+          },
+          required: ["lesson_markdown", "summary", "keywords"]
+        }
+      });
+
+      if (!response || !response.lesson_markdown) {
+        throw new Error("Respons daripada AI kosong atau tidak mengandungi markdown.");
+      }
+
+      setExplanation(response.lesson_markdown);
+      setMetaData({ summary: response.summary, keywords: response.keywords });
+
+      let currentSessionId = sessionRef.current;
+      const nextStatePayload = {
+        ...progressState, 
+        lesson_completed: true, 
+        current_stage: "flashcard",
+        xp_earned: progressState.xp_earned + 15, 
+        ai_explanation: JSON.stringify(response)
+      };
+
+      if (!currentSessionId) {
+        const user = await base44.auth.me();
+        const newSession = await base44.entities.StudySession.create({
+          student_id: user.id, subject_id: subjectId, topic_id: topicId,
+          topic_name: topic.name, subject_name: subject.name, duration_minutes: 0,
+          ...nextStatePayload
+        });
+        const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
+        setSessionId(validId);
+        sessionRef.current = validId;
+        currentSessionId = validId;
+      } else {
+        await base44.entities.StudySession.update(currentSessionId, nextStatePayload);
+      }
+      
+      setProgressState(prev => ({ ...prev, ...nextStatePayload }));
+      
+      // Bina struktur peta minda secara latar belakang
+      if (currentSessionId) {
+        base44.integrations.Core.InvokeLLM({
+          model: "gemini_3_flash", prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang),
+          response_json_schema: MINDMAP_SCHEMA
+        }).then(res => {
+          if (res && Array.isArray(res)) {
+            base44.entities.StudySession.update(currentSessionId, { mindmap_json: JSON.stringify(res) });
+            setMindMap(res);
+          }
+        }).catch(err => console.error("Ralat membina MindMap latar", err));
+      }
+
+      triggerConfetti();
+      setActiveTab("map");
+    } catch (e) { 
+      console.error("🚨 Otan AI Backup Failure:", e);
+      setUiError(`Penjanaan nota sandaran gagal: ${e.message || "Masalah sambungan pelayan."}`);
+    } finally { 
+      setStatus(p => ({ ...p, lesson: false })); 
     }
   };
 
@@ -546,7 +638,7 @@ export default function LessonPage() {
     } catch (err) {
       setUiError("Gagal menyusun kad sakti. Sistem menyediakan kad sandaran.");
       setFlashcards([{ front: "Jom mulakan kuiz?", back: "Tekan sedia!" }]);
-    } finally { status.flashcards = false; setStatus(p => ({ ...p, flashcards: false })); }
+    } finally { setStatus(p => ({ ...p, flashcards: false })); }
   };
 
   const loadMindMapOnDemand = async () => {
@@ -555,7 +647,6 @@ export default function LessonPage() {
     setStatus(p => ({ ...p, mindmap: true }));
     setUiError(null);
     try {
-      // Jika mindmap sudah tersedia secara latar, muat terus
       if (mindMap) return;
       const lang = getLanguageMode();
       const res = await base44.integrations.Core.InvokeLLM({
@@ -740,18 +831,18 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 2: NOTA PINTAR KPM */}
+        {/* STAGE 2: NOTA PINTAR HIBRID */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
             <div className="flex justify-between items-center border-b border-stone-100 pb-4">
-              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">📖 Dahan 2: Jurnal Ilmu Pintar</h3>
+              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">📖 Dahan 2: Nota Pintar Otan</h3>
               <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
             </div>
             
             <div className="flex items-center justify-between bg-stone-50 p-3 rounded-2xl border border-stone-100">
               <span className="text-xs font-bold text-stone-600">Dengar penceritaan Otan:</span>
               {isPremium ? (
-                <VoicePlayer text={explanation || "Kandungan teks kosong"} language={getLanguageMode() === "en" ? "en" : "ms"} />
+                <VoicePlayer text={explanation || "Sila aktifkan nota untuk mendengar audio."} language={getLanguageMode() === "en" ? "en" : "ms"} />
               ) : (
                 <span className="text-[10px] text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg font-bold border border-amber-200">🔒 Audio Premium</span>
               )}
@@ -761,27 +852,26 @@ export default function LessonPage() {
               {explanation ? (
                 <LessonContent content={explanation} />
               ) : (
-                <div className="text-center py-12 font-bold text-amber-700 text-xs bg-amber-50 border border-dashed border-amber-200 rounded-xl p-4">
-                  ⚠️ Kandungan nota pembelajaran tidak ditemui di dalam rekod StudySession untuk topik ini. Sila hubungi guru anda atau import nota terlebih dahulu.
+                <div className="text-center py-10 bg-sky-50/50 border border-dashed border-sky-200 rounded-xl p-4">
+                  <p className="text-sky-800 font-bold text-xs">📝 Nota Belum Sedia di Sistem</p>
+                  <p className="text-[11px] text-sky-600/80 mt-1 font-medium">
+                    Jangan risau {studentNickname}! Tekan butang di bawah untuk mengerakkan Otan menjana Jurnal Nota KPM menggunakan kuasa AI secara automatik! 🚀
+                  </p>
                 </div>
               )}
             </div>
 
             <Button 
-              onClick={handleLessonStageCompleted} 
-              disabled={status.lesson || !explanation} 
-              className={`w-full h-14 font-black text-white rounded-xl shadow-sm border-0 transition-all ${
-                explanation 
-                  ? "bg-gradient-to-r from-lime-500 to-emerald-600 hover:from-lime-600 hover:to-emerald-700 cursor-pointer" 
-                  : "bg-stone-300 cursor-not-allowed text-stone-500"
-              }`}
+              onClick={explanation ? handleLessonStageCompleted : generateCoreLesson} 
+              disabled={status.lesson} 
+              className="w-full h-14 bg-gradient-to-r from-lime-500 to-emerald-600 hover:from-lime-600 hover:to-emerald-700 font-black text-white rounded-xl shadow-md border-0 transition-all"
             >
               {status.lesson ? (
-                <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Mengemas kini dahan... 🦧</>
+                <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Otan sedang mengemas kini... 🦧</>
               ) : explanation ? (
                 "Tanda Selesai & Ambil +15 XP! 🍃"
               ) : (
-                "Nota Tidak Tersedia 🔒"
+                "Jana Nota Pintar AI Sekarang! ✨"
               )}
             </Button>
           </motion.div>
