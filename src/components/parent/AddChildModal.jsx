@@ -28,7 +28,8 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
     try {
       const me = await base44.auth.me();
 
-      // Memanggil fungsi awan createChildAccount dengan ejaan huruf besar yang betul
+      console.log("🚀 Cuba memanggil Cloud Function 'createChildAccount'...");
+      
       const response = await base44.functions.invoke("createChildAccount", {
         fullName,
         nickname: nickname || fullName.split(" ")[0],
@@ -36,20 +37,38 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
         parentId: me.id
       });
 
+      console.log("📦 Respon mentah dari gateway:", response);
+
+      // 1. Jika gateway memulangkan ralat objek rasmi (Contoh: Isu Billing / 402)
+      if (response?.error) {
+        throw new Error(`[Gateway Error] ${response.error.message || JSON.stringify(response.error)}`);
+      }
+
       const result = response?.data || response;
 
+      // 2. Jika fungsi backend berjalan tetapi menolak logik data (Contoh: Emel bertindih)
+      if (result && result.success === false) {
+        throw new Error(`[Backend Error] ${result.message}`);
+      }
+
+      // 3. Jika pendaftaran berjaya
       if (result && (result.success || result.childId)) {
         if (typeof onChildAdded === "function") {
           onChildAdded(); 
         }
         setIsSuccess(true); 
       } else {
-        throw new Error(result?.message || "Pelayan menolak pendaftaran akaun ekspres.");
+        // 4. Jika pelayan respon tetapi strukturnya pelik/kosong
+        throw new Error(`[Structure Error] Respon tidak dikenali: ${JSON.stringify(result)}`);
       }
+
     } catch (err) {
+      console.error("🚨 Ralat Pendaftaran Anak:", err);
+      
+      // Paparkan teks ralat SEBENAR terus ke skrin supaya kita tahu puncanya!
       toast({
         title: "Pendaftaran Gagal 🛑",
-        description: err.message || "Sila pastikan kod fungsi di folder backend tiada ralat.",
+        description: err.message || "Pelayan menolak pendaftaran tanpa memulangkan mesej ralat.",
         variant: "destructive"
       });
     } finally {
