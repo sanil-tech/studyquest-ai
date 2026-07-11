@@ -1,156 +1,144 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Mail, Lock, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { LogIn, Mail, Lock, Loader2, GraduationCap } from "lucide-react";
+import AuthLayout from "@/components/AuthLayout";
+import GoogleIcon from "@/components/GoogleIcon";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
 
-  // 1. Log Masuk Tradisional (E-mel & Kata Laluan)
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast({ title: "Sila isi semua medan", variant: "destructive" });
-      return;
-    }
-
+    setError("");
     setLoading(true);
     try {
-      await base44.auth.signIn({ email, password });
-      
-      const userProfile = await base44.auth.me();
-      if (userProfile?.app_role === "parent") {
-        navigate("/parent/dashboard");
-      } else if (userProfile?.app_role === "student") {
-        navigate("/student/dashboard");
+      await base44.auth.loginViaEmailPassword(email, password);
+      // Redirect based on role
+      const user = await base44.auth.me();
+      if (user?.app_role === "parent") {
+        window.location.href = "/parent";
       } else {
-        navigate("/parent/dashboard");
+        window.location.href = "/dashboard";
       }
     } catch (err) {
-      toast({
-        title: "Log Masuk Gagal",
-        description: err.message || "E-mel atau kata laluan salah.",
-        variant: "destructive",
-      });
+      setError(err.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. 🌐 DIBAIKI: Log Masuk Menggunakan Google OAuth melalui fungsi .signIn yang sama
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    try {
-      // SDK base44 menggunakan fungsi tunggal .signIn untuk semua kaedah pengesahan
-      await base44.auth.signIn({
-        provider: "google",
-        redirectTo: `${globalThis.location.origin}/parent/dashboard`
-      });
-    } catch (err) {
-      toast({
-        title: "Log Masuk Google Gagal",
-        description: err.message || "Gagal menghubungkan sesi ke akaun Google anda.",
-        variant: "destructive",
-      });
-      setGoogleLoading(false);
-    }
+  const handleGoogle = () => {
+    base44.auth.loginWithProvider("google", "/");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50/50 p-4">
-      <Card className="w-full max-w-md rounded-3xl border-slate-100 shadow-md bg-white">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-black text-slate-800 tracking-tight">Selamat Kembali! 👋</CardTitle>
-          <CardDescription className="text-xs text-slate-400 font-medium">Log masuk ke akaun StudyQuest Penjaga</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          
-          {/* BUTANG LOG MASUK GOOGLE */}
-          <Button 
-            type="button"
-            disabled={googleLoading || loading}
-            onClick={handleGoogleLogin}
-            className="w-full h-11 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-bold text-sm shadow-xs flex items-center justify-center gap-2 transition-all"
-          >
-            {googleLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-            ) : (
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                <path
-                  fill="#EA4335"
-                  d="M12.24 10.285V14.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.866-3.577-7.866-8s3.536-8 7.866-8c2.46 0 4.105 1.025 5.047 1.926l3.227-3.11C18.416 1.872 15.606 1 12.24 1c-6.075 0-11 4.925-11 11s4.925 11 11 11c6.34 0 10.556-4.444 10.556-10.74 0-.726-.077-1.282-.176-1.714H12.24z"
-                />
-              </svg>
-            )}
-            Log Masuk dengan Google
+    <AuthLayout
+      icon={LogIn}
+      title="Welcome back"
+      subtitle="Log in to your account"
+      footer={
+        <>
+          Don't have an account?{" "}
+          <Link to="/register" className="text-primary font-medium hover:underline">
+            Create one
+          </Link>
+        </>
+      }
+    >
+      <Button
+        variant="outline"
+        className="w-full h-12 text-sm font-medium mb-6"
+        onClick={handleGoogle}
+      >
+        <GoogleIcon className="w-5 h-5 mr-2" />
+        Continue with Google
+      </Button>
+
+      <div className="relative mb-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-3 text-muted-foreground">or</span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              autoFocus
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-10 h-12"
+              required
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="pl-10 h-12"
+              required
+            />
+          </div>
+        </div>
+        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Logging in...
+            </>
+          ) : (
+            "Log in"
+          )}
+        </Button>
+      </form>
+
+      {/* Child Login Link */}
+      <div className="mt-6 pt-6 border-t border-border">
+        <Link to="/child-login" className="block">
+          <Button variant="outline" className="w-full h-12 rounded-xl border-2 border-primary/30 bg-primary/5 hover:bg-primary/10">
+            <GraduationCap className="w-5 h-5 mr-2 text-primary" />
+            <div className="flex flex-col items-start">
+              <span className="font-semibold text-primary">Child Login</span>
+              <span className="text-xs text-muted-foreground font-normal">Login with Student ID</span>
+            </div>
           </Button>
-
-          {/* Divider Visual */}
-          <div className="relative flex items-center py-1.5">
-            <div className="flex-grow border-t border-slate-100"></div>
-            <span className="flex-shrink mx-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Atau guna e-mel</span>
-            <div className="flex-grow border-t border-slate-100"></div>
-          </div>
-
-          {/* Borang Kredensi Manual */}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Alamat E-mel</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <input
-                  type="email"
-                  disabled={googleLoading || loading}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@email.com"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-colors text-slate-700 font-medium disabled:opacity-60"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Kata Laluan</label>
-                <Link to="/forgot-password" className="text-xs font-bold text-indigo-600 hover:underline">Lupa?</Link>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <input
-                  type="password"
-                  disabled={googleLoading || loading}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-colors text-slate-700 font-medium disabled:opacity-60"
-                />
-              </div>
-            </div>
-
-            <Button 
-              type="submit" 
-              disabled={loading || googleLoading} 
-              className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all mt-2"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
-              Log Masuk Akaun
-            </Button>
-          </form>
-
-          <div className="text-center text-xs text-slate-400 font-medium pt-2">
-            Belum mempunyai akaun?{" "}
-            <Link to="/register" className="font-bold text-indigo-600 hover:underline">Daftar Penjaga</Link>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </Link>
+      </div>
+    </AuthLayout>
   );
 }

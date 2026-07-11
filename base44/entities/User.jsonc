@@ -7,11 +7,9 @@
       "enum": [
         "student",
         "parent",
-        "teacher",
-        "staff",       // 🚀 DITAMBAH: Untuk kakitangan penapis video/kuiz
-        "super_admin"  // 🚀 DITAMBAH: Untuk pemilik sistem tertinggi
+        "teacher"
       ],
-      "description": "App-specific role selected during onboarding or assigned by system"
+      "description": "App-specific role selected during onboarding"
     },
     "student_id": {
       "type": "string",
@@ -31,7 +29,7 @@
     },
     "avatar_emoji": {
       "type": "string",
-      "default": "🎓"
+      "default": "\ud83c\udf93"
     },
     "avatar_photo_url": {
       "type": "string",

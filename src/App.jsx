@@ -1,82 +1,150 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClientInstance } from '@/lib/query-client';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/lib/AuthContext';
 
-// ==========================================
-// IMPORT HALAMAN UTAMA (PAGES)
-// ==========================================
-import Login from "@/pages/Login";
-import ChildLogin from "@/pages/ChildLogin";
-import ParentDashboard from "@/pages/ParentDashboard";
-import MyChildrenPage from "@/pages/MyChildrenPage";
-import StudentDashboard from "@/pages/StudentDashboard";
-import ProfilePage from "@/pages/ProfilePage";
+// Core structural elements loaded instantly
+import PageNotFound from './lib/PageNotFound';
+import ScrollToTop from './components/ScrollToTop';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import RoleRoute from '@/components/RoleRoute';
+import ProfileCompleteRoute from '@/components/ProfileCompleteRoute';
+import AdminRoute from '@/components/AdminRoute';
+import AppLayout from '@/components/layout/AppLayout';
+import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
-// ==========================================
-// IMPORT KAWALAN LALUAN PELINDUNG (ROUTE GUARD)
-// ==========================================
-import RoleRoute from "@/components/RoleRoute";
+// Lazy-loaded pages for better bundle size and performance
+const Login = React.lazy(() => import('@/pages/Login'));
+const Register = React.lazy(() => import('@/pages/Register'));
+const ForgotPassword = React.lazy(() => import('@/pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('@/pages/ResetPassword'));
+const ChildLogin = React.lazy(() => import('@/pages/ChildLogin'));
+const RoleSetup = React.lazy(() => import('@/pages/RoleSetup'));
+const CompleteProfile = React.lazy(() => import('@/pages/CompleteProfile'));
+const Home = React.lazy(() => import('@/pages/Home'));
+const NotificationsPage = React.lazy(() => import('@/pages/NotificationsPage'));
+const ProfilePage = React.lazy(() => import('@/pages/ProfilePage'));
 
-export default function App() {
+// Student Pages
+const StudentDashboard = React.lazy(() => import('@/pages/StudentDashboard'));
+const StudyPage = React.lazy(() => import('@/pages/StudyPage'));
+const LessonPage = React.lazy(() => import('@/pages/LessonPage'));
+const QuizPage = React.lazy(() => import('@/pages/QuizPage'));
+const QuizResult = React.lazy(() => import('@/pages/QuizResult'));
+const WalletPage = React.lazy(() => import('@/pages/WalletPage'));
+const RewardsPage = React.lazy(() => import('@/pages/RewardsPage'));
+
+// Parent Pages
+const ParentDashboard = React.lazy(() => import('@/pages/ParentDashboard'));
+const MyChildrenPage = React.lazy(() => import('@/pages/MyChildrenPage'));
+const ChildProfilePage = React.lazy(() => import('@/pages/ChildProfilePage'));
+const ParentRewards = React.lazy(() => import('@/pages/ParentRewards'));
+const ParentApprovals = React.lazy(() => import('@/pages/ParentApprovals'));
+
+// Admin Pages
+const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
+
+// ============================================================================
+// LOADING SPINNER BERTERASKAN TEMA ALAM & OTAN 🦧
+// ============================================================================
+const LoadingSpinner = ({ message = "Otan sedang bersiap...", "data-collection-item-id": __dataCollectionItemId }) => (
+  <div data-collection-item-id={__dataCollectionItemId} className="fixed inset-0 flex items-center justify-center bg-[#FAFAF7] z-50">
+    <div className="text-center flex flex-col items-center">
+      <div className="text-5xl animate-bounce mb-3 shadow-sm rounded-full bg-white/50 w-20 h-20 flex items-center justify-center border border-emerald-100">
+        🦧
+      </div>
+      <p className="text-xs font-bold text-emerald-700/60 uppercase tracking-widest animate-pulse">
+        {message}
+      </p>
+    </div>
+  </div>
+);
+
+const AuthenticatedApp = () => {
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+
+  if (isLoadingPublicSettings || isLoadingAuth) {
+    return <LoadingSpinner message="Membuka pintu akademi..." />;
+  }
+
+  if (authError && authError.type === 'user_not_registered') {
+    return <UserNotRegisteredError />;
+  }
+
   return (
-    <BrowserRouter>
+    <Suspense fallback={<LoadingSpinner message="Melompat ke dahan baru..." />}>
       <Routes>
-        {/* 🚪 Laluan Utama Pelancar Portal */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        
-        {/* 🔑 Pintu Masuk Bebas (Public Routes) */}
+        {/* Public auth routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/child-login" element={<ChildLogin />} />
 
-        {/* 🛡️ Laluan Kawalan Ibu Bapa (Hanya peranan "parent" dibenarkan) */}
-        <Route 
-          path="/parent/dashboard" 
-          element={
-            <RoleRoute allowedRoles={["parent"]}>
-              <ParentDashboard />
-            </RoleRoute>
-          } 
-        />
-        <Route 
-          path="/parent/children" 
-          element={
-            <RoleRoute allowedRoles={["parent"]}>
-              <MyChildrenPage />
-            </RoleRoute>
-          } 
-        />
-        <Route 
-          path="/parent/profile" 
-          element={
-            <RoleRoute allowedRoles={["parent", "admin"]}>
-              <ProfilePage />
-            </RoleRoute>
-          } 
-        />
+        {/* Authenticated routes */}
+        <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+          {/* Role setup & Profile completion (No shared layout here) */}
+          <Route path="/role-setup" element={<RoleSetup />} />
+          <Route path="/complete-profile" element={<CompleteProfile />} />
 
-        {/* 🦖 Laluan Portal Pelajar (Hanya peranan "student" dibenarkan) */}
-        <Route 
-          path="/student/dashboard" 
-          element={
-            <RoleRoute allowedRoles={["student"]}>
-              <StudentDashboard />
-            </RoleRoute>
-          } 
-        />
-        <Route 
-          path="/student/profile" 
-          element={
-            <RoleRoute allowedRoles={["student"]}>
-              <ProfilePage />
-            </RoleRoute>
-          } 
-        />
+          {/* Admin-only routes */}
+          <Route element={<AdminRoute />} >
+            <Route path="/admin/textbooks" element={<TextbookUpload />} />
+          </Route>
 
-        {/* 🔍 Pengendali jika Pengguna Menaip URL yang Salah */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* Shared layout routes */}
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+
+            {/* Student-only routes */}
+            <Route element={<ProfileCompleteRoute />}>
+              <Route element={<RoleRoute allowedRoles={["student"]} />}>
+                <Route path="/dashboard" element={<StudentDashboard />} />
+                <Route path="/study" element={<StudyPage />} />
+                <Route path="/study/:subjectId" element={<StudyPage />} />
+                <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
+                <Route path="/quiz/:quizId" element={<QuizPage />} />
+                <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
+                <Route path="/wallet" element={<WalletPage />} />
+                <Route path="/rewards" element={<RewardsPage />} />
+              </Route>
+            </Route>
+
+            {/* Parent-only routes */}
+            <Route element={<ProfileCompleteRoute />}>
+              <Route element={<RoleRoute allowedRoles={["parent"]} />}>
+                <Route path="/parent" element={<ParentDashboard />} />
+                <Route path="/parent/children" element={<MyChildrenPage />} />
+                <Route path="/parent/children/:childId" element={<ChildProfilePage />} />
+                <Route path="/parent/rewards" element={<ParentRewards />} />
+                <Route path="/parent/approvals" element={<ParentApprovals />} />
+              </Route>
+            </Route>
+          </Route>
+        </Route>
+
+        <Route path="*" element={<PageNotFound />} />
       </Routes>
-      
-      {/* ⚡ Komponen Pemberitahuan Makluman Global (Shadcn UI Toast) */}
-      <Toaster />
-    </BrowserRouter>
+    </Suspense>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <Router>
+          <ScrollToTop />
+          <AuthenticatedApp />
+        </Router>
+        <Toaster />
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }
+
+export default App;

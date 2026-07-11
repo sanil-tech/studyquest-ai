@@ -1,98 +1,138 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { KeyRound, Loader2, Gamepad2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { GraduationCap, Lock, Loader2, ArrowLeft, User } from "lucide-react";
+import AuthLayout from "@/components/AuthLayout";
 
 export default function ChildLogin() {
-  const [pin, setPin] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [usernameInput, setUsernameInput] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleChildLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (pin.length < 4) {
-      toast({ 
-        title: "Ralat PIN", 
-        description: "Sila masukkan 4-digit PIN keselamatan anak anda.", 
-        variant: "destructive" 
-      });
-      return;
-    }
-
+    setError("");
     setLoading(true);
+
     try {
-      // 🚀 Memanggil Custom Cloud Function untuk log masuk pelajar menggunakan PIN
-      const result = await base44.functions.childLogin({ pin });
+      const inputVal = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
       
-      if (result?.success) {
-        toast({ 
-          title: "Log Masuk Berjaya! 🦖", 
-          description: "Selamat datang ke StudyQuest, petualang kecil!" 
-        });
+      if (!inputVal) {
+        throw new Error("Sila masukkan Username anda.");
+      }
+
+      if (!password) {
+        throw new Error("Sila masukkan Kata Laluan anda.");
+      }
+
+      // 🔐 Tukar input username kepada struktur e-mel maya rasmi aplikasi
+      const childEmail = `${inputVal}@studyquest.local`;
+
+      // Log masuk menggunakan fungsi Native Authentication SDK (Automatik dapatkan token)
+      await base44.auth.loginViaEmailPassword(childEmail, password);
+
+      // Ambil profil penuh murid bagi mengesahkan token aktif berjaya disimpan
+      const user = await base44.auth.me();
+
+      if (user) {
+        // Simpan salinan sesi ke dalam localStorage sebagai sandaran modul AuthContext
+        localStorage.setItem('studyquest_session', JSON.stringify({ userId: user.id, id: user.id }));
+        localStorage.setItem('studyquest_user', JSON.stringify(user));
         
-        // 🔗 Navigasi terus ke Dashboard Pelajar (Menghapuskan ralat unused 'navigate')
-        navigate("/student/dashboard"); 
+        // Hala terus masuk ke Dashboard murid
+        window.location.href = "/dashboard";
       } else {
-        throw new Error(result?.message || "PIN tidak sah");
+        throw new Error("Gagal memuatkan profil murid.");
       }
     } catch (err) {
-      toast({
-        title: "Akses Ditolak 🛑",
-        description: err.message || "PIN salah. Sila semak dengan ibu bapa anda.",
-        variant: "destructive",
-      });
+      console.error("Ralat Log Masuk Anak:", err);
+      
+      let safeErrorMessage = "Username atau kata laluan salah. Sila semak semula.";
+      if (err.message && typeof err.message === "string") {
+        safeErrorMessage = err.message;
+      }
+      
+      setError(safeErrorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-amber-50/40 p-4">
-      <Card className="w-full max-w-sm rounded-3xl border-orange-100 shadow-md bg-white text-center">
-        <CardHeader className="space-y-2">
-          {/* Maskot Orang Utan StudyQuest */}
-          <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-1 text-2xl select-none">
-            🦧
-          </div>
-          <CardTitle className="text-xl font-black text-slate-800 uppercase tracking-tight">Portal Pelajar 🦖</CardTitle>
-          <CardDescription className="text-xs text-slate-400 font-medium">
-            Masukkan 4-Digit PIN rahsia anda untuk memulakan misi
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleChildLogin} className="space-y-5">
-            <div className="flex justify-center relative max-w-[200px] mx-auto">
-              <KeyRound className="absolute left-3 top-3 h-4 w-4 text-orange-400" />
-              <input
-                type="password"
-                maxLength={4}
-                value={pin}
-                // Memastikan input hanya menerima nombor integer sahaja
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} 
-                placeholder="0000"
-                className="w-full pl-10 tracking-[1em] text-center font-black text-xl py-2 bg-orange-50/50 border border-orange-100 focus:border-orange-400 rounded-2xl focus:outline-none text-slate-700"
-              />
-            </div>
+    <AuthLayout
+      icon={GraduationCap}
+      title="Portal Murid StudyQuest 🚀"
+      subtitle="Masukkan Username dan Kata Laluan anda untuk mula belajar"
+      footer={
+        <Link to="/login" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Log Masuk Ibu Bapa
+        </Link>
+      }
+    >
+      {error && (
+        <div className="mb-4 p-3 rounded-xl bg-destructive/10 text-destructive text-xs font-bold border border-destructive/20">
+          ⚠️ {error}
+        </div>
+      )}
 
-            <Button 
-              type="submit" 
-              disabled={loading || pin.length < 4} 
-              className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-sm transition-all"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Gamepad2 className="w-4 h-4 mr-2" />
-              )}
-              Mulakan Quest!
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="username" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Username / Nama Pengguna
+          </Label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              id="username"
+              type="text"
+              placeholder="Contoh: morry2"
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+              className="pl-10 h-12 rounded-xl border-slate-200 text-sm font-medium"
+              autoFocus
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Kata Laluan
+          </Label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="pl-10 h-12 rounded-xl border-slate-200 text-sm"
+              required
+            />
+          </div>
+        </div>
+
+        <Button 
+          type="submit" 
+          className="w-full h-12 font-bold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-md mt-2" 
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Memproses Masuk...
+            </>
+          ) : (
+            "Mula Belajar Sekarang ✨"
+          )}
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }
