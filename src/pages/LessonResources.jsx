@@ -67,7 +67,7 @@ export default function LessonResources() {
       } catch (err) {
         console.error("Ralat pengesahan peranan:", err);
         navigate("/login");
-      } {
+      } finally {
         setCheckingAuth(false);
       }
     };
