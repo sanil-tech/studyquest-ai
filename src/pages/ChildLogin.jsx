@@ -10,7 +10,7 @@ import AuthLayout from "@/components/AuthLayout";
 export default function ChildLogin() {
   const navigate = useNavigate();
   const [usernameInput, setUsernameInput] = useState("");
-  const [pin, setPin] = useState(""); // 🎯 Ditukar daripada password kepada pin
+  const [pin, setPin] = useState(""); 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -29,41 +29,49 @@ export default function ChildLogin() {
         throw new Error("PIN mestilah tepat 4 digit angka.");
       }
 
-      console.log(`🔎 Menyemak kredensial murid bagi username: ${inputVal}...`);
+      console.log("🚀 Menghubungi sistem Edge Function auth pelayan...");
 
-      // 1. Tapis pangkalan data terus untuk mencari User dengan username tersebut
-      const matchingUsers = await base44.entities.User.filter({
-        username: inputVal,
-        app_role: "student"
-      });
+      // 🎯 KEMBALI KEPADA LOGIK ASAL ANDA: 
+      // Menggunakan format e-mel maya untuk memintas sekatan RLS
+      const fakeEmail = inputVal.includes("@") 
+        ? inputVal 
+        : `child-${inputVal}@studyquest.local`;
 
-      // 2. Semak jika pengguna wujud
-      if (!matchingUsers || matchingUsers.length === 0) {
-        throw new Error("Username tidak ditemui. Sila semak ejaan nama pengguna pada portal Ibu Bapa.");
+      // 🎯 PENTING: Kita jadikan PIN 4-digit tersebut sebagai "password" untuk sistem auth pelayan
+      await base44.auth.loginViaEmailPassword(fakeEmail, pin);
+
+      // Ambil data maklumat murid untuk mengesahkan sesi aktif
+      const user = await base44.auth.me();
+
+      if (user) {
+        // (Pilihan) Simpan nama untuk paparan dashboard anak jika perlu
+        localStorage.setItem("active_student_id", user.id);
+        localStorage.setItem("active_student_name", user.nickname || "Pelajar");
+        
+        // Bawa terus ke dashboard anak!
+        window.location.href = "/dashboard";
+      } else {
+        throw new Error("Gagal memuatkan profil murid dari pelayan.");
       }
-
-      const childAccount = matchingUsers[0];
-
-      // 3. Sahkan padanan PIN menggunakan medan pin_hash daripada Skema JSON
-      if (childAccount.pin_hash !== pin) {
-        throw new Error("PIN Rahsia salah. Sila masukkan kod PIN yang betul.");
-      }
-
-      // 4. Set Sesi Aktif Murid ke dalam memori aplikasi
-      localStorage.setItem("active_student_id", childAccount.id);
-      localStorage.setItem("active_student_name", childAccount.nickname || childAccount.full_name || "Murid");
-
-      // Log masuk berjaya, bawa ke dashboard utama pelajar
-      window.location.href = "/dashboard";
 
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
       
+      // Mengekstrak teks ralat secara selamat
       let safeErrorMessage = "Username atau PIN salah. Sila semak semula.";
-      if (typeof err === "string") {
-        safeErrorMessage = err;
-      } else if (err.message && typeof err.message === "string") {
-        safeErrorMessage = err.message;
+      
+      if (err) {
+        if (typeof err === "string") {
+          safeErrorMessage = err;
+        } else if (err.message && typeof err.message === "string") {
+          safeErrorMessage = err.message;
+        } else {
+          try {
+            safeErrorMessage = err.message ? String(err.message) : JSON.stringify(err);
+          } catch (e) {
+            safeErrorMessage = "Ralat sistem semasa mendaftar masuk.";
+          }
+        }
       }
       
       setError(safeErrorMessage);
@@ -123,14 +131,13 @@ export default function ChildLogin() {
               maxLength={4}
               placeholder="••••"
               value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} // Hanya terima angka
-              className="pl-10 h-12 rounded-xl border-slate-200 text-sm tracking-widest"
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} // Hanya nombor dibenarkan
+              className="pl-10 h-12 rounded-xl border-slate-200 text-lg tracking-widest font-black"
               required
             />
           </div>
         </div>
 
-        {/* BUTANG HANTAR */}
         <Button 
           type="submit" 
           className="w-full h-12 font-bold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-md mt-2" 
@@ -139,7 +146,7 @@ export default function ChildLogin() {
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Mengesahkan Kod Portal Murid...
+              Mengesahkan Kod...
             </>
           ) : (
             "Mula Belajar Sekarang ✨"
