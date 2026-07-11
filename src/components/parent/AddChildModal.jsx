@@ -28,7 +28,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
     try {
       const me = await base44.auth.me();
 
-      console.log("🚀 Cuba memanggil Cloud Function 'createChildAccount'...");
+      console.log("🚀 Menghantar permintaan pendaftaran ke createChildAccount...");
       
       const response = await base44.functions.invoke("createChildAccount", {
         fullName,
@@ -37,38 +37,40 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
         parentId: me.id
       });
 
-      console.log("📦 Respon mentah dari gateway:", response);
+      console.log("📦 Respon mentah dari pelayan:", response);
 
-      // 1. Jika gateway memulangkan ralat objek rasmi (Contoh: Isu Billing / 402)
+      // 1. Semak jika ralat berlaku pada peringkat rangkaian/gateway
       if (response?.error) {
-        throw new Error(`[Gateway Error] ${response.error.message || JSON.stringify(response.error)}`);
+        const gatewayErrMsg = response.error.message || response.error.details || JSON.stringify(response.error);
+        throw new Error(`[Gateway Error] ${gatewayErrMsg}`);
       }
 
       const result = response?.data || response;
 
-      // 2. Jika fungsi backend berjalan tetapi menolak logik data (Contoh: Emel bertindih)
-      if (result && result.success === false) {
-        throw new Error(`[Backend Error] ${result.message}`);
+      // 2. 🎯 DIBAIKI: Ekstrak ralat dengan selamat daripada pelbagai nama kekunci pangkalan data
+      if (result && (result.success === false || result.status === "error")) {
+        const serverError = result.message || result.error || result.errorMessage || JSON.stringify(result);
+        throw new Error(`[Backend Logik Ralat] ${serverError}`);
       }
 
-      // 3. Jika pendaftaran berjaya
-      if (result && (result.success || result.childId)) {
+      // 3. Jika pendaftaran berjaya memulangkan status sah
+      if (result && (result.success || result.childId || result.id)) {
         if (typeof onChildAdded === "function") {
           onChildAdded(); 
         }
         setIsSuccess(true); 
       } else {
-        // 4. Jika pelayan respon tetapi strukturnya pelik/kosong
-        throw new Error(`[Structure Error] Respon tidak dikenali: ${JSON.stringify(result)}`);
+        // 4. Jika pelayan memulangkan respon kosong atau aneh
+        throw new Error(`[Format Ralat] Data kosong: ${JSON.stringify(result)}`);
       }
 
     } catch (err) {
       console.error("🚨 Ralat Pendaftaran Anak:", err);
       
-      // Paparkan teks ralat SEBENAR terus ke skrin supaya kita tahu puncanya!
+      // Paparkan teks tulen ralat ke skrin
       toast({
         title: "Pendaftaran Gagal 🛑",
-        description: err.message || "Pelayan menolak pendaftaran tanpa memulangkan mesej ralat.",
+        description: err.message,
         variant: "destructive"
       });
     } finally {
