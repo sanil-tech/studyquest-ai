@@ -279,6 +279,12 @@ export default function LessonPage() {
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
 
+  // Semakan Pintar: Adakah pelajar sudah menyelesaikan 4 peringkat utama pertama?
+  const isTopicUnlocked = progressState.video_completed && 
+                          progressState.lesson_completed && 
+                          progressState.flashcard_completed && 
+                          progressState.mindmap_completed;
+
   const tentukanPanggilanMesra = (userObj, formLevel) => {
     const customNickname = userObj?.nickname || userObj?.profile?.nickname;
     if (customNickname?.trim()) return customNickname.trim();
@@ -322,18 +328,13 @@ export default function LessonPage() {
           console.warn("⚠️ Amaran: Bank soalan tidak dapat dimuatkan:", quizBankErr);
         }
 
-        // ========================================================================
-        // 🌟 STRATEGI HIBRID: CARI DATA SEDIA ADA (CSV/LIVE) SEBELUM GUNA AI
-        // ========================================================================
         try {
-          // Tahap 1: Cari sesi tempatan pelajar aktif menggunakan topic_id
           let cachedSessions = await base44.entities.StudySession.filter(
             { student_id: user.id, topic_id: topicId },
             "-created_date",
             1
           );
 
-          // Tahap 2: Sandaran tempatan pelajar menggunakan rentetan topic_name
           if (isMounted && cachedSessions.length === 0 && top?.name) {
             cachedSessions = await base44.entities.StudySession.filter(
               { student_id: user.id, topic_name: top.name },
@@ -344,7 +345,6 @@ export default function LessonPage() {
 
           let sessionWithNotes = cachedSessions[0] || null;
 
-          // Tahap 3: Sandaran Global (CSV). Cari mana-mana sesi bertopik sama yang ada ai_explanation
           if (isMounted && (!sessionWithNotes || !sessionWithNotes.ai_explanation) && top?.name) {
             const globalSessions = await base44.entities.StudySession.filter(
               { topic_name: top.name },
@@ -364,7 +364,6 @@ export default function LessonPage() {
           }
 
           if (isMounted && sessionWithNotes) {
-            // Hanya pasang rujukan ID jika sesi ini adalah milik mutlak pelajar aktif semasa
             if (sessionWithNotes.student_id === user.id) {
               setSessionId(sessionWithNotes.id);
               sessionRef.current = sessionWithNotes.id;
@@ -380,7 +379,6 @@ export default function LessonPage() {
               });
             }
 
-            // Dekod data JSON string ai_explanation untuk dipaparkan pada nota
             if (sessionWithNotes.ai_explanation) {
               const parsed = safeJsonParse(sessionWithNotes.ai_explanation, null);
               if (parsed) {
@@ -427,15 +425,19 @@ export default function LessonPage() {
     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ["#10b981", "#84cc16", "#f59e0b", "#d97706"] });
   };
 
+  // 🌟 ANTI-XP FARMING: Peringkat yang sudah diselesaikan akan memulangkan +0 XP secara automatik
   const updateStageProgress = useCallback(async (stageId, nextStage, xpAwarded) => {
     let currentSessionId = sessionRef.current;
     
     setProgressState(prev => {
+      const sudahSelesai = prev[`${stageId}_completed`];
+      const xpSebenar = sudahSelesai ? 0 : xpAwarded;
+
       const updatedState = {
         ...prev,
         [`${stageId}_completed`]: true,
         current_stage: prev[`${nextStage}_completed`] ? prev.current_stage : nextStage,
-        xp_earned: prev.xp_earned + xpAwarded
+        xp_earned: prev.xp_earned + xpSebenar
       };
       
       if (currentSessionId) {
@@ -449,7 +451,10 @@ export default function LessonPage() {
   }, []);
 
   const handleVideoStageCompleted = useCallback(async () => {
-    if (progressState.video_completed) {
+    const sudahSelesai = progressState.video_completed;
+    const xpSebenar = sudahSelesai ? 0 : 10;
+
+    if (sudahSelesai) {
       setActiveTab("map");
       return;
     }
@@ -461,13 +466,13 @@ export default function LessonPage() {
         const newSession = await base44.entities.StudySession.create({
           student_id: user.id, subject_id: subjectId, topic_id: topicId,
           topic_name: topic.name, subject_name: subject.name, duration_minutes: 0,
-          ...progressState, video_completed: true, current_stage: "lesson", xp_earned: 10
+          ...progressState, video_completed: true, current_stage: "lesson", xp_earned: xpSebenar
         });
         
         const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
         setSessionId(validId);
         sessionRef.current = validId;
-        setProgressState(p => ({ ...p, video_completed: true, current_stage: "lesson", xp_earned: 10 }));
+        setProgressState(p => ({ ...p, video_completed: true, current_stage: "lesson", xp_earned: xpSebenar }));
         triggerConfetti();
         setActiveTab("map");
         return;
@@ -480,19 +485,20 @@ export default function LessonPage() {
     setActiveTab("map");
   }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
 
-  // ========================================================================
-  // 🌟 LALUAN A: BILA NOTA WUJUD (Hanya Tanda Selesai & Ambil XP)
-  // ========================================================================
+  // LALUAN A: BILA NOTA WUJUD (Ulangkaji = +0 XP)
   const handleLessonStageCompleted = async () => {
     setStatus(p => ({ ...p, lesson: true }));
     setUiError(null);
     try {
       let currentSessionId = sessionRef.current;
+      const sudahSelesai = progressState.lesson_completed;
+      const xpSebenar = sudahSelesai ? 0 : 15;
+
       const nextStatePayload = {
         ...progressState,
         lesson_completed: true,
-        current_stage: "flashcard",
-        xp_earned: progressState.xp_earned + 15
+        current_stage: progressState.flashcard_completed ? progressState.current_stage : "flashcard",
+        xp_earned: progressState.xp_earned + xpSebenar
       };
 
       if (!currentSessionId) {
@@ -513,54 +519,45 @@ export default function LessonPage() {
       triggerConfetti();
       setActiveTab("map");
     } catch (e) {
-      console.error("🚨 Gagal menanda kemajuan nota:", e);
-      setUiError("Gagal merekodkan kemajuan dahan nota. Sila cuba lagi.");
+      console.error(e);
+      setUiError("Gagal merekodkan kemajuan dahan nota.");
     } finally {
       setStatus(p => ({ ...p, lesson: false }));
     }
   };
 
-  // ========================================================================
-  // 🌟 LALUAN B: SANDARAN KEDUA (Nota Tiada -> AI Jana & Simpan Automatik)
-  // ========================================================================
+  // LALUAN B: SANDARAN KEDUA JANA AI (Ulangkaji = +0 XP)
   const generateCoreLesson = async () => {
     setStatus(p => ({ ...p, lesson: true }));
     setUiError(null);
     try {
       const lang = getLanguageMode();
-      if (!topic || !subject) {
-        throw new Error("Data subjek/topik belum selesai dimuatkan.");
-      }
+      if (!topic || !subject) throw new Error("Data subjek/topik belum selesai dimuatkan.");
 
-      // Seru fungsi LLM Gemini 3 Flash untuk menjana nota pintar tersuai
       const response = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        add_context_from_internet: true,
+        model: "gemini_3_flash", add_context_from_internet: true,
         prompt: LESSON_PROMPT(topic.name, subject.name, topic.form_level, lang, studentNickname),
         response_json_schema: {
           type: "object",
-          properties: { 
-            lesson_markdown: { type: "string" }, 
-            summary: { type: "string" }, 
-            keywords: { type: "array", items: { type: "string" } } 
-          },
+          properties: { lesson_markdown: { type: "string" }, summary: { type: "string" }, keywords: { type: "array", items: { type: "string" } } },
           required: ["lesson_markdown", "summary", "keywords"]
         }
       });
 
-      if (!response || !response.lesson_markdown) {
-        throw new Error("Respons daripada AI kosong atau tidak mengandungi markdown.");
-      }
+      if (!response || !response.lesson_markdown) throw new Error("Respons daripada AI kosong.");
 
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
 
       let currentSessionId = sessionRef.current;
+      const sudahSelesai = progressState.lesson_completed;
+      const xpSebenar = sudahSelesai ? 0 : 15;
+
       const nextStatePayload = {
         ...progressState, 
         lesson_completed: true, 
-        current_stage: "flashcard",
-        xp_earned: progressState.xp_earned + 15, 
+        current_stage: progressState.flashcard_completed ? progressState.current_stage : "flashcard",
+        xp_earned: progressState.xp_earned + xpSebenar, 
         ai_explanation: JSON.stringify(response)
       };
 
@@ -568,8 +565,7 @@ export default function LessonPage() {
         const user = await base44.auth.me();
         const newSession = await base44.entities.StudySession.create({
           student_id: user.id, subject_id: subjectId, topic_id: topicId,
-          topic_name: topic.name, subject_name: subject.name, duration_minutes: 0,
-          ...nextStatePayload
+          topic_name: topic.name, subject_name: subject.name, duration_minutes: 0, ...nextStatePayload
         });
         const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
         setSessionId(validId);
@@ -581,27 +577,22 @@ export default function LessonPage() {
       
       setProgressState(prev => ({ ...prev, ...nextStatePayload }));
       
-      // Bina struktur peta minda secara latar belakang
       if (currentSessionId) {
         base44.integrations.Core.InvokeLLM({
-          model: "gemini_3_flash", prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang),
-          response_json_schema: MINDMAP_SCHEMA
+          model: "gemini_3_flash", prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang), response_json_schema: MINDMAP_SCHEMA
         }).then(res => {
           if (res && Array.isArray(res)) {
             base44.entities.StudySession.update(currentSessionId, { mindmap_json: JSON.stringify(res) });
             setMindMap(res);
           }
-        }).catch(err => console.error("Ralat membina MindMap latar", err));
+        }).catch(err => console.error("Ralat MindMap", err));
       }
 
       triggerConfetti();
       setActiveTab("map");
     } catch (e) { 
-      console.error("🚨 Otan AI Backup Failure:", e);
-      setUiError(`Penjanaan nota sandaran gagal: ${e.message || "Masalah sambungan pelayan."}`);
-    } finally { 
-      setStatus(p => ({ ...p, lesson: false })); 
-    }
+      setUiError(`Penjanaan nota sandaran gagal: ${e.message}`);
+    } finally { setStatus(p => ({ ...p, lesson: false })); }
   };
 
   const handleFlashcardStageCompleted = async () => {
@@ -633,10 +624,9 @@ export default function LessonPage() {
         prompt: `Based on summary: "${metaData.summary || topic.name}", generate 5 primary flashcards in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.`,
         response_json_schema: FLASHCARD_SCHEMA
       });
-      if (!res || !Array.isArray(res)) throw new Error("Format kad memori salah.");
+      if (!res || !Array.isArray(res)) throw new Error("Format salah.");
       setFlashcards(res);
     } catch (err) {
-      setUiError("Gagal menyusun kad sakti. Sistem menyediakan kad sandaran.");
       setFlashcards([{ front: "Jom mulakan kuiz?", back: "Tekan sedia!" }]);
     } finally { setStatus(p => ({ ...p, flashcards: false })); }
   };
@@ -650,14 +640,12 @@ export default function LessonPage() {
       if (mindMap) return;
       const lang = getLanguageMode();
       const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash", 
-        prompt: MINDMAP_PROMPT(metaData.summary || topic.name, metaData.keywords, lang),
-        response_json_schema: MINDMAP_SCHEMA
+        model: "gemini_3_flash", prompt: MINDMAP_PROMPT(metaData.summary || topic.name, metaData.keywords, lang), response_json_schema: MINDMAP_SCHEMA
       });
-      if (!res || !Array.isArray(res)) throw new Error("Gagal melukis peta minda.");
+      if (!res || !Array.isArray(res)) throw new Error("Gagal.");
       setMindMap(res);
     } catch (e) {
-      setUiError("Ops! Peta minda gagal dijana. Sila cuba sekali lagi.");
+      setUiError("Ops! Peta minda gagal dijana.");
     } finally { setStatus(p => ({ ...p, mindmap: false })); }
   };
 
@@ -666,80 +654,47 @@ export default function LessonPage() {
     setStatus(p => ({ ...p, quiz: true }));
     setUiError(null);
     const diff = numQ >= 20 ? "hard" : "medium";
-    
     let currentSessionId = sessionRef.current;
 
     try {
       if (!currentSessionId) {
         const user = await base44.auth.me();
-        if (!user) throw new Error("Pengguna tidak dijumpai (Sila log masuk semula).");
-        
         const newSession = await base44.entities.StudySession.create({
-          student_id: user.id, 
-          subject_id: subjectId, 
-          topic_id: topicId,
-          topic_name: topic?.name || "Topik Rawak", 
-          subject_name: subject?.name || "Subjek Rawak", 
-          duration_minutes: 0,
-          ...progressState, 
-          current_stage: "quiz"
+          student_id: user.id, subject_id: subjectId, topic_id: topicId,
+          topic_name: topic?.name || "Topik Rawak", subject_name: subject?.name || "Subjek Rawak", duration_minutes: 0,
+          ...progressState, current_stage: "quiz"
         });
-        
         currentSessionId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
-        if (!currentSessionId) throw new Error("Gagal mencipta ID Sesi Pengajian baru.");
-        
         setSessionId(currentSessionId);
         sessionRef.current = currentSessionId;
       }
 
       let quizData;
-
       if (rawBankQuestions && rawBankQuestions.length > 0) {
         const pool = shuffleArray(rawBankQuestions).slice(0, numQ);
         quizData = await base44.entities.Quiz.create({
-          session_id: currentSessionId, 
-          topic_name: topic?.name || "Topik", 
-          subject_name: subject?.name || "Subjek",
-          questions_json: JSON.stringify(pool), 
-          difficulty: diff, 
-          num_questions: pool.length
+          session_id: currentSessionId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek",
+          questions_json: JSON.stringify(pool), difficulty: diff, num_questions: pool.length
         });
       } else {
         const lang = getLanguageMode();
         const res = await base44.integrations.Core.InvokeLLM({
-          model: "gemini_3_flash",
-          prompt: `Based on topic: "${topic?.name || 'General'}", generate ${numQ} MCQs in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.`,
-          response_json_schema: QUIZ_SCHEMA
+          model: "gemini_3_flash", prompt: `Based on topic: "${topic?.name || 'General'}", generate ${numQ} MCQs in ${lang === 'en' ? 'English' : 'Bahasa Melayu'}.`, response_json_schema: QUIZ_SCHEMA
         });
-        
-        if (!res || !Array.isArray(res)) {
-          throw new Error("Format jawapan AI tidak sah. AI gagal memulangkan senarai soalan.");
-        }
+        if (!res || !Array.isArray(res)) throw new Error("Format jawapan AI tidak sah.");
         
         quizData = await base44.entities.Quiz.create({
-          session_id: currentSessionId, 
-          topic_name: topic?.name || "Topik", 
-          subject_name: subject?.name || "Subjek",
-          questions_json: JSON.stringify(res.slice(0, numQ)), 
-          difficulty: diff, 
-          num_questions: res.length
+          session_id: currentSessionId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek",
+          questions_json: JSON.stringify(res.slice(0, numQ)), difficulty: diff, num_questions: res.length
         });
       }
 
       const finalQuizId = Array.isArray(quizData) ? quizData[0]?.id : quizData?.id;
-      if (!finalQuizId) {
-        throw new Error("Kuiz berjaya dicipta tetapi tiada ID kuiz dipulangkan oleh pangkalan data.");
-      }
-
       await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
       navigate(`/quiz/${finalQuizId}`);
-
     } catch (e) { 
-      console.error("🚨 Otan Error Log -> Kegagalan Penjanaan Kuiz:", e);
-      setUiError(`Kuiz Boss gagal diseru: ${e.message || "Ralat API pangkalan data."}`);
-    } finally { 
-      setStatus(p => ({ ...p, quiz: false })); 
-    }
+      setUiError(`Kuiz Boss gagal diseru: ${e.message}`);
+    } finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
   if (loading) {
@@ -775,6 +730,19 @@ export default function LessonPage() {
         </div>
       </div>
 
+      {/* 🌟 BANNER INDIKATOR MOD ULANGKAJI & AKSES BEBAS */}
+      {isTopicUnlocked && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 shadow-sm text-amber-800">
+          <Leaf className="w-5 h-5 text-amber-500 fill-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-xs font-black">🌳 Mod Ulangkaji & Akses Bebas Aktif!</p>
+            <p className="text-[11px] text-amber-700 font-medium mt-0.5 leading-relaxed">
+              Tahniah! Anda telah menewaskan 4 peringkat dahan utama sebelum ini. Semua dahan kini **dibuka kekal** dan boleh diakses secara terus tanpa urutan. Tiada ganjaran mata XP baru diberikan untuk peringkat nota, kad atau peta, melainkan anda mencabar Kuiz Boss untuk skor sempurna 100%!
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ERROR TOAST NOTIFICATION */}
       <AnimatePresence>
         {uiError && (
@@ -797,7 +765,15 @@ export default function LessonPage() {
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
             <LessonProgress 
-              steps={{
+              // 🌟 Jika isTopicUnlocked = true, hantar status 'true' ke semua peringkat 
+              // untuk membuka sekat kekunci navigasi di dalam komponen peta visual.
+              steps={isTopicUnlocked ? {
+                video: true,
+                lesson: true,
+                flashcard: true,
+                mindmap: true,
+                quiz: true
+              } : {
                 video: progressState.video_completed,
                 lesson: progressState.lesson_completed,
                 flashcard: progressState.flashcard_completed,
@@ -822,7 +798,7 @@ export default function LessonPage() {
               <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🎬 Dahan 1: Video Guru</h3>
               <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
             </div>
-            <YouTubeLesson videoUrl={topic?.video_url} isCompleted={progressState.video_completed} xpEarned={10} onCompleted={handleVideoStageCompleted} />
+            <YouTubeLesson videoUrl={topic?.video_url} isCompleted={progressState.video_completed} xpEarned={progressState.video_completed ? 0 : 10} onCompleted={handleVideoStageCompleted} />
             {progressState.video_completed && (
               <Button onClick={() => setActiveTab("map")} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 font-black rounded-xl shadow-md text-white border-0 transition-colors">
                 Kembali Memanjat Pokok 🌳
@@ -855,7 +831,7 @@ export default function LessonPage() {
                 <div className="text-center py-10 bg-sky-50/50 border border-dashed border-sky-200 rounded-xl p-4">
                   <p className="text-sky-800 font-bold text-xs">📝 Nota Belum Sedia di Sistem</p>
                   <p className="text-[11px] text-sky-600/80 mt-1 font-medium">
-                    Jangan risau {studentNickname}! Tekan butang di bawah untuk mengerakkan Otan menjana Jurnal Nota KPM menggunakan kuasa AI secara automatik! 🚀
+                    Jangan risau {studentNickname}! Tekan butang di bawah untuk mengarahkan Otan menjana Jurnal Nota KPM menggunakan kuasa AI secara automatik! 🚀
                   </p>
                 </div>
               )}
@@ -869,7 +845,7 @@ export default function LessonPage() {
               {status.lesson ? (
                 <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Otan sedang mengemas kini... 🦧</>
               ) : explanation ? (
-                "Tanda Selesai & Ambil +15 XP! 🍃"
+                progressState.lesson_completed ? "Kembali Ke Peta (Nota Selesai) 🍃" : "Tanda Selesai & Ambil +15 XP! 🍃"
               ) : (
                 "Jana Nota Pintar AI Sekarang! ✨"
               )}
@@ -888,7 +864,7 @@ export default function LessonPage() {
               <div className="text-center py-12 text-xs font-bold text-emerald-600"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-emerald-400" /> Otan menyusun kad daun...</div>
             ) : (
               <>
-                <Flashcards flashcards={flashcards || []} />
+                <Flashcards flashcards={flashcards || []} lang={getLanguageMode()} />
                 <Button onClick={handleFlashcardStageCompleted} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl border-0 shadow-sm transition-colors">
                   Selesai Main Kad & Memanjat! 🌳
                 </Button>
