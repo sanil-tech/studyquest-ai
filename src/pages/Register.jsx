@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { appParams } from "@/lib/app-params"; // 💡 DIBAIKI: Diperlukan untuk X-App-Id header
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,7 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState("details"); // details → role
+  const [step, setStep] = useState("details");
 
   const handleSubmitDetails = (e) => {
     e.preventDefault();
@@ -38,7 +39,6 @@ export default function Register() {
       return;
     }
 
-    // Advance to role selection screen without OTP requirements
     setStep("role");
   };
 
@@ -48,11 +48,13 @@ export default function Register() {
     const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
 
     try {
-      // 1. Call the backend function to create the database entities securely
+      // 1. 💡 DIBAIKI: Menghantar X-App-Id dan X-App-Token ke Backend Edge Function
       const response = await fetch('/api/functions/publicRegister', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-App-Id': appParams.appId || '', 
+          'Authorization': appParams.token ? `Bearer ${appParams.token}` : ''
         },
         body: JSON.stringify({
           username: cleanUsername,
@@ -61,13 +63,20 @@ export default function Register() {
         })
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to create your account.");
+      // Dapatkan teks respons mentah terlebih dahulu untuk mengelakkan ralat JSON parsing jika server crash
+      const responseText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Ralat Pelayan Terus (500): ${responseText.substring(0, 100)}`);
       }
 
-      // 2. AUTO-LOGIN: Persist session variables directly from successful registration response
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Gagal mendaftarkan akaun (Status HTTP ${response.status})`);
+      }
+
+      // 2. AUTO-LOGIN: Simpan maklumat sesi terus ke peranti pelayar
       if (result.user) {
         localStorage.setItem('studyquest_session', JSON.stringify({ 
           userId: result.user.id, 
@@ -75,15 +84,14 @@ export default function Register() {
         }));
         localStorage.setItem('studyquest_user', JSON.stringify(result.user));
         
-        // Redirect seamlessly into the profile setup stage
         window.location.href = "/complete-profile";
       } else {
-        throw new Error("Registration succeeded but profile payload was incomplete.");
+        throw new Error("Pendaftaran berjaya tetapi profil tidak lengkap.");
       }
     } catch (err) {
-      console.error("Registration error:", err);
+      console.error("Registration UI caught error:", err);
       setError(err.message || "Registration failed. Please try again.");
-      setStep("details"); // Roll back to main form if error occurs
+      setStep("details"); 
     } finally {
       setLoading(false);
     }
@@ -93,7 +101,6 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
-  // --- Step 2: Role Selection UI ---
   if (step === "role") {
     return (
       <AuthLayout 
@@ -102,7 +109,9 @@ export default function Register() {
         subtitle="Select the option that best describes you"
       >
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">⚠️ {error}</div>
+          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm border border-destructive/20">
+            ⚠️ {error}
+          </div>
         )}
         <div className="space-y-4 mb-6">
           <RoleOption
@@ -139,7 +148,6 @@ export default function Register() {
     );
   }
 
-  // --- Step 1: Account details UI ---
   return (
     <AuthLayout
       icon={UserPlus}
@@ -173,7 +181,7 @@ export default function Register() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm border border-destructive/20">
           ⚠️ {error}
         </div>
       )}
