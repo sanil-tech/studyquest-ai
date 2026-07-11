@@ -69,7 +69,42 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
-  // --- Step: Role selection ---
+  // --- 🔄 DIBAIKI: Pengurusan Pemilihan Peranan Menerusi Backend Edge Function ---
+  async function handleRoleSelect(role) {
+    setLoading(true);
+    setError("");
+    try {
+      // 🚀 Hantar arahan penatapan role ke backend pentadbir untuk bypass sekatan client-side
+      const response = await fetch('/api/functions/setupUserRole', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: role
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Gagal mengemas kini peranan akaun anda.");
+      }
+
+      // 🔄 Muat semula rekod profil terkini daripada server untuk mengemas kini aplikasi
+      const updatedUser = await base44.auth.me();
+      localStorage.setItem('studyquest_user', JSON.stringify(updatedUser));
+
+      // 🚀 Hala ke langkah pelengkap profil seterusnya
+      window.location.href = "/complete-profile";
+    } catch (err) {
+      console.error("Ralat menyimpan peranan:", err);
+      setError(err.message || "Failed to save role");
+      setLoading(false);
+    }
+  }
+
+  // --- Step: Role selection UI ---
   if (step === "role") {
     return (
       <AuthLayout 
@@ -91,7 +126,7 @@ export default function Register() {
           <RoleOption
             icon={GraduationCap}
             title="I am a Student"
-            description="For students aged 13+ who want to manage their own learning"
+            description="For students who want to manage their own learning with full account access"
             color="primary"
             onClick={() => handleRoleSelect("student")}
           />
@@ -107,7 +142,7 @@ export default function Register() {
     );
   }
 
-  // --- Step: OTP ---
+  // --- Step: OTP UI ---
   if (step === "otp") {
     return (
       <AuthLayout
@@ -162,7 +197,7 @@ export default function Register() {
     );
   }
 
-  // --- Step: Account details ---
+  // --- Step: Account details UI ---
   return (
     <AuthLayout
       icon={UserPlus}
@@ -264,39 +299,6 @@ export default function Register() {
       </form>
     </AuthLayout>
   );
-
-  async function handleRoleSelect(role) {
-    setLoading(true);
-    setError("");
-    try {
-      const u = await base44.auth.me();
-      await base44.auth.updateMe({ app_role: role });
-
-      // Create wallet and progress for students
-      if (role === "student") {
-        const wallets = await base44.entities.Wallet.filter({ student_id: u.id });
-        if (wallets.length === 0) {
-          await base44.entities.Wallet.create({ student_id: u.id, balance: 0 });
-        }
-        const progress = await base44.entities.Progress.filter({ student_id: u.id });
-        if (progress.length === 0) {
-          await base44.entities.Progress.create({ 
-            student_id: u.id, 
-            total_xp: 0, 
-            level: 1, 
-            streak_days: 0, 
-            total_study_time: 0 
-          });
-        }
-      }
-
-      // Redirect to profile completion
-      window.location.href = "/complete-profile";
-    } catch (err) {
-      setError(err.message || "Failed to save role");
-      setLoading(false);
-    }
-  }
 }
 
 function RoleOption({ icon: Icon, title, description, color, onClick }) {
