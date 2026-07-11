@@ -1,13 +1,63 @@
 // src/components/lesson/Flashcards.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, HelpCircle, Sparkles, CheckCircle2, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, HelpCircle, Sparkles, CheckCircle2, RotateCcw, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function Flashcards({ flashcards = [] }) {
+export default function Flashcards({ flashcards = [], lang = "ms" }) {
   const [current, setCurrent] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [revealedCount, setRevealedCount] = useState(new Set());
+
+  // 🌟 FUNGSI PINTAR 1: Ekstrak semua emoji daripada ayat untuk dijadikan gambarajah visual utama
+  const extractEmojis = (text) => {
+    if (!text) return "";
+    const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{1F1E6}-\u{1F1FF}]/gu;
+    const matches = text.match(emojiRegex);
+    return matches ? matches.join("") : "";
+  };
+
+  // 🌟 FUNGSI PINTAR 2: Bersihkan ayat daripada lambakan emoji supaya teks bawah nampak kemas & mudah dibaca
+  const cleanText = (text) => {
+    if (!text) return "";
+    const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{1F1E6}-\u{1F1FF}]/gu;
+    return text.replace(emojiRegex, "").trim();
+  };
+
+  // 🌟 ENJIN VOICEOVER: Menggunakan Web Speech API (Suara Asli Pelayar Standard)
+  const sebutTeks = (textToSpeak) => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel(); // Matikan suara lama dengan serta-merta (elak bertindih)
+      const clean = cleanText(textToSpeak);
+      if (!clean) return;
+      
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = lang === "en" ? "en-US" : "ms-MY"; // Tukar loghat automatik mengikut subjek
+      utterance.rate = 0.85; // Diperlahankan sedikit supaya kanak-kanak mudah menangkap perkataan
+      utterance.pitch = 1.2; // Ditinggikan sedikit nada suara agar kedengaran ceria & mesra kanak-kanak
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const card = flashcards[current];
+
+  // 🔊 AUTOMATIK AUDIO: Suara akan berbunyi sendiri setiap kali kad bertukar atau diterbalikkan!
+  useEffect(() => {
+    if (flashcards.length > 0 && card) {
+      const textToSpeak = flipped ? card.back : card.front;
+      // Memberikan sela masa 350ms supaya suara bermula sebaik sahaja animasi pusingan 3D kad tamat
+      const timer = setTimeout(() => sebutTeks(textToSpeak), 350);
+      return () => clearTimeout(timer);
+    }
+  }, [current, flipped, flashcards]);
+
+  // Pastikan enjin audio ditutup terus jika pelajar keluar dari tab kad imbas ini
+  useEffect(() => {
+    return () => {
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    };
+  }, []);
 
   const next = () => { 
     setFlipped(false); 
@@ -22,18 +72,16 @@ export default function Flashcards({ flashcards = [] }) {
   const handleFlip = () => {
     setFlipped(!flipped);
     if (!flipped) {
-      // Catat kartu yang sudah dibuka oleh anak untuk indikator progres cerdas
       setRevealedCount(prev => new Set([...prev, current]));
     }
   };
 
   const resetGame = () => {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setFlipped(false);
     setCurrent(0);
     setRevealedCount(new Set());
   };
-
-  const card = flashcards[current];
   
   if (!card || flashcards.length === 0) {
     return (
@@ -42,6 +90,9 @@ export default function Flashcards({ flashcards = [] }) {
       </div>
     );
   }
+
+  const frontEmojis = extractEmojis(card.front);
+  const backEmojis = extractEmojis(card.back);
 
   return (
     <div className="bg-gradient-to-b from-amber-50 via-white to-orange-50 rounded-3xl p-6 border-4 border-amber-400/40 shadow-[0_8px_0_0_rgba(251,191,36,0.2)] max-w-xl mx-auto space-y-6">
@@ -72,7 +123,7 @@ export default function Flashcards({ flashcards = [] }) {
       </div>
 
       {/* MAIN 3D FLIP CONTAINER */}
-      <div className="relative h-64 w-full cursor-pointer select-none" style={{ perspective: "1200px" }}>
+      <div className="relative h-72 w-full cursor-pointer select-none" style={{ perspective: "1200px" }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={current}
@@ -84,61 +135,90 @@ export default function Flashcards({ flashcards = [] }) {
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
           >
-            {/* ========================================== */}
-            {/* MUKA DEPAN KAD (SOALAN YANG MENARIK)     */}
-            {/* ========================================== */}
+            {/* ==================================================================== */}
+            {/* MUKA DEPAN KAD (SOALAN YANG MENARIK + AUDIO + VISUAL)                */}
+            {/* ==================================================================== */}
             <div
               className="absolute inset-0 flex flex-col items-center justify-between bg-white rounded-3xl border-4 border-amber-400 p-6 text-center shadow-[0_10px_20px_rgba(251,191,36,0.15)] bg-[radial-gradient(#fef3c7_1px,transparent_1px)] [background-size:16px_16px]"
               style={{ backfaceVisibility: "hidden" }}
             >
-              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center border-2 border-amber-300 shadow-inner">
-                <span className="text-2xl animate-pulse">❓</span>
+              {/* Butang Ulangan Suara Manual di Penjuru Atas Kanan */}
+              <button
+                onClick={(e) => { e.stopPropagation(); sebutTeks(card.front); }}
+                className="absolute top-4 right-4 p-2 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-full transition-transform active:scale-90 z-20 shadow-sm"
+                title="Dengar semula soalan"
+              >
+                <Volume2 className="w-4 h-4 animate-pulse" />
+              </button>
+
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center border-2 border-amber-300 shadow-inner shrink-0">
+                <span className="text-xl">❓</span>
               </div>
 
-              <div className="space-y-2 px-2 max-y-32 overflow-y-auto no-scrollbar">
-                <span className="text-[10px] font-black tracking-widest text-amber-600 bg-amber-100 px-3 py-1 rounded-full uppercase">
+              <div className="space-y-3 px-2 flex-1 flex flex-col justify-center items-center overflow-hidden">
+                <span className="text-[9px] font-black tracking-widest text-amber-600 bg-amber-100 px-3 py-1 rounded-full uppercase shrink-0">
                   TEKA JAWAPAN
                 </span>
-                <p className="text-base sm:text-xl font-heading font-extrabold text-slate-800 leading-snug">
-                  {card.front}
+
+                {/* 🎨 VISUAL: Paparan Kumpulan Emoji Gergasi untuk Pelajar yang Belum Mahir Membaca */}
+                {frontEmojis && (
+                  <div className="text-4xl sm:text-5xl filter drop-shadow-sm tracking-widest animate-bounce py-1 shrink-0">
+                    {frontEmojis}
+                  </div>
+                )}
+
+                <p className="text-sm sm:text-lg font-heading font-extrabold text-slate-800 leading-snug max-h-24 overflow-y-auto no-scrollbar">
+                  {cleanText(card.front)}
                 </p>
               </div>
 
-              <div className="text-[11px] font-bold text-amber-700 bg-amber-400/20 px-4 py-1.5 rounded-xl border border-amber-400/30">
-                Klik Kad Untuk Semak ✨
+              <div className="text-[10px] font-bold text-amber-700 bg-amber-400/20 px-4 py-1.5 rounded-xl border border-amber-400/30 shrink-0">
+                Sentuh Kad Untuk Semak Jawapan ✨
               </div>
             </div>
 
-{/* ========================================== */}
-{/* MUKA BELAKANG KAD (JAWAPAN & ULASAN CERIA) */}
-{/* ========================================== */}
-<div
-  className="absolute inset-0 flex flex-col items-center justify-between bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl border-4 border-emerald-400 p-5 text-center shadow-[0_10px_25px_rgba(16,185,129,0.25)] text-white"
-  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
->
-  {/* Icon bahagian atas - Dikecilkan sedikit kepada w-10 h-10 untuk jimat ruang */}
-  <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40 shadow-inner shrink-0">
-    <span className="text-xl animate-pulse">🎉</span>
-  </div>
+            {/* ==================================================================== */}
+            {/* MUKA BELAKANG KAD (JAWAPAN TEPAT + AUDIO + VISUAL)                   */}
+            {/* ==================================================================== */}
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-between bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl border-4 border-emerald-400 p-5 text-center shadow-[0_10px_25px_rgba(16,185,129,0.25)] text-white"
+              style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+            >
+              {/* Butang Ulangan Suara Manual di Penjuru Atas Kanan Belakang Kad */}
+              <button
+                onClick={(e) => { e.stopPropagation(); sebutTeks(card.back); }}
+                className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-transform active:scale-90 z-20 shadow-sm border border-white/10"
+                title="Dengar semula jawapan"
+              >
+                <Volume2 className="w-4 h-4" />
+              </button>
 
-  {/* KONTENA UTAMA JAWAPAN (SANGAT LUAS & BEBAS SKROL) */}
-  <div className="w-full flex-1 flex flex-col justify-center items-center px-2 my-auto">
-    <span className="text-[10px] font-black tracking-widest text-emerald-100 bg-white/20 px-3 py-1 rounded-full uppercase border border-white/10 mb-2 shrink-0">
-      JAWAPAN TEPAT
-    </span>
-    
-    {/* Kotak latar belakang yang disesuaikan padding (p-3 sm:p-4) */}
-    <div className="w-full bg-black/15 p-3 sm:p-4 rounded-2xl border border-white/10 shadow-inner">
-      {/* Saiz teks dioptimumkan ke text-sm (mobile) dan text-base (desktop) agar muat sepenuhnya tanpa skrol */}
-      <p className="text-sm sm:text-base font-heading font-bold text-white text-center leading-relaxed whitespace-pre-line tracking-wide drop-shadow-sm">
-        {card.back}
-      </p>
-    </div>
-  </div>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/40 shadow-inner shrink-0">
+                <span className="text-xl">🎉</span>
+              </div>
 
-  {/* Arahan navigasi bawah */}
-              <div className="text-[10px] font-semibold text-emerald-100/90 flex items-center gap-1 bg-black/10 px-3 py-1 rounded-full">
-                Klik kad untuk lihat soalan semula 🔄
+              {/* KONTENA UTAMA JAWAPAN */}
+              <div className="w-full flex-1 flex flex-col justify-center items-center px-2 my-auto overflow-hidden">
+                <span className="text-[9px] font-black tracking-widest text-emerald-100 bg-white/20 px-3 py-1 rounded-full uppercase border border-white/10 mb-2 shrink-0">
+                  JAWAPAN TEPAT
+                </span>
+                
+                {/* 🎨 VISUAL BELAKANG KAD: Bawa bersama imej emoji gergasi */}
+                {backEmojis && (
+                  <div className="text-4xl sm:text-5xl filter drop-shadow-sm tracking-widest mb-2 shrink-0">
+                    {backEmojis}
+                  </div>
+                )}
+                
+                <div className="w-full bg-black/15 p-3 sm:p-4 rounded-2xl border border-white/10 shadow-inner max-h-28 overflow-y-auto no-scrollbar">
+                  <p className="text-xs sm:text-sm font-heading font-bold text-white text-center leading-relaxed whitespace-pre-line tracking-wide drop-shadow-sm">
+                    {cleanText(card.back)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-[10px] font-semibold text-emerald-100/90 flex items-center gap-1 bg-black/10 px-3 py-1 rounded-full shrink-0">
+                Sentuh untuk kembali ke soalan 🔄
               </div>
             </div>
           </motion.div>
@@ -195,7 +275,7 @@ export default function Flashcards({ flashcards = [] }) {
 
       {/* EXTRA INFO FOOTER BANNER */}
       <p className="text-center text-[10px] font-bold text-amber-800/60 flex items-center justify-center gap-1 bg-amber-400/5 py-1.5 rounded-xl border border-dashed border-amber-400/20">
-        <HelpCircle className="w-3 h-3"/>
+        <HelpCircle className="w-3 h-3"/> Dengar pembacaan Otan jika anda belum lancar membaca!
       </p>
       
     </div>
