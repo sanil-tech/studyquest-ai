@@ -48,7 +48,6 @@ export const AuthProvider = ({ children }) => {
       } catch (appError) {
         console.error('App state check failed:', appError);
         
-        // 💡 DIBAIKI: Mengeluarkan teks mesej terselamat daripada ralat objek
         const fallbackMsg = appError.message ? String(appError.message) : 'Failed to load app';
         
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
@@ -92,8 +91,14 @@ export const AuthProvider = ({ children }) => {
           const session = JSON.parse(sessionData);
           const parsedUser = JSON.parse(storedUser);
           
-          // Memanggil entiti secara klien biasa untuk pengesahan ID anak
-          const verifiedUser = await base44.entities.User.get(session.userId).catch(() => null);
+          // 💡 DIBAIKI: Sokong kedua-dua kekunci userId atau id untuk mengelakkan ralat undefined
+          const targetId = session.userId || session.id;
+          
+          let verifiedUser = null;
+          if (targetId) {
+            // Memanggil entiti secara klien biasa untuk pengesahan ID anak
+            verifiedUser = await base44.entities.User.get(targetId).catch(() => null);
+          }
           
           if (verifiedUser && !verifiedUser.account_locked) {
             setUser(verifiedUser);
@@ -111,6 +116,7 @@ export const AuthProvider = ({ children }) => {
             return;
           }
         } catch (sessionError) {
+          console.error('Ralat membaca sesi tempatan:', sessionError);
           localStorage.removeItem('studyquest_session');
           localStorage.removeItem('studyquest_user');
         }
