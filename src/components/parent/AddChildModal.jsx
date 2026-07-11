@@ -26,20 +26,29 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
     setLoading(true);
     try {
+      // 1. Ambil maklumat Ibu Bapa yang sedang log masuk
       const me = await base44.auth.me();
 
-      console.log("🚀 Menghantar permintaan pendaftaran ke createChildAccount...");
+      // 🎯 HELAH PINTAS: Bina parameter username dan emel maya di peringkat frontend
+      // untuk mengumpan sebarang Database Trigger tersembunyi di pelayan backend.
+      const nicknameUmpan = (nickname || fullName.split(" ")[0]).trim();
+      const usernamePalsu = `${nicknameUmpan.toLowerCase()}_${me.id.substring(0, 4)}`;
+
+      console.log("🚀 Menghantar permintaan pendaftaran berserta parameter umpan...");
       
+      // 2. Panggil fungsi awan pelayan dengan hantaran data lengkap
       const response = await base44.functions.invoke("createChildAccount", {
         fullName,
-        nickname: nickname || fullName.split(" ")[0],
+        nickname: nicknameUmpan,
         pin,
-        parentId: me.id
+        parentId: me.id,
+        username: usernamePalsu,                      // 💡 Mengatasi ralat (reading 'username')
+        email: `${usernamePalsu}@studyquest.internal`  // 💡 Mengatasi kekangan unique email
       });
 
       console.log("📦 Respon mentah dari pelayan:", response);
 
-      // 1. Semak jika ralat berlaku pada peringkat rangkaian/gateway
+      // 3. Semak ralat peringkat rangkaian/gateway
       if (response?.error) {
         const gatewayErrMsg = response.error.message || response.error.details || JSON.stringify(response.error);
         throw new Error(`[Gateway Error] ${gatewayErrMsg}`);
@@ -47,21 +56,20 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
       const result = response?.data || response;
 
-      // 2. 🎯 DIBAIKI: Ekstrak ralat dengan selamat daripada pelbagai nama kekunci pangkalan data
+      // 4. Semak jika fungsi dipanggil tetapi gagal di peringkat logik data backend
       if (result && (result.success === false || result.status === "error")) {
         const serverError = result.message || result.error || result.errorMessage || JSON.stringify(result);
         throw new Error(`[Backend Logik Ralat] ${serverError}`);
       }
 
-      // 3. Jika pendaftaran berjaya memulangkan status sah
+      // 5. Jika pendaftaran berjaya sepenuhnya
       if (result && (result.success || result.childId || result.id)) {
         if (typeof onChildAdded === "function") {
-          onChildAdded(); 
+          onChildAdded(); // Refresh senarai anak di dashboard utama ibu bapa
         }
-        setIsSuccess(true); 
+        setIsSuccess(true); // Paparkan tiket hijau kejayaan
       } else {
-        // 4. Jika pelayan memulangkan respon kosong atau aneh
-        throw new Error(`[Format Ralat] Data kosong: ${JSON.stringify(result)}`);
+        throw new Error(`[Format Ralat] Struktur data tidak sah: ${JSON.stringify(result)}`);
       }
 
     } catch (err) {
@@ -70,7 +78,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       // Paparkan teks tulen ralat ke skrin
       toast({
         title: "Pendaftaran Gagal 🛑",
-        description: err.message,
+        description: err.message || "Pelayan menolak pendaftaran tanpa maklumat terperinci.",
         variant: "destructive"
       });
     } finally {
