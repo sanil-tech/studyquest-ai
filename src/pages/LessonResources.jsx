@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  BookOpen, Video, Image, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, ShieldAlert, Loader2, PlusCircle, Edit3, Search
+  BookOpen, Video, Image as ImageIcon, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, ShieldAlert, Loader2, PlusCircle, Edit3, Search, UploadCloud
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ export default function LessonResources() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // 🔒 STATE KESELAMATAN & PENGESAHAN PERANAN
+  // 🔒 STATE KESELAMATAN & LOADING SYSTEM
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -25,22 +25,19 @@ export default function LessonResources() {
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
-  // STATE DATA PENGISIAN BORANG
+  // STATE DATA PENGISIAN BORANG (MENYOKONG BASE64)
   const [topicId, setTopicId] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [infographicUrl, setInfographicUrl] = useState("");
+  const [infographicUrl, setInfographicUrl] = useState(""); // Menyimpan Base64 Infografik / Peta Minda
   const [coinReward, setCoinReward] = useState(50);
-  
-  // 🎯 DIKEMASKINI: Sekarang menggunakan satu string kosong untuk perenggan nota bebas
   const [notes, setNotes] = useState(""); 
-  
   const [questions, setQuestions] = useState([
     { questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }
   ]);
 
-  // 🎯 1. AUTH GUARD & AMBIL DATA APABILA SELESAI
+  // 🎯 1. PENGESAHAN KESELAMATAN (AUTH GUARD DENGAN TOLERANSI TESTING)
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
@@ -59,6 +56,7 @@ export default function LessonResources() {
           navigate("/dashboard"); 
         }
       } catch (err) {
+        console.error("Ralat pengesahan peranan:", err);
         navigate("/login");
       } finally {
         setCheckingAuth(false);
@@ -67,7 +65,54 @@ export default function LessonResources() {
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. MUAT TURUN DATA DARI SERVER (UNTUK MOD EDIT)
+  // 🎯 2. FILE CONVERTER: Tukar fail gambar fizikal kepada teks Base64
+  const kendaliPenukaranBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const fileReader = new FileReader();
+      fileReader.readAsDataURL(file);
+      fileReader.onload = () => resolve(fileReader.result);
+      fileReader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Handler untuk Gambar Infografik / Peta Minda
+  const handleInfographicUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Fail Terlalu Besar 🛑", description: "Sila pilih fail gambar bawah saiz 2MB.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const base64String = await kendaliPenukaranBase64(file);
+      setInfographicUrl(base64String);
+      toast({ title: "Bahan Visual Diikat! 🧠", description: "Peta Minda / Infografik sedia disimpan ke database." });
+    } catch (err) {
+      toast({ title: "Ralat", description: "Gagal memproses gambar.", variant: "destructive" });
+    }
+  };
+
+  // Handler untuk Gambar Soalan Kuiz Dinamik
+  const handleQuestionImageUpload = async (index, file) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Fail Terlalu Besar 🛑", description: "Gambar soalan mestilah bawah 2MB.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const base64String = await kendaliPenukaranBase64(file);
+      const updatedQuestions = [...questions];
+      updatedQuestions[index].questionImageUrl = base64String;
+      setQuestions(updatedQuestions);
+    } catch (err) {
+      toast({ title: "Ralat", description: "Gagal memproses gambar soalan.", variant: "destructive" });
+    }
+  };
+
+  // 🎯 3. MUAT TURUN SENARAI DARI SERVER
   const muatTurunSenaraiLesson = async () => {
     setIsLoadingList(true);
     try {
@@ -75,12 +120,12 @@ export default function LessonResources() {
       setLessonsList(rekodKuiz || []);
     } catch (err) {
       console.error("Gagal menarik senarai lesson:", err);
-    } {
+    } finally {
       setIsLoadingList(false);
     }
   };
 
-  // 🎯 3. AUTO-ISI BORANG BILA TOPIK DIPILIH (MOD EDIT)
+  // 🎯 4. AUTO-ISI DATA BILA TOPIK DIPILIH (MOD EDIT)
   const handlePilihLesson = (e) => {
     const idPilihan = e.target.value;
     setSelectedLessonId(idPilihan);
@@ -96,28 +141,20 @@ export default function LessonResources() {
       setTitle(lessonDipilih.topic_name || "");
       setSubtitle(lessonDipilih.subject_name || "");
       setYoutubeUrl(lessonDipilih.video_url || "");
-      setInfographicUrl(lessonDipilih.infographic_url || "");
+      setInfographicUrl(lessonDipilih.infographic_url || ""); 
       setCoinReward(lessonDipilih.coins_reward || 50);
 
-      // 🎯 DIKEMASKINI: Logik pintar membaca nota JSON (Array lama vs String baru)
       try {
         const parsedNotes = lessonDipilih.notes_json ? JSON.parse(lessonDipilih.notes_json) : "";
-        if (Array.isArray(parsedNotes)) {
-          // Jika data lama berbentuk array bullet points, gabungkan dengan baris baru (\n)
-          setNotes(parsedNotes.join("\n"));
-        } else {
-          setNotes(typeof parsedNotes === "string" ? parsedNotes : "");
-        }
-      } catch (e) { 
-        setNotes(""); 
-      }
+        setNotes(Array.isArray(parsedNotes) ? parsedNotes.join("\n") : (typeof parsedNotes === "string" ? parsedNotes : ""));
+      } catch (e) { setNotes(""); }
 
       try {
         const parsedQuestions = lessonDipilih.questions_json ? JSON.parse(lessonDipilih.questions_json) : [];
         if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
           setQuestions(parsedQuestions.map(q => ({
             questionText: q.question || "",
-            questionImageUrl: q.question_image_url || "",
+            questionImageUrl: q.question_image_url || "", 
             options: q.options || ["", "", "", ""],
             correctAnswer: q.correct_answer || "A"
           })));
@@ -130,7 +167,6 @@ export default function LessonResources() {
     }
   };
 
-  // --- LOGIK NAVIGASI RESET ---
   const resetSemuaMedanBorang = () => {
     setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setInfographicUrl(""); setCoinReward(50);
     setNotes(""); setQuestions([{ questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
@@ -143,7 +179,6 @@ export default function LessonResources() {
     if (modBaru === "edit") muatTurunSenaraiLesson();
   };
 
-  // --- URUSAN BANK SOALAN KUIZ BERGAMBAR ---
   const handleAddQuestion = () => {
     setQuestions([...questions, { questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
   };
@@ -155,7 +190,6 @@ export default function LessonResources() {
     const updatedQuestions = [...questions]; updatedQuestions[qIndex].options[optIndex] = value; setQuestions(updatedQuestions);
   };
 
-  // 🎯 5. LOGIK PADAM MODUL
   const handleDeleteLesson = async () => {
     if (!selectedLessonId) return;
     const sahkan = window.confirm(`⚠️ PADAM KEKAL:\n\nAdakah anda pasti mahu memadam modul ID: [${selectedLessonId}] ini?`);
@@ -164,7 +198,7 @@ export default function LessonResources() {
     setIsDeleting(true);
     try {
       await base44.entities.Quiz.delete(selectedLessonId);
-      toast({ title: "Berjaya Dipadam! 🗑️", description: "Modul pendua berjaya dibuang." });
+      toast({ title: "Berjaya Dipadam! 🗑️", description: "Modul berjaya dibuang." });
       setSelectedLessonId("");
       resetSemuaMedanBorang();
       muatTurunSenaraiLesson();
@@ -173,7 +207,6 @@ export default function LessonResources() {
     } finally { setIsDeleting(false); }
   };
 
-  // 🎯 6. LOGIK UTAMA SAVE
   const handleSaveForm = async (e) => {
     e.preventDefault();
 
@@ -190,7 +223,7 @@ export default function LessonResources() {
     try {
       const susunanSoalanKuiz = questions.map((q) => ({
         question: q.questionText.trim(),
-        question_image_url: q.questionImageUrl.trim(), 
+        question_image_url: q.questionImageUrl, 
         options: q.options.map(opt => opt.trim()),
         correct_answer: q.correctAnswer.trim()
       }));
@@ -199,9 +232,9 @@ export default function LessonResources() {
         topic_name: title.trim(),
         subject_name: subtitle.trim() || "Matematik", 
         video_url: youtubeUrl.trim(),
-        infographic_url: infographicUrl.trim(),
+        infographic_url: infographicUrl, 
         coins_reward: Number(coinReward),
-        notes_json: JSON.stringify(notes.trim()), // 🎯 DIKEMASKINI: Disimpan terus sebagai string teks mampat
+        notes_json: JSON.stringify(notes.trim()), 
         questions_json: JSON.stringify(susunanSoalanKuiz)
       };
 
@@ -227,7 +260,7 @@ export default function LessonResources() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" />
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Menyemak Kebenaran...</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Menyemak Kebenaran Pentadbir...</p>
       </div>
     );
   }
@@ -241,7 +274,7 @@ export default function LessonResources() {
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Pengurusan Lesson Resources
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Pusat kawalan kurikulum bersepadu untuk mencipta, mengemas kini, dan memadam topik pelajaran.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Pusat kawalan kurikulum bersepadu: Muat naik fail gambar nota infografik atau rajah peta minda murid.</p>
         </div>
         
         <div className="flex bg-slate-200/70 p-1 rounded-xl self-start sm:self-center shadow-inner">
@@ -277,7 +310,6 @@ export default function LessonResources() {
               ))}
             </select>
           </div>
-
           <Button
             type="button" variant="destructive" disabled={!selectedLessonId || isDeleting} onClick={handleDeleteLesson}
             className="h-9 px-4 text-xs font-black rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 shrink-0 self-end sm:self-center shadow-xs active:scale-95 disabled:opacity-40"
@@ -289,14 +321,13 @@ export default function LessonResources() {
 
       {/* BORANG BORANG UTAMA */}
       {(borangMod === "create" || selectedLessonId) ? (
-        <form onSubmit={handleSaveForm} className="space-y-6 animate-in fade-in duration-300">
+        <form onSubmit={handleSaveForm} className="space-y-6">
           
           {/* SEC 1: ASAS */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600">
               <BookOpen className="w-4 h-4" /> 1. Parameter Teras & ID Misi
             </h3>
-            
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">ID Sistem Unik Topik*</label>
@@ -316,7 +347,6 @@ export default function LessonResources() {
                 />
               </div>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="sm:col-span-3 space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Nama Subjek / Deskripsi Pendek</label>
@@ -336,10 +366,10 @@ export default function LessonResources() {
             </div>
           </Card>
 
-          {/* SEC 2: MEDIA */}
+          {/* 🎯 DIKEMASKINI - SEC 2: SEKSYEN MEDIA BERSAMA INPUT PETA MINDA / INFOGRAFIK VISUAL */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600">
-              <Video className="w-4 h-4" /> 2. Sumber Media Pengajaran & Infografik
+              <Video className="w-4 h-4" /> 2. Sumber Media Pengajaran & Fail Gambar Infografik / Peta Minda Asas
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -350,39 +380,44 @@ export default function LessonResources() {
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-indigo-500"
                 />
               </div>
+              
+              {/* Petak Input Muat Naik Fail Gambar Nota Infografik / Peta Minda Dinamik */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Image className="w-3.5 h-3.5" /> URL Gambar Infografik / Poster</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                  <UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Gambar Infografik / Peta Minda Visual
+                </label>
                 <input 
-                  type="url" placeholder="https://cloud-storage.com/nota-visual.png"
-                  value={infographicUrl} onChange={(e) => setInfographicUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-indigo-500"
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleInfographicUpload}
+                  className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1"
                 />
               </div>
             </div>
+
+            {/* 🖥️ Live Preview Gambar Nota / Peta Minda Admin */}
+            {infographicUrl && (
+              <div className="mt-2 p-2 bg-slate-50 border border-dashed border-slate-200 rounded-xl max-w-md animate-in fade-in duration-200">
+                <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">👀 Pratinjau Infografik / Peta Minda:</p>
+                <img src={infographicUrl} alt="Pratinjau Peta Minda" className="w-full h-auto rounded-lg max-h-44 object-contain bg-white border shadow-2xs" />
+                <button type="button" onClick={() => setInfographicUrl("")} className="text-[9px] font-bold text-rose-500 hover:underline mt-1 block">Padam Gambar Bahan Visual</button>
+              </div>
+            )}
           </Card>
 
-          {/* 🎯 DIKEMASKINI - SEC 3: NOTA RINGKAS BEBAS (PARAGRAPH MODE) */}
+          {/* SEC 3: NOTA RINGKAS */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
             <div>
-              <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-1.5 uppercase text-[11px] tracking-wider text-indigo-600">
-                📝 3. Kandungan Nota Pengajian Bebas
-              </h3>
-              <p className="text-[10px] text-slate-400 font-medium mt-1">Anda boleh menaip perenggan penuh, nota pendek, emoji, tanda baca, serta menggunakan baris baru (Enter).</p>
+              <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-1.5 uppercase text-[11px] tracking-wider text-indigo-600">📝 3. Kandungan Nota Pengajian Bebas</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Boleh guna baris baru, simbol perbandingan, dan emoji menarik.</p>
             </div>
-            
-            <div className="space-y-1">
-              <textarea 
-                rows={5}
-                required
-                placeholder="Tuliskan nota ringkas di sini. Contoh:&#13;• Nombor 1 hingga 5 dipanggil Nombor Asas.&#13;• Sentiasa mengira dari arah kiri ke kanan! 🦖"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-indigo-500 shadow-inner"
-              />
-            </div>
+            <textarea 
+              rows={4} required placeholder="Tuliskan isi nota tambahan di sini..." value={notes} onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-indigo-500 shadow-inner"
+            />
           </Card>
 
-          {/* SEC 4: KUIZ BERGAMBAR */}
+          {/* SEC 4: BANK SOALAN KUIZ BERGAMBAR */}
           <div className="space-y-4">
             <div className="flex justify-between items-center px-1">
               <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px] tracking-wide">
@@ -412,14 +447,29 @@ export default function LessonResources() {
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-purple-500"
                     />
                   </div>
+                  
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Image className="w-3 h-3" /> URL Gambar Soalan</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                      <UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Muat Naik Gambar Rajah Soalan
+                    </label>
                     <input 
-                      type="url" value={q.questionImageUrl} onChange={(e) => handleQuestionChange(qIndex, "questionImageUrl", e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-purple-500"
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => handleQuestionImageUpload(qIndex, e.target.files[0])}
+                      className="w-full text-xs text-slate-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1"
                     />
                   </div>
                 </div>
+
+                {q.questionImageUrl && (
+                  <div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs animate-in fade-in duration-200">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">👀 Rajah Visual Soalan #{qIndex + 1}:</p>
+                    <img src={q.questionImageUrl} alt="Preview Soalan" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border shadow-3xs" />
+                    <button type="button" onClick={() => {
+                      const updated = [...questions]; updated[qIndex].questionImageUrl = ""; setQuestions(updated);
+                    }} className="text-[9px] font-bold text-rose-500 hover:underline mt-1 block">Buang Gambar</button>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Pilihan Jawapan Objektif:</label>
@@ -449,7 +499,7 @@ export default function LessonResources() {
             ))}
           </div>
 
-          {/* AKSI SIMPAN DINAMIK */}
+          {/* BUTANG SIMPAN */}
           <div className="pt-4 flex items-center justify-end border-t">
             <Button 
               type="submit" disabled={isSaving}
@@ -463,7 +513,7 @@ export default function LessonResources() {
         </form>
       ) : (
         <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white">
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Silakan pilih satu modul pengajian daripada menu pilihan di atas untuk mula menyunting.</p>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Silakan pilih satu modul pengajian daripada menu pilihan di atas untuk mula menyunting atau memadam pendua.</p>
         </Card>
       )}
 
