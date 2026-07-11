@@ -8,8 +8,52 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
   const [current, setCurrent] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [revealedCount, setRevealedCount] = useState(new Set());
+  const [availableVoices, setAvailableVoices] = useState([]);
 
-  // 🌟 FUNGSI PINTAR 1: Ekstrak semua emoji daripada ayat untuk dijadikan gambarajah visual utama
+  // Muatkan senarai suara sistem operasi dengan selamat (Termasuk sedia mendengar perubahan muatan)
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+
+    const loadVoices = () => {
+      setAvailableVoices(window.speechSynthesis.getVoices());
+    };
+
+    loadVoices();
+    // Pelayar moden (Chrome & Edge) memuatkan suara secara asinkronus dan mencetuskan event ini
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  // 🌟 LOGIK UTAMA: Memburu suara manusia paling berkualiti tinggi mengikut slang subjek
+  const dapatkanSuaraTerbaik = (bahasaMisi) => {
+    if (availableVoices.length === 0) return null;
+
+    if (bahasaMisi === "en") {
+      const enVoices = availableVoices.filter(v => v.lang.includes("en-US") || v.lang.includes("en-GB"));
+      // Cari suara Natural/Neural Microsoft atau Google dahulu
+      return enVoices.find(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("neural")) ||
+             enVoices.find(v => v.name.toLowerCase().includes("google")) ||
+             enVoices[0];
+    } else {
+      // 🇲🇾 TAPISAN UTAMA BAHASA MELAYU MALAYSIA (ms-MY)
+      const msVoices = availableVoices.filter(v => v.lang.includes("ms-MY") || v.lang.startsWith("ms"));
+      if (msVoices.length === 0) return null;
+
+      // Susun keutamaan mengikut kualiti slang manusia asli:
+      // 1. Microsoft Yasmin/Rizwan Online Natural (Gred Terbaik di Edge)
+      // 2. Google Bahasa Melayu (Sangat baik di Android/Chrome)
+      // 3. Amira (Suara manusia asli Apple untuk iOS/macOS)
+      return msVoices.find(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("neural")) ||
+             msVoices.find(v => v.name.toLowerCase().includes("online")) ||
+             msVoices.find(v => v.name.toLowerCase().includes("google")) ||
+             msVoices.find(v => v.name.toLowerCase().includes("amira")) ||
+             msVoices[0]; // Rujukan asal jika peranti tiada suara premium
+    }
+  };
+
   const extractEmojis = (text) => {
     if (!text) return "";
     const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{1F1E6}-\u{1F1FF}]/gu;
@@ -17,42 +61,47 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
     return matches ? matches.join("") : "";
   };
 
-  // 🌟 FUNGSI PINTAR 2: Bersihkan ayat daripada lambakan emoji supaya teks bawah nampak kemas & mudah dibaca
   const cleanText = (text) => {
     if (!text) return "";
     const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{1F1E6}-\u{1F1FF}]/gu;
     return text.replace(emojiRegex, "").trim();
   };
 
-  // 🌟 ENJIN VOICEOVER: Menggunakan Web Speech API (Suara Asli Pelayar Standard)
+  // 🔊 ENJIN SUARA PREMIUM MANUSIA MALAYSIA
   const sebutTeks = (textToSpeak) => {
     if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel(); // Matikan suara lama dengan serta-merta (elak bertindih)
-      const clean = cleanText(textToSpeak);
-      if (!clean) return;
-      
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = lang === "en" ? "en-US" : "ms-MY"; // Tukar loghat automatik mengikut subjek
-      utterance.rate = 0.85; // Diperlahankan sedikit supaya kanak-kanak mudah menangkap perkataan
-      utterance.pitch = 1.2; // Ditinggikan sedikit nada suara agar kedengaran ceria & mesra kanak-kanak
-      
+      window.speechSynthesis.cancel(); // Potong suara lama serta-merta
+      const textBersih = cleanText(textToSpeak);
+      if (!textBersih) return;
+
+      const utterance = new SpeechSynthesisUtterance(textBersih);
+      const suaraTerbaik = dapatkanSuaraTerbaik(lang);
+
+      if (suaraTerbaik) {
+        utterance.voice = suaraTerbaik; // Guna profil suara manusia premium yang dijumpai
+      } else {
+        utterance.lang = lang === "en" ? "en-US" : "ms-MY"; // Pilihan sandaran zon
+      }
+
+      // Kelajuan & Nada dioptimumkan supaya slang kedengaran sekata, empati, dan tidak melompat-lompat
+      utterance.rate = lang === "en" ? 0.90 : 0.88; 
+      utterance.pitch = lang === "en" ? 1.0 : 1.05; // Sedikit sentuhan tinggi untuk aura ceria Otan
+
       window.speechSynthesis.speak(utterance);
     }
   };
 
   const card = flashcards[current];
 
-  // 🔊 AUTOMATIK AUDIO: Suara akan berbunyi sendiri setiap kali kad bertukar atau diterbalikkan!
+  // Automatik bersuara apabila kad ditukar atau dipusing
   useEffect(() => {
     if (flashcards.length > 0 && card) {
       const textToSpeak = flipped ? card.back : card.front;
-      // Memberikan sela masa 350ms supaya suara bermula sebaik sahaja animasi pusingan 3D kad tamat
       const timer = setTimeout(() => sebutTeks(textToSpeak), 350);
       return () => clearTimeout(timer);
     }
-  }, [current, flipped, flashcards]);
+  }, [current, flipped, flashcards, availableVoices]); // Ditambah availableVoices supaya terus bercakap sebaik suara siap dimuatkan
 
-  // Pastikan enjin audio ditutup terus jika pelajar keluar dari tab kad imbas ini
   useEffect(() => {
     return () => {
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
@@ -135,18 +184,15 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
           >
-            {/* ==================================================================== */}
-            {/* MUKA DEPAN KAD (SOALAN YANG MENARIK + AUDIO + VISUAL)                */}
-            {/* ==================================================================== */}
+            {/* FRONT OF CARD */}
             <div
               className="absolute inset-0 flex flex-col items-center justify-between bg-white rounded-3xl border-4 border-amber-400 p-6 text-center shadow-[0_10px_20px_rgba(251,191,36,0.15)] bg-[radial-gradient(#fef3c7_1px,transparent_1px)] [background-size:16px_16px]"
               style={{ backfaceVisibility: "hidden" }}
             >
-              {/* Butang Ulangan Suara Manual di Penjuru Atas Kanan */}
               <button
                 onClick={(e) => { e.stopPropagation(); sebutTeks(card.front); }}
                 className="absolute top-4 right-4 p-2 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-full transition-transform active:scale-90 z-20 shadow-sm"
-                title="Dengar semula soalan"
+                title="Dengar semula"
               >
                 <Volume2 className="w-4 h-4 animate-pulse" />
               </button>
@@ -160,7 +206,6 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
                   TEKA JAWAPAN
                 </span>
 
-                {/* 🎨 VISUAL: Paparan Kumpulan Emoji Gergasi untuk Pelajar yang Belum Mahir Membaca */}
                 {frontEmojis && (
                   <div className="text-4xl sm:text-5xl filter drop-shadow-sm tracking-widest animate-bounce py-1 shrink-0">
                     {frontEmojis}
@@ -177,18 +222,15 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
               </div>
             </div>
 
-            {/* ==================================================================== */}
-            {/* MUKA BELAKANG KAD (JAWAPAN TEPAT + AUDIO + VISUAL)                   */}
-            {/* ==================================================================== */}
+            {/* BACK OF CARD */}
             <div
               className="absolute inset-0 flex flex-col items-center justify-between bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl border-4 border-emerald-400 p-5 text-center shadow-[0_10px_25px_rgba(16,185,129,0.25)] text-white"
               style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
             >
-              {/* Butang Ulangan Suara Manual di Penjuru Atas Kanan Belakang Kad */}
               <button
                 onClick={(e) => { e.stopPropagation(); sebutTeks(card.back); }}
                 className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-transform active:scale-90 z-20 shadow-sm border border-white/10"
-                title="Dengar semula jawapan"
+                title="Dengar semula"
               >
                 <Volume2 className="w-4 h-4" />
               </button>
@@ -197,13 +239,11 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
                 <span className="text-xl">🎉</span>
               </div>
 
-              {/* KONTENA UTAMA JAWAPAN */}
               <div className="w-full flex-1 flex flex-col justify-center items-center px-2 my-auto overflow-hidden">
                 <span className="text-[9px] font-black tracking-widest text-emerald-100 bg-white/20 px-3 py-1 rounded-full uppercase border border-white/10 mb-2 shrink-0">
                   JAWAPAN TEPAT
                 </span>
                 
-                {/* 🎨 VISUAL BELAKANG KAD: Bawa bersama imej emoji gergasi */}
                 {backEmojis && (
                   <div className="text-4xl sm:text-5xl filter drop-shadow-sm tracking-widest mb-2 shrink-0">
                     {backEmojis}
@@ -225,9 +265,8 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
         </AnimatePresence>
       </div>
 
-      {/* NAVIGASI KAWALAN BAWAH */}
+      {/* CONTROLS BAR */}
       <div className="flex items-center justify-between gap-3 pt-2">
-        {/* Butang Sebelum */}
         <Button 
           variant="outline" 
           onClick={prev} 
@@ -237,7 +276,6 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
           <ChevronLeft className="w-4 h-4 mr-1" /> Sebelum
         </Button>
 
-        {/* Indikator Titik (Dots Progress) */}
         <div className="flex items-center gap-1.5 max-w-[140px] overflow-x-auto no-scrollbar py-1 px-2 bg-slate-100 rounded-full border border-slate-200/60 shadow-inner">
           {flashcards.map((_, i) => (
             <span
@@ -253,7 +291,6 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
           ))}
         </div>
 
-        {/* Butang Seterusnya / Main Semula */}
         {current === flashcards.length - 1 ? (
           <Button 
             onClick={resetGame} 
@@ -273,9 +310,8 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
         )}
       </div>
 
-      {/* EXTRA INFO FOOTER BANNER */}
       <p className="text-center text-[10px] font-bold text-amber-800/60 flex items-center justify-center gap-1 bg-amber-400/5 py-1.5 rounded-xl border border-dashed border-amber-400/20">
-        <HelpCircle className="w-3 h-3"/> Dengar pembacaan Otan jika anda belum lancar membaca!
+        <HelpCircle className="w-3 h-3"/> Menjana suara manusia dengan loghat Malaysia asli! 🇲🇾
       </p>
       
     </div>
