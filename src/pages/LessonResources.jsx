@@ -16,7 +16,7 @@ export default function LessonResources() {
   // 🔒 STATE KESELAMATAN (AUTH & ROLE GUARD)
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // Spinner semasa simpan data
+  const [isSaving, setIsSaving] = useState(false);
 
   // STATE DATA BORANG SUMBER PELAJARAN
   const [topicId, setTopicId] = useState("");
@@ -39,7 +39,7 @@ export default function LessonResources() {
     }
   ]);
 
-  // 🎯 PENGESAHAN IDENTITI PENTADBIR (ADMIN)
+  // 🎯 PENGESAHAN IDENTITI PENTADBIR
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
@@ -50,16 +50,21 @@ export default function LessonResources() {
           throw new Error("Sesi tidak sah. Sila log masuk semula.");
         }
 
-        // Memeriksa peranan pengguna daripada skema identiti sistem auth
         const peranan = me.app_role;
-        const sahAdmin = peranan === "admin" || peranan === "teacher" || me.is_admin === true;
+        
+        // 🎯 DIKEMASKINI: Membenarkan 'parent' mengakses halaman ini untuk tujuan pembangunan/testing anda
+        const sahAdmin = 
+          peranan === "admin" || 
+          peranan === "teacher" || 
+          peranan === "parent" || 
+          me.is_admin === true;
 
         if (sahAdmin) {
           setHasAccess(true);
         } else {
           toast({
             title: "Akses Disekat! 🛑",
-            description: "Halaman ini dikunci eksklusif untuk peranan Pentadbir (Admin) sahaja.",
+            description: "Halaman ini dikunci eksklusif untuk peranan Pentadbir sahaja.",
             variant: "destructive"
           });
           navigate("/dashboard"); 
@@ -103,7 +108,7 @@ export default function LessonResources() {
     setQuestions(updatedQuestions);
   };
 
-  // --- 🚀 PENGHANTARAN & PENYELARASAN DATA KUIZ DENGAN QUIZPAGE.JSX ---
+  // --- PENGHANTARAN & PENYELARASAN DATA KUIZ ---
   const handleSubmitForm = async (e) => {
     e.preventDefault();
 
@@ -118,15 +123,13 @@ export default function LessonResources() {
 
     setIsSaving(true);
     try {
-      // 🎯 SELARI: Susun array soalan mengikut format medan bahasa Inggeris tepat kehendak QuizPage.jsx
       const susunanSoalanKuiz = questions.map((q) => ({
         question: q.questionText.trim(),
         question_image_url: q.questionImageUrl.trim(), 
-        options: q.options.map(opt => opt.trim()), // Array isi pilihan [A, B, C, D]
-        correct_answer: q.correctAnswer.trim() // Nilai rentetan "A", "B", "C", atau "D"
+        options: q.options.map(opt => opt.trim()), 
+        correct_answer: q.correctAnswer.trim() 
       }));
 
-      // 🎯 DIRECT DB INJECTION: Cipta rekod baru terus ke dalam jadual Quiz server
       await base44.entities.Quiz.create({
         id: topicId.trim().toLowerCase().replace(/\s+/g, "-"),
         topic_name: title.trim(),
@@ -135,15 +138,14 @@ export default function LessonResources() {
         infographic_url: infographicUrl.trim(),
         coins_reward: Number(coinReward),
         notes_json: JSON.stringify(notes.filter(n => n.trim() !== "")),
-        questions_json: JSON.stringify(susunanSoalanKuiz) // Di-stringkan mengikut keperluan QuizPage
+        questions_json: JSON.stringify(susunanSoalanKuiz) 
       });
 
       toast({
         title: "Sumber & Kuiz AI Berjaya Disimpan! 🚀",
-        description: `Topik '${title}' kini aktif di database dan sedia diuji oleh murid menggunakan kanvas lukisan.`,
+        description: `Topik '${title}' kini aktif di database dan sedia diuji oleh murid.`,
       });
 
-      // Reset borang ke keadaan asal selepas berjaya disimpan
       setTopicId("");
       setTitle("");
       setSubtitle("");
@@ -157,7 +159,7 @@ export default function LessonResources() {
       console.error("Gagal menyimpan data pelajaran ke database:", err);
       toast({
         title: "Ralat Simpanan Server ❌",
-        description: err.message || "Gagal menyambung ke pangkalan data cloud. Sila semak RLS.",
+        description: err.message || "Gagal menyambung ke pangkalan data cloud.",
         variant: "destructive"
       });
     } finally {
@@ -165,7 +167,6 @@ export default function LessonResources() {
     }
   };
 
-  // ⏳ 1. Skrin Memuatkan Pengesahan Identiti Peranan Admin
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -175,22 +176,19 @@ export default function LessonResources() {
     );
   }
 
-  // 🚨 2. Skrin Perlindungan: Jika Bukan Admin Cuba Ceroboh URL
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center space-y-3">
         <ShieldAlert className="w-12 h-12 text-rose-500 animate-bounce" />
         <h2 className="text-base font-black text-slate-800 uppercase">Akses Tidak Dibenarkan</h2>
-        <p className="text-xs text-slate-500 max-w-xs">Anda perlu log masuk menggunakan akaun rasmi Pentadbir (Admin/Teacher) untuk mengubah suai kandungan modul.</p>
+        <p className="text-xs text-slate-500 max-w-xs">Anda perlu log masuk menggunakan akaun rasmi Pentadbir untuk mengubah suai kandungan modul.</p>
       </div>
     );
   }
 
-  //  3. Paparan Utama Borang (Lepas Tapisan Keselamatan)
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 bg-slate-50/30 min-h-screen font-sans">
       
-      {/* Pengepala Antaramuka Admin */}
       <div className="flex items-center justify-between border-b pb-4">
         <div>
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
@@ -199,7 +197,7 @@ export default function LessonResources() {
           <p className="text-xs text-slate-500 mt-0.5">Hab pembangunan kurikulum: Muatkan pautan YouTube, poster infografik, dan set kuiz interaktif.</p>
         </div>
         <Badge className="bg-indigo-600 text-white font-black text-[10px] uppercase px-3 py-1 rounded-full border-0 tracking-wider shadow-xs">
-          🛡️ Admin Mode
+          🛡️ Admin Mode (Testing)
         </Badge>
       </div>
 
@@ -213,7 +211,7 @@ export default function LessonResources() {
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">ID Sistem Unik Topik (Guna - )*</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">ID Sistem Unik Topik*</label>
               <input 
                 type="text" required placeholder="Contoh: topik-nombor-asas"
                 value={topicId} onChange={(e) => setTopicId(e.target.value)}
@@ -221,7 +219,7 @@ export default function LessonResources() {
               />
             </div>
             <div className="sm:col-span-2 space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Tajuk Utama Modul Misi (Topic Name)*</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Tajuk Utama Modul Misi*</label>
               <input 
                 type="text" required placeholder="Contoh: Misi 1: Cabaran Operasi Tolak 🦖"
                 value={title} onChange={(e) => setTitle(e.target.value)}
@@ -232,7 +230,7 @@ export default function LessonResources() {
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="sm:col-span-3 space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Nama Subjek / Deskripsi Pendek (Subject Name)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Nama Subjek / Deskripsi Pendek</label>
               <input 
                 type="text" placeholder="Contoh: Matematik Tahun 1"
                 value={subtitle} onChange={(e) => setSubtitle(e.target.value)}
@@ -331,7 +329,6 @@ export default function LessonResources() {
                 )}
               </div>
 
-              {/* Teks Soalan & Gambar Rajah Soalan */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2 space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Pertanyaan / Ayat Soalan Kuiz *</label>
@@ -351,7 +348,6 @@ export default function LessonResources() {
                 </div>
               </div>
 
-              {/* Pilihan Jawapan A, B, C, D */}
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Pilihan Jawapan Objektif:</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -370,7 +366,6 @@ export default function LessonResources() {
                 </div>
               </div>
 
-              {/* Pemilihan Jawapan Betul */}
               <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 text-purple-600" /> Kunci Jawapan Betul Bagi Soalan Di Atas:
@@ -391,7 +386,6 @@ export default function LessonResources() {
           ))}
         </div>
 
-        {/* PENYIMPANAN AKHIR */}
         <div className="pt-4 flex items-center justify-end border-t">
           <Button 
             type="submit" 
