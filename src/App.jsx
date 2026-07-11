@@ -11,7 +11,6 @@ import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import RoleRoute from '@/components/RoleRoute';
 import ProfileCompleteRoute from '@/components/ProfileCompleteRoute';
-import AdminRoute from '@/components/AdminRoute';
 import AppLayout from '@/components/layout/AppLayout';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
@@ -43,7 +42,9 @@ const ChildProfilePage = React.lazy(() => import('@/pages/ChildProfilePage'));
 const ParentRewards = React.lazy(() => import('@/pages/ParentRewards'));
 const ParentApprovals = React.lazy(() => import('@/pages/ParentApprovals'));
 
-// Admin Pages
+// 🚀 DITAMBAH: Dashboard Baru mengikut Peranan Struktur Baru
+const TeacherDashboard = React.lazy(() => import('@/pages/TeacherDashboard'));
+const AdminDashboard = React.lazy(() => import('@/pages/AdminDashboard'));
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
 
 // ============================================================================
@@ -89,8 +90,9 @@ const AuthenticatedApp = () => {
           <Route path="/role-setup" element={<RoleSetup />} />
           <Route path="/complete-profile" element={<CompleteProfile />} />
 
-          {/* Admin-only routes */}
-          <Route element={<AdminRoute />} >
+          {/* 🔐 PENTADBIRAN GLOBAL: Kebenaran Kongsi untuk Super Admin & Staff (Bypass Layout Biasa) */}
+          <Route element={<RoleRoute allowedRoles={["super_admin", "staff"]} />} >
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/textbooks" element={<TextbookUpload />} />
           </Route>
 
@@ -100,7 +102,7 @@ const AuthenticatedApp = () => {
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
 
-            {/* Student-only routes */}
+            {/* 🎒 PORTAL MURID (Student-only routes) */}
             <Route element={<ProfileCompleteRoute />}>
               <Route element={<RoleRoute allowedRoles={["student"]} />}>
                 <Route path="/dashboard" element={<StudentDashboard />} />
@@ -114,7 +116,7 @@ const AuthenticatedApp = () => {
               </Route>
             </Route>
 
-            {/* Parent-only routes */}
+            {/* 👨‍👩‍👧 PORTAL IBU BAPA (Parent-only routes) */}
             <Route element={<ProfileCompleteRoute />}>
               <Route element={<RoleRoute allowedRoles={["parent"]} />}>
                 <Route path="/parent" element={<ParentDashboard />} />
@@ -124,6 +126,14 @@ const AuthenticatedApp = () => {
                 <Route path="/parent/approvals" element={<ParentApprovals />} />
               </Route>
             </Route>
+
+            {/* 🍎 PORTAL GURU (Teacher-only routes) */}
+            <Route element={<ProfileCompleteRoute />}>
+              <Route element={<RoleRoute allowedRoles={["teacher"]} />}>
+                <Route path="/teacher" element={<TeacherDashboard />} />
+              </Route>
+            </Route>
+
           </Route>
         </Route>
 
