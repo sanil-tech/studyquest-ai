@@ -25,19 +25,30 @@ export default function LessonResources() {
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
-  // STATE DATA PENGISIAN BORANG (MENYOKONG BASE64)
+  // STATE DATA PENGISIAN BORANG CORE
   const [topicId, setTopicId] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [infographicUrl, setInfographicUrl] = useState(""); // Menyimpan Base64 Infografik / Peta Minda
   const [coinReward, setCoinReward] = useState(50);
   const [notes, setNotes] = useState(""); 
+
+  // 🧠 STATE STRATEGI FAIL GAMBAR (INFOGRAFIK / PETA MINDA)
+  const [infographicUrl, setInfographicUrl] = useState(""); 
+  const [infographicFile, setInfographicFile] = useState(null); 
+  const [infographicPreview, setInfographicPreview] = useState(""); 
+
+  // STATE DINAMIK BANK SOALAN KUIZ
   const [questions, setQuestions] = useState([
-    { questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }
+    { 
+      questionText: "", 
+      questionImageUrl: "", 
+      questionFile: null, 
+      questionPreview: "" 
+    }
   ]);
 
-  // 🎯 1. PENGESAHAN KESELAMATAN (AUTH GUARD DENGAN TOLERANSI TESTING)
+  // 🎯 1. PENGESAHAN KESELAMATAN (AUTH GUARD)
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
@@ -65,54 +76,45 @@ export default function LessonResources() {
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. FILE CONVERTER: Tukar fail gambar fizikal kepada teks Base64
-  const kendaliPenukaranBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const fileReader = new FileReader();
-      fileReader.readAsDataURL(file);
-      fileReader.onload = () => resolve(fileReader.result);
-      fileReader.onerror = (error) => reject(error);
-    });
-  };
-
-  // Handler untuk Gambar Infografik / Peta Minda
-  const handleInfographicUpload = async (e) => {
+  // 🎯 2. PENGENDALI PILIHAN FAIL GAMBAR (DENGAN HAD VALIDASI 10MB)
+  const kendaliPilihanInfographic = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "Fail Terlalu Besar 🛑", description: "Sila pilih fail gambar bawah saiz 2MB.", variant: "destructive" });
+    // 🎯 DIKEMASKINI: Had saiz dinaikkan kepada 10MB (10 * 1024 * 1024)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ 
+        title: "Fail Terlalu Besar 🛑", 
+        description: "Sila pilih fail gambar di bawah saiz 10MB.", 
+        variant: "destructive" 
+      });
       return;
     }
-
-    try {
-      const base64String = await kendaliPenukaranBase64(file);
-      setInfographicUrl(base64String);
-      toast({ title: "Bahan Visual Diikat! 🧠", description: "Peta Minda / Infografik sedia disimpan ke database." });
-    } catch (err) {
-      toast({ title: "Ralat", description: "Gagal memproses gambar.", variant: "destructive" });
-    }
+    
+    setInfographicFile(file);
+    setInfographicPreview(URL.createObjectURL(file));
   };
 
-  // Handler untuk Gambar Soalan Kuiz Dinamik
-  const handleQuestionImageUpload = async (index, file) => {
+  const kendaliPilihanGambarSoalan = (index, file) => {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "Fail Terlalu Besar 🛑", description: "Gambar soalan mestilah bawah 2MB.", variant: "destructive" });
+
+    // 🎯 DIKEMASKINI: Had saiz dinaikkan kepada 10MB (10 * 1024 * 1024)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ 
+        title: "Fail Terlalu Besar 🛑", 
+        description: "Gambar soalan mestilah di bawah saiz 10MB.", 
+        variant: "destructive" 
+      });
       return;
     }
 
-    try {
-      const base64String = await kendaliPenukaranBase64(file);
-      const updatedQuestions = [...questions];
-      updatedQuestions[index].questionImageUrl = base64String;
-      setQuestions(updatedQuestions);
-    } catch (err) {
-      toast({ title: "Ralat", description: "Gagal memproses gambar soalan.", variant: "destructive" });
-    }
+    const updatedQuestions = [...questions];
+    updatedQuestions[index].questionFile = file;
+    updatedQuestions[index].questionPreview = URL.createObjectURL(file);
+    setQuestions(updatedQuestions);
   };
 
-  // 🎯 3. MUAT TURUN SENARAI DARI SERVER
+  // 🎯 3. MUAT TURUN SENARAI DARI SERVER (MOD EDIT)
   const muatTurunSenaraiLesson = async () => {
     setIsLoadingList(true);
     try {
@@ -120,7 +122,7 @@ export default function LessonResources() {
       setLessonsList(rekodKuiz || []);
     } catch (err) {
       console.error("Gagal menarik senarai lesson:", err);
-    } finally {
+    } {
       setIsLoadingList(false);
     }
   };
@@ -141,8 +143,11 @@ export default function LessonResources() {
       setTitle(lessonDipilih.topic_name || "");
       setSubtitle(lessonDipilih.subject_name || "");
       setYoutubeUrl(lessonDipilih.video_url || "");
-      setInfographicUrl(lessonDipilih.infographic_url || ""); 
       setCoinReward(lessonDipilih.coins_reward || 50);
+      
+      setInfographicUrl(lessonDipilih.infographic_url || "");
+      setInfographicPreview(lessonDipilih.infographic_url || "");
+      setInfographicFile(null);
 
       try {
         const parsedNotes = lessonDipilih.notes_json ? JSON.parse(lessonDipilih.notes_json) : "";
@@ -155,21 +160,22 @@ export default function LessonResources() {
           setQuestions(parsedQuestions.map(q => ({
             questionText: q.question || "",
             questionImageUrl: q.question_image_url || "", 
-            options: q.options || ["", "", "", ""],
-            correctAnswer: q.correct_answer || "A"
+            questionPreview: q.question_image_url || "",
+            questionFile: null
           })));
         } else {
-          setQuestions([{ questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
+          setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "" }]);
         }
       } catch (e) { 
-        setQuestions([{ questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]); 
+        setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "" }]); 
       }
     }
   };
 
   const resetSemuaMedanBorang = () => {
-    setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setInfographicUrl(""); setCoinReward(50);
-    setNotes(""); setQuestions([{ questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
+    setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setCoinReward(50); setNotes("");
+    setInfographicUrl(""); setInfographicFile(null); setInfographicPreview("");
+    setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "" }]);
   };
 
   const tukarModBorang = (modBaru) => {
@@ -180,14 +186,17 @@ export default function LessonResources() {
   };
 
   const handleAddQuestion = () => {
-    setQuestions([...questions, { questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
+    setQuestions([...questions, { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "" }]);
   };
   const handleRemoveQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
   const handleQuestionChange = (index, field, value) => {
     const updatedQuestions = [...questions]; updatedQuestions[index][field] = value; setQuestions(updatedQuestions);
   };
   const handleOptionChange = (qIndex, optIndex, value) => {
-    const updatedQuestions = [...questions]; updatedQuestions[qIndex].options[optIndex] = value; setQuestions(updatedQuestions);
+    const updatedQuestions = [...questions]; 
+    if(!updatedQuestions[qIndex].options) updatedQuestions[qIndex].options = ["", "", "", ""];
+    updatedQuestions[qIndex].options[optIndex] = value; 
+    setQuestions(updatedQuestions);
   };
 
   const handleDeleteLesson = async () => {
@@ -207,6 +216,7 @@ export default function LessonResources() {
     } finally { setIsDeleting(false); }
   };
 
+  // 🎯 3. SUBMIT LOGIK (AUTO UPLOAD KE STORAGE SERVER BILA KLIK SAVE)
   const handleSaveForm = async (e) => {
     e.preventDefault();
 
@@ -221,18 +231,37 @@ export default function LessonResources() {
 
     setIsSaving(true);
     try {
-      const susunanSoalanKuiz = questions.map((q) => ({
-        question: q.questionText.trim(),
-        question_image_url: q.questionImageUrl, 
-        options: q.options.map(opt => opt.trim()),
-        correct_answer: q.correctAnswer.trim()
-      }));
+      // Muat naik fail Peta Minda / Infografik
+      let serverInfographicUrl = infographicUrl;
+      if (infographicFile) {
+        const uploadRes = await base44.storage.upload(infographicFile);
+        serverInfographicUrl = uploadRes.url;
+      }
+
+      // Muat naik fail Gambar Rajah Kuiz secara gelung
+      const susunanSoalanKuiz = [];
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        let serverQImageUrl = q.questionImageUrl;
+
+        if (q.questionFile) {
+          const uploadQRes = await base44.storage.upload(q.questionFile);
+          serverQImageUrl = uploadQRes.url;
+        }
+
+        susunanSoalanKuiz.push({
+          question: q.questionText.trim(),
+          question_image_url: serverQImageUrl, 
+          options: (q.options || ["", "", "", ""]).map(opt => opt.trim()),
+          correct_answer: q.correctAnswer || "A"
+        });
+      }
 
       const dataPayload = {
         topic_name: title.trim(),
         subject_name: subtitle.trim() || "Matematik", 
         video_url: youtubeUrl.trim(),
-        infographic_url: infographicUrl, 
+        infographic_url: serverInfographicUrl, 
         coins_reward: Number(coinReward),
         notes_json: JSON.stringify(notes.trim()), 
         questions_json: JSON.stringify(susunanSoalanKuiz)
@@ -241,10 +270,10 @@ export default function LessonResources() {
       if (borangMod === "create") {
         const targetId = topicId.trim().toLowerCase().replace(/\s+/g, "-");
         await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
-        toast({ title: "Misi Baru Dicipta! 🎉", description: `'${title}' sedia diakses murid.` });
+        toast({ title: "Misi Baru Dicipta! 🎉", description: "Semua imej bersaiz besar selamat disimpan." });
       } else {
         await base44.entities.Quiz.update(selectedLessonId, dataPayload);
-        toast({ title: "Kemaskini Berjaya! 🔄", description: `Maklumat '${title}' telah diperbaharui.` });
+        toast({ title: "Kemaskini Berjaya! 🔄", description: "Kandungan terbaharu dikunci pada server cloud." });
       }
 
       resetSemuaMedanBorang();
@@ -252,7 +281,8 @@ export default function LessonResources() {
       if (borangMod === "edit") muatTurunSenaraiLesson();
 
     } catch (err) {
-      toast({ title: "Ralat Simpanan ❌", description: err.message, variant: "destructive" });
+      console.error(err);
+      toast({ title: "Ralat Simpanan Server ❌", description: err.message, variant: "destructive" });
     } finally { setIsSaving(false); }
   };
 
@@ -274,7 +304,7 @@ export default function LessonResources() {
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Pengurusan Lesson Resources
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Pusat kawalan kurikulum bersepadu: Muat naik fail gambar nota infografik atau rajah peta minda murid.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Sistem storan fail ditingkatkan: Menerima fail gambar visual besar sehingga had maksima **10MB**.</p>
         </div>
         
         <div className="flex bg-slate-200/70 p-1 rounded-xl self-start sm:self-center shadow-inner">
@@ -366,10 +396,10 @@ export default function LessonResources() {
             </div>
           </Card>
 
-          {/* 🎯 DIKEMASKINI - SEC 2: SEKSYEN MEDIA BERSAMA INPUT PETA MINDA / INFOGRAFIK VISUAL */}
+          {/* SEC 2: SEKSYEN MEDIA UTAMA & FAIL PETA MINDA RASMI */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600">
-              <Video className="w-4 h-4" /> 2. Sumber Media Pengajaran & Fail Gambar Infografik / Peta Minda Asas
+              <Video className="w-4 h-4" /> 2. Media Pengajaran & Fail Gambar Peta Minda Visual / Infografik Topik
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -381,26 +411,26 @@ export default function LessonResources() {
                 />
               </div>
               
-              {/* Petak Input Muat Naik Fail Gambar Nota Infografik / Peta Minda Dinamik */}
+              {/* Petak Input Fail Gambar Peta Minda / Infografik */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                  <UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Gambar Infografik / Peta Minda Visual
+                  <UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Fail Gambar Peta Minda / Infografik (Maks 10MB)
                 </label>
                 <input 
                   type="file" 
                   accept="image/*" 
-                  onChange={handleInfographicUpload}
+                  onChange={kendaliPilihanInfographic}
                   className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1"
                 />
               </div>
             </div>
 
-            {/* 🖥️ Live Preview Gambar Nota / Peta Minda Admin */}
-            {infographicUrl && (
+            {/* Live Preview Peta Minda */}
+            {infographicPreview && (
               <div className="mt-2 p-2 bg-slate-50 border border-dashed border-slate-200 rounded-xl max-w-md animate-in fade-in duration-200">
-                <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">👀 Pratinjau Infografik / Peta Minda:</p>
-                <img src={infographicUrl} alt="Pratinjau Peta Minda" className="w-full h-auto rounded-lg max-h-44 object-contain bg-white border shadow-2xs" />
-                <button type="button" onClick={() => setInfographicUrl("")} className="text-[9px] font-bold text-rose-500 hover:underline mt-1 block">Padam Gambar Bahan Visual</button>
+                <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">👀 Pratinjau Paparan Visual (Peta Minda/Infografik):</p>
+                <img src={infographicPreview} alt="Pratinjau Peta Minda" className="w-full h-auto rounded-lg max-h-44 object-contain bg-white border shadow-2xs" />
+                <button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 hover:underline mt-1 block">Buang Fail Gambar</button>
               </div>
             )}
           </Card>
@@ -450,23 +480,27 @@ export default function LessonResources() {
                   
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                      <UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Muat Naik Gambar Rajah Soalan
+                      <UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Muat Naik Gambar Rajah Soalan (Maks 10MB)
                     </label>
                     <input 
                       type="file" 
                       accept="image/*" 
-                      onChange={(e) => handleQuestionImageUpload(qIndex, e.target.files[0])}
+                      onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])}
                       className="w-full text-xs text-slate-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1"
                     />
                   </div>
                 </div>
 
-                {q.questionImageUrl && (
+                {q.questionPreview && (
                   <div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs animate-in fade-in duration-200">
                     <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">👀 Rajah Visual Soalan #{qIndex + 1}:</p>
-                    <img src={q.questionImageUrl} alt="Preview Soalan" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border shadow-3xs" />
+                    <img src={q.questionPreview} alt="Preview Soalan" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border shadow-3xs" />
                     <button type="button" onClick={() => {
-                      const updated = [...questions]; updated[qIndex].questionImageUrl = ""; setQuestions(updated);
+                      const updated = [...questions]; 
+                      updated[qIndex].questionFile = null; 
+                      updated[qIndex].questionPreview = "";
+                      updated[qIndex].questionImageUrl = ""; 
+                      setQuestions(updated);
                     }} className="text-[9px] font-bold text-rose-500 hover:underline mt-1 block">Buang Gambar</button>
                   </div>
                 )}
@@ -478,7 +512,7 @@ export default function LessonResources() {
                       <div key={optIndex} className="flex items-center gap-2 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100">
                         <span className="w-6 h-6 rounded-lg bg-white border font-black text-xs text-slate-700 flex items-center justify-center shadow-2xs">{label}</span>
                         <input 
-                          type="text" required value={q.options[optIndex]} onChange={(e) => handleOptionChange(qIndex, optIndex, e.target.value)}
+                          type="text" required value={q.options ? q.options[optIndex] : ""} onChange={(e) => handleOptionChange(qIndex, optIndex, e.target.value)}
                           className="flex-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-purple-500"
                         />
                       </div>
@@ -489,7 +523,7 @@ export default function LessonResources() {
                 <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-purple-600" /> Kunci Jawapan Betul:</span>
                   <select
-                    value={q.correctAnswer} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)}
+                    value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)}
                     className="bg-white border border-slate-200 rounded-lg text-xs font-black px-4 py-1 text-purple-700 focus:outline-purple-600 shadow-2xs cursor-pointer"
                   >
                     <option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option>
@@ -505,8 +539,7 @@ export default function LessonResources() {
               type="submit" disabled={isSaving}
               className={`text-white font-black text-xs rounded-xl shadow-md px-6 h-10 gap-1.5 active:scale-[0.99] transition-transform ${borangMod === 'create' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
             >
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {borangMod === "create" ? "Simpan & Kunci Modul Baru" : "Kemaskini Rekod Misi"}
+              {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengunci Fail Server...</> : <><Save className="w-4 h-4" /> Kunci Kandungan Modul</>}
             </Button>
           </div>
 
