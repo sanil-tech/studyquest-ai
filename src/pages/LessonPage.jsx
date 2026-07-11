@@ -279,10 +279,12 @@ export default function LessonPage() {
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
 
-  const isTopicUnlocked = progressState.video_completed && 
+  // 🌟 DEFINISI UNLOCKED YANG DIPERKUH: Dahan terbuka jika 4 peringkat siap ATAU jika Kuiz sudah bertanda selesai
+  const isTopicUnlocked = progressState.quiz_completed || (
+                          progressState.video_completed && 
                           progressState.lesson_completed && 
                           progressState.flashcard_completed && 
-                          progressState.mindmap_completed;
+                          progressState.mindmap_completed);
 
   const tentukanPanggilanMesra = (userObj, formLevel) => {
     const customNickname = userObj?.nickname || userObj?.profile?.nickname;
@@ -362,20 +364,21 @@ export default function LessonPage() {
             }
           }
 
+          // 🌟 PEMBETULAN UTAMA: Petakan flag kemajuan terus ke progressState walaupun ia sesi CSV global!
           if (isMounted && sessionWithNotes) {
+            setProgressState({
+              video_completed: sessionWithNotes.video_completed || false,
+              lesson_completed: sessionWithNotes.lesson_completed || false,
+              flashcard_completed: sessionWithNotes.flashcard_completed || false,
+              mindmap_completed: sessionWithNotes.mindmap_completed || false,
+              quiz_completed: sessionWithNotes.quiz_completed || false,
+              current_stage: sessionWithNotes.current_stage || "video",
+              xp_earned: sessionWithNotes.student_id === user.id ? (sessionWithNotes.xp_earned || 0) : 0
+            });
+
             if (sessionWithNotes.student_id === user.id) {
               setSessionId(sessionWithNotes.id);
               sessionRef.current = sessionWithNotes.id;
-              
-              setProgressState({
-                video_completed: sessionWithNotes.video_completed || false,
-                lesson_completed: sessionWithNotes.lesson_completed || false,
-                flashcard_completed: sessionWithNotes.flashcard_completed || false,
-                mindmap_completed: sessionWithNotes.mindmap_completed || false,
-                quiz_completed: sessionWithNotes.quiz_completed || false,
-                current_stage: sessionWithNotes.current_stage || "video",
-                xp_earned: sessionWithNotes.xp_earned || 0
-              });
             }
 
             if (sessionWithNotes.ai_explanation) {
@@ -733,7 +736,7 @@ export default function LessonPage() {
           <div className="flex-1">
             <p className="text-xs font-black">🌳 Mod Ulangkaji & Akses Bebas Aktif!</p>
             <p className="text-[11px] text-amber-700 font-medium mt-0.5 leading-relaxed">
-              Tahniah! Anda telah menewaskan 4 peringkat dahan utama sebelum ini. Semua dahan kini **dibuka kekal** dan boleh diakses secara terus tanpa urutan. Tiada ganjaran mata XP baru diberikan untuk peringkat nota, kad atau peta, melainkan anda mencabar Kuiz Boss untuk skor sempurna 100%!
+              Tahniah! Anda telah menyelesaikan atau membuka topik ini. Semua dahan kini **dibuka secara kekal** dan boleh diakses secara bebas tanpa urutan mengikut kehendak anda!
             </p>
           </div>
         </div>
@@ -761,6 +764,8 @@ export default function LessonPage() {
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
             <LessonProgress 
+              // 🌟 Jika isTopicUnlocked bernilai true, semua butang dihantar sebagai true 
+              // supaya sekat kekunci dibuka sepenuhnya tanpa memaksa ke video 1.
               steps={isTopicUnlocked ? {
                 video: true,
                 lesson: true,
@@ -879,7 +884,7 @@ export default function LessonPage() {
             ) : (
               <>
                 <div className="min-h-[250px] bg-[#FAFAF7] rounded-2xl p-4 border border-emerald-50 shadow-inner overflow-x-auto">
-                  <MindMap mindMap={{ central_topic: topic?.name || "Topik Utama", branches: mindMap || [] }} />
+                  <MindMap mindMap={{ central_topic: topic?.name || "Topik Utama", branches: mindMap || [] }} lang={getLanguageMode()} />
                 </div>
                 <Button onClick={handleMindMapStageCompleted} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl border-0 shadow-sm transition-colors">
                   Selesai Teroka Peta! 🗺️
