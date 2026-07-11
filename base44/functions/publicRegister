@@ -8,7 +8,6 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const { username: rawUsername, password, role } = await req.json();
 
-    // 1. Sanitasi input username
     const username = rawUsername?.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     
     if (!username) {
@@ -21,18 +20,19 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: "Peranan tidak sah." }, { status: 400 });
     }
 
-    // 2. Semak jika username sudah wujud dalam pangkalan data
-    const existing = await base44.asServiceRole.entities.User.filter({ username });
-    if (existing.length > 0) {
+    const existing = await base44.asServiceRole.entities.User.filter({ username }).catch(() => []);
+    if (existing && existing.length > 0) {
       return Response.json({ success: false, error: "Username telah digunakan. Sila pilih nama lain." }, { status: 400 });
     }
 
     const childEmail = `${username}@studyquest.local`;
     const passwordHash = hashPassword(password);
     const studentId = "SQ" + Math.floor(100000 + Math.random() * 900000);
+    const customId = crypto.randomUUID(); 
 
-    // 3. 🔄 CIPTA ENTITI PENGGUNA TERUS KE DALAM DATABASE (Sama seperti aliran createChildAccount)
-    const newUser = await base44.asServiceRole.entities.User.create({
+    // 💡 DIBAIKI: Mengubah 'any' kepada 'Record<string, unknown>' untuk mematuhi kriteria ketat Deno lint
+    const userPayload: Record<string, unknown> = {
+      id: customId,
       role: "user",
       email: childEmail,
       full_name: username,
@@ -48,21 +48,25 @@ Deno.serve(async (req) => {
       account_locked: false,
       country: "Malaysia",
       linked_student_ids: []
-    });
+    };
 
-    // 4. Sediakan Wallet & Progress jika mendaftar sebagai murid
+    const newUser = await base44.asServiceRole.entities.User.create(userPayload);
+
+    if (!newUser || !newUser.id) {
+      throw new Error("Pangkalan data gagal memulangkan rekod ID pengguna baharu.");
+    }
+
     if (role === "student") {
-      await base44.asServiceRole.entities.Wallet.create({ student_id: newUser.id, balance: 0 });
+      await base44.asServiceRole.entities.Wallet.create({ student_id: newUser.id, balance: 0 }).catch((e) => console.error("Wallet build fallback:", e));
       await base44.asServiceRole.entities.Progress.create({ 
         student_id: newUser.id, 
         total_xp: 0, 
         level: 1, 
         streak_days: 0, 
         total_study_time: 0 
-      });
+      }).catch((e) => console.error("Progress build fallback:", e));
     }
 
-    // Kembalikan data lengkap untuk kegunaan auto-login di frontend
     return Response.json({ 
       success: true, 
       user: {
@@ -74,7 +78,8 @@ Deno.serve(async (req) => {
       }
     });
   } catch (err) {
-    console.error("Ralat publicRegister:", err);
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("Ralat Terperinci publicRegister:", errorMsg);
+    return Response.json({ success: false, error: `Ralat Pangkalan Data Backend: ${errorMsg}` }, { status: 500 });
   }
 });
