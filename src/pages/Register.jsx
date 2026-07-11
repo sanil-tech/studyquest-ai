@@ -24,21 +24,21 @@ export default function Register() {
 
     const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     if (!cleanUsername) {
-      setError("Username hanya boleh mengandungi huruf, nombor dan garis bawah (_).");
+      setError("Username can only contain letters, numbers, and underscores (_).");
       return;
     }
 
     if (password.length < 6) {
-      setError("Kata laluan mestilah sekurang-kurangnya 6 aksara.");
+      setError("Password must be at least 6 characters long.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Kata laluan dan sahkan kata laluan tidak sepadan.");
+      setError("Passwords do not match.");
       return;
     }
 
-    // Terus mara ke langkah pemilihan peranan (Tanpa OTP)
+    // Advance to role selection screen without OTP requirements
     setStep("role");
   };
 
@@ -48,7 +48,7 @@ export default function Register() {
     const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
 
     try {
-      // 1. Panggil Edge Function pentadbir untuk mencipta akaun tulen secara senyap
+      // 1. Call the backend function to create the database entities securely
       const response = await fetch('/api/functions/publicRegister', {
         method: 'POST',
         headers: {
@@ -64,28 +64,26 @@ export default function Register() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || "Gagal mendaftarkan akaun anda.");
+        throw new Error(result.error || "Failed to create your account.");
       }
 
-      // 2. Log masuk secara automatik menggunakan kaedah Native SDK dengan e-mel proxy
-      const childEmail = `${cleanUsername}@studyquest.local`;
-      await base44.auth.loginViaEmailPassword(childEmail, password);
-
-      // 3. Simpan data pengesahan sesi aktif
-      const loggedInUser = await base44.auth.me();
-      if (loggedInUser) {
-        localStorage.setItem('studyquest_session', JSON.stringify({ userId: loggedInUser.id, id: loggedInUser.id }));
-        localStorage.setItem('studyquest_user', JSON.stringify(loggedInUser));
+      // 2. AUTO-LOGIN: Persist session variables directly from successful registration response
+      if (result.user) {
+        localStorage.setItem('studyquest_session', JSON.stringify({ 
+          userId: result.user.id, 
+          id: result.user.id 
+        }));
+        localStorage.setItem('studyquest_user', JSON.stringify(result.user));
         
-        // 🚀 Bawa terus ke halaman melengkapkan profil
+        // Redirect seamlessly into the profile setup stage
         window.location.href = "/complete-profile";
       } else {
-        throw new Error("Pendaftaran berjaya, tetapi gagal memulihkan sesi log masuk.");
+        throw new Error("Registration succeeded but profile payload was incomplete.");
       }
     } catch (err) {
-      console.error("Ralat pendaftaran:", err);
-      setError(err.message || "Pendaftaran gagal. Sila cuba lagi.");
-      setStep("details"); // Bawa balik ke form utama jika gagal
+      console.error("Registration error:", err);
+      setError(err.message || "Registration failed. Please try again.");
+      setStep("details"); // Roll back to main form if error occurs
     } finally {
       setLoading(false);
     }
@@ -95,13 +93,13 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
-  // --- Langkah 2: Pemilihan Peranan UI ---
+  // --- Step 2: Role Selection UI ---
   if (step === "role") {
     return (
       <AuthLayout 
         icon={UserPlus} 
-        title="Pilih Peranan Anda" 
-        subtitle="Sila pilih jenis akaun yang paling sesuai dengan anda"
+        title="Choose your role" 
+        subtitle="Select the option that best describes you"
       >
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">⚠️ {error}</div>
@@ -109,24 +107,24 @@ export default function Register() {
         <div className="space-y-4 mb-6">
           <RoleOption
             icon={Users}
-            title="Saya Ibu Bapa"
-            description="Urus dan pantau perkembangan akaun pembelajaran anak-anak anda"
+            title="I am a Parent"
+            description="Create and manage child accounts for learners under 13"
             color="accent"
             onClick={() => handleRoleSelect("parent")}
             disabled={loading}
           />
           <RoleOption
             icon={GraduationCap}
-            title="Saya Murid / Pelajar"
-            description="Mula belajar secara berdikari dengan akses penuh ke tugasan dan kuiz"
+            title="I am a Student"
+            description="For students who want to manage their own learning with full account access"
             color="primary"
             onClick={() => handleRoleSelect("student")}
             disabled={loading}
           />
           <RoleOption
             icon={BookOpen}
-            title="Saya Guru / Pendidik"
-            description="Urus kelas akademik, bina kuiz dan jejak prestasi kumpulan murid"
+            title="I am a Teacher"
+            description="Manage classes and monitor student progress"
             color="emerald"
             onClick={() => handleRoleSelect("teacher")}
             disabled={loading}
@@ -134,24 +132,24 @@ export default function Register() {
         </div>
         {loading && (
           <div className="flex items-center justify-center py-2 text-sm font-medium text-muted-foreground animate-pulse">
-            <Loader2 className="w-4 h-4 mr-2 animate-spin text-primary" /> Menyediakan akaun anda...
+            <Loader2 className="w-4 h-4 mr-2 animate-spin text-primary" /> Setting up your profile workspace...
           </div>
         )}
       </AuthLayout>
     );
   }
 
-  // --- Langkah 1: Pengisian Maklumat Asas UI ---
+  // --- Step 1: Account details UI ---
   return (
     <AuthLayout
       icon={UserPlus}
-      title="Daftar Akaun Baharu"
-      subtitle="Cipta nama pengguna untuk mulakan kembara ilmu anda"
+      title="Create your account"
+      subtitle="Sign up to get started"
       footer={
         <>
-          Sudah mempunyai akaun?{" "}
+          Already have an account?{" "}
           <Link to="/login" className="text-primary font-medium hover:underline">
-            Log masuk
+            Log in
           </Link>
         </>
       }
@@ -162,7 +160,7 @@ export default function Register() {
         onClick={handleGoogle}
       >
         <GoogleIcon className="w-5 h-5 mr-2" />
-        Daftar dengan Google
+        Continue with Google
       </Button>
 
       <div className="relative mb-6">
@@ -170,7 +168,7 @@ export default function Register() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">atau cipta nama pengguna</span>
+          <span className="bg-card px-3 text-muted-foreground">or create a username</span>
         </div>
       </div>
 
@@ -182,14 +180,14 @@ export default function Register() {
 
       <form onSubmit={handleSubmitDetails} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="username">Username / Nama Pengguna</Label>
+          <Label htmlFor="username">Username</Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
               id="username"
               type="text"
               autoFocus
-              placeholder="Contoh: amir_99"
+              placeholder="e.g., amir_99"
               value={usernameInput}
               onChange={(e) => setUsernameInput(e.target.value)}
               className="pl-10 h-12 rounded-xl"
@@ -199,13 +197,13 @@ export default function Register() {
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="password">Kata Laluan</Label>
+          <Label htmlFor="password">Password</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
               id="password"
               type="password"
-              placeholder="Minima 6 aksara"
+              placeholder="Minimum 6 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="pl-10 h-12 rounded-xl"
@@ -215,13 +213,13 @@ export default function Register() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirm">Sahkan Kata Laluan</Label>
+          <Label htmlFor="confirm">Confirm Password</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
               id="confirm"
               type="password"
-              placeholder="Ulang semula kata laluan"
+              placeholder="Repeat your password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="pl-10 h-12 rounded-xl"
@@ -231,7 +229,7 @@ export default function Register() {
         </div>
 
         <Button type="submit" className="w-full h-12 font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm mt-2">
-          Teruskan ✨
+          Continue ✨
         </Button>
       </form>
     </AuthLayout>
