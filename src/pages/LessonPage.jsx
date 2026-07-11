@@ -323,11 +323,21 @@ export default function LessonPage() {
         }
 
         try {
-          const cachedSessions = await base44.entities.StudySession.filter(
+          // Menggunakan let untuk membolehkan pencarian sandaran (fallback assignment)
+          let cachedSessions = await base44.entities.StudySession.filter(
             { student_id: user.id, topic_id: topicId },
             "-created_date",
             1
           );
+
+          // 🌟 PENAMBAHAN FALLBACK: Sambung ke StudySession menggunakan topic_name jika pencarian ID kosong
+          if (isMounted && cachedSessions.length === 0 && top?.name) {
+            cachedSessions = await base44.entities.StudySession.filter(
+              { student_id: user.id, topic_name: top.name },
+              "-created_date",
+              1
+            );
+          }
 
           if (isMounted && cachedSessions.length > 0) {
             const session = cachedSessions[0];
@@ -465,26 +475,46 @@ export default function LessonPage() {
       setExplanation(response.lesson_markdown);
       setMetaData({ summary: response.summary, keywords: response.keywords });
 
+      let currentSessionId = sessionRef.current;
       const nextStatePayload = {
         ...progressState, lesson_completed: true, current_stage: "flashcard",
         xp_earned: progressState.xp_earned + 15, ai_explanation: JSON.stringify(response)
       };
 
-      const currentSessionId = sessionRef.current;
-      if (currentSessionId) {
+      // 🌟 PENAMBAHAN FALLBACK: Cipta StudySession baru jika tiada sesi aktif (contoh: lompat terus dari tab nota)
+      if (!currentSessionId) {
+        const user = await base44.auth.me();
+        const newSession = await base44.entities.StudySession.create({
+          student_id: user.id, 
+          subject_id: subjectId, 
+          topic_id: topicId,
+          topic_name: topic.name, 
+          subject_name: subject.name, 
+          duration_minutes: 0,
+          ...nextStatePayload
+        });
+        const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
+        setSessionId(validId);
+        sessionRef.current = validId;
+        currentSessionId = validId;
+      } else {
+        // Jika sesi sedia ada dijumpai (melalui padanan ID atau padanan Nama), kemaskini seperti biasa
         await base44.entities.StudySession.update(currentSessionId, nextStatePayload);
       }
-      setProgressState(nextStatePayload);
       
-      base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash", prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang),
-        response_json_schema: MINDMAP_SCHEMA
-      }).then(res => {
-        if (res && Array.isArray(res)) {
-          if (currentSessionId) base44.entities.StudySession.update(currentSessionId, { mindmap_json: JSON.stringify(res) });
-          setMindMap(res);
-        }
-      }).catch(err => console.error("Ralat membina MindMap latar", err));
+      setProgressState(prev => ({ ...prev, ...nextStatePayload }));
+      
+      if (currentSessionId) {
+        base44.integrations.Core.InvokeLLM({
+          model: "gemini_3_flash", prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang),
+          response_json_schema: MINDMAP_SCHEMA
+        }).then(res => {
+          if (res && Array.isArray(res)) {
+            base44.entities.StudySession.update(currentSessionId, { mindmap_json: JSON.stringify(res) });
+            setMindMap(res);
+          }
+        }).catch(err => console.error("Ralat membina MindMap latar", err));
+      }
 
       triggerConfetti();
       setActiveTab("map");
