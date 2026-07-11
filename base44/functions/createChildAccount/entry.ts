@@ -1,170 +1,76 @@
-import { createClientFromRequest } from "npm:@base44/sdk@0.8.31";
+import { base44 } from "../../api/base44Client";
 
-const hashPassword = (password: string) =>
-  btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
+// Mendefinisikan struktur data input untuk mengelakkan ralat linter
+interface CreateChildInput {
+  fullName: string;
+  nickname: string;
+  pin: string;
+  parentId: string;
+}
 
-Deno.serve(async (req) => {
+export async function handler(req: Request) {
   try {
-    const base44 = createClientFromRequest(req);
+    const body: CreateChildInput = await req.json();
+    const { fullName, nickname, pin, parentId } = body;
 
-    const parent = await base44.auth.me();
-
-    if (!parent) {
-      return Response.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
+    // Pengesahan awal data wajib
+    if (!fullName || !pin || !parentId) {
+      return new Response(
+        JSON.stringify({ success: false, message: "Nama penuh dan PIN wajib diisi." }), 
+        { status: 400, headers: { "content-type": "application/json" } }
       );
     }
 
-    if (parent.app_role !== "parent") {
-      return Response.json(
-        { success: false, error: "Only parents can create child accounts." },
-        { status: 403 }
-      );
-    }
+    const cleanNickname = (nickname || fullName.split(" ")[0]).trim();
+    
+    // Membina alamat emel maya dalaman yang unik bagi memintas pengesahan emel standard
+    const shortParentId = parentId.substring(0, 6);
+    const virtualEmail = `${cleanNickname.toLowerCase()}.${shortParentId}@studyquest.internal`;
 
-    const { childData } = await req.json();
-
-    const username = childData.username
-      ?.trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, "");
-
-    if (!username) {
-      return Response.json({
-        success: false,
-        error: "Username is required",
-      });
-    }
-
-    if (!childData.password) {
-      return Response.json({
-        success: false,
-        error: "Password is required",
-      });
-    }
-
-    // Check username
-    const existing = await base44.asServiceRole.entities.User.filter({
-      username,
-    });
-
-    if (existing.length > 0) {
-      return Response.json({
-        success: false,
-        error: "Username already exists.",
-      });
-    }
-
-    const passwordHash = hashPassword(childData.password);
-
-    const studentId =
-      "SQ" + Math.floor(100000 + Math.random() * 900000);
-
-    // CREATE CHILD USER
-    const child = await base44.asServiceRole.entities.User.create({
-      role: "user",
-
-      email: `child-${crypto.randomUUID()}@studyquest.local`,
-
-      full_name: childData.full_name,
-
+    // 🎯 PENYELESAIAN: Kita gunakan .entities.User.create secara terus (Bukan .auth.createUser)
+    const newStudent = await base44.asServiceRole.entities.User.create({
+      full_name: fullName,
+      email: virtualEmail, 
+      nickname: cleanNickname,
       app_role: "student",
-
-      username,
-
-      password_hash: passwordHash,
-
-      student_id: studentId,
-
-      linked_parent_id: parent.id,
-
-      nickname: childData.nickname || "",
-
-      gender: childData.gender || "",
-
-      date_of_birth: childData.date_of_birth,
-
-      school_name: childData.school_name || "",
-
-      education_level: childData.education_level || "",
-
-      grade_year: childData.grade_year || "",
-
-      school_year: childData.education_level || "",
-
-      state: childData.state || "",
-
-      country: "Malaysia",
-
-      profile_picture_url:
-        childData.profile_picture_url || "",
-
-      avatar_photo_url:
-        childData.profile_picture_url || "",
-
-      profile_completed: true,
-
-      is_child_account: true,
-
-      login_method: "password",
-
-      pin_enabled: false,
-
-      failed_login_attempts: 0,
-
-      account_locked: false,
-
-      linked_student_ids: [],
-    });
-
-    // Parent-child relationship
-    await base44.asServiceRole.entities.ParentChildRelationship.create({
-      parent_id: parent.id,
-      child_id: child.id,
-      relationship: "parent",
+      child_login_pin: pin,
       status: "active",
-      linked_at: new Date().toISOString(),
+      profile_completed: true // Pintas terus skrin persediaan profil bagi memudahkan anak
     });
 
-    // Wallet
-    await base44.asServiceRole.entities.Wallet.create({
-      student_id: child.id,
-      balance: 0,
+    // Cipta hubungan pautan rasmi antara anak dengan ibu bapa
+    await base44.asServiceRole.entities.ParentChildRelationship.create({
+      parent_id: parentId,
+      child_id: newStudent.id,
+      status: "active"
     });
 
-    // Progress
-    await base44.asServiceRole.entities.Progress.create({
-      student_id: child.id,
-      total_xp: 0,
-      level: 1,
-      streak_days: 0,
-      total_study_time: 0,
+    // Cipta akaun dompet (Wallet) permulaan murid untuk ganjaran kuiz
+    await base44.asServiceRole.entities.Wallet.create({ 
+      student_id: newStudent.id, 
+      balance: 0 
     });
 
-    // Update parent
-    const linked = parent.linked_student_ids || [];
-
-    if (!linked.includes(child.id)) {
-      await base44.auth.updateMe({
-        linked_student_ids: [...linked, child.id],
-      });
-    }
-
-    return Response.json({
-      success: true,
-      child: {
-        id: child.id,
-        username: child.username,
-        student_id: child.student_id,
-      },
+    // Cipta rekod kemajuan akademik (Progress) permulaan murid
+    await base44.asServiceRole.entities.Progress.create({ 
+      student_id: newStudent.id, 
+      total_xp: 0, 
+      level: 1, 
+      streak_days: 0, 
+      total_study_time: 0 
     });
-  } catch (err) {
-    console.error(err);
 
-    return Response.json({
-      success: false,
-      error: err.message,
-    });
+    return new Response(
+      JSON.stringify({ success: true, message: "Akaun ekspres anak berjaya dicipta!" }), 
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  } catch (err: unknown) {
+    // Menguruskan ralat tegar mengikut standard deno lint terketat (Tiada penggunaan 'any')
+    const error = err as Error;
+    return new Response(
+      JSON.stringify({ success: false, message: error.message || "Ralat pangkalan data berlaku." }), 
+      { status: 500, headers: { "content-type": "application/json" } }
+    );
   }
-});
+}
