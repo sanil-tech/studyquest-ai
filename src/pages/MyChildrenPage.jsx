@@ -52,7 +52,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     try {
       await base44.entities.User.update(child.id, { nickname: inputName.trim() });
       
-      // Kemaskini juga cache peranti sebagai backup kekal
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       cachedChildren[child.id] = { ...cachedChildren[child.id], nickname: inputName.trim() };
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
@@ -289,38 +288,35 @@ export default function MyChildrenPage() {
       const u = await base44.auth.me();
       if (!u?.id) return;
 
-      // 🎯 TRIPLE-STRATEGI PENCARI ID (Anti-RLS Blockade):
       let childIds = [];
 
-      // Strategi A: Baca tatasusunan linked_student_ids dari profil Parent sendiri (Sangat selamat)
+      // Strategi A: Profil Tatasusunan Parent
       if (u.linked_student_ids && Array.isArray(u.linked_student_ids)) {
         childIds = [...u.linked_student_ids];
       }
 
-      // Strategi B: Tapis dari jadual perantara ParentChildRelationship (Pelan backup asal)
+      // Strategi B: Jadual Perantara
       try {
         const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
         if (rel && rel.length > 0) {
           const fetchedIds = rel.map(r => r.child_id);
-          childIds = [...new Set([...childIds, ...fetchedIds])]; // Buang ID bertindih
+          childIds = [...new Set([...childIds, ...fetchedIds])];
         }
       } catch (e) {
-        console.warn("RLS menyekat jadual perantara, beralih ke strategi seterusnya.");
+        console.warn("RLS menyekat hubungan jadual.");
       }
 
-      // Strategi C: Backup dari memori peranti peranti tempatan
+      // Strategi C: Memori Cache Peranti
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       if (childIds.length === 0 && Object.keys(cachedChildren).length > 0) {
         childIds = Object.keys(cachedChildren);
       }
 
-      // Jika langsung tiada sebarang ID, hentikan proses
       if (childIds.length === 0) {
         setChildren([]);
         return;
       }
       
-      // 🎯 PROSES LIVE FETCH DATA BERDASARKAN ID SPESIFIK (Dibenarkan oleh RLS)
       const kids = await Promise.all(childIds.map(async (id) => {
         try {
           const [studySessionRes, progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
@@ -328,12 +324,11 @@ export default function MyChildrenPage() {
             base44.entities.Progress.filter({ student_id: id }).catch(() => []),
             base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
             base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
-            base44.entities.User.get(id).catch(() => null), // Memanggil direct ID (Laju & Kalis RLS)
+            base44.entities.User.get(id).catch(() => null),
           ]);
 
           const localCache = cachedChildren[id] || {};
 
-          // Penyatuan data profil sekiranya pelayan memulangkan kosongan
           const nicknameReal = childUser?.nickname || childUser?.full_name || localCache.nickname || localCache.full_name || "Petualang Cilik";
           const usernameReal = childUser?.username || localCache.username || "student";
           const pinReal = childUser?.pin_hash || localCache.child_login_pin || "----";
@@ -382,7 +377,7 @@ export default function MyChildrenPage() {
             }
           };
         } catch (err) {
-          console.error(`Gagal memuatkan sub-data id anak ${id}:`, err);
+          console.error(`Gagal memuatkan data ID anak ${id}:`, err);
           return null;
         }
       }));
@@ -390,7 +385,7 @@ export default function MyChildrenPage() {
       setChildren(kids.filter(Boolean));
     } catch (err) {
       console.error("Ralat memuatkan data:", err);
-    } file {
+    } finally { // 🎯 TELAH DIBETULKAN DI SINI (Sebelum ini tertulis 'file')
       setLoading(false);
     }
   };
