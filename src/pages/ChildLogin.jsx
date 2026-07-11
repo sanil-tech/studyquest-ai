@@ -20,31 +20,24 @@ export default function ChildLogin() {
     setLoading(true);
 
     try {
-      const inputVal = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+      const inputVal = usernameInput.trim().toLowerCase();
       
       if (!inputVal) {
         throw new Error("Sila masukkan Username anda.");
       }
 
-      if (!password) {
-        throw new Error("Sila masukkan Kata Laluan anda.");
-      }
+      // Tukar input kepada format e-mel maya yang sepadan dengan sistem Edge Function
+      const fakeEmail = inputVal.includes("@") 
+        ? inputVal 
+        : `child-${inputVal}@studyquest.local`;
 
-      // 🔐 Tukar input username kepada struktur e-mel maya rasmi aplikasi
-      const childEmail = `${inputVal}@studyquest.local`;
+      // Log masuk ke dalam sistem Auth rasmi Base44
+      await base44.auth.loginViaEmailPassword(fakeEmail, password);
 
-      // Log masuk menggunakan fungsi Native Authentication SDK (Automatik dapatkan token)
-      await base44.auth.loginViaEmailPassword(childEmail, password);
-
-      // Ambil profil penuh murid bagi mengesahkan token aktif berjaya disimpan
+      // Ambil data maklumat murid untuk mengesahkan sesi aktif
       const user = await base44.auth.me();
 
       if (user) {
-        // Simpan salinan sesi ke dalam localStorage sebagai sandaran modul AuthContext
-        localStorage.setItem('studyquest_session', JSON.stringify({ userId: user.id, id: user.id }));
-        localStorage.setItem('studyquest_user', JSON.stringify(user));
-        
-        // Hala terus masuk ke Dashboard murid
         window.location.href = "/dashboard";
       } else {
         throw new Error("Gagal memuatkan profil murid.");
@@ -52,9 +45,22 @@ export default function ChildLogin() {
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
       
+      // 💡 DIBAIKI: Mengekstrak teks ralat secara selamat untuk mengelakkan ralat 'Object to primitive value'
       let safeErrorMessage = "Username atau kata laluan salah. Sila semak semula.";
-      if (err.message && typeof err.message === "string") {
-        safeErrorMessage = err.message;
+      
+      if (err) {
+        if (typeof err === "string") {
+          safeErrorMessage = err;
+        } else if (err.message && typeof err.message === "string") {
+          safeErrorMessage = err.message;
+        } else {
+          try {
+            // Jika ia adalah objek ralat yang kompleks, tukar kepada string
+            safeErrorMessage = err.message ? String(err.message) : JSON.stringify(err);
+          } catch (e) {
+            safeErrorMessage = "Ralat sistem semasa mendaftar masuk.";
+          }
+        }
       }
       
       setError(safeErrorMessage);

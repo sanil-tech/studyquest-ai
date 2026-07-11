@@ -1,96 +1,67 @@
-import { useState } from "react"; // 💡 DIBAIKI: Dibuang import 'React' yang tidak digunakan
-import { Link } from "react-router-dom"; // 💡 DIBAIKI: Dibuang 'useNavigate' yang tidak digunakan
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { appParams } from "@/lib/app-params"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Lock, Loader2, Users, GraduationCap, BookOpen, CheckCircle2, User } from "lucide-react";
+import { UserPlus, Mail, Lock, Loader2, Users, GraduationCap, BookOpen, CheckCircle2 } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
+import { toast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
 export default function Register() {
-  const [usernameInput, setUsernameInput] = useState("");
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState("details");
+  const [step, setStep] = useState("details"); // details → otp → role
+  const [otpCode, setOtpCode] = useState("");
 
-  const handleSubmitDetails = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-
-    const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
-    if (!cleanUsername) {
-      setError("Username can only contain letters, numbers, and underscores (_).");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
-      return;
-    }
-
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError("Passwords do not match");
       return;
     }
-
-    setStep("role");
-  };
-
-  const handleRoleSelect = async (selectedRole) => {
     setLoading(true);
-    setError("");
-    const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
-
     try {
-      const response = await fetch('/api/functions/publicRegister', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Id': appParams.appId || '', 
-          'Authorization': appParams.token ? `Bearer ${appParams.token}` : ''
-        },
-        body: JSON.stringify({
-          username: cleanUsername,
-          password: password,
-          role: selectedRole
-        })
-      });
-
-      const responseText = await response.text();
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch {
-        // 💡 DIBAIKI: Diubah 'catch (e)' kepada 'catch' tanpa pemboleh ubah tidak digunakan
-        throw new Error(`Ralat Pelayan Terus (500): ${responseText.substring(0, 100)}`);
-      }
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || `Gagal mendaftarkan akaun (Status HTTP ${response.status})`);
-      }
-
-      if (result.user) {
-        localStorage.setItem('studyquest_session', JSON.stringify({ 
-          userId: result.user.id, 
-          id: result.user.id 
-        }));
-        localStorage.setItem('studyquest_user', JSON.stringify(result.user));
-        
-        window.location.href = "/complete-profile";
-      } else {
-        throw new Error("Pendaftaran berjaya tetapi profil tidak lengkap.");
-      }
+      await base44.auth.register({ email, password });
+      setStep("otp");
     } catch (err) {
-      console.error("Registration UI caught error:", err);
-      setError(err.message || "Registration failed. Please try again.");
-      setStep("details"); 
+      setError(err.message || "Registration failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const result = await base44.auth.verifyOtp({ email, otpCode });
+      if (result?.access_token) {
+        base44.auth.setToken(result.access_token);
+      }
+      setStep("role");
+    } catch (err) {
+      setError(err.message || "Invalid verification code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError("");
+    try {
+      await base44.auth.resendOtp(email);
+      toast({ title: "Code sent", description: "Check your email for the new code." });
+    } catch (err) {
+      setError(err.message || "Failed to resend code");
     }
   };
 
@@ -98,6 +69,7 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
+  // --- Step: Role selection ---
   if (step === "role") {
     return (
       <AuthLayout 
@@ -106,9 +78,7 @@ export default function Register() {
         subtitle="Select the option that best describes you"
       >
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm border border-destructive/20">
-            ⚠️ {error}
-          </div>
+          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
         )}
         <div className="space-y-4 mb-6">
           <RoleOption
@@ -117,15 +87,13 @@ export default function Register() {
             description="Create and manage child accounts for learners under 13"
             color="accent"
             onClick={() => handleRoleSelect("parent")}
-            disabled={loading}
           />
           <RoleOption
             icon={GraduationCap}
             title="I am a Student"
-            description="For students who want to manage their own learning with full account access"
+            description="For students aged 13+ who want to manage their own learning"
             color="primary"
             onClick={() => handleRoleSelect("student")}
-            disabled={loading}
           />
           <RoleOption
             icon={BookOpen}
@@ -133,18 +101,68 @@ export default function Register() {
             description="Manage classes and monitor student progress"
             color="emerald"
             onClick={() => handleRoleSelect("teacher")}
-            disabled={loading}
           />
         </div>
-        {loading && (
-          <div className="flex items-center justify-center py-2 text-sm font-medium text-muted-foreground animate-pulse">
-            <Loader2 className="w-4 h-4 mr-2 animate-spin text-primary" /> Setting up your profile workspace...
-          </div>
-        )}
       </AuthLayout>
     );
   }
 
+  // --- Step: OTP ---
+  if (step === "otp") {
+    return (
+      <AuthLayout
+        icon={Mail}
+        title="Verify your email"
+        subtitle={`We sent a code to ${email}`}
+      >
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+            {error}
+          </div>
+        )}
+        <div className="flex justify-center mb-6">
+          <InputOTP
+            maxLength={6}
+            value={otpCode}
+            onChange={setOtpCode}
+            autoFocus
+            autoComplete="one-time-code"
+          >
+            <InputOTPGroup>
+              <InputOTPSlot index={0} />
+              <InputOTPSlot index={1} />
+              <InputOTPSlot index={2} />
+              <InputOTPSlot index={3} />
+              <InputOTPSlot index={4} />
+              <InputOTPSlot index={5} />
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
+        <Button
+          className="w-full h-12 font-medium"
+          onClick={handleVerify}
+          disabled={loading || otpCode.length < 6}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Verifying...
+            </>
+          ) : (
+            "Verify"
+          )}
+        </Button>
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          Didn't receive the code?{" "}
+          <button onClick={handleResend} className="text-primary font-medium hover:underline">
+            Resend
+          </button>
+        </p>
+      </AuthLayout>
+    );
+  }
+
+  // --- Step: Account details ---
   return (
     <AuthLayout
       icon={UserPlus}
@@ -173,34 +191,34 @@ export default function Register() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">or create a username</span>
+          <span className="bg-card px-3 text-muted-foreground">or</span>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm border border-destructive/20">
-          ⚠️ {error}
+        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+          {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmitDetails} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="username">Username</Label>
+          <Label htmlFor="email">Email</Label>
           <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
-              id="username"
-              type="text"
+              id="email"
+              type="email"
+              autoComplete="email"
               autoFocus
-              placeholder="e.g., amir_99"
-              value={usernameInput}
-              onChange={(e) => setUsernameInput(e.target.value)}
-              className="pl-10 h-12 rounded-xl"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-10 h-12"
               required
             />
           </div>
         </div>
-        
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
@@ -208,15 +226,15 @@ export default function Register() {
             <Input
               id="password"
               type="password"
-              placeholder="Minimum 6 characters"
+              autoComplete="new-password"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12 rounded-xl"
+              className="pl-10 h-12"
               required
             />
           </div>
         </div>
-
         <div className="space-y-2">
           <Label htmlFor="confirm">Confirm Password</Label>
           <div className="relative">
@@ -224,46 +242,85 @@ export default function Register() {
             <Input
               id="confirm"
               type="password"
-              placeholder="Repeat your password"
+              autoComplete="new-password"
+              placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="pl-10 h-12 rounded-xl"
+              className="pl-10 h-12"
               required
             />
           </div>
         </div>
-
-        <Button type="submit" className="w-full h-12 font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm mt-2">
-          Continue ✨
+        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            "Continue"
+          )}
         </Button>
       </form>
     </AuthLayout>
   );
+
+  async function handleRoleSelect(role) {
+    setLoading(true);
+    setError("");
+    try {
+      const u = await base44.auth.me();
+      await base44.auth.updateMe({ app_role: role });
+
+      // Create wallet and progress for students
+      if (role === "student") {
+        const wallets = await base44.entities.Wallet.filter({ student_id: u.id });
+        if (wallets.length === 0) {
+          await base44.entities.Wallet.create({ student_id: u.id, balance: 0 });
+        }
+        const progress = await base44.entities.Progress.filter({ student_id: u.id });
+        if (progress.length === 0) {
+          await base44.entities.Progress.create({ 
+            student_id: u.id, 
+            total_xp: 0, 
+            level: 1, 
+            streak_days: 0, 
+            total_study_time: 0 
+          });
+        }
+      }
+
+      // Redirect to profile completion
+      window.location.href = "/complete-profile";
+    } catch (err) {
+      setError(err.message || "Failed to save role");
+      setLoading(false);
+    }
+  }
 }
 
-function RoleOption({ icon: Icon, title, description, color, onClick, disabled }) {
+function RoleOption({ icon: Icon, title, description, color, onClick }) {
   const colorClasses = {
-    primary: "bg-indigo-50/50 text-indigo-600 border-indigo-100 hover:border-indigo-400",
-    accent: "bg-pink-50/50 text-pink-600 border-pink-100 hover:border-pink-400",
-    emerald: "bg-emerald-50/50 text-emerald-600 border-emerald-100 hover:border-emerald-400",
+    primary: "bg-indigo-100 text-primary border-primary",
+    accent: "bg-pink-100 text-accent border-accent",
+    emerald: "bg-emerald-100 text-emerald-600 border-emerald-600",
   };
 
   return (
     <motion.button
-      whileHover={disabled ? {} : { scale: 1.02 }}
-      whileTap={disabled ? {} : { scale: 0.98 }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      disabled={disabled}
-      className={`w-full p-4 rounded-2xl border-2 ${colorClasses[color]} transition-all flex items-start gap-4 text-left hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}
+      className={`w-full p-4 rounded-2xl border-2 ${colorClasses[color]} transition-all flex items-start gap-4 text-left hover:shadow-md`}
     >
-      <div className="w-12 h-12 rounded-xl bg-white border border-inherit flex items-center justify-center shrink-0 shadow-sm">
+      <div className={`w-12 h-12 rounded-xl ${colorClasses[color]} flex items-center justify-center shrink-0`}>
         <Icon className="w-6 h-6" />
       </div>
       <div className="flex-1">
-        <h3 className="font-semibold text-slate-800">{title}</h3>
-        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
+        <h3 className="font-heading font-semibold text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{description}</p>
       </div>
-      <CheckCircle2 className="w-5 h-5 text-current opacity-20" />
+      <CheckCircle2 className="w-5 h-5 text-primary opacity-0 hover:opacity-100 transition-opacity" />
     </motion.button>
   );
 }

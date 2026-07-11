@@ -48,6 +48,7 @@ export const AuthProvider = ({ children }) => {
       } catch (appError) {
         console.error('App state check failed:', appError);
         
+        // 💡 DIBAIKI: Mengeluarkan teks mesej terselamat daripada ralat objek
         const fallbackMsg = appError.message ? String(appError.message) : 'Failed to load app';
         
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
@@ -91,13 +92,8 @@ export const AuthProvider = ({ children }) => {
           const session = JSON.parse(sessionData);
           const parsedUser = JSON.parse(storedUser);
           
-          // Menyokong semakan fleksibel berdasarkan kedua-dua variasi struktur id
-          const targetId = session.userId || session.id;
-          
-          let verifiedUser = null;
-          if (targetId) {
-            verifiedUser = await base44.entities.User.get(targetId).catch(() => null);
-          }
+          // Memanggil entiti secara klien biasa untuk pengesahan ID anak
+          const verifiedUser = await base44.entities.User.get(session.userId).catch(() => null);
           
           if (verifiedUser && !verifiedUser.account_locked) {
             setUser(verifiedUser);
@@ -115,13 +111,11 @@ export const AuthProvider = ({ children }) => {
             return;
           }
         } catch (sessionError) {
-          console.error('Gagal memulihkan sesi simpanan:', sessionError);
           localStorage.removeItem('studyquest_session');
           localStorage.removeItem('studyquest_user');
         }
       }
       
-      // Semakan fallback sekiranya token native diaktifkan melalui pembekal utama
       if (appParams.token) {
         const currentUser = await base44.auth.me();
         setUser(currentUser);
@@ -148,7 +142,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (shouldRedirect = true) => {
-    // Kosongkan semua simpanan sesi peranti untuk mengelakkan pencemaran peranan pengguna
     localStorage.removeItem('studyquest_session');
     localStorage.removeItem('studyquest_user');
     
