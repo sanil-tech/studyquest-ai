@@ -1,6 +1,7 @@
 // src/components/lesson/Flashcards.jsx
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+// 🌟 PASTIKAN 'Sparkles' ADA DI DALAM SENARAI IMPORT INI:
 import { ChevronLeft, ChevronRight, HelpCircle, Sparkles, CheckCircle2, RotateCcw, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -10,7 +11,7 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
   const [revealedCount, setRevealedCount] = useState(new Set());
   const [availableVoices, setAvailableVoices] = useState([]);
 
-  // Muatkan senarai suara sistem operasi dengan selamat (Termasuk sedia mendengar perubahan muatan)
+  // Muatkan senarai suara sistem operasi dengan selamat
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
 
@@ -19,7 +20,6 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
     };
 
     loadVoices();
-    // Pelayar moden (Chrome & Edge) memuatkan suara secara asinkronus dan mencetuskan event ini
     window.speechSynthesis.onvoiceschanged = loadVoices;
 
     return () => {
@@ -27,30 +27,24 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
     };
   }, []);
 
-  // 🌟 LOGIK UTAMA: Memburu suara manusia paling berkualiti tinggi mengikut slang subjek
+  // Memburu suara manusia paling berkualiti tinggi mengikut slang subjek
   const dapatkanSuaraTerbaik = (bahasaMisi) => {
     if (availableVoices.length === 0) return null;
 
     if (bahasaMisi === "en") {
       const enVoices = availableVoices.filter(v => v.lang.includes("en-US") || v.lang.includes("en-GB"));
-      // Cari suara Natural/Neural Microsoft atau Google dahulu
       return enVoices.find(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("neural")) ||
              enVoices.find(v => v.name.toLowerCase().includes("google")) ||
              enVoices[0];
     } else {
-      // 🇲🇾 TAPISAN UTAMA BAHASA MELAYU MALAYSIA (ms-MY)
       const msVoices = availableVoices.filter(v => v.lang.includes("ms-MY") || v.lang.startsWith("ms"));
       if (msVoices.length === 0) return null;
 
-      // Susun keutamaan mengikut kualiti slang manusia asli:
-      // 1. Microsoft Yasmin/Rizwan Online Natural (Gred Terbaik di Edge)
-      // 2. Google Bahasa Melayu (Sangat baik di Android/Chrome)
-      // 3. Amira (Suara manusia asli Apple untuk iOS/macOS)
       return msVoices.find(v => v.name.toLowerCase().includes("natural") || v.name.toLowerCase().includes("neural")) ||
              msVoices.find(v => v.name.toLowerCase().includes("online")) ||
              msVoices.find(v => v.name.toLowerCase().includes("google")) ||
              msVoices.find(v => v.name.toLowerCase().includes("amira")) ||
-             msVoices[0]; // Rujukan asal jika peranti tiada suara premium
+             msVoices[0];
     }
   };
 
@@ -67,10 +61,9 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
     return text.replace(emojiRegex, "").trim();
   };
 
-  // 🔊 ENJIN SUARA PREMIUM MANUSIA MALAYSIA
   const sebutTeks = (textToSpeak) => {
     if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel(); // Potong suara lama serta-merta
+      window.speechSynthesis.cancel();
       const textBersih = cleanText(textToSpeak);
       if (!textBersih) return;
 
@@ -78,14 +71,13 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
       const suaraTerbaik = dapatkanSuaraTerbaik(lang);
 
       if (suaraTerbaik) {
-        utterance.voice = suaraTerbaik; // Guna profil suara manusia premium yang dijumpai
+        utterance.voice = suaraTerbaik;
       } else {
-        utterance.lang = lang === "en" ? "en-US" : "ms-MY"; // Pilihan sandaran zon
+        utterance.lang = lang === "en" ? "en-US" : "ms-MY";
       }
 
-      // Kelajuan & Nada dioptimumkan supaya slang kedengaran sekata, empati, dan tidak melompat-lompat
       utterance.rate = lang === "en" ? 0.90 : 0.88; 
-      utterance.pitch = lang === "en" ? 1.0 : 1.05; // Sedikit sentuhan tinggi untuk aura ceria Otan
+      utterance.pitch = lang === "en" ? 1.0 : 1.05;
 
       window.speechSynthesis.speak(utterance);
     }
@@ -93,14 +85,13 @@ export default function Flashcards({ flashcards = [], lang = "ms" }) {
 
   const card = flashcards[current];
 
-  // Automatik bersuara apabila kad ditukar atau dipusing
   useEffect(() => {
     if (flashcards.length > 0 && card) {
       const textToSpeak = flipped ? card.back : card.front;
       const timer = setTimeout(() => sebutTeks(textToSpeak), 350);
       return () => clearTimeout(timer);
     }
-  }, [current, flipped, flashcards, availableVoices]); // Ditambah availableVoices supaya terus bercakap sebaik suara siap dimuatkan
+  }, [current, flipped, flashcards, availableVoices]);
 
   useEffect(() => {
     return () => {
