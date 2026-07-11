@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Lock, Play, Star, Leaf, Cloud, Tv } from "lucide-react";
+import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Lock, Play, Star, Leaf, Cloud, Tv, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STEPS = [
