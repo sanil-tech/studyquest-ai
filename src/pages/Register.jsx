@@ -4,64 +4,90 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Mail, Lock, Loader2, Users, GraduationCap, BookOpen, CheckCircle2 } from "lucide-react";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { UserPlus, Lock, Loader2, Users, GraduationCap, BookOpen, CheckCircle2, User } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
-import { toast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
 export default function Register() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState("details"); // details → otp → role
-  const [otpCode, setOtpCode] = useState("");
+  const [step, setStep] = useState("details"); // details → role
 
-  const handleSubmit = async (e) => {
+  const handleSubmitDetails = (e) => {
     e.preventDefault();
     setError("");
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+
+    const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    if (!cleanUsername) {
+      setError("Username hanya boleh mengandungi huruf, nombor dan garis bawah (_).");
       return;
     }
-    setLoading(true);
-    try {
-      await base44.auth.register({ email, password });
-      setStep("otp");
-    } catch (err) {
-      setError(err.message || "Registration failed");
-    } finally {
-      setLoading(false);
+
+    if (password.length < 6) {
+      setError("Kata laluan mestilah sekurang-kurangnya 6 aksara.");
+      return;
     }
+
+    if (password !== confirmPassword) {
+      setError("Kata laluan dan sahkan kata laluan tidak sepadan.");
+      return;
+    }
+
+    // Terus mara ke langkah pemilihan peranan (Tanpa OTP)
+    setStep("role");
   };
 
-  const handleVerify = async () => {
-    setError("");
+  const handleRoleSelect = async (selectedRole) => {
     setLoading(true);
+    setError("");
+    const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+
     try {
-      const result = await base44.auth.verifyOtp({ email, otpCode });
-      if (result?.access_token) {
-        base44.auth.setToken(result.access_token);
+      // 1. Panggil Edge Function pentadbir untuk mencipta akaun tulen secara senyap
+      const response = await fetch('/api/functions/publicRegister', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: cleanUsername,
+          password: password,
+          role: selectedRole
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Gagal mendaftarkan akaun anda.");
       }
-      setStep("role");
+
+      // 2. Log masuk secara automatik menggunakan kaedah Native SDK dengan e-mel proxy
+      const childEmail = `${cleanUsername}@studyquest.local`;
+      await base44.auth.loginViaEmailPassword(childEmail, password);
+
+      // 3. Simpan data pengesahan sesi aktif
+      const loggedInUser = await base44.auth.me();
+      if (loggedInUser) {
+        localStorage.setItem('studyquest_session', JSON.stringify({ userId: loggedInUser.id, id: loggedInUser.id }));
+        localStorage.setItem('studyquest_user', JSON.stringify(loggedInUser));
+        
+        // 🚀 Bawa terus ke halaman melengkapkan profil
+        window.location.href = "/complete-profile";
+      } else {
+        throw new Error("Pendaftaran berjaya, tetapi gagal memulihkan sesi log masuk.");
+      }
     } catch (err) {
-      setError(err.message || "Invalid verification code");
+      console.error("Ralat pendaftaran:", err);
+      setError(err.message || "Pendaftaran gagal. Sila cuba lagi.");
+      setStep("details"); // Bawa balik ke form utama jika gagal
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError("");
-    try {
-      await base44.auth.resendOtp(email);
-      toast({ title: "Code sent", description: "Check your email for the new code." });
-    } catch (err) {
-      setError(err.message || "Failed to resend code");
     }
   };
 
@@ -69,145 +95,63 @@ export default function Register() {
     base44.auth.loginWithProvider("google", "/");
   };
 
-  // --- 🔄 DIBAIKI: Pengurusan Pemilihan Peranan Menerusi Backend Edge Function ---
-  async function handleRoleSelect(role) {
-    setLoading(true);
-    setError("");
-    try {
-      // 🚀 Hantar arahan penatapan role ke backend pentadbir untuk bypass sekatan client-side
-      const response = await fetch('/api/functions/setupUserRole', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          role: role
-        })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Gagal mengemas kini peranan akaun anda.");
-      }
-
-      // 🔄 Muat semula rekod profil terkini daripada server untuk mengemas kini aplikasi
-      const updatedUser = await base44.auth.me();
-      localStorage.setItem('studyquest_user', JSON.stringify(updatedUser));
-
-      // 🚀 Hala ke langkah pelengkap profil seterusnya
-      window.location.href = "/complete-profile";
-    } catch (err) {
-      console.error("Ralat menyimpan peranan:", err);
-      setError(err.message || "Failed to save role");
-      setLoading(false);
-    }
-  }
-
-  // --- Step: Role selection UI ---
+  // --- Langkah 2: Pemilihan Peranan UI ---
   if (step === "role") {
     return (
       <AuthLayout 
         icon={UserPlus} 
-        title="Choose your role" 
-        subtitle="Select the option that best describes you"
+        title="Pilih Peranan Anda" 
+        subtitle="Sila pilih jenis akaun yang paling sesuai dengan anda"
       >
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
+          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">⚠️ {error}</div>
         )}
         <div className="space-y-4 mb-6">
           <RoleOption
             icon={Users}
-            title="I am a Parent"
-            description="Create and manage child accounts for learners under 13"
+            title="Saya Ibu Bapa"
+            description="Urus dan pantau perkembangan akaun pembelajaran anak-anak anda"
             color="accent"
             onClick={() => handleRoleSelect("parent")}
+            disabled={loading}
           />
           <RoleOption
             icon={GraduationCap}
-            title="I am a Student"
-            description="For students who want to manage their own learning with full account access"
+            title="Saya Murid / Pelajar"
+            description="Mula belajar secara berdikari dengan akses penuh ke tugasan dan kuiz"
             color="primary"
             onClick={() => handleRoleSelect("student")}
+            disabled={loading}
           />
           <RoleOption
             icon={BookOpen}
-            title="I am a Teacher"
-            description="Manage classes and monitor student progress"
+            title="Saya Guru / Pendidik"
+            description="Urus kelas akademik, bina kuiz dan jejak prestasi kumpulan murid"
             color="emerald"
             onClick={() => handleRoleSelect("teacher")}
+            disabled={loading}
           />
         </div>
-      </AuthLayout>
-    );
-  }
-
-  // --- Step: OTP UI ---
-  if (step === "otp") {
-    return (
-      <AuthLayout
-        icon={Mail}
-        title="Verify your email"
-        subtitle={`We sent a code to ${email}`}
-      >
-        {error && (
-          <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-            {error}
+        {loading && (
+          <div className="flex items-center justify-center py-2 text-sm font-medium text-muted-foreground animate-pulse">
+            <Loader2 className="w-4 h-4 mr-2 animate-spin text-primary" /> Menyediakan akaun anda...
           </div>
         )}
-        <div className="flex justify-center mb-6">
-          <InputOTP
-            maxLength={6}
-            value={otpCode}
-            onChange={setOtpCode}
-            autoFocus
-            autoComplete="one-time-code"
-          >
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
-        <Button
-          className="w-full h-12 font-medium"
-          onClick={handleVerify}
-          disabled={loading || otpCode.length < 6}
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            "Verify"
-          )}
-        </Button>
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          Didn't receive the code?{" "}
-          <button onClick={handleResend} className="text-primary font-medium hover:underline">
-            Resend
-          </button>
-        </p>
       </AuthLayout>
     );
   }
 
-  // --- Step: Account details UI ---
+  // --- Langkah 1: Pengisian Maklumat Asas UI ---
   return (
     <AuthLayout
       icon={UserPlus}
-      title="Create your account"
-      subtitle="Sign up to get started"
+      title="Daftar Akaun Baharu"
+      subtitle="Cipta nama pengguna untuk mulakan kembara ilmu anda"
       footer={
         <>
-          Already have an account?{" "}
+          Sudah mempunyai akaun?{" "}
           <Link to="/login" className="text-primary font-medium hover:underline">
-            Log in
+            Log masuk
           </Link>
         </>
       }
@@ -218,7 +162,7 @@ export default function Register() {
         onClick={handleGoogle}
       >
         <GoogleIcon className="w-5 h-5 mr-2" />
-        Continue with Google
+        Daftar dengan Google
       </Button>
 
       <div className="relative mb-6">
@@ -226,103 +170,97 @@ export default function Register() {
           <div className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-3 text-muted-foreground">or</span>
+          <span className="bg-card px-3 text-muted-foreground">atau cipta nama pengguna</span>
         </div>
       </div>
 
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
+          ⚠️ {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmitDetails} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="username">Username / Nama Pengguna</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
-              id="email"
-              type="email"
-              autoComplete="email"
+              id="username"
+              type="text"
               autoFocus
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="pl-10 h-12"
+              placeholder="Contoh: amir_99"
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+              className="pl-10 h-12 rounded-xl"
               required
             />
           </div>
         </div>
+        
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">Kata Laluan</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
               id="password"
               type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
+              placeholder="Minima 6 aksara"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 h-12"
+              className="pl-10 h-12 rounded-xl"
               required
             />
           </div>
         </div>
+
         <div className="space-y-2">
-          <Label htmlFor="confirm">Confirm Password</Label>
+          <Label htmlFor="confirm">Sahkan Kata Laluan</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
             <Input
               id="confirm"
               type="password"
-              autoComplete="new-password"
-              placeholder="••••••••"
+              placeholder="Ulang semula kata laluan"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="pl-10 h-12"
+              className="pl-10 h-12 rounded-xl"
               required
             />
           </div>
         </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Creating account...
-            </>
-          ) : (
-            "Continue"
-          )}
+
+        <Button type="submit" className="w-full h-12 font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm mt-2">
+          Teruskan ✨
         </Button>
       </form>
     </AuthLayout>
   );
 }
 
-function RoleOption({ icon: Icon, title, description, color, onClick }) {
+function RoleOption({ icon: Icon, title, description, color, onClick, disabled }) {
   const colorClasses = {
-    primary: "bg-indigo-100 text-primary border-primary",
-    accent: "bg-pink-100 text-accent border-accent",
-    emerald: "bg-emerald-100 text-emerald-600 border-emerald-600",
+    primary: "bg-indigo-50/50 text-indigo-600 border-indigo-100 hover:border-indigo-400",
+    accent: "bg-pink-50/50 text-pink-600 border-pink-100 hover:border-pink-400",
+    emerald: "bg-emerald-50/50 text-emerald-600 border-emerald-100 hover:border-emerald-400",
   };
 
   return (
     <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={disabled ? {} : { scale: 1.02 }}
+      whileTap={disabled ? {} : { scale: 0.98 }}
       onClick={onClick}
-      className={`w-full p-4 rounded-2xl border-2 ${colorClasses[color]} transition-all flex items-start gap-4 text-left hover:shadow-md`}
+      disabled={disabled}
+      className={`w-full p-4 rounded-2xl border-2 ${colorClasses[color]} transition-all flex items-start gap-4 text-left hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed`}
     >
-      <div className={`w-12 h-12 rounded-xl ${colorClasses[color]} flex items-center justify-center shrink-0`}>
+      <div className="w-12 h-12 rounded-xl bg-white border border-inherit flex items-center justify-center shrink-0 shadow-sm">
         <Icon className="w-6 h-6" />
       </div>
       <div className="flex-1">
-        <h3 className="font-heading font-semibold text-foreground">{title}</h3>
-        <p className="text-sm text-muted-foreground mt-1">{description}</p>
+        <h3 className="font-semibold text-slate-800">{title}</h3>
+        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
       </div>
-      <CheckCircle2 className="w-5 h-5 text-primary opacity-0 hover:opacity-100 transition-opacity" />
+      <CheckCircle2 className="w-5 h-5 text-current opacity-20" />
     </motion.button>
   );
 }
