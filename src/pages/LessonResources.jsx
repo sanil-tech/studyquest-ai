@@ -20,19 +20,22 @@ export default function LessonResources() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
 
-  // 🔄 STRATEGI SUIS MOD: "create" (Cipta Baru) atau "edit" (Kemaskini/Padam)
+  // 🔄 STRATEGI SUIS MOD: "create" atau "edit"
   const [borangMod, setBorangMod] = useState("create"); 
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
-  // STATE DATA PENGISIAN BORANG (KONGSI UI)
+  // STATE DATA PENGISIAN BORANG
   const [topicId, setTopicId] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [infographicUrl, setInfographicUrl] = useState("");
   const [coinReward, setCoinReward] = useState(50);
-  const [notes, setNotes] = useState([""]);
+  
+  // 🎯 DIKEMASKINI: Sekarang menggunakan satu string kosong untuk perenggan nota bebas
+  const [notes, setNotes] = useState(""); 
+  
   const [questions, setQuestions] = useState([
     { questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }
   ]);
@@ -72,12 +75,12 @@ export default function LessonResources() {
       setLessonsList(rekodKuiz || []);
     } catch (err) {
       console.error("Gagal menarik senarai lesson:", err);
-    } finally {
+    } {
       setIsLoadingList(false);
     }
   };
 
-  // 🎯 3. APABILA PENGGUNA PILIH LESSON PADA MOD EDIT (AUTO-ISI)
+  // 🎯 3. AUTO-ISI BORANG BILA TOPIK DIPILIH (MOD EDIT)
   const handlePilihLesson = (e) => {
     const idPilihan = e.target.value;
     setSelectedLessonId(idPilihan);
@@ -96,10 +99,18 @@ export default function LessonResources() {
       setInfographicUrl(lessonDipilih.infographic_url || "");
       setCoinReward(lessonDipilih.coins_reward || 50);
 
+      // 🎯 DIKEMASKINI: Logik pintar membaca nota JSON (Array lama vs String baru)
       try {
-        const parsedNotes = lessonDipilih.notes_json ? JSON.parse(lessonDipilih.notes_json) : [""];
-        setNotes(Array.isArray(parsedNotes) && parsedNotes.length > 0 ? parsedNotes : [""]);
-      } catch (e) { setNotes([""]); }
+        const parsedNotes = lessonDipilih.notes_json ? JSON.parse(lessonDipilih.notes_json) : "";
+        if (Array.isArray(parsedNotes)) {
+          // Jika data lama berbentuk array bullet points, gabungkan dengan baris baru (\n)
+          setNotes(parsedNotes.join("\n"));
+        } else {
+          setNotes(typeof parsedNotes === "string" ? parsedNotes : "");
+        }
+      } catch (e) { 
+        setNotes(""); 
+      }
 
       try {
         const parsedQuestions = lessonDipilih.questions_json ? JSON.parse(lessonDipilih.questions_json) : [];
@@ -122,7 +133,7 @@ export default function LessonResources() {
   // --- LOGIK NAVIGASI RESET ---
   const resetSemuaMedanBorang = () => {
     setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setInfographicUrl(""); setCoinReward(50);
-    setNotes([""]); setQuestions([{ questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
+    setNotes(""); setQuestions([{ questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
   };
 
   const tukarModBorang = (modBaru) => {
@@ -130,13 +141,6 @@ export default function LessonResources() {
     setSelectedLessonId("");
     resetSemuaMedanBorang();
     if (modBaru === "edit") muatTurunSenaraiLesson();
-  };
-
-  // --- URUSAN BARIS NOTA DINAMIK ---
-  const handleAddNote = () => setNotes([...notes, ""]);
-  const handleRemoveNote = (index) => setNotes(notes.filter((_, i) => i !== index));
-  const handleNoteChange = (index, value) => {
-    const updatedNotes = [...notes]; updatedNotes[index] = value; setNotes(updatedNotes);
   };
 
   // --- URUSAN BANK SOALAN KUIZ BERGAMBAR ---
@@ -151,7 +155,7 @@ export default function LessonResources() {
     const updatedQuestions = [...questions]; updatedQuestions[qIndex].options[optIndex] = value; setQuestions(updatedQuestions);
   };
 
-  // 🎯 5. LOGIK PADAM PENDUA (DELETE CRUSHER)
+  // 🎯 5. LOGIK PADAM MODUL
   const handleDeleteLesson = async () => {
     if (!selectedLessonId) return;
     const sahkan = window.confirm(`⚠️ PADAM KEKAL:\n\nAdakah anda pasti mahu memadam modul ID: [${selectedLessonId}] ini?`);
@@ -169,7 +173,7 @@ export default function LessonResources() {
     } finally { setIsDeleting(false); }
   };
 
-  // 🎯 6. LOGIK UTAMA SAVE (DWI-FUNGSI: CREATE ATAU UPDATE)
+  // 🎯 6. LOGIK UTAMA SAVE
   const handleSaveForm = async (e) => {
     e.preventDefault();
 
@@ -197,17 +201,15 @@ export default function LessonResources() {
         video_url: youtubeUrl.trim(),
         infographic_url: infographicUrl.trim(),
         coins_reward: Number(coinReward),
-        notes_json: JSON.stringify(notes.filter(n => n.trim() !== "")),
+        notes_json: JSON.stringify(notes.trim()), // 🎯 DIKEMASKINI: Disimpan terus sebagai string teks mampat
         questions_json: JSON.stringify(susunanSoalanKuiz)
       };
 
       if (borangMod === "create") {
-        // PANGGIL MOD CREATE
         const targetId = topicId.trim().toLowerCase().replace(/\s+/g, "-");
         await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
         toast({ title: "Misi Baru Dicipta! 🎉", description: `'${title}' sedia diakses murid.` });
       } else {
-        // PANGGIL MOD UPDATE
         await base44.entities.Quiz.update(selectedLessonId, dataPayload);
         toast({ title: "Kemaskini Berjaya! 🔄", description: `Maklumat '${title}' telah diperbaharui.` });
       }
@@ -242,7 +244,6 @@ export default function LessonResources() {
           <p className="text-xs text-slate-500 mt-0.5">Pusat kawalan kurikulum bersepadu untuk mencipta, mengemas kini, dan memadam topik pelajaran.</p>
         </div>
         
-        {/* TAB TOGGLE: TUKAR MOD DENGAN MUDAH */}
         <div className="flex bg-slate-200/70 p-1 rounded-xl self-start sm:self-center shadow-inner">
           <button 
             type="button" onClick={() => tukarModBorang("create")}
@@ -259,7 +260,7 @@ export default function LessonResources() {
         </div>
       </div>
 
-      {/* JIKA MOD EDIT: TUNJUK PANEL PEMILIH & PEMADAM PENDUA */}
+      {/* JIKA MOD EDIT: TUNJUK PANEL PEMILIH */}
       {borangMod === "edit" && (
         <Card className="p-4 bg-amber-50/30 border border-amber-200/60 rounded-2xl flex flex-col sm:flex-row gap-3 items-stretch sm:items-center shadow-2xs">
           <div className="flex-1">
@@ -286,7 +287,7 @@ export default function LessonResources() {
         </Card>
       )}
 
-      {/* BORANG BORANG UTAMA (DIKONGSI BERSAMA OLEH KEDUA-DUA MOD) */}
+      {/* BORANG BORANG UTAMA */}
       {(borangMod === "create" || selectedLessonId) ? (
         <form onSubmit={handleSaveForm} className="space-y-6 animate-in fade-in duration-300">
           
@@ -302,7 +303,7 @@ export default function LessonResources() {
                 <input 
                   type="text" required placeholder="Contoh: topik-nombor-asas"
                   value={topicId} onChange={(e) => setTopicId(e.target.value)}
-                  disabled={borangMod === "edit"} // Kunci ID jika dalam mod edit
+                  disabled={borangMod === "edit"} 
                   className={`w-full px-3 py-2 border rounded-xl text-xs font-bold focus:outline-indigo-500 ${borangMod === "edit" ? "bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200" : "bg-slate-50 border-slate-200"}`}
                 />
               </div>
@@ -360,31 +361,24 @@ export default function LessonResources() {
             </div>
           </Card>
 
-          {/* SEC 3: NOTA RINGKAS */}
-          <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
-            <div className="flex justify-between items-center border-b pb-2">
-              <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 uppercase text-[11px] tracking-wider text-indigo-600">
-                📌 3. Poin Nota Ringkas Pengajian Murid
+          {/* 🎯 DIKEMASKINI - SEC 3: NOTA RINGKAS BEBAS (PARAGRAPH MODE) */}
+          <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
+            <div>
+              <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-1.5 uppercase text-[11px] tracking-wider text-indigo-600">
+                📝 3. Kandungan Nota Pengajian Bebas
               </h3>
-              <Button type="button" size="sm" onClick={handleAddNote} className="h-7 text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold gap-1">
-                <Plus className="w-3 h-3" /> Tambah Baris Nota
-              </Button>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Anda boleh menaip perenggan penuh, nota pendek, emoji, tanda baca, serta menggunakan baris baru (Enter).</p>
             </div>
-            <div className="space-y-2">
-              {notes.map((note, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400 w-5 text-center">{index + 1}.</span>
-                  <input 
-                    type="text" required value={note} onChange={(e) => handleNoteChange(index, e.target.value)}
-                    className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-indigo-500"
-                  />
-                  {notes.length > 1 && (
-                    <button type="button" onClick={() => handleRemoveNote(index)} className="text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+            
+            <div className="space-y-1">
+              <textarea 
+                rows={5}
+                required
+                placeholder="Tuliskan nota ringkas di sini. Contoh:&#13;• Nombor 1 hingga 5 dipanggil Nombor Asas.&#13;• Sentiasa mengira dari arah kiri ke kanan! 🦖"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-indigo-500 shadow-inner"
+              />
             </div>
           </Card>
 
