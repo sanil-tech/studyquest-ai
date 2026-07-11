@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
   ArrowLeft, Play, Loader2, Trophy, Lock, Award, Compass, Tv, 
-  CheckCircle2, AlertCircle, Leaf, Sprout 
+  CheckCircle2, AlertCircle, Leaf, Sprout, Sparkles 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -279,7 +279,6 @@ export default function LessonPage() {
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
 
-  // Semakan Pintar: Adakah pelajar sudah menyelesaikan 4 peringkat utama pertama?
   const isTopicUnlocked = progressState.video_completed && 
                           progressState.lesson_completed && 
                           progressState.flashcard_completed && 
@@ -425,7 +424,6 @@ export default function LessonPage() {
     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ["#10b981", "#84cc16", "#f59e0b", "#d97706"] });
   };
 
-  // 🌟 ANTI-XP FARMING: Peringkat yang sudah diselesaikan akan memulangkan +0 XP secara automatik
   const updateStageProgress = useCallback(async (stageId, nextStage, xpAwarded) => {
     let currentSessionId = sessionRef.current;
     
@@ -485,7 +483,6 @@ export default function LessonPage() {
     setActiveTab("map");
   }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
 
-  // LALUAN A: BILA NOTA WUJUD (Ulangkaji = +0 XP)
   const handleLessonStageCompleted = async () => {
     setStatus(p => ({ ...p, lesson: true }));
     setUiError(null);
@@ -526,7 +523,6 @@ export default function LessonPage() {
     }
   };
 
-  // LALUAN B: SANDARAN KEDUA JANA AI (Ulangkaji = +0 XP)
   const generateCoreLesson = async () => {
     setStatus(p => ({ ...p, lesson: true }));
     setUiError(null);
@@ -730,7 +726,7 @@ export default function LessonPage() {
         </div>
       </div>
 
-      {/* 🌟 BANNER INDIKATOR MOD ULANGKAJI & AKSES BEBAS */}
+      {/* BANNER INDIKATOR MOD ULANGKAJI & AKSES BEBAS */}
       {isTopicUnlocked && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 shadow-sm text-amber-800">
           <Leaf className="w-5 h-5 text-amber-500 fill-amber-400 shrink-0 mt-0.5" />
@@ -765,8 +761,6 @@ export default function LessonPage() {
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
             <LessonProgress 
-              // 🌟 Jika isTopicUnlocked = true, hantar status 'true' ke semua peringkat 
-              // untuk membuka sekat kekunci navigasi di dalam komponen peta visual.
               steps={isTopicUnlocked ? {
                 video: true,
                 lesson: true,
