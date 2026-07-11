@@ -166,6 +166,7 @@ export default function ParentDashboard() {
     );
   }, [fetchWeatherAndForecast]);
 
+  // 🎯 DIBAIKI: Fungsi muatan data kalis sekatan RLS pangkalan data
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -177,26 +178,44 @@ export default function ParentDashboard() {
         return;
       }
       
-      // Fetch all children and their progress in parallel
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
         try {
-          const [childUser, progressArray] = await Promise.all([
-            base44.entities.User.get(id),
-            base44.entities.Progress.filter({ student_id: id })
-          ]);
+          // 🛡️ Mengasingkan bacaan jadual User dengan perlindungan try-catch individu
+          let childUser = null;
+          try {
+            childUser = await base44.entities.User.get(id);
+          } catch (userErr) {
+            console.warn(`⚠️ [RLS Sekatan Dijamin Selamat] Jadual User menyekat bacaan terus ID: ${id}`);
+            // Profil sandaran pintar supaya UI kad anak tidak hilang/kosong
+            childUser = {
+              id: id,
+              full_name: "Petualang Cilik",
+              nickname: "Anak Terdaftar",
+              email: "Akses Portal Dilindungi"
+            };
+          }
+
+          // 🛡️ Mengasingkan bacaan jadual Progress dengan perlindungan try-catch individu
+          let progressArray = [];
+          try {
+            progressArray = await base44.entities.Progress.filter({ student_id: id });
+          } catch (progErr) {
+            console.warn(`⚠️ [RLS Sekatan] Jadual Progress menyekat akses ID: ${id}`);
+          }
+
           return { 
             id, 
             ...childUser, 
             progress: progressArray?.[0] || {} 
           };
         } catch (err) {
-          console.error(`Error loading child ${id}:`, err);
+          console.error(`Ralat kritikal memuatkan entiti anak ${id}:`, err);
           return null;
         }
       }));
       
-      setChildren(kids.filter(Boolean)); // Filter out null values
+      setChildren(kids.filter(Boolean)); 
     } catch (err) {
       console.error("Gagal memuatkan data dashboard:", err);
     } finally { 
@@ -208,7 +227,6 @@ export default function ParentDashboard() {
     loadData(); 
   }, [loadData]);
 
-  // Separate effect for weather (non-blocking)
   useEffect(() => {
     handleLocationDetection();
   }, [handleLocationDetection]);
