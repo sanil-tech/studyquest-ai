@@ -20,7 +20,7 @@ export default function ChildLogin() {
     setLoading(true);
 
     try {
-      const inputVal = usernameInput.trim().toLowerCase();
+      const inputVal = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
       
       if (!inputVal) {
         throw new Error("Sila masukkan Username anda.");
@@ -30,33 +30,25 @@ export default function ChildLogin() {
         throw new Error("Sila masukkan Kata Laluan anda.");
       }
 
-      // 🔄 Panggil custom Edge Function backend yang memproses pengesahan kata laluan secara manual
-      const response = await fetch('/api/childLogin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: inputVal,
-          password: password
-        })
-      });
+      // 🔐 Tukar input username kepada struktur e-mel maya rasmi aplikasi
+      const childEmail = `${inputVal}@studyquest.local`;
 
-      const result = await response.json();
+      // Log masuk menggunakan fungsi Native Authentication SDK (Automatik dapatkan token)
+      await base44.auth.loginViaEmailPassword(childEmail, password);
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Username atau kata laluan salah. Sila semak semula.");
+      // Ambil profil penuh murid bagi mengesahkan token aktif berjaya disimpan
+      const user = await base44.auth.me();
+
+      if (user) {
+        // Simpan salinan sesi ke dalam localStorage sebagai sandaran modul AuthContext
+        localStorage.setItem('studyquest_session', JSON.stringify({ userId: user.id, id: user.id }));
+        localStorage.setItem('studyquest_user', JSON.stringify(user));
+        
+        // Hala terus masuk ke Dashboard murid
+        window.location.href = "/dashboard";
+      } else {
+        throw new Error("Gagal memuatkan profil murid.");
       }
-
-      // 💾 Simpan virtual session keys ke dalam localStorage mengikut keperluan AuthContext.jsx
-      localStorage.setItem('studyquest_session', JSON.stringify({ 
-        userId: result.user.id,
-        id: result.user.id 
-      }));
-      localStorage.setItem('studyquest_user', JSON.stringify(result.user));
-
-      // 🚀 Hala ke dashboard aplikasi setelah berjaya mendaftar masuk
-      window.location.href = "/dashboard";
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
       
