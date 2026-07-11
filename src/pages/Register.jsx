@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react"; // 💡 DIBAIKI: Dibuang import 'React' yang tidak digunakan
+import { Link } from "react-router-dom"; // 💡 DIBAIKI: Dibuang 'useNavigate' yang tidak digunakan
 import { base44 } from "@/api/base44Client";
-import { appParams } from "@/lib/app-params"; // 💡 DIBAIKI: Diperlukan untuk X-App-Id header
+import { appParams } from "@/lib/app-params"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,6 @@ import GoogleIcon from "@/components/GoogleIcon";
 import { motion } from "framer-motion";
 
 export default function Register() {
-  const navigate = useNavigate();
   const [usernameInput, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -48,7 +47,6 @@ export default function Register() {
     const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
 
     try {
-      // 1. 💡 DIBAIKI: Menghantar X-App-Id dan X-App-Token ke Backend Edge Function
       const response = await fetch('/api/functions/publicRegister', {
         method: 'POST',
         headers: {
@@ -63,12 +61,12 @@ export default function Register() {
         })
       });
 
-      // Dapatkan teks respons mentah terlebih dahulu untuk mengelakkan ralat JSON parsing jika server crash
       const responseText = await response.text();
       let result;
       try {
         result = JSON.parse(responseText);
-      } catch (e) {
+      } catch {
+        // 💡 DIBAIKI: Diubah 'catch (e)' kepada 'catch' tanpa pemboleh ubah tidak digunakan
         throw new Error(`Ralat Pelayan Terus (500): ${responseText.substring(0, 100)}`);
       }
 
@@ -76,7 +74,6 @@ export default function Register() {
         throw new Error(result.error || `Gagal mendaftarkan akaun (Status HTTP ${response.status})`);
       }
 
-      // 2. AUTO-LOGIN: Simpan maklumat sesi terus ke peranti pelayar
       if (result.user) {
         localStorage.setItem('studyquest_session', JSON.stringify({ 
           userId: result.user.id, 
