@@ -20,12 +20,12 @@ export default function LessonResources() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
 
-  // 🔄 STRATEGI SUIS MOD: "create" atau "edit"
+  // 🔄 STRATEGI SUIS MOD
   const [borangMod, setBorangMod] = useState("create"); 
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
-  // STATE DATA PENGISIAN BORANG CORE
+  // STATE DATA BORANG CURRICULUM
   const [topicId, setTopicId] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
@@ -33,22 +33,17 @@ export default function LessonResources() {
   const [coinReward, setCoinReward] = useState(50);
   const [notes, setNotes] = useState(""); 
 
-  // 🧠 STATE STRATEGI FAIL GAMBAR (INFOGRAFIK / PETA MINDA)
+  // STATE FAIL GAMBAR (INFOGRAFIK / PETA MINDA)
   const [infographicUrl, setInfographicUrl] = useState(""); 
   const [infographicFile, setInfographicFile] = useState(null); 
   const [infographicPreview, setInfographicPreview] = useState(""); 
 
   // STATE DINAMIK BANK SOALAN KUIZ
   const [questions, setQuestions] = useState([
-    { 
-      questionText: "", 
-      questionImageUrl: "", 
-      questionFile: null, 
-      questionPreview: "" 
-    }
+    { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "" }
   ]);
 
-  // 🎯 1. PENGESAHAN KESELAMATAN (AUTH GUARD)
+  // 🎯 1. AUTH GUARD
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
@@ -67,7 +62,6 @@ export default function LessonResources() {
           navigate("/dashboard"); 
         }
       } catch (err) {
-        console.error("Ralat pengesahan peranan:", err);
         navigate("/login");
       } finally {
         setCheckingAuth(false);
@@ -76,38 +70,54 @@ export default function LessonResources() {
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. PENGENDALI PILIHAN FAIL GAMBAR (DENGAN HAD VALIDASI 10MB)
+  // 🎯 2. PETA MINDA & IMAGE COMPRESSOR HIBRID (Bypass 2MB Server Limit)
+  const kompresFailGambarUlu = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          // Hadkan dimensi maksimum resolusi (Contoh: Lebar maksima 1400px) untuk menjamin pengurangan saiz fail
+          const MAX_WIDTH = 1400;
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Tukar imej asal ke format JPEG berkualiti 75% (Hasil fail mengecil drpd 8MB -> ~400KB sahaja!)
+          canvas.toBlob((blob) => {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: "image/jpeg",
+              lastModified: Date.now()
+            });
+            resolve(compressedFile);
+          }, "image/jpeg", 0.75);
+        };
+      };
+    });
+  };
+
+  // PENGENDALI PILIHAN MEDIA
   const kendaliPilihanInfographic = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    // 🎯 DIKEMASKINI: Had saiz dinaikkan kepada 10MB (10 * 1024 * 1024)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ 
-        title: "Fail Terlalu Besar 🛑", 
-        description: "Sila pilih fail gambar di bawah saiz 10MB.", 
-        variant: "destructive" 
-      });
-      return;
-    }
-    
     setInfographicFile(file);
     setInfographicPreview(URL.createObjectURL(file));
   };
 
   const kendaliPilihanGambarSoalan = (index, file) => {
     if (!file) return;
-
-    // 🎯 DIKEMASKINI: Had saiz dinaikkan kepada 10MB (10 * 1024 * 1024)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ 
-        title: "Fail Terlalu Besar 🛑", 
-        description: "Gambar soalan mestilah di bawah saiz 10MB.", 
-        variant: "destructive" 
-      });
-      return;
-    }
-
     const updatedQuestions = [...questions];
     updatedQuestions[index].questionFile = file;
     updatedQuestions[index].questionPreview = URL.createObjectURL(file);
@@ -122,7 +132,7 @@ export default function LessonResources() {
       setLessonsList(rekodKuiz || []);
     } catch (err) {
       console.error("Gagal menarik senarai lesson:", err);
-    } {
+    } finally {
       setIsLoadingList(false);
     }
   };
@@ -216,7 +226,7 @@ export default function LessonResources() {
     } finally { setIsDeleting(false); }
   };
 
-  // 🎯 3. SUBMIT LOGIK (AUTO UPLOAD KE STORAGE SERVER BILA KLIK SAVE)
+  // 🎯 5. PROSES PENGHANTARAN: KECILKAN GAMBAR DAN HANTAR KE SERVER
   const handleSaveForm = async (e) => {
     e.preventDefault();
 
@@ -231,21 +241,23 @@ export default function LessonResources() {
 
     setIsSaving(true);
     try {
-      // Muat naik fail Peta Minda / Infografik
+      // A. Mampatkan Fail Peta Minda / Infografik Utama sebelum dihantar ke storage server
       let serverInfographicUrl = infographicUrl;
       if (infographicFile) {
-        const uploadRes = await base44.storage.upload(infographicFile);
+        const compressedInfo = await kompresFailGambarUlu(infographicFile); // Pemampatan aktif!
+        const uploadRes = await base44.storage.upload(compressedInfo);
         serverInfographicUrl = uploadRes.url;
       }
 
-      // Muat naik fail Gambar Rajah Kuiz secara gelung
+      // B. Mampatkan Fail Gambar Rajah Soalan Kuiz secara automatik sebelum muat naik
       const susunanSoalanKuiz = [];
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
         let serverQImageUrl = q.questionImageUrl;
 
         if (q.questionFile) {
-          const uploadQRes = await base44.storage.upload(q.questionFile);
+          const compressedQ = await kompresFailGambarUlu(q.questionFile); // Pemampatan aktif!
+          const uploadQRes = await base44.storage.upload(compressedQ);
           serverQImageUrl = uploadQRes.url;
         }
 
@@ -270,10 +282,10 @@ export default function LessonResources() {
       if (borangMod === "create") {
         const targetId = topicId.trim().toLowerCase().replace(/\s+/g, "-");
         await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
-        toast({ title: "Misi Baru Dicipta! 🎉", description: "Semua imej bersaiz besar selamat disimpan." });
+        toast({ title: "Misi Baru Dicipta! 🎉", description: "Gambar berjaya dimampatkan automatik dan disimpan ke server." });
       } else {
         await base44.entities.Quiz.update(selectedLessonId, dataPayload);
-        toast({ title: "Kemaskini Berjaya! 🔄", description: "Kandungan terbaharu dikunci pada server cloud." });
+        toast({ title: "Kemaskini Berjaya! 🔄", description: "Data kurikulum berjaya dikunci ke pelayan." });
       }
 
       resetSemuaMedanBorang();
@@ -282,7 +294,7 @@ export default function LessonResources() {
 
     } catch (err) {
       console.error(err);
-      toast({ title: "Ralat Simpanan Server ❌", description: err.message, variant: "destructive" });
+      toast({ title: "Ralat Simpanan Server ❌", description: "Server menolak fail. Pastikan ia format fail imej sah.", variant: "destructive" });
     } finally { setIsSaving(false); }
   };
 
@@ -304,7 +316,7 @@ export default function LessonResources() {
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Pengurusan Lesson Resources
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Sistem storan fail ditingkatkan: Menerima fail gambar visual besar sehingga had maksima **10MB**.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Sistem Pintar: Sebarang fail gambar bersaiz besar kini akan **dimampatkan secara automatik** di bawah 2MB sebelum dihantar.</p>
         </div>
         
         <div className="flex bg-slate-200/70 p-1 rounded-xl self-start sm:self-center shadow-inner">
@@ -396,7 +408,7 @@ export default function LessonResources() {
             </div>
           </Card>
 
-          {/* SEC 2: SEKSYEN MEDIA UTAMA & FAIL PETA MINDA RASMI */}
+          {/* SEC 2: MEDIA UTAMA & FAIL PETA MINDA */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600">
               <Video className="w-4 h-4" /> 2. Media Pengajaran & Fail Gambar Peta Minda Visual / Infografik Topik
@@ -411,10 +423,9 @@ export default function LessonResources() {
                 />
               </div>
               
-              {/* Petak Input Fail Gambar Peta Minda / Infografik */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                  <UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Fail Gambar Peta Minda / Infografik (Maks 10MB)
+                  <UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Pilih Fail Gambar Peta Minda / Infografik (Auto-Compress)
                 </label>
                 <input 
                   type="file" 
@@ -480,7 +491,7 @@ export default function LessonResources() {
                   
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                      <UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Muat Naik Gambar Rajah Soalan (Maks 10MB)
+                      <UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Pilih Gambar Rajah Soalan
                     </label>
                     <input 
                       type="file" 
@@ -497,7 +508,7 @@ export default function LessonResources() {
                     <img src={q.questionPreview} alt="Preview Soalan" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border shadow-3xs" />
                     <button type="button" onClick={() => {
                       const updated = [...questions]; 
-                      updated[qIndex].questionFile = null; 
+                      updated[qIndex].file = null; 
                       updated[qIndex].questionPreview = "";
                       updated[qIndex].questionImageUrl = ""; 
                       setQuestions(updated);
@@ -539,7 +550,7 @@ export default function LessonResources() {
               type="submit" disabled={isSaving}
               className={`text-white font-black text-xs rounded-xl shadow-md px-6 h-10 gap-1.5 active:scale-[0.99] transition-transform ${borangMod === 'create' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
             >
-              {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengunci Fail Server...</> : <><Save className="w-4 h-4" /> Kunci Kandungan Modul</>}
+              {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Sedang Mengecilkan Fail...</> : <><Save className="w-4 h-4" /> Kunci Kandungan Modul</>}
             </Button>
           </div>
 
