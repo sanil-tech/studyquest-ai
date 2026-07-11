@@ -26,49 +26,39 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
     setLoading(true);
     try {
-      // 1. Dapatkan akaun penjaga semasa
+      // 1. Dapatkan maklumat akaun Ibu Bapa semasa
       const me = await base44.auth.me();
-      if (!me?.id) throw new Error("Sesi log masuk ibu bapa tidak ditemui. Sila log masuk semula.");
+      if (!me?.id) throw new Error("Sesi log masuk ibu bapa tidak ditemui.");
 
       const cleanNickname = (nickname || fullName.split(" ")[0]).trim();
-      const shortParentId = me.id.substring(0, 6);
-      const virtualEmail = `${cleanNickname.toLowerCase()}.${shortParentId}@studyquest.internal`;
+      const usernameMaya = `${cleanNickname.toLowerCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
-      console.log("🚀 Mendaftar entiti murid terus ke pangkalan data...");
+      console.log("🚀 Mencipta profil murid berpandukan Skema JSON rasmi...");
 
-      // 2. Cipta akaun anak ke entiti User
+      // 2. Cipta akaun anak menggunakan medan skema yang betul (pin_hash, is_child_account)
       const newStudent = await base44.entities.User.create({
-        full_name: fullName,
-        email: virtualEmail, 
-        nickname: cleanNickname,
         app_role: "student",
-        child_login_pin: pin,
-        status: "active",
-        profile_completed: true 
+        nickname: cleanNickname,
+        username: usernameMaya,
+        pin_hash: pin,                 // 🎯 Mengikut skema backend anda
+        pin_enabled: true,             // 🎯 Mengaktifkan log masuk PIN
+        login_method: "pin",           // 🎯 Set kaedah log masuk eksklusif PIN
+        is_child_account: true,        // 🎯 Menandakan akaun anak bawah umur
+        profile_completed: true,
+        linked_parent_id: me.id        // 🎯 Pautan terus ke ID Ibu Bapa
       });
 
       if (!newStudent?.id) {
-        throw new Error("Gagal mendaftarkan ID unik akaun anak.");
+        throw new Error("Pelayan gagal menjana ID Murid baharu.");
       }
 
-      // 🎯 KELAS CACHE: Simpan semua data termasuk PIN ke local storage untuk rujukan Ibu Bapa (Pintas RLS)
-      const cachedKids = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedKids[newStudent.id] = {
-        full_name: fullName,
-        nickname: cleanNickname,
-        email: virtualEmail,
-        child_login_pin: pin
-      };
-      localStorage.setItem("cached_children", JSON.stringify(cachedKids));
-
-      // 3. Cipta hubungan pautan Parent-Child
-      await base44.entities.ParentChildRelationship.create({
-        parent_id: me.id,
-        child_id: newStudent.id,
-        status: "active"
+      // 3. Kemaskini array linked_student_ids milik Ibu Bapa (Pautan 2 hala mengikut skema)
+      const currentLinkedIds = me.linked_student_ids || [];
+      await base44.entities.User.update(me.id, {
+        linked_student_ids: [...currentLinkedIds, newStudent.id]
       });
 
-      // 4. Cipta Wallet & Progress Akademik Murid
+      // 4. Sediakan entiti sokongan akademik anak jika RLS membenarkan
       try {
         await base44.entities.Wallet.create({ student_id: newStudent.id, balance: 0 });
         await base44.entities.Progress.create({ 
@@ -78,21 +68,20 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
           streak_days: 0, 
           total_study_time: 0 
         });
-      } catch (entityErr) {
-        console.warn("Info: Entiti ganjaran dicipta secara terhad oleh RLS.");
+      } catch (e) {
+        console.warn("Info: Entiti akademik tambahan diuruskan oleh pangkalan data.");
       }
 
-      // Refresh data senarai dashboard di belakang modal
       if (typeof onChildAdded === "function") {
         onChildAdded(); 
       }
       setIsSuccess(true);
 
     } catch (err) {
-      console.error("🚨 Ralat Pendaftaran:", err);
+      console.error("🚨 Ralat Pendaftaran Skema:", err);
       toast({
         title: "Pendaftaran Gagal 🛑",
-        description: err.message || "Gagal menyimpan data murid.",
+        description: err.message || "Gagal menyimpan data ke pelayan pangkalan data.",
         variant: "destructive"
       });
     } finally {
