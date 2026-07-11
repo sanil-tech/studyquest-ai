@@ -18,13 +18,14 @@ export default function EditLessonResources() {
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false); // Spinner semasa proses padam
 
   // STATE UNTUK SENARAI MODUL SEDIA ADA
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
   // STATE DATA BORANG KEMASKINI
-  const [topicId, setTopicId] = useState(""); // Dikunci (Read-Only)
+  const [topicId, setTopicId] = useState(""); 
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -35,7 +36,7 @@ export default function EditLessonResources() {
     questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" 
   }]);
 
-  // 🎯 1. PENGESAHAN IDENTITI ADMIN (DENGAN AKSES PARENT UNTUK TESTING)
+  // 🎯 1. PENGESAHAN IDENTITI (AKSES PARENT DIBENARKAN UNTUK TESTING)
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
@@ -44,8 +45,6 @@ export default function EditLessonResources() {
         if (!me) throw new Error("Sesi tidak sah.");
 
         const peranan = me.app_role;
-        
-        // 🎯 DIKEMASKINI: Membenarkan peranan 'parent' lepas daripada sekatan pintu keselamatan
         const sahAdmin = 
           peranan === "admin" || 
           peranan === "teacher" || 
@@ -69,7 +68,7 @@ export default function EditLessonResources() {
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. MUAT TURUN SEMUA LESSON/QUIZ DARI DATABASE
+  // 🎯 2. MUAT TURUN SEMUA LESSON DARI DATABASE
   const muatTurunSenaraiLesson = async () => {
     setIsLoadingList(true);
     try {
@@ -83,7 +82,54 @@ export default function EditLessonResources() {
     }
   };
 
-  // 🎯 3. AUTO-ISI BORANG BILA TOPIK DIPILIH
+  // 🎯 3. LOGIK PEMADAMAN MODUL PENDUA (ANTI-DUPLICATE CRUSHER)
+  const handleDeleteLesson = async () => {
+    if (!selectedLessonId) return;
+
+    const lessonAktif = lessonsList.find(l => l.id === selectedLessonId);
+    const sahkan = window.confirm(
+      `⚠️ AMARAN PENTADBIR:\n\nAdakah anda pasti mahu memadam "${lessonAktif?.topic_name}" dengan ID [${selectedLessonId}] ini secara kekal dari database?\n\nTindakan ini tidak boleh diundurkan.`
+    );
+
+    if (!sahkan) return;
+
+    setIsDeleting(true);
+    try {
+      // Perintah pangkalan data untuk memadam rekod spesifik berdasarkan ID
+      await base44.entities.Quiz.delete(selectedLessonId);
+
+      toast({
+        title: "Berjaya Dipadam! 🗑️",
+        description: "Modul pelajaran pendua berjaya dibuang dari database.",
+      });
+
+      // Reset semula semua input borang ke kosong
+      setSelectedLessonId("");
+      setTopicId("");
+      setTitle("");
+      setSubtitle("");
+      setYoutubeUrl("");
+      setInfographicUrl("");
+      setCoinReward(50);
+      setNotes([""]);
+      setQuestions([{ questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
+
+      // Muat semula senarai dari server untuk mengemas kini dropdown
+      muatTurunSenaraiLesson();
+
+    } catch (err) {
+      console.error("Gagal memadam modul:", err);
+      toast({
+        title: "Ralat Pemadaman ❌",
+        description: err.message || "Gagal memadam data dari pelayan.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // 🎯 4. AUTO-ISI BORANG BILA TOPIK DIPILIH
   const handlePilihLesson = (e) => {
     const idPilihan = e.target.value;
     setSelectedLessonId(idPilihan);
@@ -146,7 +192,7 @@ export default function EditLessonResources() {
     const updatedQuestions = [...questions]; updatedQuestions[qIndex].options[optIndex] = value; setQuestions(updatedQuestions);
   };
 
-  // --- 🚀 KEMASKINI (UPDATE) DATA KE DATABASE ---
+  // --- KEMASKINI (UPDATE) DATA KE DATABASE ---
   const handleUpdateForm = async (e) => {
     e.preventDefault();
 
@@ -203,7 +249,6 @@ export default function EditLessonResources() {
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center space-y-3">
         <ShieldAlert className="w-12 h-12 text-rose-500 animate-bounce" />
         <h2 className="text-base font-black text-slate-800 uppercase">Akses Tidak Dibenarkan</h2>
-        <p className="text-xs text-slate-500 max-w-xs">Anda perlu mempunyai akses pentadbir untuk mengubah kandungan.</p>
       </div>
     );
   }
@@ -217,31 +262,54 @@ export default function EditLessonResources() {
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <Edit3 className="w-5 h-5 text-indigo-600" /> Kemaskini Lesson Resources
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Pilih modul yang telah dicipta untuk menyunting isi kandungan, video, atau soalan kuiz.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Pilih modul yang telah dicipta untuk menyunting isi kandungan, video, atau membuang pendua.</p>
         </div>
         <Badge className="bg-amber-500 text-white font-black text-[10px] uppercase px-3 py-1 rounded-full border-0 shadow-xs">
           ✏️ Edit Mode (Testing)
         </Badge>
       </div>
 
-      {/* BLOK PILIHAN TOPIK */}
-      <Card className="p-5 bg-white border border-indigo-100 rounded-2xl shadow-sm bg-indigo-50/30">
-        <label className="text-xs font-black text-indigo-700 uppercase flex items-center gap-1.5 mb-2">
-          <Search className="w-4 h-4" /> Pilih Modul Untuk Dikemaskini
-        </label>
-        <div className="flex gap-2 items-center">
+      {/* 🛠️ BLOK PILIHAN TOPIK BERSERTA BUTANG PEMADAM KEKAL */}
+      <Card className="p-5 bg-white border border-indigo-100 rounded-2xl shadow-sm bg-indigo-50/30 flex flex-col space-y-3">
+        <div>
+          <label className="text-xs font-black text-indigo-700 uppercase flex items-center gap-1.5 mb-1">
+            <Search className="w-4 h-4" /> Pilih Modul Untuk Dikemaskini / Dipadam
+          </label>
+          <p className="text-[10px] text-slate-400 font-medium">Bandingkan kod ID di hujung nama topik untuk membezakan modul pendua.</p>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <select 
             value={selectedLessonId} 
             onChange={handlePilihLesson}
-            disabled={isLoadingList}
-            className="flex-1 px-4 py-3 bg-white border border-indigo-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-indigo-500 shadow-sm"
+            disabled={isLoadingList || isDeleting}
+            className="flex-1 px-4 py-2.5 bg-white border border-indigo-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-indigo-500 shadow-sm"
           >
             <option value="">-- Sila Pilih Modul Pelajaran --</option>
             {lessonsList.map(l => (
-              <option key={l.id} value={l.id}>{l.topic_name} (ID: {l.id})</option>
+              <option key={l.id} value={l.id}>
+                {l.topic_name} (ID: {l.id ? l.id.substring(0, 8) : "---"})
+              </option>
             ))}
           </select>
-          {isLoadingList && <Loader2 className="w-5 h-5 animate-spin text-indigo-500 shrink-0" />}
+          
+          {/* 🗑️ BUTANG DELETE: Hanya menyala jika modul telah dipilih */}
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={!selectedLessonId || isDeleting}
+            onClick={handleDeleteLesson}
+            className="h-10 px-4 text-xs font-black rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 shrink-0 transition-all shadow-sm active:scale-95 disabled:opacity-40"
+          >
+            {isDeleting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+            Padam Modul Pendua
+          </Button>
+
+          {isLoadingList && <Loader2 className="w-5 h-5 animate-spin text-indigo-500 shrink-0 self-center" />}
         </div>
       </Card>
 
@@ -256,7 +324,7 @@ export default function EditLessonResources() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase">ID Sistem Unik (Tidak Boleh Diubah) 🔒</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">ID Sistem Unik (Terkunci) 🔒</label>
                 <input 
                   type="text" value={topicId} disabled
                   className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-400 cursor-not-allowed"
@@ -301,7 +369,7 @@ export default function EditLessonResources() {
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-indigo-500"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="grid space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Image className="w-3.5 h-3.5" /> URL Gambar Infografik / Poster</label>
                 <input 
                   type="url" value={infographicUrl} onChange={(e) => setInfographicUrl(e.target.value)}
@@ -359,7 +427,7 @@ export default function EditLessonResources() {
                   {questions.length > 1 && (
                     <Button type="button" size="sm" variant="ghost" onClick={() => handleRemoveQuestion(qIndex)} className="h-7 text-xs text-rose-500 hover:bg-rose-50 rounded-lg px-2">
                       <Trash2 className="w-3.5 h-3.5 mr-1" /> Buang Soalan
-                  </Button>
+                    </Button>
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -407,7 +475,7 @@ export default function EditLessonResources() {
             ))}
           </div>
 
-          {/* PENYIMPANAN AKHIR */}
+          {/* BUTANG SIMPAN KEMASKINI */}
           <div className="pt-4 flex items-center justify-end border-t">
             <Button type="submit" disabled={isSaving} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-md px-6 h-10 gap-1.5 active:scale-[0.99] transition-transform">
               {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengemaskini...</> : <><Save className="w-4 h-4" /> Kemaskini Rekod Misi Ini</>}
