@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 
-// ================= KOMPONEN KAD DETEIL ANAK (NATIVE SCHEMA DRIVEN) =================
+// ================= 1. KOMPONEN KAD DETEIL ANAK (NATIVE SCHEMA DRIVEN) =================
 function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdated }) {
   const { toast } = useToast();
   const [showPin, setShowPin] = useState(false);
@@ -273,7 +273,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
   );
 }
 
-// ================= KOMPONEN UTAMA HALAMAN =================
+// ================= 2. KOMPONEN UTAMA HALAMAN (MY CHILDREN PAGE) =================
 export default function MyChildrenPage() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -291,8 +291,7 @@ export default function MyChildrenPage() {
       setLoading(true);
       const u = await base44.auth.me();
       
-      // 🎯 BACA DIRECT: Gunakan linked_parent_id yang tertera dalam Skema JSON Murid!
-      // Polisi RLS membenarkan parent menapis murid di bawah tanggungan mereka.
+      // Menapis senarai murid di bawah tanggungan ID Parent ini (Mengikut skema JSON anda)
       const kidsList = await base44.entities.User.filter({ 
         app_role: "student",
         linked_parent_id: u.id 
@@ -345,7 +344,7 @@ export default function MyChildrenPage() {
           email: childUser?.email || "Portal Aktif",
           nickname: childUser?.nickname || childUser?.full_name || "Petualang Cilik",
           username: childUser?.username || "student",
-          // 🎯 DIBAIKI: Membaca terus parameter 'pin_hash' dari database pelayan awan
+          // Memadankan nilai child_login_pin dengan ruangan 'pin_hash' pangkalan data secara mutlak
           child_login_pin: childUser?.pin_hash || "----", 
           wallet: activeWallet,
           allAttempts, 
@@ -386,7 +385,7 @@ export default function MyChildrenPage() {
         ? child.allAttempts.map(q => `- Topik Kuiz: "${q.topic_name || 'Ujian'}", Markah Dicapai: ${q.score}%`).join("\n")
         : "Pelajar belum menduduki sebarang kuiz.";
 
-      const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar...`;
+      const systemPrompt = `Anda adalah sistem AI Penasihat Academic Pintar. Berikan cadangan untuk pelajar bernama ${displayKidsName} dengan tahap XP ${totalXp} dan Level ${level}.`;
 
       const response = await base44.integrations.Core.Chat({ message: systemPrompt });
       setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana.");
@@ -448,7 +447,6 @@ export default function MyChildrenPage() {
 
           {selectedChild && (
             <div className="space-y-6 mt-4">
-              {/* Konten Nota */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
@@ -472,7 +470,6 @@ export default function MyChildrenPage() {
                 )}
               </div>
 
-              {/* Konten Kuiz */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
