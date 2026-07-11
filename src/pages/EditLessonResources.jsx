@@ -35,7 +35,7 @@ export default function EditLessonResources() {
     questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" 
   }]);
 
-  // 🎯 1. PENGESAHAN IDENTITI ADMIN
+  // 🎯 1. PENGESAHAN IDENTITI ADMIN (DENGAN AKSES PARENT UNTUK TESTING)
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
@@ -44,16 +44,23 @@ export default function EditLessonResources() {
         if (!me) throw new Error("Sesi tidak sah.");
 
         const peranan = me.app_role;
-        const sahAdmin = peranan === "admin" || peranan === "teacher" || me.is_admin === true;
+        
+        // 🎯 DIKEMASKINI: Membenarkan peranan 'parent' lepas daripada sekatan pintu keselamatan
+        const sahAdmin = 
+          peranan === "admin" || 
+          peranan === "teacher" || 
+          peranan === "parent" || 
+          me.is_admin === true;
 
         if (sahAdmin) {
           setHasAccess(true);
-          muatTurunSenaraiLesson(); // Panggil data jika sah Admin
+          muatTurunSenaraiLesson(); 
         } else {
-          toast({ title: "Akses Disekat! 🛑", description: "Hanya Admin dibenarkan.", variant: "destructive" });
+          toast({ title: "Akses Disekat! 🛑", description: "Hanya Pentadbir dibenarkan.", variant: "destructive" });
           navigate("/dashboard"); 
         }
       } catch (err) {
+        console.error("Ralat pengesahan peranan:", err);
         navigate("/login");
       } finally {
         setCheckingAuth(false);
@@ -66,7 +73,6 @@ export default function EditLessonResources() {
   const muatTurunSenaraiLesson = async () => {
     setIsLoadingList(true);
     try {
-      // Ambil semua data Quiz dari server
       const rekodKuiz = await base44.entities.Quiz.filter({});
       setLessonsList(rekodKuiz || []);
     } catch (err) {
@@ -83,7 +89,6 @@ export default function EditLessonResources() {
     setSelectedLessonId(idPilihan);
 
     if (!idPilihan) {
-      // Reset jika tiada pilihan
       setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setInfographicUrl(""); setCoinReward(50);
       setNotes([""]); setQuestions([{ questionText: "", questionImageUrl: "", options: ["", "", "", ""], correctAnswer: "A" }]);
       return;
@@ -98,13 +103,11 @@ export default function EditLessonResources() {
       setInfographicUrl(lessonDipilih.infographic_url || "");
       setCoinReward(lessonDipilih.coins_reward || 50);
 
-      // Parse JSON Nota
       try {
         const parsedNotes = lessonDipilih.notes_json ? JSON.parse(lessonDipilih.notes_json) : [""];
         setNotes(Array.isArray(parsedNotes) && parsedNotes.length > 0 ? parsedNotes : [""]);
       } catch (e) { setNotes([""]); }
 
-      // Parse JSON Soalan kepada format borang
       try {
         const parsedQuestions = lessonDipilih.questions_json ? JSON.parse(lessonDipilih.questions_json) : [];
         if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
@@ -161,7 +164,6 @@ export default function EditLessonResources() {
         correct_answer: q.correctAnswer.trim()
       }));
 
-      // 🎯 UPDATE DATABASE SERVER
       await base44.entities.Quiz.update(selectedLessonId, {
         topic_name: title.trim(),
         subject_name: subtitle.trim(), 
@@ -174,10 +176,9 @@ export default function EditLessonResources() {
 
       toast({
         title: "Kemaskini Berjaya! 🔄",
-        description: `Maklumat terbaru untuk '${title}' telah dipaparkan pada sistem murid.`,
+        description: `Maklumat terbaru untuk '${title}' telah dikunci ke dalam pangkalan data.`,
       });
 
-      // Kemaskini senarai cache lokal kita supaya dropdown terkemaskini
       muatTurunSenaraiLesson();
 
     } catch (err) {
@@ -202,6 +203,7 @@ export default function EditLessonResources() {
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center space-y-3">
         <ShieldAlert className="w-12 h-12 text-rose-500 animate-bounce" />
         <h2 className="text-base font-black text-slate-800 uppercase">Akses Tidak Dibenarkan</h2>
+        <p className="text-xs text-slate-500 max-w-xs">Anda perlu mempunyai akses pentadbir untuk mengubah kandungan.</p>
       </div>
     );
   }
@@ -218,7 +220,7 @@ export default function EditLessonResources() {
           <p className="text-xs text-slate-500 mt-0.5">Pilih modul yang telah dicipta untuk menyunting isi kandungan, video, atau soalan kuiz.</p>
         </div>
         <Badge className="bg-amber-500 text-white font-black text-[10px] uppercase px-3 py-1 rounded-full border-0 shadow-xs">
-          ✏️ Edit Mode
+          ✏️ Edit Mode (Testing)
         </Badge>
       </div>
 
@@ -248,7 +250,7 @@ export default function EditLessonResources() {
         <form onSubmit={handleUpdateForm} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           
           {/* BLOK 1: DATA TERAS MODUL */}
-          <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4 opacity-95">
+          <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600">
               <BookOpen className="w-4 h-4" /> 1. Parameter Teras & ID Misi
             </h3>
@@ -357,7 +359,7 @@ export default function EditLessonResources() {
                   {questions.length > 1 && (
                     <Button type="button" size="sm" variant="ghost" onClick={() => handleRemoveQuestion(qIndex)} className="h-7 text-xs text-rose-500 hover:bg-rose-50 rounded-lg px-2">
                       <Trash2 className="w-3.5 h-3.5 mr-1" /> Buang Soalan
-                    </Button>
+                  </Button>
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
