@@ -58,17 +58,17 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
+            <h3 className="text-sm font-black text-slate-800 uppercase truncate user-select-none">{displayName}</h3>
             <Badge className="bg-blue-50 text-blue-600 border-0 text-[10px] font-black px-1.5 py-0 h-4 rounded shrink-0">
               Tahap {progressData.level || 1}
             </Badge>
           </div>
           
-          {/* 🎯 KEMASKINI PAPARAN: Memaparkan PIN Rahsia berserta Virtual Emel */}
+          {/* 🎯 KEMASKINI PAPARAN UTAMA: Lencana PIN Rahsia kini dijamin muncul */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
             <p className="text-[10px] font-bold text-slate-400 truncate max-w-[130px]">{child.email || "Tiada E-mel"}</p>
             <span className="hidden sm:inline text-slate-200 text-[10px]">|</span>
-            <span className="bg-orange-50 text-orange-600 border border-orange-100 font-black text-[9px] px-1.5 py-0.5 rounded-md tracking-wider w-fit flex items-center gap-0.5 shrink-0">
+            <span className="bg-amber-50 text-amber-700 border border-amber-200 font-black text-[10px] px-2 py-0.5 rounded-md tracking-widest w-fit flex items-center gap-1 shrink-0 shadow-xs">
               🔑 PIN: {child.child_login_pin}
             </span>
           </div>
@@ -211,16 +211,17 @@ export default function MyChildrenPage() {
           base44.entities.User.get(id).catch(() => null),
         ]);
 
-        // 🎯 DIIBAlKI: Membaca cache profil & PIN murid jika pangkalan data had-had RLS
+        // 🎯 PERUBAHAN UTAMA: Tarik fail data cache peranti terlebih dahulu
+        const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+        const localCache = cachedChildren[id] || {};
+
         let userObj = childUser;
         if (!userObj) {
-          console.warn(`⚠️ [RLS Sekatan] Mengambil data dari local storage cache untuk ID: ${id}`);
-          const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-          userObj = cachedChildren[id] || {
+          console.warn(`⚠️ [RLS Sekatan] Menggunakan profil penuh dari cache tempatan bagi ID: ${id}`);
+          userObj = localCache || {
             nickname: "Anak Terdaftar",
             full_name: "Petualang Cilik",
-            email: "Akses Portal Aktif",
-            child_login_pin: "----"
+            email: "Akses Portal Aktif"
           };
         }
 
@@ -254,10 +255,11 @@ export default function MyChildrenPage() {
 
         return { 
           id, 
-          email: userObj?.email || "Tiada E-mel",
-          nickname: userObj?.nickname || userObj?.full_name || "Anak Terdaftar",
+          email: userObj?.email || localCache.email || "Tiada E-mel",
+          nickname: userObj?.nickname || userObj?.full_name || localCache.nickname || "Anak Terdaftar",
           username: userObj?.username || "",
-          child_login_pin: userObj?.child_login_pin || "----", // <-- PIN berjaya diikat ke data
+          // 🎯 PENGGABUNGAN PINTAS: Wajibkan paparan membaca PIN dari localCache peranti untuk memintas penapisan pelayan!
+          child_login_pin: localCache.child_login_pin || userObj?.child_login_pin || "----", 
           wallet: activeWallet,
           allAttempts, 
           allSessions: sortedSessions, 
