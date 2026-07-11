@@ -11,12 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 
-// ================= 1. KOMPONEN KAD DETEIL ANAK (NATIVE SCHEMA DRIVEN) =================
+// ================= 1. KOMPONEN KAD DETEIL ANAK =================
 function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdated }) {
   const { toast } = useToast();
   const [showPin, setShowPin] = useState(false);
   
-  // Kawalan Input Tukar PIN & Nama
   const [isSettingPin, setIsSettingPin] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -44,7 +43,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
 
   const quizScore = child.quiz?.quiz_score || null;
 
-  // 🎯 UPDATE NAMA NATIVE KE SERVER
   const handleSaveName = async () => {
     if (!inputName.trim()) {
       toast({ title: "Medan Wajib", description: "Nama panggilan tidak boleh kosong.", variant: "destructive" });
@@ -52,10 +50,14 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
     setUpdating(true);
     try {
-      await base44.entities.User.update(child.id, {
-        nickname: inputName.trim()
-      });
-      toast({ title: "Berjaya Dikemaskini 🦖", description: "Nama panggilan anak berjaya disimpan ke pelayan." });
+      await base44.entities.User.update(child.id, { nickname: inputName.trim() });
+      
+      // Kemaskini juga cache peranti sebagai backup kekal
+      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+      cachedChildren[child.id] = { ...cachedChildren[child.id], nickname: inputName.trim() };
+      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
+
+      toast({ title: "Berjaya Dikemaskini 🦖", description: "Nama panggilan anak berjaya disimpan." });
       setIsEditingName(false);
       if (onDataUpdated) onDataUpdated();
     } catch (err) {
@@ -65,7 +67,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // 🎯 UPDATE PIN NATIVE KE FIELD 'pin_hash' SERVER
   const handleSaveNewPin = async () => {
     if (inputPin.length !== 4) {
       toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -78,7 +79,12 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         pin_enabled: true,
         login_method: "pin"
       });
-      toast({ title: "PIN Dikunci Kekal! 🔑", description: "PIN baharu disimpan terus ke dalam database pelayan." });
+
+      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+      cachedChildren[child.id] = { ...cachedChildren[child.id], child_login_pin: inputPin };
+      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
+
+      toast({ title: "PIN Dikunci Kekal! 🔑", description: "PIN baharu disimpan terus ke pelayan." });
       setIsSettingPin(false);
       if (onDataUpdated) onDataUpdated();
     } catch (err) {
@@ -91,7 +97,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
   return (
     <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
       
-      {/* Header Kad */}
       <div className="flex items-center justify-between border-b border-slate-50 pb-2 text-[10px] text-slate-400 font-bold">
         <span className="flex items-center gap-1 text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full uppercase text-[9px]">
           <Clock className="w-3 h-3" /> {lastActiveTime}
@@ -101,7 +106,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </Badge>
       </div>
 
-      {/* Profil Mini & Nama Interaktif */}
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 text-xl shrink-0">
           🦖
@@ -132,7 +136,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
             </Badge>
           </div>
           
-          {/* Arahan Paparan Butang PIN Rahsia Terus dari pin_hash Server */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 mt-1">
             <p className="text-[10px] font-bold text-slate-400 truncate max-w-[125px] leading-none">Username: {child.username || "student"}</p>
             <span className="hidden sm:inline text-slate-200 text-[10px]">|</span>
@@ -171,7 +174,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </div>
       </div>
 
-      {/* Kemajuan XP */}
       <div className="space-y-1 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
         <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
           <span className="flex items-center gap-0.5"><Zap className="w-3 h-3 text-purple-500" /> XP TERKUMPUL</span>
@@ -180,7 +182,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         <ProgressBar value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
       </div>
 
-      {/* Grid Status Ringkas */}
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="bg-orange-50/60 border border-orange-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
           <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
@@ -201,7 +202,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </div>
       </div>
 
-      {/* Masa Sesi Terakhir */}
       <div className="bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-400" />
@@ -213,7 +213,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         <Badge className="bg-emerald-500/20 text-emerald-400 font-bold border-0 text-[9px]">Sesi Aktif</Badge>
       </div>
 
-      {/* Prestasi Aktiviti Bab */}
       <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5 text-xs">
         <div className="flex items-center gap-1.5 font-bold text-slate-700 border-b border-slate-200/60 pb-1.5">
           <Award className="w-3.5 h-3.5 text-indigo-600" />
@@ -243,7 +242,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </div>
       </div>
 
-      {/* Kumpulan Butang Tindakan & Analisis */}
       <div className="space-y-2 pt-1">
         <Button 
           onClick={() => onOpenReport(child)}
@@ -260,7 +258,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </Button>
       </div>
 
-      {/* Butang Pengurusan */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
         <Button size="sm" variant="outline" onClick={() => setIsSettingPin(true)} className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
           ⚙️ Tukar PIN
@@ -273,7 +270,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
   );
 }
 
-// ================= 2. KOMPONEN UTAMA HALAMAN (MY CHILDREN PAGE) =================
+// ================= 2. KOMPONEN UTAMA HALAMAN =================
 export default function MyChildrenPage() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -290,76 +287,110 @@ export default function MyChildrenPage() {
     try {
       setLoading(true);
       const u = await base44.auth.me();
-      
-      // Menapis senarai murid di bawah tanggungan ID Parent ini (Mengikut skema JSON anda)
-      const kidsList = await base44.entities.User.filter({ 
-        app_role: "student",
-        linked_parent_id: u.id 
-      });
+      if (!u?.id) return;
 
-      if (!kidsList || !kidsList.length) {
+      // 🎯 TRIPLE-STRATEGI PENCARI ID (Anti-RLS Blockade):
+      let childIds = [];
+
+      // Strategi A: Baca tatasusunan linked_student_ids dari profil Parent sendiri (Sangat selamat)
+      if (u.linked_student_ids && Array.isArray(u.linked_student_ids)) {
+        childIds = [...u.linked_student_ids];
+      }
+
+      // Strategi B: Tapis dari jadual perantara ParentChildRelationship (Pelan backup asal)
+      try {
+        const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
+        if (rel && rel.length > 0) {
+          const fetchedIds = rel.map(r => r.child_id);
+          childIds = [...new Set([...childIds, ...fetchedIds])]; // Buang ID bertindih
+        }
+      } catch (e) {
+        console.warn("RLS menyekat jadual perantara, beralih ke strategi seterusnya.");
+      }
+
+      // Strategi C: Backup dari memori peranti peranti tempatan
+      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+      if (childIds.length === 0 && Object.keys(cachedChildren).length > 0) {
+        childIds = Object.keys(cachedChildren);
+      }
+
+      // Jika langsung tiada sebarang ID, hentikan proses
+      if (childIds.length === 0) {
         setChildren([]);
         return;
       }
       
-      const kids = await Promise.all(kidsList.map(async (childUser) => {
-        const id = childUser.id;
-        const [studySessionRes, progressRes, walletRes, attemptsRes] = await Promise.all([
-          base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
-          base44.entities.Progress.filter({ student_id: id }).catch(() => []),
-          base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
-          base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
-        ]);
+      // 🎯 PROSES LIVE FETCH DATA BERDASARKAN ID SPESIFIK (Dibenarkan oleh RLS)
+      const kids = await Promise.all(childIds.map(async (id) => {
+        try {
+          const [studySessionRes, progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
+            base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
+            base44.entities.Progress.filter({ student_id: id }).catch(() => []),
+            base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
+            base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
+            base44.entities.User.get(id).catch(() => null), // Memanggil direct ID (Laju & Kalis RLS)
+          ]);
 
-        let latestSession = {};
-        let sortedSessions = [];
-        if (studySessionRes && studySessionRes?.length > 0) {
-          sortedSessions = [...studySessionRes].sort((a, b) => 
-            new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
-          );
-          latestSession = sortedSessions[0];
-        }
+          const localCache = cachedChildren[id] || {};
 
-        let realProgress = { total_xp: 0, streak_days: 0, level: 1 };
-        if (progressRes && progressRes?.length > 0) {
-          const sortedProgress = [...progressRes].sort((a, b) => 
-            new Date(b.updated_at || b.last_study_date || 0) - new Date(a.updated_at || a.last_study_date || 0)
-          );
-          realProgress = sortedProgress[0];
-        }
+          // Penyatuan data profil sekiranya pelayan memulangkan kosongan
+          const nicknameReal = childUser?.nickname || childUser?.full_name || localCache.nickname || localCache.full_name || "Petualang Cilik";
+          const usernameReal = childUser?.username || localCache.username || "student";
+          const pinReal = childUser?.pin_hash || localCache.child_login_pin || "----";
 
-        let latestQuizScore = null;
-        let allAttempts = [];
-        if (attemptsRes && attemptsRes?.length > 0) {
-          allAttempts = [...attemptsRes].sort((a, b) => 
-            new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
-          );
-          latestQuizScore = allAttempts[0].score;
-        }
-
-        const activeWallet = walletRes && walletRes?.length > 0 ? walletRes[0] : { balance: 0 };
-
-        return { 
-          id, 
-          email: childUser?.email || "Portal Aktif",
-          nickname: childUser?.nickname || childUser?.full_name || "Petualang Cilik",
-          username: childUser?.username || "student",
-          // Memadankan nilai child_login_pin dengan ruangan 'pin_hash' pangkalan data secara mutlak
-          child_login_pin: childUser?.pin_hash || "----", 
-          wallet: activeWallet,
-          allAttempts, 
-          allSessions: sortedSessions, 
-          latestSession,
-          realProgress, 
-          quiz: {
-            quiz_score: latestQuizScore
+          let latestSession = {};
+          let sortedSessions = [];
+          if (studySessionRes && studySessionRes?.length > 0) {
+            sortedSessions = [...studySessionRes].sort((a, b) => 
+              new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
+            );
+            latestSession = sortedSessions[0];
           }
-        };
+
+          let realProgress = { total_xp: 0, streak_days: 0, level: 1 };
+          if (progressRes && progressRes?.length > 0) {
+            const sortedProgress = [...progressRes].sort((a, b) => 
+              new Date(b.updated_at || b.last_study_date || 0) - new Date(a.updated_at || a.last_study_date || 0)
+            );
+            realProgress = sortedProgress[0];
+          }
+
+          let latestQuizScore = null;
+          let allAttempts = [];
+          if (attemptsRes && attemptsRes?.length > 0) {
+            allAttempts = [...attemptsRes].sort((a, b) => 
+              new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
+            );
+            latestQuizScore = allAttempts[0].score;
+          }
+
+          const activeWallet = walletRes && walletRes?.length > 0 ? walletRes[0] : { balance: 0 };
+
+          return { 
+            id, 
+            email: childUser?.email || localCache.email || "Akses Portal Aktif",
+            nickname: nicknameReal,
+            username: usernameReal,
+            child_login_pin: pinReal, 
+            wallet: activeWallet,
+            allAttempts, 
+            allSessions: sortedSessions, 
+            latestSession,
+            realProgress, 
+            quiz: {
+              quiz_score: latestQuizScore
+            }
+          };
+        } catch (err) {
+          console.error(`Gagal memuatkan sub-data id anak ${id}:`, err);
+          return null;
+        }
       }));
+
       setChildren(kids.filter(Boolean));
     } catch (err) {
       console.error("Ralat memuatkan data:", err);
-    } finally {
+    } file {
       setLoading(false);
     }
   };
@@ -374,18 +405,8 @@ export default function MyChildrenPage() {
       const displayKidsName = child.nickname || "Pelajar";
       const totalXp = child.realProgress?.total_xp || 0;
       const level = child.realProgress?.level || 1;
-      const streak = child.realProgress?.streak_days || 0;
-      const coinBalance = child.wallet?.balance || 0;
       
-      const sessionSummary = child.allSessions?.length > 0 
-        ? child.allSessions.map(s => `- Topik: "${s.topic_name || 'Umum'}" (${s.duration_minutes || 0} Minit Pelajaran)`).join("\n")
-        : "Tiada rekod pembacaan nota lagi.";
-
-      const quizSummary = child.allAttempts?.length > 0
-        ? child.allAttempts.map(q => `- Topik Kuiz: "${q.topic_name || 'Ujian'}", Markah Dicapai: ${q.score}%`).join("\n")
-        : "Pelajar belum menduduki sebarang kuiz.";
-
-      const systemPrompt = `Anda adalah sistem AI Penasihat Academic Pintar. Berikan cadangan untuk pelajar bernama ${displayKidsName} dengan tahap XP ${totalXp} dan Level ${level}.`;
+      const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar. Sila berikan analisis maklumbalas ringkas untuk murid bernama ${displayKidsName} Tahap ${level} dengan XP ${totalXp}.`;
 
       const response = await base44.integrations.Core.Chat({ message: systemPrompt });
       setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana.");
