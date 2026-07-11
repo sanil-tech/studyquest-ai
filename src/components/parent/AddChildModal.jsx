@@ -26,59 +26,63 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
     setLoading(true);
     try {
-      // 1. Ambil maklumat Ibu Bapa yang sedang log masuk
+      // 1. Dapatkan maklumat akaun Ibu Bapa yang aktif
       const me = await base44.auth.me();
+      if (!me?.id) throw new Error("Sesi log masuk ibu bapa tidak ditemui. Sila log masuk semula.");
 
-      // 🎯 HELAH PINTAS: Bina parameter username dan emel maya di peringkat frontend
-      // untuk mengumpan sebarang Database Trigger tersembunyi di pelayan backend.
-      const nicknameUmpan = (nickname || fullName.split(" ")[0]).trim();
-      const usernamePalsu = `${nicknameUmpan.toLowerCase()}_${me.id.substring(0, 4)}`;
+      const cleanNickname = (nickname || fullName.split(" ")[0]).trim();
+      const shortParentId = me.id.substring(0, 6);
+      const virtualEmail = `${cleanNickname.toLowerCase()}.${shortParentId}@studyquest.internal`;
 
-      console.log("🚀 Menghantar permintaan pendaftaran berserta parameter umpan...");
-      
-      // 2. Panggil fungsi awan pelayan dengan hantaran data lengkap
-      const response = await base44.functions.invoke("createChildAccount", {
-        fullName,
-        nickname: nicknameUmpan,
-        pin,
-        parentId: me.id,
-        username: usernamePalsu,                      // 💡 Mengatasi ralat (reading 'username')
-        email: `${usernamePalsu}@studyquest.internal`  // 💡 Mengatasi kekangan unique email
+      console.log("🚀 Menjalankan Pelan B: Menulis entiti anak terus dari frontend...");
+
+      // 2. PROSES PINTASAN: Cipta rekod anak terus ke jadual User utama
+      const newStudent = await base44.entities.User.create({
+        full_name: fullName,
+        email: virtualEmail, 
+        nickname: cleanNickname,
+        app_role: "student",
+        child_login_pin: pin,
+        status: "active",
+        profile_completed: true // Mengelakkan anak tersangkut di skrin CompleteProfile
       });
 
-      console.log("📦 Respon mentah dari pelayan:", response);
-
-      // 3. Semak ralat peringkat rangkaian/gateway
-      if (response?.error) {
-        const gatewayErrMsg = response.error.message || response.error.details || JSON.stringify(response.error);
-        throw new Error(`[Gateway Error] ${gatewayErrMsg}`);
+      if (!newStudent?.id) {
+        throw new Error("Gagal mencipta rekod pengguna anak. Semak kekangan pangkalan data.");
       }
 
-      const result = response?.data || response;
+      // 3. Pautkan hubungan antara Ibu Bapa dengan Anak
+      await base44.entities.ParentChildRelationship.create({
+        parent_id: me.id,
+        child_id: newStudent.id,
+        status: "active"
+      });
 
-      // 4. Semak jika fungsi dipanggil tetapi gagal di peringkat logik data backend
-      if (result && (result.success === false || result.status === "error")) {
-        const serverError = result.message || result.error || result.errorMessage || JSON.stringify(result);
-        throw new Error(`[Backend Logik Ralat] ${serverError}`);
+      // 4. Sediakan keperluan permainan anak (Wallet & Progress)
+      try {
+        await base44.entities.Wallet.create({ student_id: newStudent.id, balance: 0 });
+        await base44.entities.Progress.create({ 
+          student_id: newStudent.id, 
+          total_xp: 0, 
+          level: 1, 
+          streak_days: 0, 
+          total_study_time: 0 
+        });
+      } catch (entityErr) {
+        console.warn("Entiti akademik gagal dicipta, akaun utama tetap sah:", entityErr);
       }
 
-      // 5. Jika pendaftaran berjaya sepenuhnya
-      if (result && (result.success || result.childId || result.id)) {
-        if (typeof onChildAdded === "function") {
-          onChildAdded(); // Refresh senarai anak di dashboard utama ibu bapa
-        }
-        setIsSuccess(true); // Paparkan tiket hijau kejayaan
-      } else {
-        throw new Error(`[Format Ralat] Struktur data tidak sah: ${JSON.stringify(result)}`);
+      // Pendaftaran berjaya!
+      if (typeof onChildAdded === "function") {
+        onChildAdded(); 
       }
+      setIsSuccess(true);
 
     } catch (err) {
-      console.error("🚨 Ralat Pendaftaran Anak:", err);
-      
-      // Paparkan teks tulen ralat ke skrin
+      console.error("🚨 Ralat Pelan B Frontend:", err);
       toast({
         title: "Pendaftaran Gagal 🛑",
-        description: err.message || "Pelayan menolak pendaftaran tanpa maklumat terperinci.",
+        description: err.message || "Gagal menulis data anak ke pangkalan data.",
         variant: "destructive"
       });
     } finally {
