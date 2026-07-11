@@ -10,11 +10,11 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false); // Mengawal loading butang Google
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // 1. Pengendali Log Masuk Menggunakan E-mel & Kata Laluan
+  // 1. Log Masuk Tradisional (E-mel & Kata Laluan)
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !password) {
@@ -45,17 +45,14 @@ export default function Login() {
     }
   };
 
-  // 2. 🌐 FUNGSI BARU: Pengendali Log Masuk Menggunakan Google OAuth
+  // 2. 🌐 DIBAIKI: Log Masuk Menggunakan Google OAuth melalui fungsi .signIn yang sama
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
-      // Memanggil fungsi pengesahan pihak ketiga (OAuth) melalui pembekal Google
-      await base44.auth.signInWithOAuth({
+      // SDK base44 menggunakan fungsi tunggal .signIn untuk semua kaedah pengesahan
+      await base44.auth.signIn({
         provider: "google",
-        options: {
-          // Menghantar semula ibu bapa ke dashboard sebaik sahaja selesai pengesahan Google
-          redirectTo: `${globalThis.location.origin}/parent/dashboard`
-        }
+        redirectTo: `${globalThis.location.origin}/parent/dashboard`
       });
     } catch (err) {
       toast({
@@ -76,7 +73,7 @@ export default function Login() {
         </CardHeader>
         <CardContent className="space-y-4">
           
-          {/* 🌐 BUTANG LOG MASUK GOOGLE */}
+          {/* BUTANG LOG MASUK GOOGLE */}
           <Button 
             type="button"
             disabled={googleLoading || loading}
@@ -86,7 +83,6 @@ export default function Login() {
             {googleLoading ? (
               <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
             ) : (
-              /* SVG Ikon Google Standard Rasmi */
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#EA4335"
@@ -97,14 +93,14 @@ export default function Login() {
             Log Masuk dengan Google
           </Button>
 
-          {/* Garis Pembahagi Visual (Divider) */}
+          {/* Divider Visual */}
           <div className="relative flex items-center py-1.5">
             <div className="flex-grow border-t border-slate-100"></div>
             <span className="flex-shrink mx-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Atau guna e-mel</span>
             <div className="flex-grow border-t border-slate-100"></div>
           </div>
 
-          {/* Borang Kredensi Standard */}
+          {/* Borang Kredensi Manual */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Alamat E-mel</label>
