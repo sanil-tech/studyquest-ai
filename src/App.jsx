@@ -14,6 +14,11 @@ import ProfileCompleteRoute from '@/components/ProfileCompleteRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AppLayout from '@/components/layout/AppLayout';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+// 1. Import komponen dari laluan terbaharu anda
+import LessonResources from "@/pages/LessonResources";
+
+// 2. Hubungkan ke dalam senarai laluan komponen <Routes>
+<Route path="/admin/lesson-resources" element={<LessonResources />} />
 
 // Lazy-loaded pages for better bundle size and performance
 const Login = React.lazy(() => import('@/pages/Login'));
