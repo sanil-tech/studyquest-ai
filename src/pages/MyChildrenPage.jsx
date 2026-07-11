@@ -11,19 +11,16 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 
-// ================= KOMPONEN KAD DETEIL ANAK (INTERAKTIF PIN & NAMA) =================
+// ================= KOMPONEN KAD DETEIL ANAK (NATIVE SCHEMA DRIVEN) =================
 function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdated }) {
   const { toast } = useToast();
   const [showPin, setShowPin] = useState(false);
   
-  // Kawalan Edit PIN
+  // Kawalan Input Tukar PIN & Nama
   const [isSettingPin, setIsSettingPin] = useState(false);
   const [inputPin, setInputPin] = useState("");
-  
-  // Kawalan Edit Nama
   const [isEditingName, setIsEditingName] = useState(false);
   const [inputName, setInputName] = useState(child.nickname || "");
-  
   const [updating, setUpdating] = useState(false);
 
   const sessionData = child.latestSession || {};
@@ -47,7 +44,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
 
   const quizScore = child.quiz?.quiz_score || null;
 
-  // 🎯 FUNGSI 1: Simpan/Tukar Nama Anak (Kalis Sekatan RLS)
+  // 🎯 UPDATE NAMA NATIVE KE SERVER
   const handleSaveName = async () => {
     if (!inputName.trim()) {
       toast({ title: "Medan Wajib", description: "Nama panggilan tidak boleh kosong.", variant: "destructive" });
@@ -55,84 +52,39 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
     setUpdating(true);
     try {
-      // Cuba kemaskini pelayan
       await base44.entities.User.update(child.id, {
-        nickname: inputName.trim(),
-        full_name: inputName.trim()
+        nickname: inputName.trim()
       });
-
-      // Kemaskini Cache Peranti
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[child.id] = {
-        ...cachedChildren[child.id],
-        nickname: inputName.trim(),
-        full_name: inputName.trim()
-      };
-      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
-
-      toast({ title: "Nama Dikemaskini! 🦖", description: `Profil anak berjaya ditukar kepada ${inputName}.` });
-    } catch (err) {
-      // Pintasan Pintar: Jika pelayan menyekat, tetap paksa simpan di local cache peranti
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[child.id] = {
-        ...cachedChildren[child.id],
-        id: child.id,
-        nickname: inputName.trim(),
-        email: child.email || cachedChildren[child.id]?.email || "Akses Portal Aktif"
-      };
-      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
-      
-      toast({ title: "Nama Disimpan! 📱", description: "Nama dikunci pada peranti ini (Pintasan RLS aktif)." });
-    } finally {
+      toast({ title: "Berjaya Dikemaskini 🦖", description: "Nama panggilan anak berjaya disimpan ke pelayan." });
       setIsEditingName(false);
-      setUpdating(false);
       if (onDataUpdated) onDataUpdated();
+    } catch (err) {
+      toast({ title: "Gagal menukar nama", description: err.message, variant: "destructive" });
+    } finally {
+      setUpdating(false);
     }
   };
 
-  // 🎯 FUNGSI 2: Simpan/Tukar PIN Anak (Mengatasi ralat User Not Found)
+  // 🎯 UPDATE PIN NATIVE KE FIELD 'pin_hash' SERVER
   const handleSaveNewPin = async () => {
     if (inputPin.length !== 4) {
-      toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit angka.", variant: "destructive" });
+      toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
       return;
     }
     setUpdating(true);
     try {
-      // Cuba hantar ke pelayan terlebih dahulu
       await base44.entities.User.update(child.id, {
-        child_login_pin: inputPin
+        pin_hash: inputPin,
+        pin_enabled: true,
+        login_method: "pin"
       });
-
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[child.id] = {
-        ...cachedChildren[child.id],
-        child_login_pin: inputPin
-      };
-      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
-
-      toast({ title: "PIN Disimpan! 🔑", description: "PIN log masuk portal anak berjaya dikemas kini di pelayan." });
-    } catch (err) {
-      console.warn("RLS menyekat kemaskini pelayan. Melakukan pintasan penyimpanan local...");
-
-      // 🚀 PINTASAN MUKTAMAD: Jika keluar ralat 'User not found', kita simpan terus ke local storage!
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[child.id] = {
-        ...cachedChildren[child.id],
-        id: child.id,
-        child_login_pin: inputPin,
-        nickname: child.nickname || cachedChildren[child.id]?.nickname || "Anak Terdaftar",
-        email: child.email || cachedChildren[child.id]?.email || "Akses Portal Aktif"
-      };
-      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
-      
-      toast({ 
-        title: "PIN Disimpan Semata! 📱", 
-        description: "PIN berjaya disimpan ke peranti ini untuk portal log masuk anak.",
-      });
-    } finally {
+      toast({ title: "PIN Dikunci Kekal! 🔑", description: "PIN baharu disimpan terus ke dalam database pelayan." });
       setIsSettingPin(false);
+      if (onDataUpdated) onDataUpdated();
+    } catch (err) {
+      toast({ title: "Gagal menyimpan PIN", description: err.message, variant: "destructive" });
+    } finally {
       setUpdating(false);
-      if (onDataUpdated) onDataUpdated(); // Muat semula kad untuk papar PIN baharu
     }
   };
 
@@ -169,7 +121,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
             ) : (
               <div className="flex items-center gap-1.5 min-w-0 group cursor-pointer" onClick={() => { setInputName(child.nickname); setIsEditingName(true); }}>
                 <h3 className="text-sm font-black text-slate-800 uppercase truncate">
-                  {child.nickname || "Pilih & Letak Nama"}
+                  {child.nickname || "Tiada Nama"}
                 </h3>
                 <Edit3 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </div>
@@ -180,9 +132,9 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
             </Badge>
           </div>
           
-          {/* Ruangan Akses PIN Rahsia (Click to Reveal) */}
+          {/* Arahan Paparan Butang PIN Rahsia Terus dari pin_hash Server */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 mt-1">
-            <p className="text-[10px] font-bold text-slate-400 truncate max-w-[120px] leading-none">{child.email || "Tiada E-mel"}</p>
+            <p className="text-[10px] font-bold text-slate-400 truncate max-w-[125px] leading-none">Username: {child.username || "student"}</p>
             <span className="hidden sm:inline text-slate-200 text-[10px]">|</span>
             
             {isSettingPin ? (
@@ -201,7 +153,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
             ) : (
               <button 
                 onClick={() => {
-                  if (child.child_login_pin === "----") {
+                  if (!child.child_login_pin || child.child_login_pin === "----") {
                     setIsSettingPin(true);
                   } else {
                     setShowPin(!showPin);
@@ -209,8 +161,8 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
                 }}
                 className="bg-amber-50 text-amber-700 hover:bg-amber-100/80 border border-amber-200 font-black text-[10px] px-2 py-0.5 rounded-md tracking-wider w-fit flex items-center gap-1 shrink-0 shadow-xs transition-all active:scale-95"
               >
-                <span>🔑 PIN: {child.child_login_pin === "----" ? "Set PIN" : (showPin ? child.child_login_pin : "••••")}</span>
-                {child.child_login_pin !== "----" ? (
+                <span>🔑 PIN: {!child.child_login_pin || child.child_login_pin === "----" ? "Set PIN" : (showPin ? child.child_login_pin : "••••")}</span>
+                {child.child_login_pin && child.child_login_pin !== "----" ? (
                   showPin ? <EyeOff className="w-3 h-3 text-amber-600" /> : <Eye className="w-3 h-3 text-amber-600" />
                 ) : <Edit3 className="w-2.5 h-2.5 text-amber-500" />}
               </button>
@@ -338,29 +290,27 @@ export default function MyChildrenPage() {
     try {
       setLoading(true);
       const u = await base44.auth.me();
-      const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
-      if (!rel?.length) {
+      
+      // 🎯 BACA DIRECT: Gunakan linked_parent_id yang tertera dalam Skema JSON Murid!
+      // Polisi RLS membenarkan parent menapis murid di bawah tanggungan mereka.
+      const kidsList = await base44.entities.User.filter({ 
+        app_role: "student",
+        linked_parent_id: u.id 
+      });
+
+      if (!kidsList || !kidsList.length) {
         setChildren([]);
         return;
       }
       
-      const childIds = rel.map(r => r.child_id);
-      const kids = await Promise.all(childIds.map(async (id) => {
-        const [studySessionRes, progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
+      const kids = await Promise.all(kidsList.map(async (childUser) => {
+        const id = childUser.id;
+        const [studySessionRes, progressRes, walletRes, attemptsRes] = await Promise.all([
           base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
           base44.entities.Progress.filter({ student_id: id }).catch(() => []),
           base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
           base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
-          base44.entities.User.get(id).catch(() => null),
         ]);
-
-        // Ekstrak fail cache peranti tempatan
-        const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-        const localCache = cachedChildren[id] || {};
-
-        // Penyatuan agresif anti RLS Strip data nama
-        const dbNickname = childUser?.nickname || childUser?.full_name;
-        const fallbackName = dbNickname || localCache.nickname || localCache.full_name || "Pilih & Letak Nama";
 
         let latestSession = {};
         let sortedSessions = [];
@@ -392,11 +342,11 @@ export default function MyChildrenPage() {
 
         return { 
           id, 
-          email: childUser?.email || localCache.email || "Akses Portal Aktif",
-          nickname: fallbackName,
-          username: childUser?.username || "",
-          // Penyambungan ketat PIN dari localCache peranti untuk menjamin kewujudan data paparan
-          child_login_pin: localCache.child_login_pin || childUser?.child_login_pin || "----", 
+          email: childUser?.email || "Portal Aktif",
+          nickname: childUser?.nickname || childUser?.full_name || "Petualang Cilik",
+          username: childUser?.username || "student",
+          // 🎯 DIBAIKI: Membaca terus parameter 'pin_hash' dari database pelayan awan
+          child_login_pin: childUser?.pin_hash || "----", 
           wallet: activeWallet,
           allAttempts, 
           allSessions: sortedSessions, 
@@ -434,9 +384,9 @@ export default function MyChildrenPage() {
 
       const quizSummary = child.allAttempts?.length > 0
         ? child.allAttempts.map(q => `- Topik Kuiz: "${q.topic_name || 'Ujian'}", Markah Dicapai: ${q.score}%`).join("\n")
-        : "Pelajar belum menduduki sebarang ujian kuiz.";
+        : "Pelajar belum menduduki sebarang kuiz.";
 
-      const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar. Sila berikan analisis prestasi profil murid bernama ${displayKidsName} berdasarkan data ekosistem pembelajaran...`;
+      const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar...`;
 
       const response = await base44.integrations.Core.Chat({ message: systemPrompt });
       setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana.");
@@ -487,7 +437,7 @@ export default function MyChildrenPage() {
         )}
       </div>
 
-      {/* MODAL 1: LAPORAN MANUAL PENUH TOPIK */}
+      {/* MODAL 1: LAPORAN MANUAL */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
           <DialogHeader className="border-b pb-3">
@@ -498,9 +448,10 @@ export default function MyChildrenPage() {
 
           {selectedChild && (
             <div className="space-y-6 mt-4">
+              {/* Konten Nota */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
-                  <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Bacaan
+                  <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
                 </h4>
                 {!selectedChild.allSessions || selectedChild.allSessions?.length === 0 ? (
                   <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum ada topik pelajaran dimulakan.</p>
@@ -521,6 +472,7 @@ export default function MyChildrenPage() {
                 )}
               </div>
 
+              {/* Konten Kuiz */}
               <div>
                 <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
                   <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
@@ -550,12 +502,12 @@ export default function MyChildrenPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: AI ANALYSIS DIALOG */}
+      {/* MODAL 2: AI ANALYSIS */}
       <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-900 text-white p-6 border border-slate-800">
           <DialogHeader className="border-b border-slate-800 pb-3">
             <DialogTitle className="text-base font-black flex items-center gap-2 text-indigo-400">
-              <Brain className="w-5 h-5 text-indigo-400 animate-pulse" /> Diagnosis Pembelajaran Pintar AI: {aiChild ? aiChild.nickname : ""}
+              <Brain className="w-5 h-5 text-indigo-400 animate-pulse" /> Diagnosis Pembelajaran AI: {aiChild ? aiChild.nickname : ""}
             </DialogTitle>
           </DialogHeader>
 
@@ -563,22 +515,17 @@ export default function MyChildrenPage() {
             {loadingAi ? (
               <div className="flex flex-col items-center justify-center py-16 space-y-3 text-center">
                 <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-                <p className="text-xs font-bold text-slate-400 tracking-wide uppercase">Enjin AI sedang menyemak pangkalan data & menyusun laporan...</p>
+                <p className="text-xs font-bold text-slate-400 tracking-wide">AI sedang menganalisis...</p>
               </div>
             ) : (
-              <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 text-sm leading-relaxed whitespace-pre-line text-slate-200 font-medium font-sans">
+              <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 text-sm leading-relaxed whitespace-pre-line text-slate-200 font-medium">
                 {aiResult}
               </div>
             )}
           </div>
 
           <div className="mt-6 flex justify-end border-t border-slate-800 pt-4">
-            <Button 
-              onClick={() => setAiModalOpen(false)}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs h-9 px-5"
-            >
-              Tutup Analisis
-            </Button>
+            <Button onClick={() => setAiModalOpen(false)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs h-9 px-5">Tutup</Button>
           </div>
         </DialogContent>
       </Dialog>
