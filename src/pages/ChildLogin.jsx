@@ -26,41 +26,43 @@ export default function ChildLogin() {
         throw new Error("Sila masukkan Username anda.");
       }
 
-      // Tukar input kepada format e-mel maya yang sepadan dengan sistem Edge Function
-      const fakeEmail = inputVal.includes("@") 
-        ? inputVal 
-        : `child-${inputVal}@studyquest.local`;
-
-      // Log masuk ke dalam sistem Auth rasmi Base44
-      await base44.auth.loginViaEmailPassword(fakeEmail, password);
-
-      // Ambil data maklumat murid untuk mengesahkan sesi aktif
-      const user = await base44.auth.me();
-
-      if (user) {
-        window.location.href = "/dashboard";
-      } else {
-        throw new Error("Gagal memuatkan profil murid.");
+      if (!password) {
+        throw new Error("Sila masukkan Kata Laluan anda.");
       }
+
+      // 🔄 Panggil custom Edge Function backend yang memproses pengesahan kata laluan secara manual
+      const response = await fetch('/api/childLogin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: inputVal,
+          password: password
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Username atau kata laluan salah. Sila semak semula.");
+      }
+
+      // 💾 Simpan virtual session keys ke dalam localStorage mengikut keperluan AuthContext.jsx
+      localStorage.setItem('studyquest_session', JSON.stringify({ 
+        userId: result.user.id,
+        id: result.user.id 
+      }));
+      localStorage.setItem('studyquest_user', JSON.stringify(result.user));
+
+      // 🚀 Hala ke dashboard aplikasi setelah berjaya mendaftar masuk
+      window.location.href = "/dashboard";
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
       
-      // 💡 DIBAIKI: Mengekstrak teks ralat secara selamat untuk mengelakkan ralat 'Object to primitive value'
       let safeErrorMessage = "Username atau kata laluan salah. Sila semak semula.";
-      
-      if (err) {
-        if (typeof err === "string") {
-          safeErrorMessage = err;
-        } else if (err.message && typeof err.message === "string") {
-          safeErrorMessage = err.message;
-        } else {
-          try {
-            // Jika ia adalah objek ralat yang kompleks, tukar kepada string
-            safeErrorMessage = err.message ? String(err.message) : JSON.stringify(err);
-          } catch (e) {
-            safeErrorMessage = "Ralat sistem semasa mendaftar masuk.";
-          }
-        }
+      if (err.message && typeof err.message === "string") {
+        safeErrorMessage = err.message;
       }
       
       setError(safeErrorMessage);
