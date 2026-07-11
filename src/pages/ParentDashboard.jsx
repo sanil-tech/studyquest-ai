@@ -166,7 +166,6 @@ export default function ParentDashboard() {
     );
   }, [fetchWeatherAndForecast]);
 
-  // 🎯 DIBAIKI: Fungsi muatan data kalis sekatan RLS pangkalan data
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -178,17 +177,21 @@ export default function ParentDashboard() {
         return;
       }
       
+      // Fetch all children and their progress in parallel
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
         try {
-          // 🛡️ Mengasingkan bacaan jadual User dengan perlindungan try-catch individu
           let childUser = null;
           try {
+            // Cuba dapatkan data secara direct terlebih dahulu
             childUser = await base44.entities.User.get(id);
           } catch (userErr) {
-            console.warn(`⚠️ [RLS Sekatan Dijamin Selamat] Jadual User menyekat bacaan terus ID: ${id}`);
-            // Profil sandaran pintar supaya UI kad anak tidak hilang/kosong
-            childUser = {
+            console.warn(`⚠️ [RLS Sekatan] Membaca dari memori local cache bagi ID anak: ${id}`);
+            
+            // 🎯 PENYELESAIAN AKHIR: Ekstrak profil tulen dari local cache pendaftaran
+            const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+            
+            childUser = cachedChildren[id] || {
               id: id,
               full_name: "Petualang Cilik",
               nickname: "Anak Terdaftar",
@@ -196,12 +199,11 @@ export default function ParentDashboard() {
             };
           }
 
-          // 🛡️ Mengasingkan bacaan jadual Progress dengan perlindungan try-catch individu
           let progressArray = [];
           try {
             progressArray = await base44.entities.Progress.filter({ student_id: id });
           } catch (progErr) {
-            console.warn(`⚠️ [RLS Sekatan] Jadual Progress menyekat akses ID: ${id}`);
+            console.warn(`⚠️ [RLS Sekatan] Gagal mengakses jadual Progress bagi ID: ${id}`);
           }
 
           return { 
@@ -210,12 +212,12 @@ export default function ParentDashboard() {
             progress: progressArray?.[0] || {} 
           };
         } catch (err) {
-          console.error(`Ralat kritikal memuatkan entiti anak ${id}:`, err);
+          console.error(`Error loading child ${id}:`, err);
           return null;
         }
       }));
       
-      setChildren(kids.filter(Boolean)); 
+      setChildren(kids.filter(Boolean)); // Tapis keluar nilai kosong/null
     } catch (err) {
       console.error("Gagal memuatkan data dashboard:", err);
     } finally { 
@@ -227,6 +229,7 @@ export default function ParentDashboard() {
     loadData(); 
   }, [loadData]);
 
+  // Separate effect for weather (non-blocking)
   useEffect(() => {
     handleLocationDetection();
   }, [handleLocationDetection]);
