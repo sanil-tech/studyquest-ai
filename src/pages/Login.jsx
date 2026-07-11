@@ -22,10 +22,10 @@ export default function Login() {
 
     setLoading(true);
     try {
-      // 1. Jalankan proses log masuk pengesahan kredensi
-      await base44.auth.login({ email, password });
+      // 👑 DIBAIKI: Menggantikan .login kepada .signIn mengikut spesifikasi SDK base44
+      await base44.auth.signIn({ email, password });
       
-      // 2. 💡 SELESAI: Ambil profil rasmi terus dari pelayan untuk membaca 'app_role' yang tepat
+      // Ambil profil rasmi secara nyata selepas sesi token disahkan aktif
       const userProfile = await base44.auth.me();
       
       if (userProfile?.app_role === "parent") {
@@ -33,7 +33,7 @@ export default function Login() {
       } else if (userProfile?.app_role === "student") {
         navigate("/student/dashboard");
       } else {
-        // Jika akaun admin atau peranan tersuai lain
+        // Jika ada role custom atau admin, halakan ke dashboard utama penjaga
         navigate("/parent/dashboard");
       }
     } catch (err) {
