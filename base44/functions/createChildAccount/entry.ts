@@ -1,14 +1,6 @@
 import { base44 } from "../../api/base44Client";
 
-interface CreateChildInput {
-  fullName: string;
-  nickname: string;
-  pin: string;
-  parentId: string;
-}
-
 export async function handler(req: Request) {
-  // Set headers CORS untuk membenarkan komunikasi frontend-backend yang lancar
   const resHeaders = {
     "content-type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -21,14 +13,15 @@ export async function handler(req: Request) {
   }
 
   try {
-    const body: CreateChildInput = await req.json();
-    
-    // 🎯 DIBAIKI: Ekstrak pembolehubah secara direct tanpa merujuk objek bersarang (nested object)
-    const { fullName, nickname, pin, parentId } = body;
+    const body = await req.json();
+    const fullName = body?.fullName;
+    const nickname = body?.nickname;
+    const pin = body?.pin;
+    const parentId = body?.parentId;
 
     if (!fullName || !pin || !parentId) {
       return new Response(
-        JSON.stringify({ success: false, message: "Nama Penuh, PIN, dan Parent ID wajib diisi." }), 
+        JSON.stringify({ success: false, message: "Maklumat tidak lengkap." }), 
         { status: 400, headers: resHeaders }
       );
     }
@@ -37,10 +30,9 @@ export async function handler(req: Request) {
     const shortParentId = parentId.substring(0, 6);
     const virtualEmail = `${cleanNickname.toLowerCase()}.${shortParentId}@studyquest.internal`;
 
-    // Pilih client database yang tersedia
     const dbClient = base44.asServiceRole || base44;
 
-    // 🚀 PROSES 1: Cipta data anak ke jadual User utama
+    // Cipta akaun anak
     const newStudent = await dbClient.entities.User.create({
       full_name: fullName,
       email: virtualEmail, 
@@ -48,21 +40,17 @@ export async function handler(req: Request) {
       app_role: "student",
       child_login_pin: pin,
       status: "active",
-      profile_completed: true // Pintas terus skrin complete profil untuk anak
+      profile_completed: true 
     });
 
-    if (!newStudent || !newStudent.id) {
-      throw new Error("Gagal mendaftarkan entiti pengguna baharu di pangkalan data.");
-    }
-
-    // 🚀 PROSES 2: Cipta hubungan pautan keluarga
+    // Cipta pautan keluarga
     await dbClient.entities.ParentChildRelationship.create({
       parent_id: parentId,
       child_id: newStudent.id,
       status: "active"
     });
 
-    // 🚀 PROSES 3: Cipta Wallet & Progress permulaan secara aman
+    // Cipta Wallet & Progress
     try {
       await dbClient.entities.Wallet.create({ student_id: newStudent.id, balance: 0 });
       await dbClient.entities.Progress.create({ 
@@ -73,19 +61,17 @@ export async function handler(req: Request) {
         total_study_time: 0 
       });
     } catch (e) {
-      console.log("Info: Entiti akademik tambahan gagal dijana, pendaftaran akaun utama tetap sah.", e);
+      console.log("Entiti akademik tambahan gagal.", e);
     }
 
     return new Response(
-      JSON.stringify({ success: true, childId: newStudent.id, message: "Akaun anak berjaya dicipta secara ekspres!" }), 
+      JSON.stringify({ success: true, childId: newStudent.id }), 
       { status: 200, headers: resHeaders }
     );
 
-  } catch (err: unknown) {
-    const error = err as Error;
-    console.error("🚨 Ralat kritikal di pelayan backend:", error.message);
+  } catch (err: any) {
     return new Response(
-      JSON.stringify({ success: false, message: `Ralat Runtime Backend: ${error.message}` }), 
+      JSON.stringify({ success: false, message: "Ralat Runtime Backend: " + (err?.message || "Unknown error") }), 
       { status: 500, headers: resHeaders }
     );
   }
