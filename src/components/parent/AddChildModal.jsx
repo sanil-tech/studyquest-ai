@@ -26,14 +26,17 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
     setLoading(true);
     try {
+      // 1. Dapatkan akaun penjaga semasa
       const me = await base44.auth.me();
-      if (!me?.id) throw new Error("Sesi log masuk ibu bapa tidak ditemui.");
+      if (!me?.id) throw new Error("Sesi log masuk ibu bapa tidak ditemui. Sila log masuk semula.");
 
       const cleanNickname = (nickname || fullName.split(" ")[0]).trim();
       const shortParentId = me.id.substring(0, 6);
       const virtualEmail = `${cleanNickname.toLowerCase()}.${shortParentId}@studyquest.internal`;
 
-      // 1. Cipta rekod anak terus ke jadual User utama
+      console.log("🚀 Mendaftar entiti murid terus ke pangkalan data...");
+
+      // 2. Cipta akaun anak ke entiti User
       const newStudent = await base44.entities.User.create({
         full_name: fullName,
         email: virtualEmail, 
@@ -45,26 +48,27 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       });
 
       if (!newStudent?.id) {
-        throw new Error("Gagal mencipta rekod pengguna anak.");
+        throw new Error("Gagal mendaftarkan ID unik akaun anak.");
       }
 
-      // 🎯 HELAH PINTAS RLS: Simpan info nama anak ke memori tempatan pelayar web
+      // 🎯 KELAS CACHE: Simpan semua data termasuk PIN ke local storage untuk rujukan Ibu Bapa (Pintas RLS)
       const cachedKids = JSON.parse(localStorage.getItem("cached_children") || "{}");
       cachedKids[newStudent.id] = {
         full_name: fullName,
         nickname: cleanNickname,
-        email: virtualEmail
+        email: virtualEmail,
+        child_login_pin: pin
       };
       localStorage.setItem("cached_children", JSON.stringify(cachedKids));
 
-      // 2. Pautkan hubungan keluarga
+      // 3. Cipta hubungan pautan Parent-Child
       await base44.entities.ParentChildRelationship.create({
         parent_id: me.id,
         child_id: newStudent.id,
         status: "active"
       });
 
-      // 3. Sediakan Wallet & Progress
+      // 4. Cipta Wallet & Progress Akademik Murid
       try {
         await base44.entities.Wallet.create({ student_id: newStudent.id, balance: 0 });
         await base44.entities.Progress.create({ 
@@ -74,10 +78,11 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
           streak_days: 0, 
           total_study_time: 0 
         });
-      } catch (e) {
-        console.warn("Entiti tambahan disekat, akaun utama tetap sah.");
+      } catch (entityErr) {
+        console.warn("Info: Entiti ganjaran dicipta secara terhad oleh RLS.");
       }
 
+      // Refresh data senarai dashboard di belakang modal
       if (typeof onChildAdded === "function") {
         onChildAdded(); 
       }
@@ -87,7 +92,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       console.error("🚨 Ralat Pendaftaran:", err);
       toast({
         title: "Pendaftaran Gagal 🛑",
-        description: err.message,
+        description: err.message || "Gagal menyimpan data murid.",
         variant: "destructive"
       });
     } finally {
