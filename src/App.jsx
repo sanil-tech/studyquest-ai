@@ -1,160 +1,138 @@
-import React, { Suspense } from 'react';
-import { Toaster } from "@/components/ui/toaster";
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClientInstance } from '@/lib/query-client';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { UserCheck, UserX, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
 
-// Core structural elements loaded instantly
-import PageNotFound from './lib/PageNotFound';
-import ScrollToTop from './components/ScrollToTop';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import RoleRoute from '@/components/RoleRoute';
-import ProfileCompleteRoute from '@/components/ProfileCompleteRoute';
-import AppLayout from '@/components/layout/AppLayout';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+export default function ParentConnections() {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState(null);
+  const { toast } = useToast();
 
-// Lazy-loaded pages for better bundle size and performance
-const Login = React.lazy(() => import('@/pages/Login'));
-const Register = React.lazy(() => import('@/pages/Register'));
-const ForgotPassword = React.lazy(() => import('@/pages/ForgotPassword'));
-const ResetPassword = React.lazy(() => import('@/pages/ResetPassword'));
-const ChildLogin = React.lazy(() => import('@/pages/ChildLogin'));
-const RoleSetup = React.lazy(() => import('@/pages/RoleSetup'));
-const CompleteProfile = React.lazy(() => import('@/pages/CompleteProfile'));
-const Home = React.lazy(() => import('@/pages/Home'));
-const NotificationsPage = React.lazy(() => import('@/pages/NotificationsPage'));
-const ProfilePage = React.lazy(() => import('@/pages/ProfilePage'));
+  const loadRequests = async () => {
+    try {
+      setLoading(true);
+      const me = await base44.auth.me();
+      
+      const pendingReqs = await base44.entities.LinkRequest.filter({
+        student_email: me.email,
+        status: "pending"
+      });
 
-// Student Pages
-const StudentDashboard = React.lazy(() => import('@/pages/StudentDashboard'));
-const StudyPage = React.lazy(() => import('@/pages/StudyPage'));
-const LessonPage = React.lazy(() => import('@/pages/LessonPage'));
-const QuizPage = React.lazy(() => import('@/pages/QuizPage'));
-const QuizResult = React.lazy(() => import('@/pages/QuizResult'));
-const WalletPage = React.lazy(() => import('@/pages/WalletPage'));
-const RewardsPage = React.lazy(() => import('@/pages/RewardsPage'));
+      if (!pendingReqs || pendingReqs.length === 0) {
+        setRequests([]);
+        return;
+      }
 
-// Parent Pages
-const ParentDashboard = React.lazy(() => import('@/pages/ParentDashboard'));
-const MyChildrenPage = React.lazy(() => import('@/pages/MyChildrenPage'));
-const ChildProfilePage = React.lazy(() => import('@/pages/ChildProfilePage'));
-const ParentRewards = React.lazy(() => import('@/pages/ParentRewards'));
-const ParentApprovals = React.lazy(() => import('@/pages/ParentApprovals'));
+      const enrichedRequests = await Promise.all(
+        pendingReqs.map(async (req) => {
+          try {
+            const parentProfile = await base44.entities.User.get(req.parent_id);
+            return {
+              ...req,
+              parent_display_name: parentProfile.nickname || parentProfile.full_name || parentProfile.email || "Penjaga"
+            };
+          } catch {
+            return {
+              ...req,
+              parent_display_name: req.parent_email || "Penjaga"
+            };
+          }
+        })
+      );
 
-// 🚀 DITAMBAH: Dashboard Baru mengikut Peranan Struktur Baru
-const TeacherDashboard = React.lazy(() => import('@/pages/TeacherDashboard'));
-const AdminDashboard = React.lazy(() => import('@/pages/AdminDashboard'));
-const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
+      setRequests(enrichedRequests);
+    } catch {
+      toast({ title: "Ralat", description: "Gagal memuatkan data pautan.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-// ============================================================================
-// LOADING SPINNER BERTERASKAN TEMA ALAM & OTAN 🦧
-// ============================================================================
-const LoadingSpinner = ({ message = "Otan sedang bersiap...", "data-collection-item-id": __dataCollectionItemId }) => (
-  <div data-collection-item-id={__dataCollectionItemId} className="fixed inset-0 flex items-center justify-center bg-[#FAFAF7] z-50">
-    <div className="text-center flex flex-col items-center">
-      <div className="text-5xl animate-bounce mb-3 shadow-sm rounded-full bg-white/50 w-20 h-20 flex items-center justify-center border border-emerald-100">
-        🦧
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  const handleAction = async (requestId, actionType) => {
+    setProcessingId(requestId);
+    try {
+      await base44.entities.LinkRequest.update(requestId, {
+        status: actionType === "accept" ? "approved" : "rejected"
+      });
+
+      toast({
+        title: actionType === "accept" ? "Akaun Dihubungkan! 🎉" : "Permintaan Ditolak",
+        description: actionType === "accept" 
+          ? "Ibu bapa anda kini boleh melihat laporan prestasi anda."
+          : "Permintaan pautan telah dipadam.",
+      });
+      
+      loadRequests();
+    } catch {
+      toast({
+        title: "Ralat Sistem",
+        description: "Gagal memproses tindakan anda. Sila cuba lagi.",
+        variant: "destructive"
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 p-4 text-xs text-slate-400">
+        <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+        Menyemak permintaan pautan akaun...
       </div>
-      <p className="text-xs font-bold text-emerald-700/60 uppercase tracking-widest animate-pulse">
-        {message}
-      </p>
+    );
+  }
+
+  if (requests.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      {requests.map((req) => (
+        <Card key={req.id} className="border-slate-100 shadow-sm rounded-2xl overflow-hidden bg-white max-w-xl">
+          <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-800 tracking-tight leading-snug">
+                Pautan: {req.parent_display_name}
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">
+                Pengesahan sistem diperlukan • Ingin pautkan akaun
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                disabled={processingId === req.id}
+                onClick={() => handleAction(req.id, "accept")}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs h-9 px-4 transition-all"
+              >
+                {processingId === req.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                ) : (
+                  "Terima"
+                )}
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={processingId === req.id}
+                onClick={() => handleAction(req.id, "reject")}
+                className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-bold text-xs h-9 px-4 transition-all"
+              >
+                Tolak
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
-  </div>
-);
-
-const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
-
-  if (isLoadingPublicSettings || isLoadingAuth) {
-    return <LoadingSpinner message="Membuka pintu akademi..." />;
-  }
-
-  if (authError && authError.type === 'user_not_registered') {
-    return <UserNotRegisteredError />;
-  }
-
-  return (
-    <Suspense fallback={<LoadingSpinner message="Melompat ke dahan baru..." />}>
-      <Routes>
-        {/* Public auth routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/child-login" element={<ChildLogin />} />
-
-        {/* Authenticated routes */}
-        <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-          {/* Role setup & Profile completion (No shared layout here) */}
-          <Route path="/role-setup" element={<RoleSetup />} />
-          <Route path="/complete-profile" element={<CompleteProfile />} />
-
-          {/* 🔐 PENTADBIRAN GLOBAL: Kebenaran Kongsi untuk Super Admin & Staff (Bypass Layout Biasa) */}
-          <Route element={<RoleRoute allowedRoles={["super_admin", "staff"]} />} >
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/textbooks" element={<TextbookUpload />} />
-          </Route>
-
-          {/* Shared layout routes */}
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-
-            {/* 🎒 PORTAL MURID (Student-only routes) */}
-            <Route element={<ProfileCompleteRoute />}>
-              <Route element={<RoleRoute allowedRoles={["student"]} />}>
-                <Route path="/dashboard" element={<StudentDashboard />} />
-                <Route path="/study" element={<StudyPage />} />
-                <Route path="/study/:subjectId" element={<StudyPage />} />
-                <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
-                <Route path="/quiz/:quizId" element={<QuizPage />} />
-                <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
-                <Route path="/wallet" element={<WalletPage />} />
-                <Route path="/rewards" element={<RewardsPage />} />
-              </Route>
-            </Route>
-
-            {/* 👨‍👩‍👧 PORTAL IBU BAPA (Parent-only routes) */}
-            <Route element={<ProfileCompleteRoute />}>
-              <Route element={<RoleRoute allowedRoles={["parent"]} />}>
-                <Route path="/parent" element={<ParentDashboard />} />
-                <Route path="/parent/children" element={<MyChildrenPage />} />
-                <Route path="/parent/children/:childId" element={<ChildProfilePage />} />
-                <Route path="/parent/rewards" element={<ParentRewards />} />
-                <Route path="/parent/approvals" element={<ParentApprovals />} />
-              </Route>
-            </Route>
-
-            {/* 🍎 PORTAL GURU (Teacher-only routes) */}
-            <Route element={<ProfileCompleteRoute />}>
-              <Route element={<RoleRoute allowedRoles={["teacher"]} />}>
-                <Route path="/teacher" element={<TeacherDashboard />} />
-              </Route>
-            </Route>
-
-          </Route>
-        </Route>
-
-        <Route path="*" element={<PageNotFound />} />
-      </Routes>
-    </Suspense>
-  );
-};
-
-function App() {
-  return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <ScrollToTop />
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
   );
 }
-
-export default App;
