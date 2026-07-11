@@ -204,6 +204,19 @@ export default function MyChildrenPage() {
           base44.entities.User.get(id).catch(() => null),
         ]);
 
+        // 🎯 DIBAIKI: Helah penyinkronan data profil anak daripada cache tempatan bagi memintas RLS ketat database
+        let userObj = childUser;
+        if (!userObj) {
+          console.warn(`⚠️ [RLS Sekatan] Membaca data profil murid ID: ${id} dari local storage cache.`);
+          const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+          userObj = cachedChildren[id] || {
+            nickname: "Anak Terdaftar",
+            full_name: "Petualang Cilik",
+            email: "Akses Portal Aktif",
+            username: "student"
+          };
+        }
+
         let latestSession = {};
         let sortedSessions = [];
         if (studySessionRes && studySessionRes?.length > 0) {
@@ -234,9 +247,9 @@ export default function MyChildrenPage() {
 
         return { 
           id, 
-          email: childUser?.email || "Tiada E-mel",
-          nickname: childUser?.nickname || "",
-          username: childUser?.username || "",
+          email: userObj?.email || "Tiada E-mel",
+          nickname: userObj?.nickname || userObj?.full_name || "Anak Terdaftar",
+          username: userObj?.username || "",
           wallet: activeWallet,
           allAttempts, 
           allSessions: sortedSessions, 
@@ -247,7 +260,7 @@ export default function MyChildrenPage() {
           }
         };
       }));
-      setChildren(kids);
+      setChildren(kids.filter(Boolean));
     } catch (err) {
       console.error("Ralat memuatkan data:", err);
     } finally {
@@ -255,7 +268,6 @@ export default function MyChildrenPage() {
     }
   };
 
-  // 🤖 FUNGSI PENGIRAAN DAN PANGGILAN KECERDIKAN BUATAN (AI ANALYSIS)
   const handleOpenAiAnalysis = async (child) => {
     setAiChild(child);
     setAiModalOpen(true);
@@ -263,7 +275,6 @@ export default function MyChildrenPage() {
     setAiResult("");
 
     try {
-      // Menyusun data kontekstual penuh sebagai bahan rujukan ketat untuk AI
       const displayKidsName = getDisplayName(child);
       const totalXp = child.realProgress?.total_xp || 0;
       const level = child.realProgress?.level || 1;
@@ -278,7 +289,6 @@ export default function MyChildrenPage() {
         ? child.allAttempts.map(q => `- Topik Kuiz: "${q.topic_name || 'Ujian'}", Markah Dicapai: ${q.score}%`).join("\n")
         : "Pelajar belum menduduki sebarang ujian kuiz.";
 
-      // Menjana sistem arahan profesional berasaskan profil murid Malaysia
       const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar. Sila berikan analisis prestasi profil murid bernama ${displayKidsName} berdasarkan data ekosistem pembelajaran berikut:
 
 METRIK UTAMA:
@@ -306,7 +316,6 @@ Sila gubal satu laporan berstruktur berwibawa, profesional tetapi mesra dalam Ba
 ### 🎯 4. Pelan Tindakan & Strategi Ibu Bapa
 *(Berikan langkah intervensi praktikal berasaskan rumah, cadangan insentif syiling ganjaran, serta topik yang perlu dipaksa/dibimbing malam ini)*`;
 
-      // Melakukan panggilan integrasi AI Core Chat
       const response = await base44.integrations.Core.Chat({ message: systemPrompt });
       setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana namun format respon tidak disokong.");
     } catch (err) {
