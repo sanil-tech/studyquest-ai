@@ -1,5 +1,5 @@
 // src/pages/StudentDashboard.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   Trophy, BookOpen, Target, Award, Play, CheckCircle2, 
@@ -11,21 +11,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 
 export default function StudentDashboard() {
-  const [user, setUser] = useState(null);
-  const [progress, setProgress] = useState({ level: 1, total_xp: 0, streak_days: 0 });
-  const [wallet, setWallet] = useState({ balance: 0 });
-  const [sessions, setSessions] = useState([]);
-  const [quizzes, setQuizzes] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
+  const [dashboardState, setDashboardState] = useState({
+    user: null,
+    progress: { level: 1, total_xp: 0, streak_days: 0 },
+    wallet: { balance: 0 },
+    sessions: [],
+    quizzes: [],
+    pendingRequests: [],
+  });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const currentUser = await base44.auth.me();
-      setUser(currentUser);
 
       // Gunakan Promise.allSettled untuk API yang lebih kebal (resilient)
       const results = await Promise.allSettled([
@@ -36,13 +37,17 @@ export default function StudentDashboard() {
         base44.entities.ParentChildRelationship.filter({ child_id: currentUser.id, status: "pending" }),
       ]);
 
-      if (results[0].status === "fulfilled" && results[0].value?.[0]) setProgress(results[0].value[0]);
-      if (results[1].status === "fulfilled" && results[1].value?.[0]) setWallet(results[1].value[0]);
-      if (results[2].status === "fulfilled" && results[2].value) setSessions(results[2].value);
-      if (results[3].status === "fulfilled" && results[3].value) setQuizzes(results[3].value);
-
+      const progress = results[0].status === "fulfilled" && results[0].value?.[0] 
+        ? results[0].value[0] 
+        : { level: 1, total_xp: 0, streak_days: 0 };
+      const wallet = results[1].status === "fulfilled" && results[1].value?.[0] 
+        ? results[1].value[0] 
+        : { balance: 0 };
+      const sessions = results[2].status === "fulfilled" && results[2].value ? results[2].value : [];
+      const quizzes = results[3].status === "fulfilled" && results[3].value ? results[3].value : [];
       const pendingRels = results[4].status === "fulfilled" ? results[4].value : [];
 
+      let pendingRequests = [];
       if (pendingRels && pendingRels.length > 0) {
         const hydratedRequests = await Promise.all(
           pendingRels.map(async (rel) => {
@@ -58,21 +63,31 @@ export default function StudentDashboard() {
             }
           })
         );
-        setPendingRequests(hydratedRequests);
-      } else {
-        setPendingRequests([]);
+        pendingRequests = hydratedRequests;
       }
+
+      // Batch update to avoid multiple re-renders
+      setDashboardState({
+        user: currentUser,
+        progress,
+        wallet,
+        sessions,
+        quizzes,
+        pendingRequests,
+      });
     } catch (err) {
       console.error("Ralat memuat turun data pelajar:", err);
       toast({ title: "Alamak!", description: "Gagal memuat turun data pembelajaran anda.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  useEffect(() => { loadDashboardData(); }, []);
+  useEffect(() => { 
+    loadDashboardData(); 
+  }, [loadDashboardData]);
 
-  const handleLinkAction = async (relationshipId, actionType) => {
+  const handleLinkAction = useCallback(async (relationshipId, actionType) => {
     setActionLoading(true);
     try {
       if (actionType === "approve") {
@@ -88,17 +103,25 @@ export default function StudentDashboard() {
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [toast, loadDashboardData]);
 
-  const level = progress?.level || 1;
-  const xp = progress?.total_xp || 0;
-  const nextLevelXp = level * 200;
-  const xpPercentage = Math.min((xp / nextLevelXp) * 100, 100);
+  // Memoize computed values
+  const { level, xp, nextLevelXp, xpPercentage } = useMemo(() => {
+    const lvl = dashboardState.progress?.level || 1;
+    const xpVal = dashboardState.progress?.total_xp || 0;
+    const nextLvlXp = lvl * 200;
+    const pct = Math.min((xpVal / nextLvlXp) * 100, 100);
+    return { level: lvl, xp: xpVal, nextLevelXp: nextLvlXp, xpPercentage: pct };
+  }, [dashboardState.progress]);
 
-  const today = moment();
-  const todayMinutes = sessions
-    .filter(s => s.created_date && moment(s.created_date).isSame(today, "day"))
-    .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+  // Memoize today's minutes calculation
+  const today = useMemo(() => moment(), []);
+  const todayMinutes = useMemo(() => 
+    dashboardState.sessions
+      .filter(s => s.created_date && moment(s.created_date).isSame(today, "day"))
+      .reduce((sum, s) => sum + (s.duration_minutes || 0), 0),
+    [dashboardState.sessions, today]
+  );
 
   if (loading) {
     return (
@@ -110,6 +133,8 @@ export default function StudentDashboard() {
       </div>
     );
   }
+
+  const { user, progress, wallet, sessions, quizzes, pendingRequests } = dashboardState;
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700">
@@ -141,7 +166,7 @@ export default function StudentDashboard() {
       <div className="max-w-4xl mx-auto px-4 mt-6 space-y-8">
         
         {/* 2. HERO BANNER (Canopy Theme) */}
-        <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg overflow-hidden flex flex-col md:flex-row items-center justify-between">
           {/* Light rays through leaves */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           
@@ -191,10 +216,17 @@ export default function StudentDashboard() {
                       <p className="text-xs font-medium text-stone-500 mt-0.5">{req.parent_email} • Ingin pautkan akaun</p>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
-                      <Button onClick={() => handleLinkAction(req.id, "approve")} disabled={actionLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-10 px-5">
+                      <Button 
+                        onClick={() => handleLinkAction(req.id, "approve")} 
+                        disabled={actionLoading} 
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-10">
                         <UserCheck className="w-4 h-4 mr-2" /> Terima
                       </Button>
-                      <Button variant="outline" onClick={() => handleLinkAction(req.id, "reject")} disabled={actionLoading} className="flex-1 border-[#E3D9C6] text-stone-500 font-bold rounded-xl h-10 px-5">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleLinkAction(req.id, "reject")} 
+                        disabled={actionLoading} 
+                        className="flex-1 border-[#E3D9C6] text-stone-500 font-bold rounded-xl h-10">
                         <UserX className="w-4 h-4 mr-2" /> Tolak
                       </Button>
                     </div>

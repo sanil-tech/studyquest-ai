@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link, useNavigate } from "react-router-dom";
 import moment from "moment";
@@ -33,7 +33,7 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
     <button 
       onClick={onClick} 
-      className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 hover:opacity-95 transition-opacity active:scale-[0.98]`}
+      className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 hover:opacity-95 transition-opacity active:scale-95`}
     >
       <div className="bg-white/20 p-2 rounded-lg shrink-0"><Icon className="w-4 h-4" /></div>
       <div className="min-w-0 flex-1">
@@ -110,19 +110,14 @@ export default function ParentDashboard() {
   const { toast } = useToast();
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // State untuk mengawal pembukaan AddChildModal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  // Mengurus keadaan cuaca semasa
   const [currentWeather, setCurrentWeather] = useState({ temp: 31, code: 0, locationName: "Kota Kinabalu" });
   const [hourlyForecast, setHourlyForecast] = useState([]);
   const [loadingWeather, setLoadingWeather] = useState(true);
 
-  const fetchWeatherAndForecast = async (lat, lon, name) => {
+  const fetchWeatherAndForecast = useCallback(async (lat, lon, name) => {
     try {
       setLoadingWeather(true);
-      // Ditambah &timezone=auto supaya Open-Meteo memulangkan data mengikut zon masa peranti pengguna
       const res = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,weathercode&timezone=auto`
       );
@@ -156,9 +151,9 @@ export default function ParentDashboard() {
     } finally {
       setLoadingWeather(false);
     }
-  };
+  }, []);
 
-  const handleLocationDetection = () => {
+  const handleLocationDetection = useCallback(() => {
     if (!navigator.geolocation) {
       fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu");
       return;
@@ -169,9 +164,9 @@ export default function ParentDashboard() {
       },
       () => fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu")
     );
-  };
+  }, [fetchWeatherAndForecast]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const u = await base44.auth.me();
@@ -182,29 +177,41 @@ export default function ParentDashboard() {
         return;
       }
       
+      // Fetch all children and their progress in parallel
       const childIds = rel.map(r => r.child_id);
       const kids = await Promise.all(childIds.map(async (id) => {
-        const childUser = await base44.entities.User.get(id).catch(() => null);
-        const progressArray = await base44.entities.Progress.filter({ student_id: id }).catch(() => []);
-        return { 
-          id, 
-          ...childUser, 
-          progress: progressArray?.[0] || {} 
-        };
+        try {
+          const [childUser, progressArray] = await Promise.all([
+            base44.entities.User.get(id),
+            base44.entities.Progress.filter({ student_id: id })
+          ]);
+          return { 
+            id, 
+            ...childUser, 
+            progress: progressArray?.[0] || {} 
+          };
+        } catch (err) {
+          console.error(`Error loading child ${id}:`, err);
+          return null;
+        }
       }));
       
-      setChildren(kids);
+      setChildren(kids.filter(Boolean)); // Filter out null values
     } catch (err) {
       console.error("Gagal memuatkan data dashboard:", err);
     } finally { 
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => { 
     loadData(); 
-    handleLocationDetection(); 
-  }, []);
+  }, [loadData]);
+
+  // Separate effect for weather (non-blocking)
+  useEffect(() => {
+    handleLocationDetection();
+  }, [handleLocationDetection]);
 
   const currentDetails = getWeatherDetails(currentWeather.code);
   const CurrentIcon = currentDetails.icon;
@@ -249,7 +256,7 @@ export default function ParentDashboard() {
         <ShortcutCard icon={Gift} title="Ganjaran" desc="Urus kedai hadiah" gradient="from-pink-500 to-rose-400" onClick={() => navigate("/parent/rewards")} />
         <ShortcutCard icon={BarChart2} title="Analitik" desc="Prestasi penuh anak" gradient="from-blue-500 to-cyan-500" onClick={() => navigate("/parent/children")} />
         <ShortcutCard icon={Target} title="Misi Baru" desc="Beri tugasan khas" gradient="from-emerald-500 to-teal-400" onClick={() => navigate("/parent/children")} />
-        <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan", description: "Fungsi ini akan tersedia tidak lama lagi." })} />
+        <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan", description: "Fungsi ini akan hadir segera!" })} />
       </div>
 
       {/* Konten Utama */}

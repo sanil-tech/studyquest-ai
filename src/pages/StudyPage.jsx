@@ -1,5 +1,5 @@
 // src/pages/StudyPage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, Link } from "react-router-dom";
 import { 
@@ -12,7 +12,6 @@ export default function StudyPage() {
   const { subjectId } = useParams();
   const [subjects, setSubjects] = useState([]);
   const [topics, setTopics] = useState([]);
-  const [filteredTopics, setFilteredTopics] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [textbooks, setTextbooks] = useState([]);
   const [user, setUser] = useState(null);
@@ -53,25 +52,23 @@ export default function StudyPage() {
     load();
   }, [subjectId]);
 
-  useEffect(() => {
+  // Memoize filtered topics to avoid recalculation
+  const filteredTopics = useMemo(() => {
     if (!topics || !user) {
-      setFilteredTopics(topics || []);
-      return;
+      return topics || [];
     }
     const userLevel = user.education_level || user.school_year;
     if (!userLevel) {
-      setFilteredTopics(topics);
-      return;
+      return topics;
     }
     
     // PEMERKASAAN: Penapisan kebal ralat huruf besar/kecil dan ruang kosong
     const safeUserLevel = userLevel.trim().toLowerCase();
-    const filtered = topics.filter(t => {
+    return topics.filter(t => {
       if (!t.form_level) return true;
       if (t.form_level === "All Levels") return true;
       return t.form_level.trim().toLowerCase() === safeUserLevel;
     });
-    setFilteredTopics(filtered);
   }, [topics, user]);
 
   const handleSelectSubject = async (sub) => {
@@ -86,12 +83,14 @@ export default function StudyPage() {
     setLoading(false);
   };
 
-  // Kumpulan buku mengikut subjek
-  const booksBySubject = textbooks.reduce((acc, book) => {
-    if (!acc[book.subject_name]) acc[book.subject_name] = [];
-    acc[book.subject_name].push(book);
-    return acc;
-  }, {});
+  // Memoize grouped books to avoid recalculation on every render
+  const booksBySubject = useMemo(() => {
+    return textbooks.reduce((acc, book) => {
+      if (!acc[book.subject_name]) acc[book.subject_name] = [];
+      acc[book.subject_name].push(book);
+      return acc;
+    }, {});
+  }, [textbooks]);
 
   const studentFirstName = user?.name ? user.name.split(" ")[0] : (user?.nickname || "Penjelajah");
 
@@ -132,7 +131,7 @@ export default function StudyPage() {
                 </p>
               </div>
               
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner flex items-center justify-center text-5xl shrink-0 self-start sm:self-auto transform rotate-3 hover:rotate-0 transition-transform">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner flex items-center justify-center text-5xl shrink-0 self-start">
                 🦧 {/* Maskot Otan */}
               </div>
             </div>
@@ -157,7 +156,7 @@ export default function StudyPage() {
                     className="group relative p-5 rounded-[2rem] bg-white border border-emerald-100 hover:border-emerald-300 transition-all text-center flex flex-col items-center justify-center shadow-sm hover:shadow-md"
                   >
                     <div 
-                      className="w-16 h-16 rounded-2xl mb-3 flex items-center justify-center text-4xl shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 border border-white/50"
+                      className="w-16 h-16 rounded-2xl mb-3 flex items-center justify-center text-4xl shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 border border-transparent"
                       style={{ backgroundColor: `${themeColor}15` }}
                     >
                       {sub.icon || "🌿"}
@@ -229,7 +228,7 @@ export default function StudyPage() {
                         <p className="font-bold text-xs sm:text-sm text-stone-800 truncate group-hover:text-amber-800">{book.title}</p>
                         <p className="text-[10px] text-stone-500 font-semibold">{book.form_level || "Umum"}</p>
                       </div>
-                      <span className="text-[11px] font-bold bg-white px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 group-hover:border-amber-300 group-hover:text-amber-700 shrink-0 shadow-sm">
+                      <span className="text-[11px] font-bold bg-white px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 group-hover:border-amber-300 group-hover:text-amber-700 shrink-0 whitespace-nowrap">
                         Buku 📖
                       </span>
                     </a>
