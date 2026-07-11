@@ -63,7 +63,15 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
               Tahap {progressData.level || 1}
             </Badge>
           </div>
-          <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{child.email || "Tiada E-mel"}</p>
+          
+          {/* 🎯 KEMASKINI PAPARAN: Memaparkan PIN Rahsia berserta Virtual Emel */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
+            <p className="text-[10px] font-bold text-slate-400 truncate max-w-[130px]">{child.email || "Tiada E-mel"}</p>
+            <span className="hidden sm:inline text-slate-200 text-[10px]">|</span>
+            <span className="bg-orange-50 text-orange-600 border border-orange-100 font-black text-[9px] px-1.5 py-0.5 rounded-md tracking-wider w-fit flex items-center gap-0.5 shrink-0">
+              🔑 PIN: {child.child_login_pin}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -148,7 +156,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis }) {
           <BarChart3 className="w-4 h-4 text-slate-500" /> Laporan Manual Topik
         </Button>
 
-        {/* 🤖 BUTANG DIJANA AI BAHARU */}
         <Button 
           onClick={() => onOpenAiAnalysis(child)}
           className="w-full h-9 text-xs font-bold bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:opacity-95 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
@@ -204,16 +211,16 @@ export default function MyChildrenPage() {
           base44.entities.User.get(id).catch(() => null),
         ]);
 
-        // 🎯 DIBAIKI: Helah penyinkronan data profil anak daripada cache tempatan bagi memintas RLS ketat database
+        // 🎯 DIIBAlKI: Membaca cache profil & PIN murid jika pangkalan data had-had RLS
         let userObj = childUser;
         if (!userObj) {
-          console.warn(`⚠️ [RLS Sekatan] Membaca data profil murid ID: ${id} dari local storage cache.`);
+          console.warn(`⚠️ [RLS Sekatan] Mengambil data dari local storage cache untuk ID: ${id}`);
           const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
           userObj = cachedChildren[id] || {
             nickname: "Anak Terdaftar",
             full_name: "Petualang Cilik",
             email: "Akses Portal Aktif",
-            username: "student"
+            child_login_pin: "----"
           };
         }
 
@@ -250,6 +257,7 @@ export default function MyChildrenPage() {
           email: userObj?.email || "Tiada E-mel",
           nickname: userObj?.nickname || userObj?.full_name || "Anak Terdaftar",
           username: userObj?.username || "",
+          child_login_pin: userObj?.child_login_pin || "----", // <-- PIN berjaya diikat ke data
           wallet: activeWallet,
           allAttempts, 
           allSessions: sortedSessions, 
@@ -305,22 +313,15 @@ ${quizSummary}
 
 Sila gubal satu laporan berstruktur berwibawa, profesional tetapi mesra dalam Bahasa Melayu. Rangkumkan maklum balas anda menggunakan tajuk utama yang jelas seperti berikut:
 ### 📈 1. Diagnosis Prestasi Keseluruhan
-*(Sintesis prestasi murid menggunakan perbandingan data XP, kestabilan emosi belajar melalui streak hari dan purata markah)*
-
 ### 🌟 2. Kekuatan & Minat Utama Murid
-*(Kenal pasti topik yang paling cemerlang daripada markah kuiz atau topik yang paling tekun dibaca lama oleh murid)*
-
 ### ⚠️ 3. Ruang Pembetulan & Cabaran Pelajar
-*(Kenal pasti topik yang mendapat markah kuiz rendah atau subjek akademik yang kelihatan terabai daripada durasi minit)*
-
-### 🎯 4. Pelan Tindakan & Strategi Ibu Bapa
-*(Berikan langkah intervensi praktikal berasaskan rumah, cadangan insentif syiling ganjaran, serta topik yang perlu dipaksa/dibimbing malam ini)*`;
+### 🎯 4. Pelan Tindakan & Strategi Ibu Bapa`;
 
       const response = await base44.integrations.Core.Chat({ message: systemPrompt });
-      setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana namun format respon tidak disokong.");
+      setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana.");
     } catch (err) {
       console.error("Gagal menjana analisis AI:", err);
-      setAiResult("⚠️ Maaf, sistem gagal menghubungi enjin AI untuk menganalisis data pada waktu ini. Sila cuba sebentar lagi.");
+      setAiResult("⚠️ Sistem gagal menghubungi enjin AI pada waktu ini.");
     } finally {
       setLoadingAi(false);
     }
@@ -427,7 +428,7 @@ Sila gubal satu laporan berstruktur berwibawa, profesional tetapi mesra dalam Ba
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: 🤖 DIAGNOSIS KECERDIKAN BUATAN (AI ANALYSIS DIALOG) */}
+      {/* MODAL 2: AI ANALYSIS DIALOG */}
       <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-900 text-white p-6 border border-slate-800">
           <DialogHeader className="border-b border-slate-800 pb-3">
