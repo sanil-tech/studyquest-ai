@@ -13,9 +13,6 @@ import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
-// ============================================================================
-// COMPONENT 1: YouTubeLesson (Versi Dynamic Key - Kalis Isu Kena Refresh)
-// ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
     if (!url) return null;
@@ -23,7 +20,6 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     const match = url.match(regExp);
     return (match && match[1].length === 11) ? match[1] : null;
   };
-
   const videoId = getYouTubeId(videoUrl);
 
   if (!videoId) {
@@ -39,19 +35,11 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const secureEmbedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(currentOrigin)}`;
 
   return (
-    // 🌟 Atribut 'key={videoId}' di bawah memaksa pemain video reload serta-merta tanpa perlu refresh manual!
     <div className="space-y-4 w-full" key={videoId}>
       <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
-        <iframe 
-          key={videoId} 
-          src={secureEmbedUrl} 
-          className="w-full h-full border-0 absolute inset-0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen 
-        />
+        <iframe key={videoId} src={secureEmbedUrl} className="w-full h-full border-0 absolute inset-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
       </div>
 
-      {/* STATUS ACTION PANEL */}
       {isCompleted ? (
         <div className="bg-emerald-50 border border-emerald-200/60 p-3.5 rounded-xl flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
@@ -62,33 +50,17 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
         </div>
       ) : (
         <div className="bg-stone-900 border border-stone-800 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-          <p className="text-[11px] text-stone-300 font-medium flex items-center gap-1.5">
-            <Tv className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
-            Selesai menonton video pengajaran? Klik butang di sebelah untuk menuntut ganjaran!
-          </p>
-          <Button 
-            onClick={onCompleted} 
-            size="sm" 
-            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl px-5 h-9 shrink-0 border-0 shadow-xs active:scale-95 transition-all"
-          >
-            Selesai & Ambil +10 XP 🍃
-          </Button>
+          <p className="text-[11px] text-stone-300 font-medium flex items-center gap-1.5"><Tv className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" /> Selesai menonton video pengajaran? Klik butang di sebelah untuk menuntut ganjaran!</p>
+          <Button onClick={onCompleted} size="sm" className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl px-5 h-9 shrink-0 border-0 shadow-xs active:scale-95 transition-all">Selesai & Ambil +10 XP 🍃</Button>
         </div>
       )}
     </div>
   );
 }
 
-// ============================================================================
-// MAIN COMPONENT: LessonPage
-// ============================================================================
 const safeJsonParse = (str, fallback = []) => {
-  if (!str) return fallback;
-  if (typeof str === "object") return str; 
-  try {
-    let cleanStr = String(str).replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
-    return JSON.parse(cleanStr);
-  } catch (e) { return fallback; }
+  if (!str) return fallback; if (typeof str === "object") return str; 
+  try { return JSON.parse(String(str).replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim()); } catch (e) { return fallback; }
 };
 
 const shuffleArray = (array) => {
@@ -110,7 +82,7 @@ export default function LessonPage() {
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  // STATE KANDUNGAN RASMI
+  // KANDUNGAN NOTA PNG / JPG
   const [videoUrl, setVideoUrl] = useState("");
   const [notesContent, setNotesContent] = useState("");
   const [notesImage, setNotesImage] = useState(""); 
@@ -153,15 +125,31 @@ export default function LessonPage() {
             setVideoUrl(foundBank.video_url || "");
             setInfographicUrl(foundBank.infographic_url || "");
             
-            try {
-              const parsedNotes = JSON.parse(foundBank.notes_content);
-              if (parsedNotes && typeof parsedNotes === "object") {
-                setNotesContent(parsedNotes.text || "");
-                setNotesImage(parsedNotes.image || "");
-              } else {
-                setNotesContent(foundBank.notes_content || "");
+            // 🧠 ENJIN PEMBACA NOTA JSON (KALIS RALAT DOUBLE-PARSE)
+            const rawNotes = foundBank.notes_content;
+            if (rawNotes) {
+              try {
+                // Jika backend sudah tolong jadikan Object, pakai. Jika tidak, parse sendiri.
+                const parsedNotes = typeof rawNotes === "object" ? rawNotes : JSON.parse(rawNotes);
+                
+                // Periksa sama ada ia format JSON Baharu yang ada { text, image }
+                if (parsedNotes && (parsedNotes.text !== undefined || parsedNotes.image !== undefined)) {
+                  setNotesContent(parsedNotes.text || "");
+                  setNotesImage(parsedNotes.image || "");
+                } else {
+                  // Fallback: Jika objek pelik, kembalikan ke teks biasa
+                  setNotesContent(typeof rawNotes === "string" ? rawNotes : JSON.stringify(rawNotes));
+                  setNotesImage("");
+                }
+              } catch (e) { 
+                // Jika gagal parse (bermakna ini nota teks lama sebelum naik taraf)
+                setNotesContent(String(rawNotes)); 
+                setNotesImage("");
               }
-            } catch (e) { setNotesContent(foundBank.notes_content || ""); }
+            } else {
+              setNotesContent("");
+              setNotesImage("");
+            }
             
             const parsedQuestions = safeJsonParse(foundBank.questions_json, []);
             setRawBankQuestions(parsedQuestions);
@@ -235,7 +223,6 @@ export default function LessonPage() {
 
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
-      
       {/* GLOBAL HEADER BAR */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
@@ -261,18 +248,21 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 2: NOTA PINTAR */}
+        {/* STAGE 2: NOTA PINTAR & INFOGRAFIK PNG */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
-            <div className="prose prose-sm max-w-none max-h-[450px] overflow-y-auto p-4 border rounded-xl bg-[#FAFAF7] shadow-inner flex flex-col items-center">
+            <div className="prose prose-sm max-w-none max-h-[480px] overflow-y-auto p-4 border rounded-xl bg-[#FAFAF7] shadow-inner flex flex-col items-center">
+              
+              {/* GAMBAR INFOGRAFIK PNG/JPG DIRENDER DI SINI */}
               {notesImage && (
                 <img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200 shadow-sm mb-4" />
               )}
+
               <div className="w-full">
                 {notesContent ? (
                   <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{notesContent}</p>
                 ) : (
-                  !notesImage && <p className="text-xs text-slate-400">Nota pengajian belum disediakan.</p>
+                  (!notesImage) && <p className="text-xs text-slate-400">Nota pengajian belum disediakan.</p>
                 )}
               </div>
             </div>
