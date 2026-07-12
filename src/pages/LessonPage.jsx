@@ -17,18 +17,19 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson 
+// COMPONENT 1: YouTubeLesson (Regex Diperkukuh Untuk Semua Jenis Link)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const playerRef = useRef(null);
   const checkIntervalRef = useRef(null);
 
+  // 🎯 REKAYASA REGEX: Menyokong URL desktop, mobile, shorts, dan share links dengan selamat
   const getYouTubeId = (url) => {
     if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
     const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    return (match && match[1].length === 11) ? match[1] : null;
   };
 
   const videoId = getYouTubeId(videoUrl);
@@ -119,7 +120,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
     return (
       <div className="p-6 text-center bg-amber-50 border border-amber-200 rounded-3xl">
         <p className="text-amber-700 font-bold text-sm">
-          🎬 Tiada video dijumpai. Sila klik butang di bawah untuk melangkau dan membuka misi seterusnya!
+          🎬 Tiada video pengajaran kustom dikesan untuk dahan ini. Klik butang di bawah untuk terus memanjat!
         </p>
         <Button onClick={onCompleted} className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black rounded-xl shadow-sm px-6 py-5 border-0">
           Selesai Tonton & Panjat Pokok 🚀
@@ -262,6 +263,11 @@ export default function LessonPage() {
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
+  // 🎯 STATE KUSTOM UTK HUBUNGKAN KANDUNGAN DARI LESSONRESOURCES
+  const [customVideoUrl, setCustomVideoUrl] = useState("");
+  const [customNotes, setCustomNotes] = useState("");
+  const [customInfographic, setCustomInfographic] = useState("");
+
   const [activeTab, setActiveTab] = useState("map"); 
   const [progressState, setProgressState] = useState({
     video_completed: false,
@@ -279,7 +285,6 @@ export default function LessonPage() {
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
 
-  // 🌟 DEFINISI UNLOCKED YANG DIPERKUH: Dahan terbuka jika 4 peringkat siap ATAU jika Kuiz sudah bertanda selesai
   const isTopicUnlocked = progressState.quiz_completed || (
                           progressState.video_completed && 
                           progressState.lesson_completed && 
@@ -313,20 +318,39 @@ export default function LessonPage() {
         setStudentNickname(tentukanPanggilanMesra(user, top?.form_level));
         setIsPremium(user?.is_premium || user?.profile?.is_premium || false);
 
+        // 🎯 DIKEMASKINI: Mengekstrak SEMUA data kustom Admin dari Table Quiz
         try {
-          const allQuizBanks = await base44.entities.Quiz.filter({});
-          if (isMounted && allQuizBanks?.length > 0) {
-            const namaTopikSemasa = top.name.toLowerCase().trim();
-            const foundBank = allQuizBanks.find(b => {
-              const nameCsv = (b.topic_name || "").toLowerCase().trim();
-              return nameCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(nameCsv);
-            });
-            if (foundBank) {
-              setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
+          // Cubaan 1: Cari mengikut padanan strict ID Topik
+          let foundBank = await base44.entities.Quiz.get(topicId).catch(() => null);
+
+          // Cubaan 2: Jika ID berbeza, tapis melalui nama string topik
+          if (!foundBank) {
+            const allQuizBanks = await base44.entities.Quiz.filter({});
+            if (allQuizBanks && allQuizBanks.length > 0) {
+              const namaTopikSemasa = top.name.toLowerCase().trim();
+              foundBank = allQuizBanks.find(b => {
+                const nameCsv = (b.topic_name || "").toLowerCase().trim();
+                return nameCsv.includes(namaTopikSemasa) || namaTopikSemasa.includes(nameCsv) || b.id === topicId;
+              });
+            }
+          }
+
+          if (foundBank && isMounted) {
+            setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
+            if (foundBank.video_url) setCustomVideoUrl(foundBank.video_url); // Ikat Video Admin!
+            if (foundBank.infographic_url) setCustomInfographic(foundBank.infographic_url); // Ikat Peta Minda Fail Server!
+            
+            if (foundBank.notes_json) {
+              try {
+                const parsedNotes = JSON.parse(foundBank.notes_json);
+                setCustomNotes(typeof parsedNotes === "string" ? parsedNotes : ""); // Ikat Nota Perenggan!
+              } catch (e) {
+                setCustomNotes(foundBank.notes_json);
+              }
             }
           }
         } catch (quizBankErr) {
-          console.warn("⚠️ Amaran: Bank soalan tidak dapat dimuatkan:", quizBankErr);
+          console.warn("⚠️ Amaran: Modul kustom admin gagal dirangkum:", quizBankErr);
         }
 
         try {
@@ -364,7 +388,6 @@ export default function LessonPage() {
             }
           }
 
-          // 🌟 PEMBETULAN UTAMA: Petakan flag kemajuan terus ke progressState walaupun ia sesi CSV global!
           if (isMounted && sessionWithNotes) {
             setProgressState({
               video_completed: sessionWithNotes.video_completed || false,
@@ -574,8 +597,6 @@ export default function LessonPage() {
         await base44.entities.StudySession.update(currentSessionId, nextStatePayload);
       }
       
-      setProgressState(prev => ({ ...prev, ...nextStatePayload }));
-      
       if (currentSessionId) {
         base44.integrations.Core.InvokeLLM({
           model: "gemini_3_flash", prompt: MINDMAP_PROMPT(response.summary, response.keywords, lang), response_json_schema: MINDMAP_SCHEMA
@@ -632,11 +653,11 @@ export default function LessonPage() {
 
   const loadMindMapOnDemand = async () => {
     setActiveTab("mindmap");
+    if (customInfographic) return; // Pintar: Bypass jika ada fail imej peta minda dari admin
     if (mindMap && mindMap.length > 0) return;
     setStatus(p => ({ ...p, mindmap: true }));
     setUiError(null);
     try {
-      if (mindMap) return;
       const lang = getLanguageMode();
       const res = await base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash", prompt: MINDMAP_PROMPT(metaData.summary || topic.name, metaData.keywords, lang), response_json_schema: MINDMAP_SCHEMA
@@ -707,6 +728,8 @@ export default function LessonPage() {
     );
   }
 
+  const hasNotesSedia = customNotes || explanation;
+
   return (
     <div className="px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-6 pb-28 font-sans bg-[#FAFAF7] min-h-screen">
       
@@ -764,14 +787,8 @@ export default function LessonPage() {
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
             <LessonProgress 
-              // 🌟 Jika isTopicUnlocked bernilai true, semua butang dihantar sebagai true 
-              // supaya sekat kekunci dibuka sepenuhnya tanpa memaksa ke video 1.
               steps={isTopicUnlocked ? {
-                video: true,
-                lesson: true,
-                flashcard: true,
-                mindmap: true,
-                quiz: true
+                video: true, lesson: true, flashcard: true, mindmap: true, quiz: true
               } : {
                 video: progressState.video_completed,
                 lesson: progressState.lesson_completed,
@@ -790,14 +807,15 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 1: VIDEO */}
+        {/* 🎯 STAGE 1: VIDEO (DIKEMASKINI UTK LINK UTAMAKAN VIDEO ADMIN) */}
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
             <div className="flex justify-between items-center border-b border-stone-100 pb-4">
               <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🎬 Dahan 1: Video Guru</h3>
               <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
             </div>
-            <YouTubeLesson videoUrl={topic?.video_url} isCompleted={progressState.video_completed} xpEarned={progressState.video_completed ? 0 : 10} onCompleted={handleVideoStageCompleted} />
+            {/* Keutamaan video_url kustom admin, jika kosong baru guna kurikulum lalai */}
+            <YouTubeLesson videoUrl={customVideoUrl || topic?.video_url} isCompleted={progressState.video_completed} xpEarned={progressState.video_completed ? 0 : 10} onCompleted={handleVideoStageCompleted} />
             {progressState.video_completed && (
               <Button onClick={() => setActiveTab("map")} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 font-black rounded-xl shadow-md text-white border-0 transition-colors">
                 Kembali Memanjat Pokok 🌳
@@ -817,14 +835,18 @@ export default function LessonPage() {
             <div className="flex items-center justify-between bg-stone-50 p-3 rounded-2xl border border-stone-100">
               <span className="text-xs font-bold text-stone-600">Dengar penceritaan Otan:</span>
               {isPremium ? (
-                <VoicePlayer text={explanation || "Sila aktifkan nota untuk mendengar audio."} language={getLanguageMode() === "en" ? "en" : "ms"} />
+                <VoicePlayer text={customNotes || explanation || "Sila aktifkan nota untuk mendengar audio."} language={getLanguageMode() === "en" ? "en" : "ms"} />
               ) : (
                 <span className="text-[10px] text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg font-bold border border-amber-200">🔒 Audio Premium</span>
               )}
             </div>
 
             <div className="prose prose-sm max-w-none text-stone-700 max-h-[400px] overflow-y-auto p-4 border border-emerald-50 rounded-2xl bg-[#FAFAF7] leading-relaxed shadow-inner">
-              {explanation ? (
+              {customNotes ? (
+                <p className="whitespace-pre-line text-xs sm:text-sm font-semibold text-stone-700 tracking-wide">
+                  {customNotes}
+                </p>
+              ) : explanation ? (
                 <LessonContent content={explanation} />
               ) : (
                 <div className="text-center py-10 bg-sky-50/50 border border-dashed border-sky-200 rounded-xl p-4">
@@ -837,13 +859,13 @@ export default function LessonPage() {
             </div>
 
             <Button 
-              onClick={explanation ? handleLessonStageCompleted : generateCoreLesson} 
+              onClick={hasNotesSedia ? handleLessonStageCompleted : generateCoreLesson} 
               disabled={status.lesson} 
               className="w-full h-14 bg-gradient-to-r from-lime-500 to-emerald-600 hover:from-lime-600 hover:to-emerald-700 font-black text-white rounded-xl shadow-md border-0 transition-all"
             >
               {status.lesson ? (
                 <><Loader2 className="w-5 h-5 animate-spin mr-2"/> Otan sedang mengemas kini... 🦧</>
-              ) : explanation ? (
+              ) : hasNotesSedia ? (
                 progressState.lesson_completed ? "Kembali Ke Peta (Nota Selesai) 🍃" : "Tanda Selesai & Ambil +15 XP! 🍃"
               ) : (
                 "Jana Nota Pintar AI Sekarang! ✨"
@@ -872,21 +894,34 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 4: MINDMAP */}
+        {/* 🎯 STAGE 4: MINDMAP (DIKEMASKINI UTK PAPAR FAIL GAMBAR SERVER ADMIN) */}
         {activeTab === "mindmap" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
             <div className="flex justify-between items-center border-b border-stone-100 pb-4">
-              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🧠 Dahan 4: Peta Minda</h3>
+              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🧠 Dahan 4: Peta Minda Modul</h3>
               <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
             </div>
             {status.mindmap ? (
               <div className="text-center py-12 text-xs font-bold text-emerald-600"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-emerald-400" /> Melukis peta hutan...</div>
             ) : (
               <>
-                <div className="min-h-[250px] bg-[#FAFAF7] rounded-2xl p-4 border border-emerald-50 shadow-inner overflow-x-auto">
-                  <MindMap mindMap={{ central_topic: topic?.name || "Topik Utama", branches: mindMap || [] }} lang={getLanguageMode()} />
+                <div className="min-h-[250px] bg-[#FAFAF7] rounded-2xl p-4 border border-emerald-50 shadow-inner flex flex-col items-center justify-center overflow-x-auto">
+                  {customInfographic ? (
+                    <div className="w-full space-y-2 animate-in fade-in duration-300">
+                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/50 uppercase tracking-wide">
+                        🗺️ Rajah Peta Minda Utama
+                      </span>
+                      <img 
+                        src={customInfographic} 
+                        alt="Rajah Peta Minda Kurikulum" 
+                        className="w-full h-auto rounded-2xl max-h-80 object-contain bg-white border border-stone-200 shadow-xs"
+                      />
+                    </div>
+                  ) : (
+                    <MindMap mindMap={{ central_topic: topic?.name || "Topik Utama", branches: mindMap || [] }} lang={getLanguageMode()} />
+                  )}
                 </div>
-                <Button onClick={handleMindMapStageCompleted} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl border-0 shadow-sm transition-colors">
+                <Button onClick={handleMindMapStageCompleted} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl border-0 shadow-sm transition-colors mt-3">
                   Selesai Teroka Peta! 🗺️
                 </Button>
               </>
