@@ -71,7 +71,7 @@ export default function LessonResources() {
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. PENGEMAMPAT GAMBAR & INTEGRASI UPLOAD RASMI (UploadFile)
+  // 🎯 2. PENGEMAMPAT GAMBAR & MULTI-SIGNATURE UPLOAD ENGINE
   const kompresFailGambarUlu = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -97,27 +97,56 @@ export default function LessonResources() {
     });
   };
 
-  // 🌟 FUNGSI BARU: Menggunakan arahan 'UploadFile integration' dari mesej ralat pelayan
+  // 🌟 ENGINE MULTI-SINTAKS BARU: Cuba semua kemungkinan cara pencerapan SDK Base44
   const uploadKeServerRasmi = async (file) => {
     const mampat = await kompresFailGambarUlu(file);
     
     if (!base44.integrations?.UploadFile) {
-      throw new Error("Modul UploadFile tidak wujud di pelayan anda.");
+      throw new Error("Modul integrasi 'UploadFile' tidak aktif atau tidak wujud pada client SDK anda.");
     }
 
+    const integration = base44.integrations.UploadFile;
+    let ralatTerakhir = null;
+
+    // Kaedah 1: Cuba seru sebagai fungsi objek langsung (Direct object execution)
     try {
-      // Format A: Menggunakan object payload
-      const res = await base44.integrations.UploadFile.upload({ file: mampat });
-      return typeof res === "string" ? res : (res.url || res.file_url || res.link || "");
-    } catch (err1) {
-      try {
-        // Format B: Direct blob pass jika Format A ditolak
-        const res2 = await base44.integrations.UploadFile.upload(mampat);
-        return typeof res2 === "string" ? res2 : (res2.url || res2.file_url || res2.link || "");
-      } catch (err2) {
-        throw new Error("Gagal memuat naik imej menggunakan UploadFile integration.");
+      const res = await integration({ file: mampat });
+      if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link || Object.values(res)[0]);
+    } catch (e) { ralatTerakhir = e; }
+
+    // Kaedah 2: Cuba seru melalui sub-method standard .execute()
+    try {
+      if (typeof integration.execute === "function") {
+        const res = await integration.execute({ file: mampat });
+        if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link || Object.values(res)[0]);
       }
-    }
+    } catch (e) { ralatTerakhir = e; }
+
+    // Kaedah 3: Cuba seru menggunakan sub-method .upload()
+    try {
+      if (typeof integration.upload === "function") {
+        const res = await integration.upload({ file: mampat });
+        if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link || Object.values(res)[0]);
+      }
+    } catch (e) { ralatTerakhir = e; }
+
+    // Kaedah 4: Cuba hantar menggunakan format FormData (Standard penghantaran fail HTTP)
+    try {
+      const formData = new FormData();
+      formData.append("file", mampat);
+      
+      if (typeof integration === "function") {
+        const res = await integration(formData);
+        if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link);
+      } else if (typeof integration.execute === "function") {
+        const res = await integration.execute(formData);
+        if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link);
+      }
+    } catch (e) { ralatTerakhir = e; }
+
+    // Paparkan mesej ralat pelayan sebenar jika semua kaedah di atas gagal
+    const detailRalat = ralatTerakhir?.message || (typeof ralatTerakhir === "object" ? JSON.stringify(ralatTerakhir) : String(ralatTerakhir));
+    throw new Error(`UploadFile Integration ditolak oleh pelayan. Butiran: ${detailRalat}`);
   };
 
   const kendaliPilihanInfographic = (e) => {
@@ -220,7 +249,7 @@ export default function LessonResources() {
     } catch (err) { toast({ title: "Ralat Pemadaman", description: err.message, variant: "destructive" }); } finally { setIsDeleting(false); }
   };
 
-  // 🎯 5. PROSES PENGHANTARAN: KEPATUHAN PADA 'UPLOADFILE INTEGRATION'
+  // 🎯 5. PROSES PENGHANTARAN KANDUNGAN KE DATABASE
   const handleSaveForm = async (e) => {
     e.preventDefault();
     if (borangMod === "create" && !topicId) { toast({ title: "Ralat 🛑", description: "Sila isi ID Unik Topik.", variant: "destructive" }); return; }
@@ -230,7 +259,6 @@ export default function LessonResources() {
     try {
       let serverInfographicUrl = infographicUrl;
       if (infographicFile) {
-        // 🌟 Menggunakan UploadFile secara rasmi, ia akan pulangkan pautan (URL) pendek!
         serverInfographicUrl = await uploadKeServerRasmi(infographicFile); 
       }
 
@@ -362,7 +390,7 @@ export default function LessonResources() {
                   <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-purple-50 file:text-purple-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" /></div>
                 </div>
 
-                {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
+                {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Pilihan Jawapan Objektif:</label>
