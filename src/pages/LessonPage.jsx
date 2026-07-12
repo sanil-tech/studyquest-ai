@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, ChevronLeft, ExternalLink, Loader2
-} from "lucide-react"; // 🚀 Loader2 kini telah didaftarkan dengan selamat di sini!
+  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, ChevronLeft, Loader2
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -14,25 +14,7 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// 🌟 REGISTRI PUSAT: TEMPAT SIMPANAN BAHAN UTAMA (VIDEO & NOTA) ANDA
-// ============================================================================
-const BALAI_BAHAN_PELAJARAN = {
-  // 📋 TOPIK 1: BANYAK DAN SEDIKIT
-  "6a518e33ba19daf9a981f90f": {
-    videoUrl: "https://www.youtube.com/watch?v=p4vW7VqO0wE", 
-    notes: `Selamat Datang ke Topik Banyak dan Sedikit!
-    
-    Mari kita belajar membandingkan kumpulan objek:
-    1. Banyak: Kumpulan yang mempunyai bilangan kuantiti yang lebih besar atau melimpah.
-    2. Sedikit: Kumpulan yang mempunyai kuantiti yang kecil atau berkurangan apabila dibandingkan.
-    
-    Saksikan video di dahan 1 untuk kefahaman visual yang lebih jelas! 🌟`,
-    infographicUrl: "" 
-  }
-};
-
-// ============================================================================
-// COMPONENT 1: YouTubeLesson (Versi Native Theater Mode)
+// COMPONENT 1: YouTubeLesson (Versi Paksa Dalam Aplikasi / Strict Inline)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
@@ -47,7 +29,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   if (!videoId) {
     return (
       <div className="p-8 text-center bg-amber-50/60 border border-dashed border-amber-200 rounded-2xl">
-        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video YouTube belum dimasukkan oleh Pentadbir untuk dahan ini.</p>
+        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video YouTube belum dikunci oleh Cikgu untuk modul ini.</p>
         <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-3 border-0 shadow-sm">Teruskan Misi 🚀</Button>
       </div>
     );
@@ -55,6 +37,12 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 
   return (
     <div className="space-y-4 w-full">
+      {/* 
+        KOTAK IFRAME STRICT INLINE
+        - playsinline=1 : Paksa video main di dalam kotak, halang dari melompat ke app YouTube
+        - rel=0         : Halang YouTube dari mencadangkan video merapu dari channel lain
+        - modestbranding: Sembunyikan logo besar YouTube
+      */}
       <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
         <iframe 
           src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1`} 
@@ -62,17 +50,6 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen 
         />
-      </div>
-
-      <div className="text-center pt-0.5">
-        <a 
-          href={`https://www.youtube.com/watch?v=${videoId}`} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-[11px] text-stone-500 hover:text-emerald-600 font-bold underline inline-flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/70 px-3 py-2 rounded-xl border border-stone-200/60 transition-colors shadow-2xs"
-        >
-          <ExternalLink className="w-3.5 h-3.5 text-emerald-500" /> Ralat Paparan? Klik sini untuk menonton terus di YouTube
-        </a>
       </div>
 
       {isCompleted ? (
@@ -319,12 +296,13 @@ export default function LessonPage() {
 
   if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
 
+  // MENGGUNAKAN DATA KOLUM DATABASE RASMI
   const videoSumberUtama = videoUrl || topic?.video_url;
 
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* GLOBAL HEADER BAR */}
+      {/* GLOBAL HEADER BAR (THEATER FRIENDLY) */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
