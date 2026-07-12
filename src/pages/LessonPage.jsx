@@ -69,6 +69,82 @@ const shuffleArray = (array) => {
   return newArr;
 };
 
+// 🌟 BARU: ENJIN PENAPIS PINTAR MARKDOWN UNTUK NOTA BERSIH & BERGAYA PREMIUM
+const parseMarkdownToHTML = (text) => {
+  if (!text) return "";
+  const lines = text.split("\n");
+  let inList = false;
+  let htmlOutput = [];
+
+  lines.forEach((line) => {
+    let trimmed = line.trim();
+
+    // Tutup senarai ulat bulu jika baris baru bukan elemen senarai
+    if (!trimmed.startsWith("* ") && !trimmed.startsWith("- ") && inList) {
+      htmlOutput.push("</ul>");
+      inList = false;
+    }
+
+    // 1. Simbol Garis Pemisah (---)
+    if (trimmed === "---") {
+      htmlOutput.push('<hr class="my-4 border-stone-200" />');
+      return;
+    }
+
+    // 2. Simbol Tajuk Utama Gergasi (#)
+    if (trimmed.startsWith("# ")) {
+      htmlOutput.push(`<h1 class="text-base sm:text-lg font-black text-stone-800 border-b border-stone-200 pb-1.5 mt-4 mb-2 text-center text-purple-700">${trimmed.replace("# ", "")}</h1>`);
+      return;
+    }
+
+    // 3. Simbol Tajuk Sederhana (##)
+    if (trimmed.startsWith("## ")) {
+      htmlOutput.push(`<h2 class="text-sm sm:text-base font-black text-stone-800 mt-4 mb-2">${trimmed.replace("## ", "")}</h2>`);
+      return;
+    }
+
+    // 4. Simbol Tajuk Kecil (###)
+    if (trimmed.startsWith("### ")) {
+      htmlOutput.push(`<h3 class="text-xs sm:text-sm font-bold text-emerald-600 mt-3 mb-1 flex items-center gap-1">${trimmed.replace("### ", "")}</h3>`);
+      return;
+    }
+
+    // 5. Simbol Kotak Nyanyian / Petikan (>)
+    if (trimmed.startsWith(">")) {
+      let content = trimmed.substring(1).trim();
+      htmlOutput.push(`<blockquote class="border-l-4 border-amber-400 pl-3.5 italic text-stone-600 my-3 bg-amber-50/50 p-2.5 rounded-r-2xl leading-relaxed text-xs sm:text-sm">${content}</blockquote>`);
+      return;
+    }
+
+    // 6. Simbol Senarai Poin (* atau -)
+    if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) {
+      if (!inList) {
+        htmlOutput.push('<ul class="space-y-1.5 my-2.5 pl-1.5">');
+        inList = true;
+      }
+      let content = trimmed.substring(2);
+      htmlOutput.push(`<li class="list-disc ml-4 text-xs sm:text-sm text-stone-600 leading-relaxed font-medium">${content}</li>`);
+      return;
+    }
+
+    // Abaikan baris kosong
+    if (trimmed === "") return;
+
+    // 7. Perenggan Ayat Teks Biasa
+    htmlOutput.push(`<p class="text-xs sm:text-sm text-stone-600 font-medium leading-relaxed mb-3">${trimmed}</p>`);
+  });
+
+  if (inList) htmlOutput.push("</ul>");
+
+  let finalHtml = htmlOutput.join("\n");
+  
+  // 8. Simbol Huruf Tebal (**) & Huruf Senget (*)
+  finalHtml = finalHtml.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-stone-900 bg-yellow-100/60 px-1 rounded-sm">$1</strong>');
+  finalHtml = finalHtml.replace(/\*(.*?)\*/g, '<em class="italic text-stone-700 font-semibold">$1</em>');
+  
+  return finalHtml;
+};
+
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
   const navigate = useNavigate();
@@ -81,11 +157,9 @@ export default function LessonPage() {
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
   
-  // 🌟 BARU: STATE GPS ID BANK KUIZ
   const [actualQuizId, setActualQuizId] = useState("");
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  // KANDUNGAN NOTA PNG / JPG
   const [videoUrl, setVideoUrl] = useState("");
   const [notesContent, setNotesContent] = useState("");
   const [notesImage, setNotesImage] = useState(""); 
@@ -125,7 +199,6 @@ export default function LessonPage() {
           }
 
           if (foundBank && isMounted) {
-            // 🌟 KUNCI RAHSIA: Simpan ID Bank sebenar untuk digunakan oleh butang Kuiz!
             setActualQuizId(foundBank.id);
             setVideoUrl(foundBank.video_url || "");
             setInfographicUrl(foundBank.infographic_url || "");
@@ -209,29 +282,25 @@ export default function LessonPage() {
     } catch (e) {} finally { setStatus(p => ({ ...p, lesson: false })); }
   };
 
-  const loadFlashcardsOnDemand = async () => { setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return; setStatus(p => ({ ...p, flashcards: true })); try { if (rawBankQuestions && rawBankQuestions.length > 0) { setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer}\n\n${q.explanation || ""}` }))); return; } } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } };
+  const loadFlashcardsOnDemand = async () => { setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return; setStatus(p => ({ ...p, flashcards: true })); try { if (rawBankQuestions && rawBankQuestions.length > 0) { setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer || q.correctAnswer}\n\n${q.explanation || ""}` }))); return; } } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } };
   const loadMindMapOnDemand = async () => { setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return; setStatus(p => ({ ...p, mindmap: true })); try { const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} }); setMindMap(res); } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); } };
 
-  // 🎯 KUIZ - LOMPATAN TEPAT KE GPS ID BANK SEBENAR
   const runQuizGeneration = async (numQ) => { 
     await recordStudyTime(); 
     setStatus(p => ({ ...p, quiz: true })); 
     let currentSessionId = sessionRef.current; 
 
     try { 
-      // Semak jika Admin ada masukkan soalan tak
       if (!rawBankQuestions || rawBankQuestions.length === 0 || !actualQuizId) {
         alert("⚠️ Misi Digantung: Cikgu belum merekodkan sebarang soalan kuiz untuk topik ini.");
         setStatus(p => ({ ...p, quiz: false })); 
         return;
       }
 
-      // Rekodkan aktiviti terkini pelajar
       if (currentSessionId) {
         await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }).catch(()=>{});
       }
 
-      // 🌟 TERBANG TEPAT KE ID BANK YANG BETUL! 
       navigate(`/quiz/${actualQuizId}`);
 
     } catch (e) { 
@@ -275,11 +344,22 @@ export default function LessonPage() {
         {/* STAGE 2: NOTA PINTAR & INFOGRAFIK PNG */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
-            <div className="prose prose-sm max-w-none max-h-[480px] overflow-y-auto p-4 border rounded-xl bg-[#FAFAF7] shadow-inner flex flex-col items-center">
-              {notesImage && (<img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200 shadow-sm mb-4 bg-white" />)}
-              <div className="w-full">{notesContent ? (<p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{notesContent}</p>) : ((!notesImage) && <p className="text-xs text-slate-400">Nota pengajian belum disediakan.</p>)}</div>
+            <div className="max-h-[480px] overflow-y-auto p-4 border rounded-xl bg-white shadow-inner flex flex-col items-center border-stone-200/60">
+              
+              {/* Gambar Infografik Utama Nota */}
+              {notesImage && (<img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200/80 shadow-xs mb-5 bg-white" />)}
+              
+              {/* 🌟 PENAPIS DILANCARKAN: Menukar kod teks murni markdown kepada format HTML bervisual premium */}
+              <div className="w-full">
+                {notesContent ? (
+                  <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} className="text-left w-full space-y-1" />
+                ) : (
+                  (!notesImage) && <p className="text-xs text-slate-400 text-center py-4">Nota pengajian belum disediakan.</p>
+                )}
+              </div>
+
             </div>
-            <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0">Selesai Membaca Nota 🍃</Button>
+            <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 shadow-xs active:scale-[0.99] transition-transform">Selesai Membaca Nota 🍃</Button>
           </motion.div>
         )}
 
