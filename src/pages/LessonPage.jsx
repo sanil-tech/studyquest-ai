@@ -82,6 +82,7 @@ export default function LessonPage() {
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
+  // KANDUNGAN NOTA PNG / JPG MURNI
   const [videoUrl, setVideoUrl] = useState("");
   const [notesContent, setNotesContent] = useState("");
   const [notesImage, setNotesImage] = useState(""); 
@@ -124,14 +125,17 @@ export default function LessonPage() {
             setVideoUrl(foundBank.video_url || "");
             setInfographicUrl(foundBank.infographic_url || "");
             
+            // 🧠 ENJIN PEMBACA NOTA JSON
             const rawNotes = foundBank.notes_content;
             if (rawNotes) {
               try {
                 let cleanStr = String(rawNotes).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
                 if (cleanStr.startsWith('"') && cleanStr.endsWith('"')) { cleanStr = cleanStr.substring(1, cleanStr.length - 1); }
                 const parsedNotes = typeof rawNotes === "object" ? rawNotes : JSON.parse(cleanStr);
+                
                 if (parsedNotes && (parsedNotes.text !== undefined || parsedNotes.image !== undefined)) {
-                  setNotesContent(parsedNotes.text || ""); setNotesImage(parsedNotes.image || "");
+                  setNotesContent(parsedNotes.text || "");
+                  setNotesImage(parsedNotes.image || "");
                 } else {
                   setNotesContent(String(rawNotes)); setNotesImage("");
                 }
@@ -204,61 +208,29 @@ export default function LessonPage() {
   const loadFlashcardsOnDemand = async () => { setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return; setStatus(p => ({ ...p, flashcards: true })); try { if (rawBankQuestions && rawBankQuestions.length > 0) { setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer}\n\n${q.explanation || ""}` }))); return; } } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } };
   const loadMindMapOnDemand = async () => { setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return; setStatus(p => ({ ...p, mindmap: true })); try { const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} }); setMindMap(res); } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); } };
 
-  // 🎯 KOD KUIZ DENGAN PELINDUNG RALAT LIVE DAN PELAN B
+  // 🚀 LOMPATAN TERUS (DIRECT NAVIGATION) - MENYELESAIKAN ISU BUTANG SENYAP
   const runQuizGeneration = async (numQ) => { 
     await recordStudyTime(); 
     setStatus(p => ({ ...p, quiz: true })); 
     let currentSessionId = sessionRef.current; 
 
     try { 
-      // SEMAKAN 1: Pastikan Soalan Benar-benar Ada!
       if (!rawBankQuestions || rawBankQuestions.length === 0) {
         alert("⚠️ Misi Digantung: Cikgu belum merekodkan sebarang soalan kuiz untuk topik ini.");
         setStatus(p => ({ ...p, quiz: false })); 
         return;
       }
 
-      if (!currentSessionId) { 
-        const user = await base44.auth.me(); 
-        const newSession = await base44.entities.StudySession.create({ student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", duration_minutes: 0, ...progressState, current_stage: "quiz" }); 
-        currentSessionId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id; 
-        setSessionId(currentSessionId); sessionRef.current = currentSessionId; 
-      } 
-
-      const pool = shuffleArray(rawBankQuestions).slice(0, numQ); 
-      
-      try {
-        // SEMAKAN 2: Lindungi dari ralat "Required Field" Database
-        const payloadKuiz = { 
-          session_id: currentSessionId, 
-          topic_name: topic?.name || "Topik", 
-          subject_name: subject?.name || "Subjek", 
-          questions_json: JSON.stringify(pool), 
-          difficulty: numQ >= 20 ? "hard" : "medium", 
-          num_questions: pool.length,
-          // Ejen Penyelamat: Letakkan 'Dummy Data' jika database mewajibkan medan ini
-          video_url: videoUrl || "[https://youtube.com](https://youtube.com)", 
-          notes_content: "Sesi Ujian Pelajar Aktif",
-          infographic_url: ""
-        };
-
-        const quizData = await base44.entities.Quiz.create(payloadKuiz); 
-        const finalQuizId = Array.isArray(quizData) ? quizData[0]?.id : quizData?.id; 
-
-        if (finalQuizId) {
-          await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }); 
-          navigate(`/quiz/${finalQuizId}`); 
-          return;
-        }
-      } catch (dbError) {
-        // SEMAKAN 3: Jika akaun pelajar tiada kebenaran untuk "Create", gunakan Pelan B (Terus ke Bank Utama)
-        console.warn("Pintasan Pelan B Kuiz:", dbError);
-        await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }); 
-        navigate(`/quiz/${topicId}`);
+      if (currentSessionId) {
+        await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }).catch(()=>{});
       }
+
+      // Sistem tidak lagi cuba "Cipta Data". Ia akan terus hantar pelajar membaca set soalan Cikgu!
+      navigate(`/quiz/${topicId}`);
+
     } catch (e) { 
-      // Semakan Akhir: Jika segalanya musnah, pamerkan punca sebenar
-      alert(`❌ Ralat Penjanaan Kuiz: ${e.message}\nSila maklumkan kepada Pentadbir Sistem.`);
+      // Pelan kecemasan jika gagal update session
+      navigate(`/quiz/${topicId}`);
     } finally { 
       setStatus(p => ({ ...p, quiz: false })); 
     } 
@@ -321,10 +293,22 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 5: KUIZ */}
+        {/* STAGE 5: KUIZ (DIBAIKI) */}
         {activeTab === "quiz" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 border border-amber-200 shadow-md">
-            <div className="space-y-4 text-center sm:text-left"><h3 className="text-base font-black text-amber-950">⚔️ Misi Terakhir: Kuiz Puncak Dahan</h3><p className="text-xs text-amber-800 font-medium">Sedia menduduki ujian cabaran minda untuk menawan kemuncak dahan ilmu ini? 🏆</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2"><Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Menyusun..." : "Cabaran Pantas (10 Soalan)"}</Button><Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Menjana..." : "Ujian Boss Padu (20 Soalan)"}</Button></div></div>
+            <div className="space-y-4 text-center sm:text-left">
+              <h3 className="text-base font-black text-amber-950">⚔️ Misi Terakhir: Kuiz Puncak Dahan</h3>
+              <p className="text-xs text-amber-800 font-medium">Sedia menduduki ujian cabaran minda untuk menawan kemuncak dahan ilmu ini? 🏆</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">
+                  {status.quiz ? "Bersiap Sedia..." : "Cabaran Pantas (10 Soalan)"}
+                </Button>
+                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">
+                  {status.quiz ? "Bersiap Sedia..." : "Ujian Boss Padu (20 Soalan)"}
+                </Button>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
