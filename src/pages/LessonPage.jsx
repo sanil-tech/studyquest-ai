@@ -17,7 +17,7 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson (Versi Fokus - Sifar Gangguan Visual)
+// COMPONENT 1: YouTubeLesson (Versi Fokus)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const [apiFailed, setApiFailed] = useState(false);
@@ -83,20 +83,14 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 
   return (
     <div className="space-y-4 w-full">
-      {/* KOTAK FRAME VIDEO PREMIUM */}
       <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
         {apiFailed ? (
-          <iframe 
-            src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`} 
-            className="w-full h-full border-0 absolute inset-0" 
-            allowFullScreen 
-          />
+          <iframe src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`} className="w-full h-full border-0 absolute inset-0" allowFullScreen />
         ) : (
           <div id={containerId.current} className="w-full h-full absolute inset-0" />
         )}
       </div>
 
-      {/* STATUS PROGRES PEMBELAJARAN */}
       {isCompleted ? (
         <div className="bg-emerald-50 border border-emerald-200/60 p-3.5 rounded-xl flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
@@ -120,9 +114,9 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 // ============================================================================
 const safeJsonParse = (str, fallback = []) => {
   if (!str) return fallback;
+  if (typeof str === "object") return str; // 🔥 PERISAI DOUBLE-PARSE: Elak server crash
   try {
-    let cleanStr = str;
-    if (typeof str === "string") cleanStr = str.replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
+    let cleanStr = String(str).replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
     return JSON.parse(cleanStr);
   } catch (e) { return fallback; }
 };
@@ -143,10 +137,7 @@ export default function LessonPage() {
   const [subject, setSubject] = useState(null);
   const [topic, setTopic] = useState(null);
   const [sessionId, setSessionId] = useState(null);
-  const [studentNickname, setStudentNickname] = useState(""); 
   const [loading, setLoading] = useState(true);
-  const [isPremium, setIsPremium] = useState(false);
-  const [uiError, setUiError] = useState(null);
 
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
@@ -187,7 +178,6 @@ export default function LessonPage() {
         
         if (!isMounted) return;
         setSubject(sub); setTopic(top);
-        setStudentNickname(user?.nickname || "Sahabat"); setIsPremium(user?.is_premium || false);
 
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
@@ -210,6 +200,12 @@ export default function LessonPage() {
             setRawBankQuestions(parsedQuestions);
             if (foundBank.infographic_url) setCustomInfographic(foundBank.infographic_url);
             
+            // 🌟 PELAN SANDARAN: Jika video_url asli masih wujud
+            if (foundBank.video_url && typeof foundBank.video_url === "string") {
+              setCustomVideoUrl(foundBank.video_url);
+            }
+
+            // 🌟 PROSES PEEKING (PIGGYBACK): Tulis ganti (override) jika ada data seludup JSON
             if (parsedQuestions.length > 0) {
               const itemInduk = parsedQuestions[0];
               if (itemInduk.custom_video_url) setCustomVideoUrl(itemInduk.custom_video_url);
@@ -235,7 +231,7 @@ export default function LessonPage() {
           }
         } catch (sErr) {}
 
-      } catch (err) { if (isMounted) setUiError("Ralat kurikulum."); } finally { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
+      } catch (err) {} finally { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
     };
 
     initializeLesson();
@@ -338,12 +334,13 @@ export default function LessonPage() {
 
   if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
 
+  // PILIHAN URL MUKTAMAD
   const videoSumberUtama = customVideoUrl || topic?.video_url;
 
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* 🌟 GLOBAL HEADER: DIPANDU ALIRAN FLEXBOX BERSIH (TIADA LAGI STICKY OVERLAP) */}
+      {/* 🌟 GLOBAL HEADER (THEATER MODE) */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
@@ -356,7 +353,6 @@ export default function LessonPage() {
           <div className="bg-gradient-to-r from-lime-400 to-emerald-500 px-3 py-1.5 rounded-xl text-white font-black text-xs shadow-xs"><Leaf className="w-3.5 h-3.5 fill-lime-200 inline mr-1" /> {progressState.xp_earned} XP</div>
         </div>
       ) : (
-        /* 🌟 MINIMALIST BACK BAR (THEATER/FOCUS MODE) */
         <div className="bg-stone-950 text-stone-300 rounded-xl p-2.5 flex items-center justify-between shadow-xs transition-all duration-300">
           <button type="button" onClick={() => setActiveTab("map")} className="flex items-center gap-1.5 text-xs font-bold text-stone-300 hover:text-white bg-stone-900/50 px-3 py-1 rounded-lg border border-stone-800 transition-colors">
             <ChevronLeft className="w-4 h-4" /> Keluar Mod Misi
@@ -365,14 +361,12 @@ export default function LessonPage() {
         </div>
       )}
 
-      {/* NOTA REKOD KEMAJUAN UTAMA */}
       {isTopicUnlocked && activeTab === "map" && (
         <div className="bg-amber-50 border border-amber-200/50 p-3 rounded-xl text-[11px] font-semibold text-amber-800">
           🌳 Mod Ulangkaji Bebas Aktif! Semua dahan kurikulum kini terbuka untuk anda teroka.
         </div>
       )}
 
-      {/* SWITCH LAYOUT ENGINE */}
       <AnimatePresence mode="wait">
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
@@ -383,7 +377,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* 🌟 STAGE 1: CINEMA VIDEO FOCUS LAYER (SIFAR GANGGUAN BAR GLOBAL) */}
+        {/* 🌟 STAGE 1: CINEMA VIDEO FOCUS LAYER */}
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/60 shadow-md space-y-4">
             <YouTubeLesson videoUrl={videoSumberUtama} isCompleted={progressState.video_completed} onCompleted={handleVideoStageCompleted} />
