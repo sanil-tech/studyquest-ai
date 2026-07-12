@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
   ArrowLeft, Play, Loader2, Trophy, Compass, Tv, 
-  CheckCircle2, Leaf, Sprout, ChevronLeft
+  CheckCircle2, Leaf, Sprout, ChevronLeft, Award
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,14 +17,12 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// 🌟 REGISTRI PUSAT: TEMPAT SIMPANAN BAHAN UTAMA (VIDEO & NOTA)ANDA
+// 🌟 REGISTRI PUSAT: TEMPAT SIMPANAN BAHAN UTAMA (VIDEO & NOTA) ANDA
 // ============================================================================
-// Anda bebas menukar link YouTube, Nota, atau menambah ID Topik baharu di sini 
-// tanpa perlu risau tentang ralat pangkalan data lagi!
 const BALAI_BAHAN_PELAJARAN = {
   // 📋 TOPIK 1: BANYAK DAN SEDIKIT
   "6a518e33ba19daf9a981f90f": {
-    videoUrl: "https://www.youtube.com/watch?v=p4vW7VqO0wE", // 👈 TAMPAL LINK YOUTUBE ANDA DI SINI
+    videoUrl: "https://www.youtube.com/watch?v=p4vW7VqO0wE", 
     notes: `Selamat Datang ke Topik Banyak dan Sedikit!
     
     Mari kita belajar membandingkan kumpulan objek:
@@ -33,24 +31,13 @@ const BALAI_BAHAN_PELAJARAN = {
     
     Saksikan video di dahan 1 untuk kefahaman visual yang lebih jelas! 🌟`,
     infographicUrl: "" 
-  },
-  
-  // 📋 CONTOH JIKA ADA TOPIK 2 DI MASA HADAPAN (Tinggal tambah di bawah ini):
-  "id-topik-dua-anda-di-sini": {
-    videoUrl: "https://www.youtube.com/watch?v=...",
-    notes: "Kandungan nota topik dua...",
-    infographicUrl: ""
   }
 };
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson (Theater Mode)
+// COMPONENT 1: YouTubeLesson (Versi Native - 100% Kalis RemoveChild Crash)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
-  const [apiFailed, setApiFailed] = useState(false);
-  const playerRef = useRef(null);
-  const containerId = useRef(`yt-player-${Math.random().toString(36).substring(2, 9)}`);
-
   const getYouTubeId = (url) => {
     if (!url) return null;
     const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
@@ -60,49 +47,10 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 
   const videoId = getYouTubeId(videoUrl);
 
-  useEffect(() => {
-    if (!videoId || apiFailed) return;
-    let timer;
-    const initPlayer = () => {
-      const targetEl = document.getElementById(containerId.current);
-      if (!targetEl || playerRef.current) return;
-      try {
-        playerRef.current = new window.YT.Player(containerId.current, {
-          videoId: videoId,
-          playerVars: { rel: 0, modestbranding: 1, playsinline: 1, autoplay: 0 },
-          events: {
-            onStateChange: (event) => {
-              if (event.data === window.YT.PlayerState.ENDED) onCompleted();
-            },
-            onError: () => setApiFailed(true)
-          },
-        });
-      } catch (error) { setApiFailed(true); }
-    };
-
-    if (!window.YT) {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-      window.onYouTubeIframeAPIReady = () => { initPlayer(); };
-    } else {
-      timer = setTimeout(initPlayer, 150);
-    }
-
-    return () => {
-      clearTimeout(timer);
-      if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-        try { playerRef.current.destroy(); } catch (e) {}
-        playerRef.current = null;
-      }
-    };
-  }, [videoId, apiFailed, onCompleted]);
-
   if (!videoId) {
     return (
       <div className="p-8 text-center bg-amber-50/60 border border-dashed border-amber-200 rounded-2xl">
-        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Sila pastikan pautan video YouTube telah diisi di dalam 'BALAI_BAHAN_PELAJARAN' di bahagian atas kod.</p>
+        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video YouTube belum dikunci di bahagian atas kod.</p>
         <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-3 border-0">Teruskan Misi 🚀</Button>
       </div>
     );
@@ -110,26 +58,38 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 
   return (
     <div className="space-y-4 w-full">
+      {/* NATIVE IFRAME LAYER: Dijamin tidak akan mengacau DOM tree React */}
       <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
-        {apiFailed ? (
-          <iframe src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`} className="w-full h-full border-0 absolute inset-0" allowFullScreen />
-        ) : (
-          <div id={containerId.current} className="w-full h-full absolute inset-0" />
-        )}
+        <iframe 
+          src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`} 
+          className="w-full h-full border-0 absolute inset-0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen 
+        />
       </div>
 
+      {/* STATUS ACTION PANEL */}
       {isCompleted ? (
         <div className="bg-emerald-50 border border-emerald-200/60 p-3.5 rounded-xl flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-bold text-emerald-800 text-xs">Syabas! Anda telah selesai menonton video pengajaran ini. 🍃</span>
+            <span className="font-bold text-emerald-800 text-xs">Syabas! Video ini telah selesai diterokai. 🍃</span>
           </div>
           <div className="bg-lime-100 px-2.5 py-1 rounded-lg text-emerald-700 font-black text-[10px] shrink-0">+10 XP</div>
         </div>
       ) : (
-        <div className="bg-stone-100 border border-stone-200/60 p-3 rounded-xl flex items-center justify-between text-[11px] text-stone-600 font-medium">
-          <span className="flex items-center gap-1.5"><Tv className="w-3.5 h-3.5 text-stone-500 animate-pulse" /> Tonton video pengajaran sehingga selesai untuk membuka dahan ilmu.</span>
-          <button type="button" onClick={onCompleted} className="text-stone-500 font-bold underline hover:text-emerald-600 ml-2 whitespace-nowrap shrink-0">Langkau</button>
+        <div className="bg-stone-900 border border-stone-800 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+          <p className="text-[11px] text-stone-300 font-medium flex items-center gap-1.5">
+            <Tv className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
+            Selesai menonton video pengajaran di atas? Klik butang hijau di sebelah untuk menuntut ganjaran!
+          </p>
+          <Button 
+            onClick={onCompleted} 
+            size="sm" 
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl px-5 h-9 shrink-0 border-0 shadow-xs active:scale-95 transition-all"
+          >
+            Selesai & Ambil +10 XP 🍃
+          </Button>
         </div>
       )}
     </div>
@@ -141,7 +101,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 // ============================================================================
 const safeJsonParse = (str, fallback = []) => {
   if (!str) return fallback;
-  if (typeof str === "object") return str;
+  if (typeof str === "object") return str; 
   try {
     let cleanStr = String(str).replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
     return JSON.parse(cleanStr);
@@ -201,7 +161,6 @@ export default function LessonPage() {
         if (!isMounted) return;
         setSubject(sub); setTopic(top);
 
-        // Ambil data bank soalan asal dari database (kerana struktur soalan tiada masalah saiz)
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
           let foundBank = null;
@@ -224,7 +183,6 @@ export default function LessonPage() {
           }
         } catch (quizBankErr) { console.error(quizBankErr); }
 
-        // Muat progress sesi
         try {
           let cachedSessions = await base44.entities.StudySession.filter({ student_id: user.id, topic_id: topicId }, "-created_date", 1);
           let sessionWithNotes = cachedSessions[0] || null;
@@ -242,7 +200,7 @@ export default function LessonPage() {
           }
         } catch (sErr) {}
 
-      } catch (err) {} finally { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
+      } catch (err) {} { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
     };
 
     initializeLesson();
@@ -345,9 +303,8 @@ export default function LessonPage() {
 
   if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
 
-  // 🌟 EKSTRAK DATA SECARA LOKAL: Sistem membaca registri pusat terlebih dahulu berdasarkan ID Topik aktif
+  // SISTEM BACAAN STRUKTUR REGISTRI LOKAL
   const dataLokalModul = BALAI_BAHAN_PELAJARAN[topicId];
-  
   const videoSumberUtama = dataLokalModul?.videoUrl || topic?.video_url;
   const notesSumberUtama = dataLokalModul?.notes || "Nota pengajian sedang disediakan.";
   const infographicSumberUtama = dataLokalModul?.infographicUrl || "";
@@ -355,7 +312,7 @@ export default function LessonPage() {
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* GLOBAL HEADER BAR (THEATER FRIENDLY) */}
+      {/* HEADER NAVIGATION (MOD BARU KALIS GANGGUAN / THEATER INTERFACE) */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
