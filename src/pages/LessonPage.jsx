@@ -14,7 +14,7 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson (Versi Paksa Dalam Aplikasi / Strict Inline)
+// COMPONENT 1: YouTubeLesson (Versi Premium - Kalis Error 153 Browser Sandbox)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
@@ -29,29 +29,29 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   if (!videoId) {
     return (
       <div className="p-8 text-center bg-amber-50/60 border border-dashed border-amber-200 rounded-2xl">
-        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video YouTube belum dikunci oleh Cikgu untuk modul ini.</p>
+        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video YouTube belum dimasukkan oleh Pentadbir untuk modul ini.</p>
         <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-3 border-0 shadow-sm">Teruskan Misi 🚀</Button>
       </div>
     );
   }
 
+  // 🔒 MEMBINA LINK EMbed KALIS SEKATAN (MENGGUNAKAN POLISI ORIGIN DOMAIN)
+  const currentOrigin = window.location.origin;
+  const secureEmbedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(currentOrigin)}`;
+
   return (
     <div className="space-y-4 w-full">
-      {/* 
-        KOTAK IFRAME STRICT INLINE
-        - playsinline=1 : Paksa video main di dalam kotak, halang dari melompat ke app YouTube
-        - rel=0         : Halang YouTube dari mencadangkan video merapu dari channel lain
-        - modestbranding: Sembunyikan logo besar YouTube
-      */}
+      {/* KOTAK IFRAME UTAMA - DILENGKAPI POLISI IZIN AKSES CROSS-ORIGIN */}
       <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
         <iframe 
-          src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1`} 
+          src={secureEmbedUrl} 
           className="w-full h-full border-0 absolute inset-0" 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen 
         />
       </div>
 
+      {/* STATUS ACTION PANEL */}
       {isCompleted ? (
         <div className="bg-emerald-50 border border-emerald-200/60 p-3.5 rounded-xl flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
@@ -149,6 +149,7 @@ export default function LessonPage() {
         if (!isMounted) return;
         setSubject(sub); setTopic(top);
 
+        // 🎯 AMBIL DATA TERUS DARI DATABASE KESELURUHAN (CLEAN PULL)
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
           let foundBank = null;
@@ -166,7 +167,6 @@ export default function LessonPage() {
           }
 
           if (foundBank && isMounted) {
-            // Mapping terus ke state UI dari field database tulen
             setVideoUrl(foundBank.video_url || "");
             setNotesContent(foundBank.notes_content || "");
             setInfographicUrl(foundBank.infographic_url || "");
@@ -294,15 +294,12 @@ export default function LessonPage() {
     } catch (e) { } finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
-  if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
-
-  // MENGGUNAKAN DATA KOLUM DATABASE RASMI
   const videoSumberUtama = videoUrl || topic?.video_url;
 
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* GLOBAL HEADER BAR (THEATER FRIENDLY) */}
+      {/* GLOBAL HEADER BAR */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
