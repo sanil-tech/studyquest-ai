@@ -293,7 +293,7 @@ export default function LessonResources() {
         infographic_url: serverInfographicUrl, 
         coins_reward: Number(coinReward), 
         notes_json: JSON.stringify(notes.trim()), 
-        questions_json: JSON.stringify(susunanSovanKuiz)
+        questions_json: JSON.stringify(susunanSoalanKuiz)
       };
 
       if (borangMod === "create") {
