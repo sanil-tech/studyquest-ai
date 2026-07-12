@@ -80,9 +80,12 @@ export default function LessonPage() {
 
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
+  
+  // 🌟 BARU: STATE GPS ID BANK KUIZ
+  const [actualQuizId, setActualQuizId] = useState("");
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  // KANDUNGAN NOTA PNG / JPG MURNI
+  // KANDUNGAN NOTA PNG / JPG
   const [videoUrl, setVideoUrl] = useState("");
   const [notesContent, setNotesContent] = useState("");
   const [notesImage, setNotesImage] = useState(""); 
@@ -122,10 +125,11 @@ export default function LessonPage() {
           }
 
           if (foundBank && isMounted) {
+            // 🌟 KUNCI RAHSIA: Simpan ID Bank sebenar untuk digunakan oleh butang Kuiz!
+            setActualQuizId(foundBank.id);
             setVideoUrl(foundBank.video_url || "");
             setInfographicUrl(foundBank.infographic_url || "");
             
-            // 🧠 ENJIN PEMBACA NOTA JSON
             const rawNotes = foundBank.notes_content;
             if (rawNotes) {
               try {
@@ -208,29 +212,30 @@ export default function LessonPage() {
   const loadFlashcardsOnDemand = async () => { setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return; setStatus(p => ({ ...p, flashcards: true })); try { if (rawBankQuestions && rawBankQuestions.length > 0) { setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer}\n\n${q.explanation || ""}` }))); return; } } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } };
   const loadMindMapOnDemand = async () => { setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return; setStatus(p => ({ ...p, mindmap: true })); try { const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} }); setMindMap(res); } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); } };
 
-  // 🚀 LOMPATAN TERUS (DIRECT NAVIGATION) - MENYELESAIKAN ISU BUTANG SENYAP
+  // 🎯 KUIZ - LOMPATAN TEPAT KE GPS ID BANK SEBENAR
   const runQuizGeneration = async (numQ) => { 
     await recordStudyTime(); 
     setStatus(p => ({ ...p, quiz: true })); 
     let currentSessionId = sessionRef.current; 
 
     try { 
-      if (!rawBankQuestions || rawBankQuestions.length === 0) {
+      // Semak jika Admin ada masukkan soalan tak
+      if (!rawBankQuestions || rawBankQuestions.length === 0 || !actualQuizId) {
         alert("⚠️ Misi Digantung: Cikgu belum merekodkan sebarang soalan kuiz untuk topik ini.");
         setStatus(p => ({ ...p, quiz: false })); 
         return;
       }
 
+      // Rekodkan aktiviti terkini pelajar
       if (currentSessionId) {
         await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }).catch(()=>{});
       }
 
-      // Sistem tidak lagi cuba "Cipta Data". Ia akan terus hantar pelajar membaca set soalan Cikgu!
-      navigate(`/quiz/${topicId}`);
+      // 🌟 TERBANG TEPAT KE ID BANK YANG BETUL! 
+      navigate(`/quiz/${actualQuizId}`);
 
     } catch (e) { 
-      // Pelan kecemasan jika gagal update session
-      navigate(`/quiz/${topicId}`);
+      navigate(`/quiz/${actualQuizId || topicId}`);
     } finally { 
       setStatus(p => ({ ...p, quiz: false })); 
     } 
@@ -293,7 +298,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 5: KUIZ (DIBAIKI) */}
+        {/* STAGE 5: KUIZ */}
         {activeTab === "quiz" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 border border-amber-200 shadow-md">
             <div className="space-y-4 text-center sm:text-left">
@@ -302,10 +307,10 @@ export default function LessonPage() {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">
-                  {status.quiz ? "Bersiap Sedia..." : "Cabaran Pantas (10 Soalan)"}
+                  {status.quiz ? "Mencari Soalan..." : "Cabaran Pantas (10 Soalan)"}
                 </Button>
                 <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">
-                  {status.quiz ? "Bersiap Sedia..." : "Ujian Boss Padu (20 Soalan)"}
+                  {status.quiz ? "Mencari Soalan..." : "Ujian Boss Padu (20 Soalan)"}
                 </Button>
               </div>
             </div>
