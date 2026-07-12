@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
   ArrowLeft, Play, Loader2, Trophy, Compass, Tv, 
-  CheckCircle2, Leaf, Sprout, Info, ChevronLeft
+  CheckCircle2, Leaf, Sprout, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,7 +17,34 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson (Versi Fokus)
+// 🌟 REGISTRI PUSAT: TEMPAT SIMPANAN BAHAN UTAMA (VIDEO & NOTA)ANDA
+// ============================================================================
+// Anda bebas menukar link YouTube, Nota, atau menambah ID Topik baharu di sini 
+// tanpa perlu risau tentang ralat pangkalan data lagi!
+const BALAI_BAHAN_PELAJARAN = {
+  // 📋 TOPIK 1: BANYAK DAN SEDIKIT
+  "6a518e33ba19daf9a981f90f": {
+    videoUrl: "https://www.youtube.com/watch?v=p4vW7VqO0wE", // 👈 TAMPAL LINK YOUTUBE ANDA DI SINI
+    notes: `Selamat Datang ke Topik Banyak dan Sedikit!
+    
+    Mari kita belajar membandingkan kumpulan objek:
+    1. Banyak: Kumpulan yang mempunyai bilangan kuantiti yang lebih besar atau melimpah.
+    2. Sedikit: Kumpulan yang mempunyai kuantiti yang kecil atau berkurangan apabila dibandingkan.
+    
+    Saksikan video di dahan 1 untuk kefahaman visual yang lebih jelas! 🌟`,
+    infographicUrl: "" 
+  },
+  
+  // 📋 CONTOH JIKA ADA TOPIK 2 DI MASA HADAPAN (Tinggal tambah di bawah ini):
+  "id-topik-dua-anda-di-sini": {
+    videoUrl: "https://www.youtube.com/watch?v=...",
+    notes: "Kandungan nota topik dua...",
+    infographicUrl: ""
+  }
+};
+
+// ============================================================================
+// COMPONENT 1: YouTubeLesson (Theater Mode)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const [apiFailed, setApiFailed] = useState(false);
@@ -75,8 +102,8 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   if (!videoId) {
     return (
       <div className="p-8 text-center bg-amber-50/60 border border-dashed border-amber-200 rounded-2xl">
-        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video belum dimasukkan oleh Pentadbir untuk dahan ini.</p>
-        <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-3 shadow-xs border-0">Teruskan Misi 🚀</Button>
+        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Sila pastikan pautan video YouTube telah diisi di dalam 'BALAI_BAHAN_PELAJARAN' di bahagian atas kod.</p>
+        <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-3 border-0">Teruskan Misi 🚀</Button>
       </div>
     );
   }
@@ -114,7 +141,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 // ============================================================================
 const safeJsonParse = (str, fallback = []) => {
   if (!str) return fallback;
-  if (typeof str === "object") return str; // 🔥 PERISAI DOUBLE-PARSE: Elak server crash
+  if (typeof str === "object") return str;
   try {
     let cleanStr = String(str).replace(/^```json/i, "").replace(/^```/i, "").replace(/```$/i, "").trim();
     return JSON.parse(cleanStr);
@@ -142,11 +169,6 @@ export default function LessonPage() {
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
-
-  // DATA KUSTOM
-  const [customVideoUrl, setCustomVideoUrl] = useState("");
-  const [customNotes, setCustomNotes] = useState("");
-  const [customInfographic, setCustomInfographic] = useState("");
 
   const [activeTab, setActiveTab] = useState("map"); 
   const [progressState, setProgressState] = useState({
@@ -179,6 +201,7 @@ export default function LessonPage() {
         if (!isMounted) return;
         setSubject(sub); setTopic(top);
 
+        // Ambil data bank soalan asal dari database (kerana struktur soalan tiada masalah saiz)
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
           let foundBank = null;
@@ -198,22 +221,10 @@ export default function LessonPage() {
           if (foundBank && isMounted) {
             const parsedQuestions = safeJsonParse(foundBank.questions_json, []);
             setRawBankQuestions(parsedQuestions);
-            if (foundBank.infographic_url) setCustomInfographic(foundBank.infographic_url);
-            
-            // 🌟 PELAN SANDARAN: Jika video_url asli masih wujud
-            if (foundBank.video_url && typeof foundBank.video_url === "string") {
-              setCustomVideoUrl(foundBank.video_url);
-            }
-
-            // 🌟 PROSES PEEKING (PIGGYBACK): Tulis ganti (override) jika ada data seludup JSON
-            if (parsedQuestions.length > 0) {
-              const itemInduk = parsedQuestions[0];
-              if (itemInduk.custom_video_url) setCustomVideoUrl(itemInduk.custom_video_url);
-              if (itemInduk.custom_notes) setCustomNotes(itemInduk.custom_notes);
-            }
           }
         } catch (quizBankErr) { console.error(quizBankErr); }
 
+        // Muat progress sesi
         try {
           let cachedSessions = await base44.entities.StudySession.filter({ student_id: user.id, topic_id: topicId }, "-created_date", 1);
           let sessionWithNotes = cachedSessions[0] || null;
@@ -306,7 +317,7 @@ export default function LessonPage() {
   };
 
   const loadMindMapOnDemand = async () => {
-    setActiveTab("mindmap"); if (customInfographic || (mindMap && mindMap.length > 0)) return;
+    setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return;
     setStatus(p => ({ ...p, mindmap: true }));
     try {
       const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} });
@@ -334,13 +345,17 @@ export default function LessonPage() {
 
   if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
 
-  // PILIHAN URL MUKTAMAD
-  const videoSumberUtama = customVideoUrl || topic?.video_url;
+  // 🌟 EKSTRAK DATA SECARA LOKAL: Sistem membaca registri pusat terlebih dahulu berdasarkan ID Topik aktif
+  const dataLokalModul = BALAI_BAHAN_PELAJARAN[topicId];
+  
+  const videoSumberUtama = dataLokalModul?.videoUrl || topic?.video_url;
+  const notesSumberUtama = dataLokalModul?.notes || "Nota pengajian sedang disediakan.";
+  const infographicSumberUtama = dataLokalModul?.infographicUrl || "";
 
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* 🌟 GLOBAL HEADER (THEATER MODE) */}
+      {/* GLOBAL HEADER BAR (THEATER FRIENDLY) */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
@@ -377,7 +392,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* 🌟 STAGE 1: CINEMA VIDEO FOCUS LAYER */}
+        {/* STAGE 1: CINEMA VIDEO FOCUS LAYER */}
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/60 shadow-md space-y-4">
             <YouTubeLesson videoUrl={videoSumberUtama} isCompleted={progressState.video_completed} onCompleted={handleVideoStageCompleted} />
@@ -393,7 +408,7 @@ export default function LessonPage() {
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
             <div className="prose prose-sm max-w-none max-h-[350px] overflow-y-auto p-4 border rounded-xl bg-[#FAFAF7] shadow-inner">
-              {customNotes ? <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{customNotes}</p> : <p className="text-xs text-slate-400">Nota belum tersedia.</p>}
+              <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{notesSumberUtama}</p>
             </div>
             <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0">Selesai Membaca Nota 🍃</Button>
           </motion.div>
@@ -411,7 +426,7 @@ export default function LessonPage() {
         {activeTab === "mindmap" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
             <div className="min-h-[220px] bg-[#FAFAF7] rounded-xl p-3 border flex flex-col items-center justify-center">
-              {customInfographic ? <img src={customInfographic} alt="Mindmap" className="w-full h-auto rounded-xl max-h-72 object-contain bg-white border shadow-2xs" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
+              {infographicSumberUtama ? <img src={infographicSumberUtama} alt="Mindmap" className="w-full h-auto rounded-xl max-h-72 object-contain bg-white border shadow-2xs" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
             </div>
             <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 mt-2 shadow-xs">Selesai Teroka Peta! 🗺️</Button>
           </motion.div>
