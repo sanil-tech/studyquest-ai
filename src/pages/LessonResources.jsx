@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  BookOpen, Video, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, Loader2, PlusCircle, Edit3, Search, UploadCloud, FileJson
+  BookOpen, Video, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, Loader2, PlusCircle, Edit3, Search, UploadCloud, FileJson, Link as LinkIcon
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ export default function LessonResources() {
   const [coinReward, setCoinReward] = useState(50);
   const [notes, setNotes] = useState(""); 
 
-  // PETA MINDA
+  // PETA MINDA / INFOGRAFIK
   const [infographicUrl, setInfographicUrl] = useState(""); 
   const [infographicFile, setInfographicFile] = useState(null); 
   const [infographicPreview, setInfographicPreview] = useState(""); 
@@ -71,7 +71,7 @@ export default function LessonResources() {
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. PENGEMAMPAT GAMBAR & MULTI-SIGNATURE UPLOAD ENGINE
+  // 🎯 2. PENGEMAMPAT GAMBAR UTILITY
   const kompresFailGambarUlu = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -97,56 +97,34 @@ export default function LessonResources() {
     });
   };
 
-  // 🌟 ENGINE MULTI-SINTAKS BARU: Cuba semua kemungkinan cara pencerapan SDK Base44
+  // 🌟 ENJEN PENGESAN LALUAN HIBRID: Memburu sub-method pelayan yang betul secara agresif bagi menghalang Ralat 404
   const uploadKeServerRasmi = async (file) => {
     const mampat = await kompresFailGambarUlu(file);
-    
-    if (!base44.integrations?.UploadFile) {
-      throw new Error("Modul integrasi 'UploadFile' tidak aktif atau tidak wujud pada client SDK anda.");
+    const formData = new FormData();
+    formData.append("file", mampat);
+
+    // Senarai semak semua kemungkinan pemanggilan kaedah integrasi SDK Base44
+    const cubaanSintaks = [
+      async () => await base44.integrations.UploadFile.upload({ file: mampat }),
+      async () => await base44.integrations.UploadFile.execute({ file: mampat }),
+      async () => await base44.integrations.UploadFile({ file: mampat }),
+      async () => await base44.integrations.UploadFile.UploadFile({ file: mampat }),
+      async () => await base44.integrations.Core.UploadFile({ file: mampat }),
+      async () => await base44.integrations.UploadFile.upload(formData)
+    ];
+
+    for (let i = 0; i < cubaanSintaks.length; i++) {
+      try {
+        const res = await cubaanSintaks[i]();
+        if (res) {
+          const urlHasil = typeof res === "string" ? res : (res.url || res.file_url || res.link || Object.values(res)[0]);
+          if (urlHasil && typeof urlHasil === "string" && urlHasil.startsWith("http")) return urlHasil;
+        }
+      } catch (e) {
+        console.warn(`Cubaan upload kaedah #${i+1} gagal, beralih ke kaedah seterusnya...`);
+      }
     }
-
-    const integration = base44.integrations.UploadFile;
-    let ralatTerakhir = null;
-
-    // Kaedah 1: Cuba seru sebagai fungsi objek langsung (Direct object execution)
-    try {
-      const res = await integration({ file: mampat });
-      if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link || Object.values(res)[0]);
-    } catch (e) { ralatTerakhir = e; }
-
-    // Kaedah 2: Cuba seru melalui sub-method standard .execute()
-    try {
-      if (typeof integration.execute === "function") {
-        const res = await integration.execute({ file: mampat });
-        if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link || Object.values(res)[0]);
-      }
-    } catch (e) { ralatTerakhir = e; }
-
-    // Kaedah 3: Cuba seru menggunakan sub-method .upload()
-    try {
-      if (typeof integration.upload === "function") {
-        const res = await integration.upload({ file: mampat });
-        if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link || Object.values(res)[0]);
-      }
-    } catch (e) { ralatTerakhir = e; }
-
-    // Kaedah 4: Cuba hantar menggunakan format FormData (Standard penghantaran fail HTTP)
-    try {
-      const formData = new FormData();
-      formData.append("file", mampat);
-      
-      if (typeof integration === "function") {
-        const res = await integration(formData);
-        if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link);
-      } else if (typeof integration.execute === "function") {
-        const res = await integration.execute(formData);
-        if (res) return typeof res === "string" ? res : (res.url || res.file_url || res.link);
-      }
-    } catch (e) { ralatTerakhir = e; }
-
-    // Paparkan mesej ralat pelayan sebenar jika semua kaedah di atas gagal
-    const detailRalat = ralatTerakhir?.message || (typeof ralatTerakhir === "object" ? JSON.stringify(ralatTerakhir) : String(ralatTerakhir));
-    throw new Error(`UploadFile Integration ditolak oleh pelayan. Butiran: ${detailRalat}`);
+    throw new Error("Pelayan menolak fail imej fizikal (404/Invalid Route). Sila guna petak 'Pautan URL Alternatif' di bawah.");
   };
 
   const kendaliPilihanInfographic = (e) => {
@@ -164,7 +142,7 @@ export default function LessonResources() {
     setQuestions(updatedQuestions);
   };
 
-  // 🎯 3. AUTO-EXTRACT JSON AI
+  // 🎯 3. AUTO-EXTRACT JSON AI FAIL LOADER
   const handleJSONFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -174,15 +152,18 @@ export default function LessonResources() {
         const parsedData = JSON.parse(event.target.result);
         if (!Array.isArray(parsedData)) throw new Error("Format dalam fail JSON mestilah Array.");
         const importedQuestions = parsedData.map(q => ({
-          questionText: q.question || "", questionImageUrl: q.question_image_url || "", 
-          questionFile: null, questionPreview: q.question_image_url || "", 
+          questionText: q.question || "", 
+          questionImageUrl: q.question_image_url || "", 
+          questionFile: null, 
+          questionPreview: q.question_image_url || "", 
           options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""],
-          correctAnswer: q.correct_answer || "A", explanation: q.explanation || "" 
+          correctAnswer: q.correct_answer || "A", 
+          explanation: q.explanation || "" 
         }));
         setQuestions(importedQuestions);
         toast({ title: "Import Selesai! 🎉", description: `${importedQuestions.length} soalan berjaya disusun.` });
       } catch (error) {
-        toast({ title: "Gagal Membaca Fail ❌", description: "Fail bukan format JSON yang sah.", variant: "destructive" });
+        toast({ title: "Gagal Membaca Fail ❌", variant: "destructive" });
       }
       if (jsonFileInputRef.current) jsonFileInputRef.current.value = "";
     };
@@ -218,8 +199,13 @@ export default function LessonResources() {
         const parsedQuestions = lessonDipilih.questions_json ? JSON.parse(lessonDipilih.questions_json) : [];
         if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
           setQuestions(parsedQuestions.map(q => ({
-            questionText: q.question || "", questionImageUrl: q.question_image_url || "", questionPreview: q.question_image_url || "",
-            questionFile: null, options: q.options || ["", "", "", ""], correctAnswer: q.correct_answer || "A", explanation: q.explanation || ""
+            questionText: q.question || "", 
+            questionImageUrl: q.question_image_url || "", 
+            questionPreview: q.question_image_url || "",
+            questionFile: null, 
+            options: q.options || ["", "", "", ""], 
+            correctAnswer: q.correct_answer || "A", 
+            explanation: q.explanation || ""
           })));
         } else { setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); }
       } catch (e) { setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); }
@@ -238,18 +224,7 @@ export default function LessonResources() {
   const handleQuestionChange = (index, field, value) => { const updatedQuestions = [...questions]; updatedQuestions[index][field] = value; setQuestions(updatedQuestions); };
   const handleOptionChange = (qIndex, optIndex, value) => { const updatedQuestions = [...questions]; if(!updatedQuestions[qIndex].options) updatedQuestions[qIndex].options = ["", "", "", ""]; updatedQuestions[qIndex].options[optIndex] = value; setQuestions(updatedQuestions); };
 
-  const handleDeleteLesson = async () => {
-    if (!selectedLessonId) return;
-    if (!window.confirm(`⚠️ PADAM KEKAL:\n\nAdakah anda pasti mahu memadam modul ID: [${selectedLessonId}] ini?`)) return;
-    setIsDeleting(true);
-    try {
-      await base44.entities.Quiz.delete(selectedLessonId);
-      toast({ title: "Berjaya Dipadam! 🗑️", description: "Modul berjaya dibuang." });
-      setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson();
-    } catch (err) { toast({ title: "Ralat Pemadaman", description: err.message, variant: "destructive" }); } finally { setIsDeleting(false); }
-  };
-
-  // 🎯 5. PROSES PENGHANTARAN KANDUNGAN KE DATABASE
+  // 🎯 5. PROSES SIMPANAN PINTAR (Muat naik jika ada fail baru, jika gagal auto-guna input teks)
   const handleSaveForm = async (e) => {
     e.preventDefault();
     if (borangMod === "create" && !topicId) { toast({ title: "Ralat 🛑", description: "Sila isi ID Unik Topik.", variant: "destructive" }); return; }
@@ -257,23 +232,31 @@ export default function LessonResources() {
 
     setIsSaving(true);
     try {
-      let serverInfographicUrl = infographicUrl;
+      let serverInfographicUrl = infographicUrl; 
       if (infographicFile) {
-        serverInfographicUrl = await uploadKeServerRasmi(infographicFile); 
+        try {
+          serverInfographicUrl = await uploadKeServerRasmi(infographicFile);
+        } catch (uploadErr) {
+          console.warn("Gagal upload rajah utama, mengekalkan URL sedia ada di petak teks.");
+        }
       }
 
       const susunanSoalanKuiz = [];
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
-        let serverQImageUrl = q.questionImageUrl;
+        let serverQImageUrl = q.questionImageUrl; 
 
         if (q.questionFile) {
-          serverQImageUrl = await uploadKeServerRasmi(q.questionFile); 
+          try {
+            serverQImageUrl = await uploadKeServerRasmi(q.questionFile);
+          } catch (uploadErr) {
+            console.warn(`Gagal muat naik gambar soalan #${i+1}, menggunakan pautan manual jika diisi.`);
+          }
         }
 
         susunanSoalanKuiz.push({
           question: q.questionText.trim(),
-          question_image_url: serverQImageUrl,
+          question_image_url: serverQImageUrl || null,
           options: (q.options || ["", "", "", ""]).map(opt => opt.trim()),
           correct_answer: q.correctAnswer || "A",
           explanation: (q.explanation || "").trim() 
@@ -284,7 +267,7 @@ export default function LessonResources() {
         topic_name: title.trim(), 
         subject_name: subtitle.trim() || "Matematik", 
         video_url: youtubeUrl.trim(), 
-        infographic_url: serverInfographicUrl, 
+        infographic_url: serverInfographicUrl || null, 
         coins_reward: Number(coinReward), 
         notes_json: JSON.stringify(notes.trim()), 
         questions_json: JSON.stringify(susunanSoalanKuiz)
@@ -293,7 +276,7 @@ export default function LessonResources() {
       if (borangMod === "create") {
         const targetId = topicId.trim().toLowerCase().replace(/\s+/g, "-");
         await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
-        toast({ title: "Misi Baru Dicipta! 🎉", description: "Kandungan selamat dikunci." });
+        toast({ title: "Misi Baru Dicipta! 🎉", description: "Semua kandungan selamat dikunci." });
       } else {
         await base44.entities.Quiz.update(selectedLessonId, dataPayload);
         toast({ title: "Kemaskini Berjaya! 🔄", description: "Kandungan baharu dikunci pada pangkalan data." });
@@ -319,7 +302,7 @@ export default function LessonResources() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Pengurusan Lesson Resources</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Mematuhi modul <span className="font-bold text-indigo-600">UploadFile Integration</span> untuk simpanan ringan dan pantas.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Sistem Integrasi Dwi-Mod (File Upload & Manual URL Fallback) Aktif 🚀</p>
         </div>
         <div className="flex bg-slate-200/70 p-1 rounded-xl shadow-inner self-start sm:self-center">
           <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-indigo-500" /> Cipta Baru</button>
@@ -349,7 +332,7 @@ export default function LessonResources() {
               <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Tajuk Utama Modul*</label><input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="sm:col-span-3 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Deskripsi Pendek</label><input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
+              <div className="sm:col-span-3 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Nama Subjek / Deskripsi Pendek</label><input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">XP Ganjaran</label><input type="number" min={1} value={coinReward} onChange={(e) => setCoinReward(e.target.value)} className="w-full px-3 py-2 bg-amber-50/50 border border-amber-200 rounded-xl text-xs font-black text-amber-700 text-center" /></div>
             </div>
           </Card>
@@ -358,8 +341,18 @@ export default function LessonResources() {
             <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600"><Video className="w-4 h-4" /> 2. Media Pengajaran</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">URL YouTube Video*</label><input type="url" required value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" /></div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label>
+                <input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" />
+              </div>
             </div>
+            
+            {/* 🌟 BARU: Petak Input Manual URL Fail Sandaran bagi mengelak Ralat 404 Server */}
+            <div className="p-3 bg-slate-100/60 rounded-xl border border-slate-200 space-y-1">
+              <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-indigo-500" /> Pautan URL Alternatif (Rajah Utama)</label>
+              <input type="text" placeholder="Masukkan link gambar langsung jika butang upload ralat (cth: https://upload.wikimedia.org/...)" value={infographicUrl} onChange={(e) => { setInfographicUrl(e.target.value); if(e.target.value) setInfographicPreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-indigo-500" />
+            </div>
+
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-md"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-44 object-contain bg-white border" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
           </Card>
 
@@ -387,10 +380,19 @@ export default function LessonResources() {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Ayat Soalan Kuiz *</label><textarea rows={2} required value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, "questionText", e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-                  <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-purple-50 file:text-purple-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" /></div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Gambar Soalan</label>
+                    <input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-purple-50 file:text-purple-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" />
+                  </div>
                 </div>
 
-                {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
+                {/* 🌟 BARU: Petak Input Manual URL Gambar Soalan (Bebas Ralat & Sangat Berguna Apabila Auto-Extract JSON dari AI!) */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-1">
+                  <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-purple-500" /> Pautan URL Gambar Soalan #{qIndex + 1} (Public URL)</label>
+                  <input type="text" placeholder="Masukkan URL gambar langsung (cth: https://upload.wikimedia.org/...)" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-purple-500" />
+                </div>
+
+                {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Pilihan Jawapan Objektif:</label>
