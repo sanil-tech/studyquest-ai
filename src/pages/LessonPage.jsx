@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, ChevronLeft, ExternalLink, Loader2
+  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, ChevronLeft, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,25 +14,7 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// 🌟 REGISTRI PUSAT: TEMPAT SIMPANAN BAHAN UTAMA (VIDEO & NOTA) ANDA
-// ============================================================================
-const BALAI_BAHAN_PELAJARAN = {
-  // 📋 TOPIK 1: BANYAK DAN SEDIKIT
-  "6a518e33ba19daf9a981f90f": {
-    videoUrl: "https://www.youtube.com/watch?v=p4vW7VqO0wE", 
-    notes: `Selamat Datang ke Topik Banyak dan Sedikit!
-    
-    Mari kita belajar membandingkan kumpulan objek:
-    1. Banyak: Kumpulan yang mempunyai bilangan kuantiti yang lebih besar atau melimpah.
-    2. Sedikit: Kumpulan yang mempunyai kuantiti yang kecil atau berkurangan apabila dibandingkan.
-    
-    Saksikan video di dahan 1 untuk kefahaman visual yang lebih jelas! 🌟`,
-    infographicUrl: "" 
-  }
-};
-
-// ============================================================================
-// COMPONENT 1: YouTubeLesson (Versi Kalis Sekatan Sandbox Browser)
+// COMPONENT 1: YouTubeLesson (Native Iframe - Kalis Crash & Sandbox)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
@@ -47,15 +29,14 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   if (!videoId) {
     return (
       <div className="p-8 text-center bg-amber-50/60 border border-dashed border-amber-200 rounded-2xl">
-        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video YouTube belum dikunci di bahagian atas kod.</p>
-        <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-3 border-0">Teruskan Misi 🚀</Button>
+        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video YouTube belum dikunci oleh Cikgu untuk modul ini.</p>
+        <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-3 border-0 shadow-sm">Teruskan Misi 🚀</Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-4 w-full">
-      {/* 🌟 IFRAME LAYER DENGAN POLISI KEBENARAN LENGKAP UNTUK MEMPINTAS ERROR 153 */}
       <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
         <iframe 
           src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1`} 
@@ -65,7 +46,6 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
         />
       </div>
 
-      {/* 🌟 PINTU KECEMASAN: Jika Sandbox IDE anda terlalu keras mendepani YouTube, klik ini untuk tonton terus */}
       <div className="text-center pt-0.5">
         <a 
           href={`https://www.youtube.com/watch?v=${videoId}`} 
@@ -73,16 +53,15 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
           rel="noopener noreferrer"
           className="text-[11px] text-stone-500 hover:text-emerald-600 font-bold underline inline-flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/70 px-3 py-2 rounded-xl border border-stone-200/60 transition-colors shadow-2xs"
         >
-          <ExternalLink className="w-3.5 h-3.5 text-emerald-500" /> Ralat Konfigurasi Browser? Klik sini untuk tonton terus di YouTube
+          <ExternalLink className="w-3.5 h-3.5 text-emerald-500" /> Ralat Paparan? Klik sini untuk menonton terus di YouTube
         </a>
       </div>
 
-      {/* STATUS ACTION PANEL */}
       {isCompleted ? (
         <div className="bg-emerald-50 border border-emerald-200/60 p-3.5 rounded-xl flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-bold text-emerald-800 text-xs">Syabas! Video ini telah selesai diterokai. 🍃</span>
+            <span className="font-bold text-emerald-800 text-xs">Syabas! Anda telah selesai menonton video pengajaran ini. 🍃</span>
           </div>
           <div className="bg-lime-100 px-2.5 py-1 rounded-lg text-emerald-700 font-black text-[10px] shrink-0">+10 XP</div>
         </div>
@@ -90,7 +69,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
         <div className="bg-stone-900 border border-stone-800 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
           <p className="text-[11px] text-stone-300 font-medium flex items-center gap-1.5">
             <Tv className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
-            Selesai menonton video pengajaran? Klik butang hijau di sebelah untuk menuntut ganjaran!
+            Selesai menonton video pengajaran? Klik butang di sebelah untuk menuntut ganjaran!
           </p>
           <Button 
             onClick={onCompleted} 
@@ -139,6 +118,11 @@ export default function LessonPage() {
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
+  // STATE KANDUNGAN RASMI
+  const [videoUrl, setVideoUrl] = useState("");
+  const [notesContent, setNotesContent] = useState("");
+  const [infographicUrl, setInfographicUrl] = useState("");
+
   const [activeTab, setActiveTab] = useState("map"); 
   const [progressState, setProgressState] = useState({
     video_completed: false, lesson_completed: false, flashcard_completed: false,
@@ -170,6 +154,7 @@ export default function LessonPage() {
         if (!isMounted) return;
         setSubject(sub); setTopic(top);
 
+        // 🎯 MENGAMBIL DATA TERUS DARI DATABASE KESELURUHAN (CLEAN PULL)
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
           let foundBank = null;
@@ -187,6 +172,11 @@ export default function LessonPage() {
           }
 
           if (foundBank && isMounted) {
+            // Mapping terus ke state UI
+            setVideoUrl(foundBank.video_url || "");
+            setNotesContent(foundBank.notes_content || "");
+            setInfographicUrl(foundBank.infographic_url || "");
+            
             const parsedQuestions = safeJsonParse(foundBank.questions_json, []);
             setRawBankQuestions(parsedQuestions);
           }
@@ -312,15 +302,13 @@ export default function LessonPage() {
 
   if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
 
-  const dataLokalModul = BALAI_BAHAN_PELAJARAN[topicId];
-  const videoSumberUtama = dataLokalModul?.videoUrl || topic?.video_url;
-  const notesSumberUtama = dataLokalModul?.notes || "Nota pengajian sedang disediakan.";
-  const infographicSumberUtama = dataLokalModul?.infographicUrl || "";
+  // MENGGUNAKAN DATA KOLUM DATABASE RASMI
+  const videoSumberUtama = videoUrl || topic?.video_url;
 
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* GLOBAL HEADER BAR */}
+      {/* GLOBAL HEADER BAR (THEATER FRIENDLY) */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
@@ -373,7 +361,7 @@ export default function LessonPage() {
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
             <div className="prose prose-sm max-w-none max-h-[350px] overflow-y-auto p-4 border rounded-xl bg-[#FAFAF7] shadow-inner">
-              <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{notesSumberUtama}</p>
+              <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{notesContent || "Nota pengajian sedang disediakan."}</p>
             </div>
             <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0">Selesai Membaca Nota 🍃</Button>
           </motion.div>
@@ -391,7 +379,7 @@ export default function LessonPage() {
         {activeTab === "mindmap" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
             <div className="min-h-[220px] bg-[#FAFAF7] rounded-xl p-3 border flex flex-col items-center justify-center">
-              {infographicSumberUtama ? <img src={infographicSumberUtama} alt="Mindmap" className="w-full h-auto rounded-xl max-h-72 object-contain bg-white border shadow-2xs" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
+              {infographicUrl ? <img src={infographicUrl} alt="Mindmap" className="w-full h-auto rounded-xl max-h-72 object-contain bg-white border shadow-2xs" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
             </div>
             <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 mt-2 shadow-xs">Selesai Teroka Peta! 🗺️</Button>
           </motion.div>
