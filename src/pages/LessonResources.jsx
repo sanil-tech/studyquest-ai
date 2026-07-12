@@ -64,7 +64,7 @@ export default function LessonResources() {
         }
       } catch (err) {
         navigate("/login");
-      } fillly {
+      } finally {
         setCheckingAuth(false);
       }
     };
@@ -163,7 +163,7 @@ export default function LessonResources() {
     try {
       const rekodKuiz = await base44.entities.Quiz.filter({});
       setLessonsList(rekodKuiz || []);
-    } catch (err) {} fillly { setIsLoadingList(false); }
+    } catch (err) {} finally { setIsLoadingList(false); }
   };
 
   const handlePilihLesson = (e) => {
@@ -219,7 +219,7 @@ export default function LessonResources() {
       await base44.entities.Quiz.delete(selectedLessonId);
       toast({ title: "Berjaya Dipadam! 🗑️" });
       setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson();
-    } catch (err) { toast({ title: "Ralat Pemadaman", variant: "destructive" }); } fillly { setIsDeleting(false); }
+    } catch (err) { toast({ title: "Ralat Pemadaman", variant: "destructive" }); } finally { setIsDeleting(false); }
   };
 
   // 🎯 5. PROSES PENGHANTARAN ULTRA-LIGHT (SINGLE-SHOT PIGGYBACK)
@@ -265,7 +265,7 @@ export default function LessonResources() {
         subject_name: subtitle.trim() || "Matematik", 
         infographic_url: serverInfographicUrl || null, 
         coins_reward: Number(coinReward), 
-        questions_json: JSON.stringify(susunanSoalanKuiz) // Saiz kini 95% lebih kecil!
+        questions_json: JSON.stringify(susunanSoalanKuiz) 
       };
 
       if (borangMod === "create") {
@@ -282,7 +282,7 @@ export default function LessonResources() {
 
     } catch (err) {
       toast({ title: "Ralat Simpanan Server ❌", description: err.message, variant: "destructive" });
-    } fillly { setIsSaving(false); }
+    } finally { setIsSaving(false); }
   };
 
   if (checkingAuth) return (<div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4"><Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" /><p className="text-xs font-bold text-slate-400">Menyemak...</p></div>);
@@ -331,7 +331,7 @@ export default function LessonResources() {
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600"><Video className="w-4 h-4 inline mr-1" /> 2. Media Pengajaran</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">URL YouTube Video*</label><input type="url" required value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
+              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
             </div>
             <div className="p-3 bg-slate-100/60 rounded-xl border border-slate-200 space-y-1">
               <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-indigo-500" /> Pautan URL Alternatif (Rajah Utama)</label>
