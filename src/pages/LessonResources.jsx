@@ -103,7 +103,6 @@ export default function LessonResources() {
     const formData = new FormData();
     formData.append("file", mampat);
 
-    // Senarai semak semua kemungkinan pemanggilan kaedah integrasi SDK Base44
     const cubaanSintaks = [
       async () => await base44.integrations.UploadFile.upload({ file: mampat }),
       async () => await base44.integrations.UploadFile.execute({ file: mampat }),
@@ -224,7 +223,21 @@ export default function LessonResources() {
   const handleQuestionChange = (index, field, value) => { const updatedQuestions = [...questions]; updatedQuestions[index][field] = value; setQuestions(updatedQuestions); };
   const handleOptionChange = (qIndex, optIndex, value) => { const updatedQuestions = [...questions]; if(!updatedQuestions[qIndex].options) updatedQuestions[qIndex].options = ["", "", "", ""]; updatedQuestions[qIndex].options[optIndex] = value; setQuestions(updatedQuestions); };
 
-  // 🎯 5. PROSES SIMPANAN PINTAR (Muat naik jika ada fail baru, jika gagal auto-guna input teks)
+  // 🌟 BERJAYA DIMASUKKAN SEMULA: Fungsi Pemadaman Modul
+  const handleDeleteLesson = async () => {
+    if (!selectedLessonId) return;
+    if (!window.confirm(`⚠️ PADAM KEKAL:\n\nAdakah anda pasti mahu memadam modul ID: [${selectedLessonId}] ini?`)) return;
+    setIsDeleting(true);
+    try {
+      await base44.entities.Quiz.delete(selectedLessonId);
+      toast({ title: "Berjaya Dipadam! 🗑️", description: "Modul berjaya dibuang dari pelayan." });
+      setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson();
+    } catch (err) { 
+      toast({ title: "Ralat Pemadaman", description: err.message, variant: "destructive" }); 
+    } finally { setIsDeleting(false); }
+  };
+
+  // 🎯 5. PROSES SIMPANAN PINTAR
   const handleSaveForm = async (e) => {
     e.preventDefault();
     if (borangMod === "create" && !topicId) { toast({ title: "Ralat 🛑", description: "Sila isi ID Unik Topik.", variant: "destructive" }); return; }
@@ -276,7 +289,7 @@ export default function LessonResources() {
       if (borangMod === "create") {
         const targetId = topicId.trim().toLowerCase().replace(/\s+/g, "-");
         await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
-        toast({ title: "Misi Baru Dicipta! 🎉", description: "Semua kandungan selamat dikunci." });
+        toast({ title: "Misi Baru Dicipta! 🎉", description: "All resources locked securely on DB." });
       } else {
         await base44.entities.Quiz.update(selectedLessonId, dataPayload);
         toast({ title: "Kemaskini Berjaya! 🔄", description: "Kandungan baharu dikunci pada pangkalan data." });
@@ -319,7 +332,7 @@ export default function LessonResources() {
               {lessonsList.map(l => (<option key={l.id} value={l.id}>{l.topic_name} (ID: {l.id ? l.id : "---"})</option>))}
             </select>
           </div>
-          <Button type="button" variant="destructive" disabled={!selectedLessonId || isDeleting} onClick={handleDeleteLesson} className="h-9 px-4 text-xs font-black rounded-xl bg-rose-600 text-white flex items-center gap-1.5 shrink-0 self-end sm:self-center shadow-xs"><Trash2 className="w-4 h-4" /> Padam Modul</Button>
+          <Button type="button" variant="destructive" disabled={!selectedLessonId || isDeleting} onClick={handleDeleteLesson} className="h-9 px-4 text-xs font-black rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 shrink-0 self-end sm:self-center shadow-xs active:scale-95"><Trash2 className="w-4 h-4" /> Padam Modul</Button>
         </Card>
       )}
 
@@ -341,16 +354,12 @@ export default function LessonResources() {
             <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600"><Video className="w-4 h-4" /> 2. Media Pengajaran</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">URL YouTube Video*</label><input type="url" required value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label>
-                <input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" />
-              </div>
+              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" /></div>
             </div>
             
-            {/* 🌟 BARU: Petak Input Manual URL Fail Sandaran bagi mengelak Ralat 404 Server */}
             <div className="p-3 bg-slate-100/60 rounded-xl border border-slate-200 space-y-1">
               <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-indigo-500" /> Pautan URL Alternatif (Rajah Utama)</label>
-              <input type="text" placeholder="Masukkan link gambar langsung jika butang upload ralat (cth: https://upload.wikimedia.org/...)" value={infographicUrl} onChange={(e) => { setInfographicUrl(e.target.value); if(e.target.value) setInfographicPreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-indigo-500" />
+              <input type="text" placeholder="Masukkan link gambar langsung jika butang upload ralat" value={infographicUrl} onChange={(e) => { setInfographicUrl(e.target.value); if(e.target.value) setInfographicPreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
             </div>
 
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-md"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-44 object-contain bg-white border" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
@@ -358,7 +367,7 @@ export default function LessonResources() {
 
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
             <h3 className="text-sm font-black text-slate-700 flex items-center gap-1.5 border-b pb-1.5 uppercase text-[11px] tracking-wider text-indigo-600">📝 3. Kandungan Nota Pengajian</h3>
-            <textarea rows={4} required value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium shadow-inner" />
+            <textarea rows={4} required value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium shadow-inner shadow-slate-200" />
           </Card>
 
           <div className="space-y-4">
@@ -380,16 +389,12 @@ export default function LessonResources() {
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Ayat Soalan Kuiz *</label><textarea rows={2} required value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, "questionText", e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Gambar Soalan</label>
-                    <input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-purple-50 file:text-purple-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" />
-                  </div>
+                  <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 file:mr-3 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:bg-purple-50 file:text-purple-700 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
                 </div>
 
-                {/* 🌟 BARU: Petak Input Manual URL Gambar Soalan (Bebas Ralat & Sangat Berguna Apabila Auto-Extract JSON dari AI!) */}
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-1">
                   <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-purple-500" /> Pautan URL Gambar Soalan #{qIndex + 1} (Public URL)</label>
-                  <input type="text" placeholder="Masukkan URL gambar langsung (cth: https://upload.wikimedia.org/...)" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-purple-500" />
+                  <input type="text" placeholder="Masukkan URL gambar langsung jika dari AI" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
                 </div>
 
                 {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
