@@ -14,7 +14,7 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson (Versi Premium - Kalis Error 153 Browser Sandbox)
+// COMPONENT 1: YouTubeLesson (Versi Dynamic Key - Kalis Isu Kena Refresh)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
@@ -35,15 +35,15 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     );
   }
 
-  // 🔒 MEMBINA LINK EMbed KALIS SEKATAN (MENGGUNAKAN POLISI ORIGIN DOMAIN)
   const currentOrigin = window.location.origin;
   const secureEmbedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(currentOrigin)}`;
 
   return (
-    <div className="space-y-4 w-full">
-      {/* KOTAK IFRAME UTAMA - DILENGKAPI POLISI IZIN AKSES CROSS-ORIGIN */}
+    // 🌟 Atribut 'key={videoId}' di bawah memaksa pemain video reload serta-merta tanpa perlu refresh manual!
+    <div className="space-y-4 w-full" key={videoId}>
       <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
         <iframe 
+          key={videoId} 
           src={secureEmbedUrl} 
           className="w-full h-full border-0 absolute inset-0" 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -93,10 +93,7 @@ const safeJsonParse = (str, fallback = []) => {
 
 const shuffleArray = (array) => {
   const newArr = [...array];
-  for (let i = newArr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-  }
+  for (let i = newArr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [newArr[i], newArr[j]] = [newArr[j], newArr[i]]; }
   return newArr;
 };
 
@@ -116,14 +113,11 @@ export default function LessonPage() {
   // STATE KANDUNGAN RASMI
   const [videoUrl, setVideoUrl] = useState("");
   const [notesContent, setNotesContent] = useState("");
+  const [notesImage, setNotesImage] = useState(""); 
   const [infographicUrl, setInfographicUrl] = useState("");
 
   const [activeTab, setActiveTab] = useState("map"); 
-  const [progressState, setProgressState] = useState({
-    video_completed: false, lesson_completed: false, flashcard_completed: false,
-    mindmap_completed: false, quiz_completed: false, current_stage: "video", xp_earned: 0
-  });
-
+  const [progressState, setProgressState] = useState({ video_completed: false, lesson_completed: false, flashcard_completed: false, mindmap_completed: false, quiz_completed: false, current_stage: "video", xp_earned: 0 });
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
   const studyStartRef = useRef(null);
   const sessionRef = useRef(null);
@@ -131,35 +125,24 @@ export default function LessonPage() {
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
   const isTopicUnlocked = progressState.quiz_completed || (progressState.video_completed && progressState.lesson_completed && progressState.flashcard_completed && progressState.mindmap_completed);
 
-  const bersihkanTeksPadanan = (str) => {
-    if (!str) return "";
-    return str.toLowerCase().replace(/dan/g, "").replace(/&/g, "").replace(/misi\s*\d+/g, "").replace(/[^a-z0-9]/g, "").trim();
-  };
+  const bersihkanTeksPadanan = (str) => { return str ? str.toLowerCase().replace(/dan/g, "").replace(/&/g, "").replace(/misi\s*\d+/g, "").replace(/[^a-z0-9]/g, "").trim() : ""; };
 
   useEffect(() => {
     let isMounted = true;
     const initializeLesson = async () => {
       try {
-        const [sub, top, user] = await Promise.all([
-          base44.entities.Subject.get(subjectId),
-          base44.entities.Topic.get(topicId),
-          base44.auth.me(),
-        ]);
-        
+        const [sub, top, user] = await Promise.all([base44.entities.Subject.get(subjectId), base44.entities.Topic.get(topicId), base44.auth.me()]);
         if (!isMounted) return;
         setSubject(sub); setTopic(top);
 
-        // 🎯 AMBIL DATA TERUS DARI DATABASE KESELURUHAN (CLEAN PULL)
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
           let foundBank = null;
-
           if (allQuizBanks && allQuizBanks.length > 0) {
             foundBank = allQuizBanks.find(b => b.id === topicId);
             if (!foundBank) {
               const targetClean = bersihkanTeksPadanan(top.name);
               foundBank = allQuizBanks.find(b => {
-                if (!b.topic_name) return false;
                 const adminClean = bersihkanTeksPadanan(b.topic_name);
                 return b.id === topicId || adminClean === targetClean || targetClean.includes(adminClean) || adminClean.includes(targetClean);
               });
@@ -168,45 +151,38 @@ export default function LessonPage() {
 
           if (foundBank && isMounted) {
             setVideoUrl(foundBank.video_url || "");
-            setNotesContent(foundBank.notes_content || "");
             setInfographicUrl(foundBank.infographic_url || "");
+            
+            try {
+              const parsedNotes = JSON.parse(foundBank.notes_content);
+              if (parsedNotes && typeof parsedNotes === "object") {
+                setNotesContent(parsedNotes.text || "");
+                setNotesImage(parsedNotes.image || "");
+              } else {
+                setNotesContent(foundBank.notes_content || "");
+              }
+            } catch (e) { setNotesContent(foundBank.notes_content || ""); }
             
             const parsedQuestions = safeJsonParse(foundBank.questions_json, []);
             setRawBankQuestions(parsedQuestions);
           }
-        } catch (quizBankErr) { console.error(quizBankErr); }
+        } catch (quizBankErr) {}
 
         try {
           let cachedSessions = await base44.entities.StudySession.filter({ student_id: user.id, topic_id: topicId }, "-created_date", 1);
           let sessionWithNotes = cachedSessions[0] || null;
           if (isMounted && sessionWithNotes) {
-            setProgressState({
-              video_completed: sessionWithNotes.video_completed || false,
-              lesson_completed: sessionWithNotes.lesson_completed || false,
-              flashcard_completed: sessionWithNotes.flashcard_completed || false,
-              mindmap_completed: sessionWithNotes.mindmap_completed || false,
-              quiz_completed: sessionWithNotes.quiz_completed || false,
-              current_stage: sessionWithNotes.current_stage || "video",
-              xp_earned: sessionWithNotes.xp_earned || 0
-            });
+            setProgressState({ video_completed: sessionWithNotes.video_completed || false, lesson_completed: sessionWithNotes.lesson_completed || false, flashcard_completed: sessionWithNotes.flashcard_completed || false, mindmap_completed: sessionWithNotes.mindmap_completed || false, quiz_completed: sessionWithNotes.quiz_completed || false, current_stage: sessionWithNotes.current_stage || "video", xp_earned: sessionWithNotes.xp_earned || 0 });
             setSessionId(sessionWithNotes.id);
           }
         } catch (sErr) {}
-
       } catch (err) {} finally { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
     };
-
     initializeLesson();
     return () => { isMounted = false; };
   }, [subjectId, topicId]);
 
-  const recordStudyTime = async () => {
-    const sId = sessionRef.current;
-    if (!sId || !studyStartRef.current) return;
-    const mins = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000));
-    try { await base44.entities.StudySession.update(sId, { duration_minutes: mins }); } catch (err) {}
-  };
-
+  const recordStudyTime = async () => { const sId = sessionRef.current; if (!sId || !studyStartRef.current) return; const mins = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000)); try { await base44.entities.StudySession.update(sId, { duration_minutes: mins }); } catch (err) {} };
   useEffect(() => { return () => { recordStudyTime(); }; }, []);
   const getLanguageMode = useCallback(() => subject?.name?.toLowerCase()?.includes("english") ? "en" : "ms", [subject]);
   const triggerConfetti = () => confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
@@ -228,18 +204,12 @@ export default function LessonPage() {
     if (!currentId) {
       try {
         const user = await base44.auth.me();
-        const newSession = await base44.entities.StudySession.create({
-          student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic.name, subject_name: subject.name, duration_minutes: 0,
-          ...progressState, video_completed: true, current_stage: "lesson", xp_earned: 10
-        });
-        const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
-        setSessionId(validId); sessionRef.current = validId;
-        setProgressState(p => ({ ...p, video_completed: true, current_stage: "lesson", xp_earned: 10 }));
-        triggerConfetti(); setActiveTab("map"); return;
+        const newSession = await base44.entities.StudySession.create({ student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic.name, subject_name: subject.name, duration_minutes: 0, ...progressState, video_completed: true, current_stage: "lesson", xp_earned: 10 });
+        const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id; setSessionId(validId); sessionRef.current = validId;
+        setProgressState(p => ({ ...p, video_completed: true, current_stage: "lesson", xp_earned: 10 })); triggerConfetti(); setActiveTab("map"); return;
       } catch (err) { return; }
     }
-    await updateStageProgress("video", "lesson", 10);
-    setActiveTab("map");
+    await updateStageProgress("video", "lesson", 10); setActiveTab("map");
   }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
 
   const handleLessonStageCompleted = async () => {
@@ -250,50 +220,17 @@ export default function LessonPage() {
       if (!currentSessionId) {
         const user = await base44.auth.me();
         const newSession = await base44.entities.StudySession.create({ student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic.name, subject_name: subject.name, duration_minutes: 0, ...nextStatePayload });
-        const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
-        setSessionId(validId); sessionRef.current = validId;
+        const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id; setSessionId(validId); sessionRef.current = validId;
       } else { await base44.entities.StudySession.update(currentSessionId, nextStatePayload); }
       setProgressState(prev => ({ ...prev, ...nextStatePayload })); triggerConfetti(); setActiveTab("map");
     } catch (e) {} finally { setStatus(p => ({ ...p, lesson: false })); }
   };
 
-  const loadFlashcardsOnDemand = async () => {
-    setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return;
-    setStatus(p => ({ ...p, flashcards: true }));
-    try {
-      if (rawBankQuestions && rawBankQuestions.length > 0) {
-        setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer}\n\n${q.explanation || ""}` }))); return;
-      }
-    } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); }
-  };
+  const loadFlashcardsOnDemand = async () => { setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return; setStatus(p => ({ ...p, flashcards: true })); try { if (rawBankQuestions && rawBankQuestions.length > 0) { setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer}\n\n${q.explanation || ""}` }))); return; } } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } };
+  const loadMindMapOnDemand = async () => { setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return; setStatus(p => ({ ...p, mindmap: true })); try { const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} }); setMindMap(res); } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); } };
+  const runQuizGeneration = async (numQ) => { await recordStudyTime(); setStatus(p => ({ ...p, quiz: true })); let currentSessionId = sessionRef.current; try { if (!currentSessionId) { const user = await base44.auth.me(); const newSession = await base44.entities.StudySession.create({ student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", duration_minutes: 0, ...progressState, current_stage: "quiz" }); currentSessionId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id; setSessionId(currentSessionId); sessionRef.current = currentSessionId; } const pool = shuffleArray(rawBankQuestions).slice(0, numQ); const quizData = await base44.entities.Quiz.create({ session_id: currentSessionId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", questions_json: JSON.stringify(pool), difficulty: numQ >= 20 ? "hard" : "medium", num_questions: pool.length }); const finalQuizId = Array.isArray(quizData) ? quizData[0]?.id : quizData?.id; await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }); navigate(`/quiz/${finalQuizId}`); } catch (e) { } finally { setStatus(p => ({ ...p, quiz: false })); } };
 
-  const loadMindMapOnDemand = async () => {
-    setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return;
-    setStatus(p => ({ ...p, mindmap: true }));
-    try {
-      const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} });
-      setMindMap(res);
-    } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); }
-  };
-
-  const runQuizGeneration = async (numQ) => {
-    await recordStudyTime(); setStatus(p => ({ ...p, quiz: true }));
-    let currentSessionId = sessionRef.current;
-    try {
-      if (!currentSessionId) {
-        const user = await base44.auth.me();
-        const newSession = await base44.entities.StudySession.create({ student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", duration_minutes: 0, ...progressState, current_stage: "quiz" });
-        currentSessionId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
-        setSessionId(currentSessionId); sessionRef.current = currentSessionId;
-      }
-      const pool = shuffleArray(rawBankQuestions).slice(0, numQ);
-      const quizData = await base44.entities.Quiz.create({ session_id: currentSessionId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", questions_json: JSON.stringify(pool), difficulty: numQ >= 20 ? "hard" : "medium", num_questions: pool.length });
-      const finalQuizId = Array.isArray(quizData) ? quizData[0]?.id : quizData?.id;
-      await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
-      navigate(`/quiz/${finalQuizId}`);
-    } catch (e) { } finally { setStatus(p => ({ ...p, quiz: false })); }
-  };
-
+  if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
   const videoSumberUtama = videoUrl || topic?.video_url;
 
   return (
@@ -302,57 +239,42 @@ export default function LessonPage() {
       {/* GLOBAL HEADER BAR */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
-          <div className="flex items-center gap-3">
-            <Link to={`/study/${subjectId}`} className="p-2 bg-[#F3EFE6] rounded-xl text-stone-600 hover:bg-[#E3D9C6] transition-colors"><ArrowLeft className="w-4 h-4" /></Link>
-            <div>
-              <h2 className="text-[10px] font-black text-emerald-600 uppercase tracking-wider flex items-center gap-1"><Compass className="w-3 h-3" /> {subject?.name}</h2>
-              <h1 className="text-sm font-black text-stone-800">Misi: {topic?.name}</h1>
-            </div>
-          </div>
+          <div className="flex items-center gap-3"><Link to={`/study/${subjectId}`} className="p-2 bg-[#F3EFE6] rounded-xl text-stone-600 hover:bg-[#E3D9C6] transition-colors"><ArrowLeft className="w-4 h-4" /></Link><div><h2 className="text-[10px] font-black text-emerald-600 uppercase tracking-wider flex items-center gap-1"><Compass className="w-3 h-3" /> {subject?.name}</h2><h1 className="text-sm font-black text-stone-800">Misi: {topic?.name}</h1></div></div>
           <div className="bg-gradient-to-r from-lime-400 to-emerald-500 px-3 py-1.5 rounded-xl text-white font-black text-xs shadow-xs"><Leaf className="w-3.5 h-3.5 fill-lime-200 inline mr-1" /> {progressState.xp_earned} XP</div>
         </div>
       ) : (
         <div className="bg-stone-950 text-stone-300 rounded-xl p-2.5 flex items-center justify-between shadow-xs transition-all duration-300">
-          <button type="button" onClick={() => setActiveTab("map")} className="flex items-center gap-1.5 text-xs font-bold text-stone-300 hover:text-white bg-stone-900/50 px-3 py-1 rounded-lg border border-stone-800 transition-colors">
-            <ChevronLeft className="w-4 h-4" /> Keluar Mod Misi
-          </button>
-          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 truncate max-w-[50%]">{topic?.name}</span>
+          <button type="button" onClick={() => setActiveTab("map")} className="flex items-center gap-1.5 text-xs font-bold text-stone-300 hover:text-white bg-stone-900/50 px-3 py-1 rounded-lg border border-stone-800 transition-colors"><ChevronLeft className="w-4 h-4" /> Keluar Mod Misi</button><span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 truncate max-w-[50%]">{topic?.name}</span>
         </div>
       )}
 
-      {isTopicUnlocked && activeTab === "map" && (
-        <div className="bg-amber-50 border border-amber-200/50 p-3 rounded-xl text-[11px] font-semibold text-amber-800">
-          🌳 Mod Ulangkaji Bebas Aktif! Semua dahan kurikulum kini terbuka untuk anda teroka.
-        </div>
-      )}
+      {isTopicUnlocked && activeTab === "map" && (<div className="bg-amber-50 border border-amber-200/50 p-3 rounded-xl text-[11px] font-semibold text-amber-800">🌳 Mod Ulangkaji Bebas Aktif! Semua dahan kurikulum kini terbuka untuk anda teroka.</div>)}
 
       <AnimatePresence mode="wait">
-        {activeTab === "map" && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <LessonProgress 
-              steps={isTopicUnlocked ? { video: true, lesson: true, flashcard: true, mindmap: true, quiz: true } : { video: progressState.video_completed, lesson: progressState.lesson_completed, flashcard: progressState.flashcard_completed, mindmap: progressState.mindmap_completed, quiz: progressState.quiz_completed }} 
-              onStepClick={(key) => { if (key === "video") setActiveTab("video"); if (key === "lesson") setActiveTab("lesson"); if (key === "flashcard") loadFlashcardsOnDemand(); if (key === "mindmap") loadMindMapOnDemand(); if (key === "quiz") setActiveTab("quiz"); }}
-            />
-          </motion.div>
-        )}
+        {activeTab === "map" && (<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><LessonProgress steps={isTopicUnlocked ? { video: true, lesson: true, flashcard: true, mindmap: true, quiz: true } : { video: progressState.video_completed, lesson: progressState.lesson_completed, flashcard: progressState.flashcard_completed, mindmap: progressState.mindmap_completed, quiz: progressState.quiz_completed }} onStepClick={(key) => { if (key === "video") setActiveTab("video"); if (key === "lesson") setActiveTab("lesson"); if (key === "flashcard") loadFlashcardsOnDemand(); if (key === "mindmap") loadMindMapOnDemand(); if (key === "quiz") setActiveTab("quiz"); }}/></motion.div>)}
 
-        {/* STAGE 1: CINEMA VIDEO FOCUS LAYER */}
+        {/* STAGE 1: VIDEO */}
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/60 shadow-md space-y-4">
             <YouTubeLesson videoUrl={videoSumberUtama} isCompleted={progressState.video_completed} onCompleted={handleVideoStageCompleted} />
-            {progressState.video_completed && (
-              <Button onClick={() => setActiveTab("map")} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 font-black rounded-xl text-white text-xs border-0 shadow-xs">
-                Kembali Meneroka Pokok Ilmu 🌳
-              </Button>
-            )}
+            {progressState.video_completed && (<Button onClick={() => setActiveTab("map")} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 font-black rounded-xl text-white text-xs border-0 shadow-xs">Kembali Meneroka Pokok Ilmu 🌳</Button>)}
           </motion.div>
         )}
 
         {/* STAGE 2: NOTA PINTAR */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
-            <div className="prose prose-sm max-w-none max-h-[350px] overflow-y-auto p-4 border rounded-xl bg-[#FAFAF7] shadow-inner">
-              <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{notesContent || "Nota pengajian sedang disediakan."}</p>
+            <div className="prose prose-sm max-w-none max-h-[450px] overflow-y-auto p-4 border rounded-xl bg-[#FAFAF7] shadow-inner flex flex-col items-center">
+              {notesImage && (
+                <img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200 shadow-sm mb-4" />
+              )}
+              <div className="w-full">
+                {notesContent ? (
+                  <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{notesContent}</p>
+                ) : (
+                  !notesImage && <p className="text-xs text-slate-400">Nota pengajian belum disediakan.</p>
+                )}
+              </div>
             </div>
             <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0">Selesai Membaca Nota 🍃</Button>
           </motion.div>
@@ -360,10 +282,7 @@ export default function LessonPage() {
 
         {/* STAGE 3: FLASHCARD */}
         {activeTab === "flashcard" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
-            <Flashcards flashcards={flashcards || []} lang={getLanguageMode()} />
-            <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 mt-2 shadow-xs">Selesai Ulangkaji Kad 🌳</Button>
-          </motion.div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4"><Flashcards flashcards={flashcards || []} lang={getLanguageMode()} /><Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 mt-2 shadow-xs">Selesai Ulangkaji Kad 🌳</Button></motion.div>
         )}
 
         {/* STAGE 4: MINDMAP */}
@@ -376,17 +295,10 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 5: FINAL BOSS CHALLENGE */}
+        {/* STAGE 5: KUIZ */}
         {activeTab === "quiz" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 border border-amber-200 shadow-md">
-            <div className="space-y-4 text-center sm:text-left">
-              <h3 className="text-base font-black text-amber-950">⚔️ Misi Terakhir: Kuiz Puncak Dahan</h3>
-              <p className="text-xs text-amber-800 font-medium">Sedia menduduki ujian cabaran minda untuk menawan kemuncak dahan ilmu ini? 🏆</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Menyusun..." : "Cabaran Pantas (10 Soalan)"}</Button>
-                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Menjana..." : "Ujian Boss Padu (20 Soalan)"}</Button>
-              </div>
-            </div>
+            <div className="space-y-4 text-center sm:text-left"><h3 className="text-base font-black text-amber-950">⚔️ Misi Terakhir: Kuiz Puncak Dahan</h3><p className="text-xs text-amber-800 font-medium">Sedia menduduki ujian cabaran minda untuk menawan kemuncak dahan ilmu ini? 🏆</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2"><Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Menyusun..." : "Cabaran Pantas (10 Soalan)"}</Button><Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Menjana..." : "Ujian Boss Padu (20 Soalan)"}</Button></div></div>
           </motion.div>
         )}
       </AnimatePresence>
