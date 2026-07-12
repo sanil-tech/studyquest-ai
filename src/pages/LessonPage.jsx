@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  ArrowLeft, Play, Loader2, Trophy, Compass, Tv, CheckCircle2, Leaf, Sprout
+  ArrowLeft, Play, Loader2, Trophy, Compass, Tv, 
+  CheckCircle2, Leaf, Sprout, Info, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,7 +17,7 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson
+// COMPONENT 1: YouTubeLesson (Versi Fokus - Sifar Gangguan Visual)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const [apiFailed, setApiFailed] = useState(false);
@@ -41,7 +42,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
       try {
         playerRef.current = new window.YT.Player(containerId.current, {
           videoId: videoId,
-          playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+          playerVars: { rel: 0, modestbranding: 1, playsinline: 1, autoplay: 0 },
           events: {
             onStateChange: (event) => {
               if (event.data === window.YT.PlayerState.ENDED) onCompleted();
@@ -73,41 +74,41 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 
   if (!videoId) {
     return (
-      <div className="p-6 text-center bg-amber-50 border border-amber-200 rounded-3xl">
-        <p className="text-amber-700 font-bold text-sm">🎬 Sila masukkan pautan video di panel Admin untuk dahan ini.</p>
-        <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-6 py-4 border-0 mt-3">Teruskan Misi 🚀</Button>
-      </div>
-    );
-  }
-
-  if (apiFailed) {
-    return (
-      <div className="space-y-4 max-w-2xl mx-auto">
-        <div className="relative aspect-video rounded-[2rem] overflow-hidden border-4 border-[#5C3A21] shadow-xl bg-stone-900">
-          <iframe src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`} className="w-full h-full border-0" allowFullScreen />
-        </div>
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex justify-between items-center text-xs">
-          <p className="text-amber-800 font-medium">Klik tanda siap selepas selesai menonton.</p>
-          <Button onClick={onCompleted} size="sm" className="bg-emerald-600 text-white font-bold rounded-xl">Tanda Selesai 🍃</Button>
-        </div>
+      <div className="p-8 text-center bg-amber-50/60 border border-dashed border-amber-200 rounded-2xl">
+        <p className="text-amber-800 font-bold text-xs sm:text-sm">🎬 Pautan video belum dimasukkan oleh Pentadbir untuk dahan ini.</p>
+        <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-3 shadow-xs border-0">Teruskan Misi 🚀</Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
-      <div className="relative aspect-video rounded-[2rem] overflow-hidden border-4 border-[#5C3A21] shadow-xl bg-stone-900">
-        <div id={containerId.current} className="w-full h-full" />
+    <div className="space-y-4 w-full">
+      {/* KOTAK FRAME VIDEO PREMIUM */}
+      <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
+        {apiFailed ? (
+          <iframe 
+            src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`} 
+            className="w-full h-full border-0 absolute inset-0" 
+            allowFullScreen 
+          />
+        ) : (
+          <div id={containerId.current} className="w-full h-full absolute inset-0" />
+        )}
       </div>
+
+      {/* STATUS PROGRES PEMBELAJARAN */}
       {isCompleted ? (
-        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-[1.5rem] flex items-center justify-between shadow-sm">
-          <h4 className="font-bold text-emerald-800 text-sm">Syabas, Video Misi Selesai! 🍃</h4>
-          <div className="bg-lime-100 px-3 py-1.5 rounded-xl text-lime-700 font-black text-xs">+10 XP</div>
+        <div className="bg-emerald-50 border border-emerald-200/60 p-3.5 rounded-xl flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-bold text-emerald-800 text-xs">Syabas! Anda telah selesai menonton video pengajaran ini. 🍃</span>
+          </div>
+          <div className="bg-lime-100 px-2.5 py-1 rounded-lg text-emerald-700 font-black text-[10px] shrink-0">+10 XP</div>
         </div>
       ) : (
-        <div className="bg-sky-50 p-3 rounded-2xl flex items-center justify-between text-xs text-sky-800 font-medium">
-          <span>Tonton video pengajaran sehingga selesai! 🌿</span>
-          <button type="button" onClick={onCompleted} className="text-sky-600 font-bold underline whitespace-nowrap">Langkau</button>
+        <div className="bg-stone-100 border border-stone-200/60 p-3 rounded-xl flex items-center justify-between text-[11px] text-stone-600 font-medium">
+          <span className="flex items-center gap-1.5"><Tv className="w-3.5 h-3.5 text-stone-500 animate-pulse" /> Tonton video pengajaran sehingga selesai untuk membuka dahan ilmu.</span>
+          <button type="button" onClick={onCompleted} className="text-stone-500 font-bold underline hover:text-emerald-600 ml-2 whitespace-nowrap shrink-0">Langkau</button>
         </div>
       )}
     </div>
@@ -151,7 +152,7 @@ export default function LessonPage() {
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  // DATA KUSTOM HIBRID
+  // DATA KUSTOM
   const [customVideoUrl, setCustomVideoUrl] = useState("");
   const [customNotes, setCustomNotes] = useState("");
   const [customInfographic, setCustomInfographic] = useState("");
@@ -188,7 +189,6 @@ export default function LessonPage() {
         setSubject(sub); setTopic(top);
         setStudentNickname(user?.nickname || "Sahabat"); setIsPremium(user?.is_premium || false);
 
-        // 🎯 UNPACK DATA DARI KOTAK DWl-PROTEKSI QUESTIONS_JSON
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
           let foundBank = null;
@@ -210,7 +210,6 @@ export default function LessonPage() {
             setRawBankQuestions(parsedQuestions);
             if (foundBank.infographic_url) setCustomInfographic(foundBank.infographic_url);
             
-            // 🌟 PROSES PEEKING: Mengambil data video & nota daripada elemen soalan pertama
             if (parsedQuestions.length > 0) {
               const itemInduk = parsedQuestions[0];
               if (itemInduk.custom_video_url) setCustomVideoUrl(itemInduk.custom_video_url);
@@ -219,7 +218,6 @@ export default function LessonPage() {
           }
         } catch (quizBankErr) { console.error(quizBankErr); }
 
-        // Muat progress sesi
         try {
           let cachedSessions = await base44.entities.StudySession.filter({ student_id: user.id, topic_id: topicId }, "-created_date", 1);
           let sessionWithNotes = cachedSessions[0] || null;
@@ -338,29 +336,46 @@ export default function LessonPage() {
     } catch (e) { } finally { setStatus(p => ({ ...p, quiz: false })); }
   };
 
-  if (loading) return (<div className="flex flex-col items-center justify-center min-h-[60vh] bg-[#FAFAF7]"><Loader2 className="w-12 h-12 text-emerald-500 animate-spin" /></div>);
+  if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
 
   const videoSumberUtama = customVideoUrl || topic?.video_url;
 
   return (
-    <div className="px-4 py-6 max-w-4xl mx-auto space-y-6 pb-28 font-sans bg-[#FAFAF7] min-h-screen">
+    <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* HEADER BAR */}
-      <div className="bg-white rounded-[1.5rem] p-4 border border-emerald-100 shadow-sm flex items-center justify-between sticky top-2 z-40 backdrop-blur-md bg-white/90">
-        <div className="flex items-center gap-3">
-          <Link to={`/study/${subjectId}`} className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-600 hover:bg-[#E3D9C6]"><ArrowLeft className="w-5 h-5" /></Link>
-          <div>
-            <h2 className="text-xs font-black text-emerald-600 uppercase tracking-wider"><Compass className="w-3.5 h-3.5 inline mr-1" /> {subject?.name}</h2>
-            <h1 className="text-sm sm:text-base font-black text-stone-800">Misi: {topic?.name}</h1>
+      {/* 🌟 GLOBAL HEADER: DIPANDU ALIRAN FLEXBOX BERSIH (TIADA LAGI STICKY OVERLAP) */}
+      {activeTab === "map" ? (
+        <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
+          <div className="flex items-center gap-3">
+            <Link to={`/study/${subjectId}`} className="p-2 bg-[#F3EFE6] rounded-xl text-stone-600 hover:bg-[#E3D9C6] transition-colors"><ArrowLeft className="w-4 h-4" /></Link>
+            <div>
+              <h2 className="text-[10px] font-black text-emerald-600 uppercase tracking-wider flex items-center gap-1"><Compass className="w-3 h-3" /> {subject?.name}</h2>
+              <h1 className="text-sm font-black text-stone-800">Misi: {topic?.name}</h1>
+            </div>
           </div>
+          <div className="bg-gradient-to-r from-lime-400 to-emerald-500 px-3 py-1.5 rounded-xl text-white font-black text-xs shadow-xs"><Leaf className="w-3.5 h-3.5 fill-lime-200 inline mr-1" /> {progressState.xp_earned} XP</div>
         </div>
-        <div className="bg-gradient-to-r from-lime-400 to-emerald-500 px-4 py-2 rounded-xl text-white font-black text-xs shadow-sm"><Leaf className="w-4 h-4 fill-lime-200 inline mr-1" /> {progressState.xp_earned} XP</div>
-      </div>
+      ) : (
+        /* 🌟 MINIMALIST BACK BAR (THEATER/FOCUS MODE) */
+        <div className="bg-stone-950 text-stone-300 rounded-xl p-2.5 flex items-center justify-between shadow-xs transition-all duration-300">
+          <button type="button" onClick={() => setActiveTab("map")} className="flex items-center gap-1.5 text-xs font-bold text-stone-300 hover:text-white bg-stone-900/50 px-3 py-1 rounded-lg border border-stone-800 transition-colors">
+            <ChevronLeft className="w-4 h-4" /> Keluar Mod Misi
+          </button>
+          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 truncate max-w-[50%]">{topic?.name}</span>
+        </div>
+      )}
 
-      {/* STAGE CONTAINER LAYER */}
+      {/* NOTA REKOD KEMAJUAN UTAMA */}
+      {isTopicUnlocked && activeTab === "map" && (
+        <div className="bg-amber-50 border border-amber-200/50 p-3 rounded-xl text-[11px] font-semibold text-amber-800">
+          🌳 Mod Ulangkaji Bebas Aktif! Semua dahan kurikulum kini terbuka untuk anda teroka.
+        </div>
+      )}
+
+      {/* SWITCH LAYOUT ENGINE */}
       <AnimatePresence mode="wait">
         {activeTab === "map" && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
             <LessonProgress 
               steps={isTopicUnlocked ? { video: true, lesson: true, flashcard: true, mindmap: true, quiz: true } : { video: progressState.video_completed, lesson: progressState.lesson_completed, flashcard: progressState.flashcard_completed, mindmap: progressState.mindmap_completed, quiz: progressState.quiz_completed }} 
               onStepClick={(key) => { if (key === "video") setActiveTab("video"); if (key === "lesson") setActiveTab("lesson"); if (key === "flashcard") loadFlashcardsOnDemand(); if (key === "mindmap") loadMindMapOnDemand(); if (key === "quiz") setActiveTab("quiz"); }}
@@ -368,58 +383,55 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 1: VIDEO */}
+        {/* 🌟 STAGE 1: CINEMA VIDEO FOCUS LAYER (SIFAR GANGGUAN BAR GLOBAL) */}
         {activeTab === "video" && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
-            <div className="flex justify-between items-center border-b pb-4">
-              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🎬 Dahan 1: Video Pengajaran</h3>
-              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="text-stone-500">Tutup ✖</Button>
-            </div>
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200/60 shadow-md space-y-4">
             <YouTubeLesson videoUrl={videoSumberUtama} isCompleted={progressState.video_completed} onCompleted={handleVideoStageCompleted} />
-            {progressState.video_completed && (<Button onClick={() => setActiveTab("map")} className="w-full h-14 bg-emerald-600 font-black rounded-xl text-white">Kembali Ke Peta Pokok 🌳</Button>)}
+            {progressState.video_completed && (
+              <Button onClick={() => setActiveTab("map")} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 font-black rounded-xl text-white text-xs border-0 shadow-xs">
+                Kembali Meneroka Pokok Ilmu 🌳
+              </Button>
+            )}
           </motion.div>
         )}
 
         {/* STAGE 2: NOTA PINTAR */}
         {activeTab === "lesson" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
-            <div className="flex justify-between items-center border-b pb-4"><h3 className="text-lg font-black text-stone-800">📖 Dahan 2: Nota Pintar</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")}>Tutup ✖</Button></div>
-            <div className="prose prose-sm max-w-none text-stone-700 max-h-[400px] overflow-y-auto p-4 border rounded-2xl bg-[#FAFAF7] shadow-inner">
-              {customNotes ? <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{customNotes}</p> : <p className="text-xs text-slate-400">Nota belum dimuat naik.</p>}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
+            <div className="prose prose-sm max-w-none max-h-[350px] overflow-y-auto p-4 border rounded-xl bg-[#FAFAF7] shadow-inner">
+              {customNotes ? <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{customNotes}</p> : <p className="text-xs text-slate-400">Nota belum tersedia.</p>}
             </div>
-            <Button onClick={handleLessonStageCompleted} className="w-full h-14 bg-emerald-600 text-white font-black rounded-xl">Selesai Baca Nota 🍃</Button>
+            <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0">Selesai Membaca Nota 🍃</Button>
           </motion.div>
         )}
 
         {/* STAGE 3: FLASHCARD */}
         {activeTab === "flashcard" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
-            <div className="flex justify-between items-center border-b pb-4"><h3 className="text-lg font-black text-stone-800">🃏 Dahan 3: Kad Memori</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")}>Tutup ✖</Button></div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
             <Flashcards flashcards={flashcards || []} lang={getLanguageMode()} />
-            <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-14 bg-emerald-600 text-white font-black rounded-xl mt-4">Selesai Main Kad 🌳</Button>
+            <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 mt-2 shadow-xs">Selesai Ulangkaji Kad 🌳</Button>
           </motion.div>
         )}
 
         {/* STAGE 4: MINDMAP */}
         {activeTab === "mindmap" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
-            <div className="flex justify-between items-center border-b pb-4"><h3 className="text-lg font-black text-stone-800">🧠 Dahan 4: Peta Minda Modul</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")}>Tutup ✖</Button></div>
-            <div className="min-h-[250px] bg-[#FAFAF7] rounded-2xl p-4 border flex flex-col items-center justify-center">
-              {customInfographic ? <img src={customInfographic} alt="Mindmap" className="w-full h-auto rounded-2xl max-h-80 object-contain bg-white border" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
+            <div className="min-h-[220px] bg-[#FAFAF7] rounded-xl p-3 border flex flex-col items-center justify-center">
+              {customInfographic ? <img src={customInfographic} alt="Mindmap" className="w-full h-auto rounded-xl max-h-72 object-contain bg-white border shadow-2xs" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
             </div>
-            <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-14 bg-emerald-600 text-white font-black rounded-xl mt-3">Selesai Teroka Peta! 🗺️</Button>
+            <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 mt-2 shadow-xs">Selesai Teroka Peta! 🗺️</Button>
           </motion.div>
         )}
 
         {/* STAGE 5: FINAL BOSS CHALLENGE */}
         {activeTab === "quiz" && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 rounded-[2rem] p-6 border border-amber-200 shadow-xl relative">
-            <div className="space-y-5">
-              <div className="flex justify-between items-center"><h3 className="text-xl font-black text-amber-950">⚔️ Puncak Pokok: Kuiz Boss!</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="text-amber-800">Tutup ✖</Button></div>
-              <p className="text-xs sm:text-sm text-amber-800 font-medium">Sedia untuk menewaskan cabaran terakhir ini untuk menawan dahan ini? 🏆</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
-                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-16 font-black rounded-xl">{status.quiz ? "Loading..." : "Cabaran Pantas (10 Soalan)"}</Button>
-                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-16 font-black rounded-xl">{status.quiz ? "Loading..." : "Ujian Boss Padu (20 Soalan)"}</Button>
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 border border-amber-200 shadow-md">
+            <div className="space-y-4 text-center sm:text-left">
+              <h3 className="text-base font-black text-amber-950">⚔️ Misi Terakhir: Kuiz Puncak Dahan</h3>
+              <p className="text-xs text-amber-800 font-medium">Sedia menduduki ujian cabaran minda untuk menawan kemuncak dahan ilmu ini? 🏆</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Menyusun..." : "Cabaran Pantas (10 Soalan)"}</Button>
+                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Menjana..." : "Ujian Boss Padu (20 Soalan)"}</Button>
               </div>
             </div>
           </motion.div>
