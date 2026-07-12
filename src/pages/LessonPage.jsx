@@ -82,7 +82,7 @@ export default function LessonPage() {
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  // KANDUNGAN NOTA PNG / JPG
+  // KANDUNGAN NOTA PNG / JPG MURNI
   const [videoUrl, setVideoUrl] = useState("");
   const [notesContent, setNotesContent] = useState("");
   const [notesImage, setNotesImage] = useState(""); 
@@ -125,30 +125,21 @@ export default function LessonPage() {
             setVideoUrl(foundBank.video_url || "");
             setInfographicUrl(foundBank.infographic_url || "");
             
-            // 🧠 ENJIN PEMBACA NOTA JSON (KALIS RALAT DOUBLE-PARSE)
+            // 🧠 ENJIN PEMBACA NOTA JSON (PEMBERSIH SENGKANG ESCAPING HOST)
             const rawNotes = foundBank.notes_content;
             if (rawNotes) {
               try {
-                // Jika backend sudah tolong jadikan Object, pakai. Jika tidak, parse sendiri.
-                const parsedNotes = typeof rawNotes === "object" ? rawNotes : JSON.parse(rawNotes);
+                let cleanStr = String(rawNotes).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                if (cleanStr.startsWith('"') && cleanStr.endsWith('"')) { cleanStr = cleanStr.substring(1, cleanStr.length - 1); }
+                const parsedNotes = typeof rawNotes === "object" ? rawNotes : JSON.parse(cleanStr);
                 
-                // Periksa sama ada ia format JSON Baharu yang ada { text, image }
                 if (parsedNotes && (parsedNotes.text !== undefined || parsedNotes.image !== undefined)) {
                   setNotesContent(parsedNotes.text || "");
                   setNotesImage(parsedNotes.image || "");
                 } else {
-                  // Fallback: Jika objek pelik, kembalikan ke teks biasa
-                  setNotesContent(typeof rawNotes === "string" ? rawNotes : JSON.stringify(rawNotes));
-                  setNotesImage("");
+                  setNotesContent(String(rawNotes)); setNotesImage("");
                 }
-              } catch (e) { 
-                // Jika gagal parse (bermakna ini nota teks lama sebelum naik taraf)
-                setNotesContent(String(rawNotes)); 
-                setNotesImage("");
-              }
-            } else {
-              setNotesContent("");
-              setNotesImage("");
+              } catch (e) { setNotesContent(String(rawNotes)); setNotesImage(""); }
             }
             
             const parsedQuestions = safeJsonParse(foundBank.questions_json, []);
@@ -216,7 +207,6 @@ export default function LessonPage() {
 
   const loadFlashcardsOnDemand = async () => { setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return; setStatus(p => ({ ...p, flashcards: true })); try { if (rawBankQuestions && rawBankQuestions.length > 0) { setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer}\n\n${q.explanation || ""}` }))); return; } } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } };
   const loadMindMapOnDemand = async () => { setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return; setStatus(p => ({ ...p, mindmap: true })); try { const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} }); setMindMap(res); } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); } };
-  const runQuizGeneration = async (numQ) => { await recordStudyTime(); setStatus(p => ({ ...p, quiz: true })); let currentSessionId = sessionRef.current; try { if (!currentSessionId) { const user = await base44.auth.me(); const newSession = await base44.entities.StudySession.create({ student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", duration_minutes: 0, ...progressState, current_stage: "quiz" }); currentSessionId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id; setSessionId(currentSessionId); sessionRef.current = currentSessionId; } const pool = shuffleArray(rawBankQuestions).slice(0, numQ); const quizData = await base44.entities.Quiz.create({ session_id: currentSessionId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", questions_json: JSON.stringify(pool), difficulty: numQ >= 20 ? "hard" : "medium", num_questions: pool.length }); const finalQuizId = Array.isArray(quizData) ? quizData[0]?.id : quizData?.id; await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }); navigate(`/quiz/${finalQuizId}`); } catch (e) { } finally { setStatus(p => ({ ...p, quiz: false })); } };
 
   if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
   const videoSumberUtama = videoUrl || topic?.video_url;
@@ -255,7 +245,7 @@ export default function LessonPage() {
               
               {/* GAMBAR INFOGRAFIK PNG/JPG DIRENDER DI SINI */}
               {notesImage && (
-                <img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200 shadow-sm mb-4" />
+                <img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200 shadow-sm mb-4 bg-white" />
               )}
 
               <div className="w-full">
