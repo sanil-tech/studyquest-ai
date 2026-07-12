@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  BookOpen, Video, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, Loader2, PlusCircle, Edit3, Search, UploadCloud, FileJson, Link as LinkIcon, Image as ImageIcon, FileText
+  BookOpen, Video, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, Loader2, PlusCircle, Edit3, Search, UploadCloud, FileJson, Link as LinkIcon, Image as ImageIcon
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,46 +12,38 @@ export default function LessonResources() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // 🔒 STATE KESELAMATAN & LOADING
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
 
-  // 🔄 STRATEGI SUIS MOD
   const [borangMod, setBorangMod] = useState("create"); 
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
-  // STATE PARAMETER TERAS
   const [topicId, setTopicId] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState(""); 
   const [coinReward, setCoinReward] = useState(50); 
 
-  // 📝 3. NOTA, GAMBAR & PDF INFOGRAFIK (SISTEM JSON NOTA)
+  // 📝 3. NOTA & INFOGRAFIK PNG/JPG (JSON)
   const [notes, setNotes] = useState(""); 
   const [noteImageUrl, setNoteImageUrl] = useState(""); 
   const [noteImageFile, setNoteImageFile] = useState(null); 
   const [noteImagePreview, setNoteImagePreview] = useState(""); 
-  const [notePdfUrl, setNotePdfUrl] = useState("");           // URL PDF dari server
-  const [notePdfFile, setNotePdfFile] = useState(null);       // Fail PDF mentah
-  const [notePdfName, setNotePdfName] = useState("");         // Nama fail PDF dipilih
 
   // 🗺️ 4. PETA MINDA UTAMA (Dahan 4)
   const [infographicUrl, setInfographicUrl] = useState(""); 
   const [infographicFile, setInfographicFile] = useState(null); 
   const [infographicPreview, setInfographicPreview] = useState(""); 
 
-  // ⚔️ 5. KUIZ
   const [questions, setQuestions] = useState([
     { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["", "", "", ""], correctAnswer: "A", explanation: "" }
   ]);
   const jsonFileInputRef = useRef(null);
 
-  // 🎯 1. AUTH GUARD
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
@@ -78,7 +70,7 @@ export default function LessonResources() {
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. ENJIN MUAT NAIK GAMBAR (MAMPAT)
+  // 🎯 2. ENJIN MUAT NAIK (Dinaik taraf untuk mengekalkan kualiti PNG)
   const kompresFailGambarUlu = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -92,7 +84,16 @@ export default function LessonResources() {
           if (width > MAX_WIDTH) { height = Math.round((height * MAX_WIDTH) / width); width = MAX_WIDTH; }
           canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext("2d"); ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => { resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: "image/jpeg", lastModified: Date.now() })); }, "image/jpeg", 0.70); 
+          
+          // 🌟 Kunci Kualiti: Kekalkan PNG jika fail asal adalah PNG
+          const isPNG = file.type === "image/png";
+          const mimeType = isPNG ? "image/png" : "image/jpeg";
+          const kualiti = isPNG ? undefined : 0.75;
+          const extension = isPNG ? ".png" : ".jpg";
+
+          canvas.toBlob((blob) => { 
+            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, { type: mimeType, lastModified: Date.now() })); 
+          }, mimeType, kualiti); 
         };
       };
     });
@@ -119,36 +120,8 @@ export default function LessonResources() {
     throw new Error("Pelayan menolak fail imej.");
   };
 
-  // 🎯 3. ENJIN MUAT NAIK DOKUMEN TULEN (PDF) - TANPA MAMPATAN GAMBAR
-  const uploadDokumenGeneric = async (file) => {
-    const formData = new FormData(); formData.append("file", file);
-    const cubaanSintaks = [
-      async () => await base44.integrations.UploadFile.upload({ file }),
-      async () => await base44.integrations.UploadFile.execute({ file }),
-      async () => await base44.integrations.UploadFile({ file }),
-      async () => await base44.integrations.UploadFile.upload(formData)
-    ];
-    for (let i = 0; i < cubaanSintaks.length; i++) {
-      try {
-        const res = await cubaanSintaks[i]();
-        if (res) {
-          const urlHasil = typeof res === "string" ? res : (res.url || res.file_url || res.link || Object.values(res)[0]);
-          if (urlHasil && typeof urlHasil === "string" && urlHasil.startsWith("http")) return urlHasil;
-        }
-      } catch (e) {}
-    }
-    throw new Error("Pelayan menolak dokumen PDF.");
-  };
-
   const kendaliPilihanInfographic = (e) => { const file = e.target.files[0]; if (!file) return; setInfographicFile(file); setInfographicPreview(URL.createObjectURL(file)); };
   const kendaliPilihanNoteImage = (e) => { const file = e.target.files[0]; if (!file) return; setNoteImageFile(file); setNoteImagePreview(URL.createObjectURL(file)); };
-  
-  // Pengendali PDF Baru
-  const kendaliPilihanNotePdf = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    setNotePdfFile(file); setNotePdfName(file.name);
-  };
-
   const kendaliPilihanGambarSoalan = (index, file) => { if (!file) return; const updated = [...questions]; updated[index].questionFile = file; updated[index].questionPreview = URL.createObjectURL(file); setQuestions(updated); };
 
   const handleJSONFileUpload = (e) => {
@@ -171,7 +144,6 @@ export default function LessonResources() {
 
   const muatTurunSenaraiLesson = async () => { setIsLoadingList(true); try { setLessonsList(await base44.entities.Quiz.filter({}) || []); } catch (err) {} finally { setIsLoadingList(false); } };
 
-  // 🎯 4. MOD EDIT: DECODE STRUKTUR JSON NOTA LENGKAP
   const handlePilihLesson = (e) => {
     const idPilihan = e.target.value; setSelectedLessonId(idPilihan);
     if (!idPilihan) { resetSemuaMedanBorang(); return; }
@@ -183,20 +155,17 @@ export default function LessonResources() {
       setInfographicUrl(lesson.infographic_url || ""); setInfographicPreview(lesson.infographic_url || ""); setInfographicFile(null);
       setYoutubeUrl(lesson.video_url || ""); 
 
-      // Peledak struktur JSON Nota lama + PDF Baharu
       try {
         const parsedNotes = JSON.parse(lesson.notes_content);
         if (parsedNotes && typeof parsedNotes === "object") {
           setNotes(parsedNotes.text || "");
           setNoteImageUrl(parsedNotes.image || "");
           setNoteImagePreview(parsedNotes.image || "");
-          setNotePdfUrl(parsedNotes.pdf || "");
-          setNotePdfName(parsedNotes.pdf ? "📄 Dokumen PDF Sedia Ada Telah Dikunci" : "");
         } else {
-          setNotes(lesson.notes_content || ""); setNoteImageUrl(""); setNoteImagePreview(""); setNotePdfUrl(""); setNotePdfName("");
+          setNotes(lesson.notes_content || ""); setNoteImageUrl(""); setNoteImagePreview(""); 
         }
       } catch (err) {
-        setNotes(lesson.notes_content || ""); setNoteImageUrl(""); setNoteImagePreview(""); setNotePdfUrl(""); setNotePdfName("");
+        setNotes(lesson.notes_content || ""); setNoteImageUrl(""); setNoteImagePreview("");
       }
 
       try {
@@ -214,7 +183,6 @@ export default function LessonResources() {
   const resetSemuaMedanBorang = () => { 
     setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setCoinReward(50); 
     setNotes(""); setNoteImageUrl(""); setNoteImageFile(null); setNoteImagePreview("");
-    setNotePdfUrl(""); setNotePdfFile(null); setNotePdfName("");
     setInfographicUrl(""); setInfographicFile(null); setInfographicPreview(""); 
     setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); 
   };
@@ -225,7 +193,6 @@ export default function LessonResources() {
   const handleOptionChange = (qIndex, optIndex, value) => { const updated = [...questions]; if(!updated[qIndex].options) updated[qIndex].options = ["", "", "", ""]; updated[qIndex].options[optIndex] = value; setQuestions(updated); };
   const handleDeleteLesson = async () => { if (!selectedLessonId) return; if (!window.confirm(`⚠️ PADAM KEKAL?`)) return; setIsDeleting(true); try { await base44.entities.Quiz.delete(selectedLessonId); toast({ title: "Berjaya Dipadam! 🗑️" }); setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson(); } catch (err) {} finally { setIsDeleting(false); } };
 
-  // 🎯 5. PROSES PAYLOAD PENYIMPANAN HARMONI
   const handleSaveForm = async (e) => {
     e.preventDefault();
     if (borangMod === "create" && !topicId) { toast({ title: "Ralat 🛑", description: "Sila isi ID Unik Topik.", variant: "destructive" }); return; }
@@ -239,14 +206,6 @@ export default function LessonResources() {
       let serverNoteImageUrl = noteImageUrl;
       if (noteImageFile) try { serverNoteImageUrl = await uploadKeServerRasmi(noteImageFile); } catch (e){}
 
-      // Proses Muat Naik PDF Asli (Kalis Kompresi Gambar)
-      let serverNotePdfUrl = notePdfUrl;
-      if (notePdfFile) {
-        try { serverNotePdfUrl = await uploadDokumenGeneric(notePdfFile); } catch (e){
-          toast({ title: "Ralat Muat Naik PDF", description: e.message, variant: "destructive" });
-        }
-      }
-
       const susunanSoalanKuiz = [];
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
@@ -258,11 +217,9 @@ export default function LessonResources() {
         });
       }
 
-      // 🧠 STRATEGI INTEGRASI TIGA ELEMEN NOTA (TEKS + IMEJ + PDF)
       const strukturNotaJSON = JSON.stringify({
         text: notes.trim(),
-        image: serverNoteImageUrl || null,
-        pdf: serverNotePdfUrl || null
+        image: serverNoteImageUrl || null
       });
 
       const dataPayload = {
@@ -281,7 +238,7 @@ export default function LessonResources() {
         await base44.entities.Quiz.update(selectedLessonId, { id: selectedLessonId, ...dataPayload });
       }
 
-      toast({ title: "Disimpan Berjaya! 🎉", description: "Bahan Media & Dokumen PDF Berjaya Disegerakkan." });
+      toast({ title: "Disimpan Berjaya! 🎉", description: "Bahan Media Infografik PNG Berjaya Disegerakkan." });
       resetSemuaMedanBorang(); setSelectedLessonId(""); if (borangMod === "edit") setTimeout(muatTurunSenaraiLesson, 500);
 
     } catch (err) {
@@ -296,7 +253,7 @@ export default function LessonResources() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-emerald-500 animate-pulse" /> Pengurusan Lesson Resources</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Enjin Schema Asli v2: Kini Menyokong Nota Infografik Fail PDF.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Enjin Schema Asli: Dioptimumkan penuh untuk Infografik format PNG.</p>
         </div>
         <div className="flex bg-slate-200/70 p-1 rounded-xl shadow-inner self-start sm:self-center">
           <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-emerald-500" /> Cipta Baru</button>
@@ -319,7 +276,6 @@ export default function LessonResources() {
 
       {(borangMod === "create" || selectedLessonId) ? (
         <form onSubmit={handleSaveForm} className="space-y-6">
-          {/* SEKSYEN 1 */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-emerald-600"><BookOpen className="w-4 h-4 inline mr-1" /> 1. Parameter Teras</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -328,55 +284,32 @@ export default function LessonResources() {
             </div>
           </Card>
 
-          {/* SEKSYEN 2 */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-emerald-600"><Video className="w-4 h-4 inline mr-1" /> 2. Dahan 1: Video Youtube</h3>
             <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">URL YouTube Video*</label><input type="url" required value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
           </Card>
 
-          {/* SEKSYEN 3 (UPGRADED MEDIA NOTA DUA PILIHAN: GAMBAR & PDF) */}
           <Card className="p-5 bg-blue-50/40 border border-blue-200/70 rounded-2xl shadow-sm space-y-4">
-            <h3 className="text-sm font-black text-blue-700 border-b border-blue-200 pb-2 uppercase text-[11px] tracking-wider"><ImageIcon className="w-4 h-4 inline mr-1" /> 3. Dahan 2: Kandungan Nota & Alat Bantu (JSON)</h3>
+            <h3 className="text-sm font-black text-blue-700 border-b border-blue-200 pb-2 uppercase text-[11px] tracking-wider"><ImageIcon className="w-4 h-4 inline mr-1" /> 3. Dahan 2: Kandungan Nota & Infografik (PNG)</h3>
             
-            {/* INPUT FAIL GAMBAR */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">🖼️ Muat Naik Gambar Nota (Jika Ada)</label>
-                <input type="file" accept="image/*" onChange={kendaliPilihanNoteImage} className="w-full text-xs text-slate-500 border border-blue-200 rounded-xl bg-white p-1" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">🖼️ Muat Naik Infografik Nota</label>
+                <input type="file" accept="image/png, image/jpeg" onChange={kendaliPilihanNoteImage} className="w-full text-xs text-slate-500 border border-blue-200 rounded-xl bg-white p-1" />
               </div>
               <div className="p-3 bg-white rounded-xl border border-blue-100 space-y-1">
-                <label className="text-[10px] font-bold text-slate-600 uppercase">Pautan URL Gambar Nota Alternatif</label>
-                <input type="text" placeholder="URL Gambar" value={noteImageUrl} onChange={(e) => { setNoteImageUrl(e.target.value); if(e.target.value) setNoteImagePreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium" />
+                <label className="text-[10px] font-bold text-slate-600 uppercase">Pautan URL Gambar Alternatif</label>
+                <input type="text" placeholder="URL Gambar (PNG/JPG)" value={noteImageUrl} onChange={(e) => { setNoteImageUrl(e.target.value); if(e.target.value) setNoteImagePreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium" />
               </div>
             </div>
-            {noteImagePreview && (<div className="p-2 bg-white border border-dashed border-blue-300 rounded-xl max-w-xs"><img src={noteImagePreview} alt="Preview" className="w-full h-auto rounded-lg max-h-24 object-contain" /><button type="button" onClick={() => { setNoteImageFile(null); setNoteImagePreview(""); setNoteImageUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
+            {noteImagePreview && (<div className="p-2 bg-white border border-dashed border-blue-300 rounded-xl max-w-xs"><img src={noteImagePreview} alt="Preview" className="w-full h-auto rounded-lg max-h-32 object-contain" /><button type="button" onClick={() => { setNoteImageFile(null); setNoteImagePreview(""); setNoteImageUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
 
-            {/* 🌟 BARU: INPUT FAIL PDF LEMBARAN */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-blue-100">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-blue-700 uppercase flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Muat Naik Dokumen Infografik PDF*</label>
-                <input type="file" accept="application/pdf" onChange={kendaliPilihanNotePdf} className="w-full text-xs text-slate-500 border border-blue-200 rounded-xl bg-white p-1 file:bg-blue-600 file:text-white file:border-0 file:rounded-lg file:px-2 file:py-1 file:font-bold file:text-[10px] cursor-pointer" />
-              </div>
-              <div className="p-3 bg-white rounded-xl border border-blue-100 space-y-1">
-                <label className="text-[10px] font-bold text-slate-600 uppercase">Pautan URL PDF Manual (Jika Ada)</label>
-                <input type="text" placeholder="URL Fail PDF Langsung" value={notePdfUrl} onChange={(e) => { setNotePdfUrl(e.target.value); if(e.target.value) setNotePdfName("📄 Membaca URL PDF Alternatif"); }} className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium" />
-              </div>
-            </div>
-            {notePdfName && (
-              <div className="p-2 bg-blue-100/50 border border-blue-200 rounded-xl text-[11px] font-bold text-blue-800 flex items-center justify-between">
-                <span>{notePdfName}</span>
-                <button type="button" onClick={() => { setNotePdfFile(null); setNotePdfName(""); setNotePdfUrl(""); }} className="text-[9px] font-black text-rose-600 underline">Kosongkan PDF</button>
-              </div>
-            )}
-
-            {/* TEXTAREA UTAMA */}
             <div className="space-y-1 pt-2 border-t border-blue-100">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Teks Ayat Nota Pengajian</label>
-              <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Taip huraian pengajaran..." className="w-full px-3 py-2.5 bg-white border border-blue-200 rounded-xl text-xs font-medium shadow-inner" />
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Teks Ayat Nota Pengajian (Pilihan)</label>
+              <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Taip huraian pengajaran (jika ada)..." className="w-full px-3 py-2.5 bg-white border border-blue-200 rounded-xl text-xs font-medium shadow-inner" />
             </div>
           </Card>
 
-          {/* SEKSYEN 4 */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-purple-600"><UploadCloud className="w-4 h-4 inline mr-1" /> 4. Dahan 4: Peta Minda Keseluruhan</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -386,7 +319,6 @@ export default function LessonResources() {
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-32 object-contain bg-white" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
           </Card>
 
-          {/* SEKSYEN 5 */}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-1 gap-4">
               <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px] tracking-wide"><HelpCircle className="w-4 h-4 text-emerald-600" /> 5. Penyediaan Kuiz ({questions.length})</h3>
@@ -421,7 +353,7 @@ export default function LessonResources() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between shrink-0"><span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-emerald-600" /> Kunci Jawapan:</span><select value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)} className="ml-3 bg-white border border-slate-200 rounded-lg text-xs font-black px-4 py-1 text-purple-700 cursor-pointer"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
+                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between shrink-0"><span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-emerald-600" /> Kunci Jawapan:</span><select value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)} className="ml-3 bg-white border border-slate-200 rounded-lg text-xs font-black px-4 py-1 text-emerald-700 cursor-pointer"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
                   <div className="flex-1 w-full bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100"><span className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1 mb-1"><Sparkles className="w-3 h-3" /> Penerangan Jawapan</span><textarea rows={1} placeholder="Terangkan rumusan..." value={q.explanation || ""} onChange={(e) => handleQuestionChange(qIndex, "explanation", e.target.value)} className="w-full px-2.5 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-medium shadow-inner" /></div>
                 </div>
               </Card>
