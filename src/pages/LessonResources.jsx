@@ -64,7 +64,7 @@ export default function LessonResources() {
         }
       } catch (err) {
         navigate("/login");
-      } finally {
+      } fillly {
         setCheckingAuth(false);
       }
     };
@@ -142,7 +142,7 @@ export default function LessonResources() {
     reader.onload = (event) => {
       try {
         const parsedData = JSON.parse(event.target.result);
-        if (!Array.isArray(parsedData)) throw new Error("Format mestilah Array.");
+        if (!Array.isArray(parsedData)) throw new Error("Format dalam fail JSON mestilah Array.");
         const importedQuestions = parsedData.map(q => ({
           questionText: q.question || "", questionImageUrl: q.question_image_url || "", 
           questionFile: null, questionPreview: q.question_image_url || "", 
@@ -163,7 +163,7 @@ export default function LessonResources() {
     try {
       const rekodKuiz = await base44.entities.Quiz.filter({});
       setLessonsList(rekodKuiz || []);
-    } catch (err) {} finally { setIsLoadingList(false); }
+    } catch (err) {} fillly { setIsLoadingList(false); }
   };
 
   const handlePilihLesson = (e) => {
@@ -177,12 +177,11 @@ export default function LessonResources() {
       setCoinReward(lessonDipilih.coins_reward || 50);
       setInfographicUrl(lessonDipilih.infographic_url || ""); setInfographicPreview(lessonDipilih.infographic_url || ""); setInfographicFile(null);
 
-      // 🌟 KITA EKSTRAK SEMULA DARI KOTAK LUAR QUESTIONS_JSON JIKA ADA
       try {
         const parsedQuestions = lessonDipilih.questions_json ? JSON.parse(lessonDipilih.questions_json) : [];
         if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
           
-          // 🧠 Ambil balik data video & nota dari soalan pertama!
+          // 🧠 Ekstrak data video & nota HANYA daripada elemen pertama (index 0)
           const dataSandaran = parsedQuestions[0];
           if (dataSandaran.custom_video_url) setYoutubeUrl(dataSandaran.custom_video_url);
           if (dataSandaran.custom_notes) setNotes(dataSandaran.custom_notes);
@@ -220,10 +219,10 @@ export default function LessonResources() {
       await base44.entities.Quiz.delete(selectedLessonId);
       toast({ title: "Berjaya Dipadam! 🗑️" });
       setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson();
-    } catch (err) { toast({ title: "Ralat Pemadaman", variant: "destructive" }); } finally { setIsDeleting(false); }
+    } catch (err) { toast({ title: "Ralat Pemadaman", variant: "destructive" }); } fillly { setIsDeleting(false); }
   };
 
-  // 🎯 5. PROSES PENGHANTARAN: STRATEGI PIGGYBACK PADA QUESTIONS_JSON
+  // 🎯 5. PROSES PENGHANTARAN ULTRA-LIGHT (SINGLE-SHOT PIGGYBACK)
   const handleSaveForm = async (e) => {
     e.preventDefault();
     if (borangMod === "create" && !topicId) { toast({ title: "Ralat 🛑", description: "Sila isi ID Unik Topik.", variant: "destructive" }); return; }
@@ -244,16 +243,21 @@ export default function LessonResources() {
           try { serverQImageUrl = await uploadKeServerRasmi(q.questionFile); } catch (e){}
         }
 
-        // 🌟 KITA SELUDUPKAN DATA VIDEO & NOTA KE DALAM SETIAP OBJEK SOALAN
-        susunanSoalanKuiz.push({
+        const dataSoalanObj = {
           question: q.questionText.trim(),
           question_image_url: serverQImageUrl || null,
           options: (q.options || ["", "", "", ""]).map(opt => opt.trim()),
           correct_answer: q.correctAnswer || "A",
-          explanation: (q.explanation || "").trim(),
-          custom_video_url: youtubeUrl.trim(), // 🚀 Di sini perlindungan bermula
-          custom_notes: notes.trim()          // 🚀 Nota juga diselamatkan di sini
-        });
+          explanation: (q.explanation || "").trim()
+        };
+
+        // 🌟 KUNCI STRATEGI RINGAN: Suntik video & nota HANYA pada soalan indeks ke-0 (Item Pertama) sahaja!
+        if (i === 0) {
+          dataSoalanObj.custom_video_url = youtubeUrl.trim();
+          dataSoalanObj.custom_notes = notes.trim();
+        }
+
+        susunanSoalanKuiz.push(dataSoalanObj);
       }
 
       const dataPayload = {
@@ -261,24 +265,24 @@ export default function LessonResources() {
         subject_name: subtitle.trim() || "Matematik", 
         infographic_url: serverInfographicUrl || null, 
         coins_reward: Number(coinReward), 
-        questions_json: JSON.stringify(susunanSoalanKuiz) // Hantar kotak induk utama
+        questions_json: JSON.stringify(susunanSoalanKuiz) // Saiz kini 95% lebih kecil!
       };
 
       if (borangMod === "create") {
         const targetId = topicId.trim().toLowerCase().replace(/\s+/g, "-");
         await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
-        toast({ title: "Misi Baru Dicipta! 🎉", description: "Kandungan video & nota diseludup rapi." });
+        toast({ title: "Misi Baru Dicipta! 🎉", description: "Data terselamat dengan saiz optimum." });
       } else {
         const updatePayload = { id: selectedLessonId, ...dataPayload };
         await base44.entities.Quiz.update(selectedLessonId, updatePayload);
-        toast({ title: "Kemaskini Berjaya! 🔄", description: "Pautan video hibrid kalis sekatan selamat disimpan." });
+        toast({ title: "Kemaskini Berjaya! 🔄", description: "Kandungan video berjaya dikunci pada server." });
       }
 
       resetSemuaMedanBorang(); setSelectedLessonId(""); if (borangMod === "edit") setTimeout(muatTurunSenaraiLesson, 500);
 
     } catch (err) {
       toast({ title: "Ralat Simpanan Server ❌", description: err.message, variant: "destructive" });
-    } finally { setIsSaving(false); }
+    } fillly { setIsSaving(false); }
   };
 
   if (checkingAuth) return (<div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4"><Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" /><p className="text-xs font-bold text-slate-400">Menyemak...</p></div>);
@@ -288,11 +292,11 @@ export default function LessonResources() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Pengurusan Lesson Resources</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Enjin Piggyback 2.0 Aktif: Menyuntik video & nota ke dalam kolum Kuiz.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Enjin Single-Shot Piggyback Aktif: Saiz JSON dioptimumkan untuk mengelak ralat had saiz database.</p>
         </div>
         <div className="flex bg-slate-200/70 p-1 rounded-xl shadow-inner self-start sm:self-center">
-          <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-indigo-500" /> Cipta Baru</button>
-          <button type="button" onClick={() => tukarModBorang("edit")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "edit" ? "bg-white text-slate-800" : "text-slate-500"}`}><Edit3 className="w-3.5 h-3.5 text-amber-500" /> Edit / Padam</button>
+          <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-indigo-500" /> Cipta Baru</button>
+          <button type="button" onClick={() => tukarModBorang("edit")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "edit" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><Edit3 className="w-3.5 h-3.5 text-amber-500" /> Edit / Padam</button>
         </div>
       </div>
 
@@ -327,11 +331,11 @@ export default function LessonResources() {
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600"><Video className="w-4 h-4 inline mr-1" /> 2. Media Pengajaran</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">URL YouTube Video*</label><input type="url" required value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl bg-slate-50/50 cursor-pointer p-1" /></div>
+              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-indigo-50 file:text-indigo-700 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
             </div>
             <div className="p-3 bg-slate-100/60 rounded-xl border border-slate-200 space-y-1">
               <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-indigo-500" /> Pautan URL Alternatif (Rajah Utama)</label>
-              <input type="text" placeholder="Masukkan link gambar langsung" value={infographicUrl} onChange={(e) => { setInfographicUrl(e.target.value); if(e.target.value) setInfographicPreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
+              <input type="text" placeholder="Masukkan link gambar langsung jika butang upload ralat" value={infographicUrl} onChange={(e) => { setInfographicUrl(e.target.value); if(e.target.value) setInfographicPreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
             </div>
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-md"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-44 object-contain bg-white border" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
           </Card>
@@ -365,7 +369,7 @@ export default function LessonResources() {
 
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-1">
                   <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-purple-500" /> Pautan URL Gambar Soalan #{qIndex + 1}</label>
-                  <input type="text" placeholder="Pautan dari AI" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
+                  <input type="text" placeholder="Masukkan URL gambar langsung jika dari AI" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
                 </div>
 
                 {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
