@@ -3,8 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  ArrowLeft, Play, Loader2, Trophy, Lock, Award, Compass, Tv, 
-  CheckCircle2, AlertCircle, Leaf, Sprout, Sparkles, HelpCircle, Info
+  ArrowLeft, Play, Loader2, Trophy, Compass, Tv, CheckCircle2, Leaf, Sprout
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,12 +16,12 @@ import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson (Regex Diperkukuh & Stabil)
+// COMPONENT 1: YouTubeLesson
 // ============================================================================
-function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
-  const [isPlaying, setIsPlaying] = useState(false);
+function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
+  const [apiFailed, setApiFailed] = useState(false);
   const playerRef = useRef(null);
-  const checkIntervalRef = useRef(null);
+  const containerId = useRef(`yt-player-${Math.random().toString(36).substring(2, 9)}`);
 
   const getYouTubeId = (url) => {
     if (!url) return null;
@@ -34,123 +33,81 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted, xpEarned }) {
   const videoId = getYouTubeId(videoUrl);
 
   useEffect(() => {
-    if (!videoId) return;
-    const handleAPIReady = () => { initPlayer(); };
+    if (!videoId || apiFailed) return;
+    let timer;
+    const initPlayer = () => {
+      const targetEl = document.getElementById(containerId.current);
+      if (!targetEl || playerRef.current) return;
+      try {
+        playerRef.current = new window.YT.Player(containerId.current, {
+          videoId: videoId,
+          playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+          events: {
+            onStateChange: (event) => {
+              if (event.data === window.YT.PlayerState.ENDED) onCompleted();
+            },
+            onError: () => setApiFailed(true)
+          },
+        });
+      } catch (error) { setApiFailed(true); }
+    };
 
     if (!window.YT) {
-      const scriptId = "youtube-iframe-api-script";
-      let scriptTag = document.getElementById(scriptId);
-      
-      if (!scriptTag) {
-        const tag = document.createElement("script");
-        tag.id = scriptId;
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName("script")[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-      }
-      
-      const oldReady = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
-        if (oldReady) oldReady();
-        window.dispatchEvent(new Event('YTAPIReady'));
-      };
-      
-      window.addEventListener('YTAPIReady', handleAPIReady);
-    } else if (window.YT && window.YT.Player) {
-      initPlayer();
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      window.onYouTubeIframeAPIReady = () => { initPlayer(); };
     } else {
-      window.addEventListener('YTAPIReady', handleAPIReady);
+      timer = setTimeout(initPlayer, 150);
     }
 
     return () => {
-      clearInterval(checkIntervalRef.current);
-      window.removeEventListener('YTAPIReady', handleAPIReady);
+      clearTimeout(timer);
       if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-        playerRef.current.destroy();
+        try { playerRef.current.destroy(); } catch (e) {}
         playerRef.current = null;
       }
     };
-  }, [videoId]);
-
-  const initPlayer = () => {
-    if (!videoId || playerRef.current) return;
-    try {
-      playerRef.current = new window.YT.Player(`yt-player-${videoId}`, {
-        videoId: videoId,
-        events: { onStateChange: handlePlayerStateChange },
-      });
-    } catch (error) {
-      console.error("Gagal memulakan YT Player:", error);
-    }
-  };
-
-  const handlePlayerStateChange = (event) => {
-    if (event.data === window.YT.PlayerState.PLAYING) {
-      setIsPlaying(true);
-      startProgressCheck();
-    } else {
-      setIsPlaying(false);
-      clearInterval(checkIntervalRef.current);
-    }
-    if (event.data === window.YT.PlayerState.ENDED) {
-      handleVideoComplete();
-    }
-  };
-
-  const startProgressCheck = () => {
-    clearInterval(checkIntervalRef.current);
-    checkIntervalRef.current = setInterval(() => {
-      if (playerRef.current && playerRef.current.getCurrentTime) {
-        const currentTime = playerRef.current.getCurrentTime();
-        const duration = playerRef.current.getDuration();
-        if (duration > 0 && (currentTime / duration) >= 0.9) {
-          handleVideoComplete();
-        }
-      }
-    }, 2000);
-  };
-
-  const handleVideoComplete = () => {
-    clearInterval(checkIntervalRef.current);
-    if (!isCompleted) onCompleted();
-  };
+  }, [videoId, apiFailed, onCompleted]);
 
   if (!videoId) {
     return (
-      <div className="p-6 text-center bg-amber-50 border border-amber-200 rounded-3xl space-y-3">
-        <p className="text-amber-700 font-bold text-sm">
-          🎬 Tiada video pengajaran kustom dikesan untuk dahan ini. Klik butang di bawah untuk terus memanjat!
-        </p>
-        <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl shadow-sm px-6 py-4 border-0">
-          Selesai Tonton & Teruskan Misi 🚀
-        </Button>
+      <div className="p-6 text-center bg-amber-50 border border-amber-200 rounded-3xl">
+        <p className="text-amber-700 font-bold text-sm">🎬 Sila masukkan pautan video di panel Admin untuk dahan ini.</p>
+        <Button onClick={onCompleted} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-6 py-4 border-0 mt-3">Teruskan Misi 🚀</Button>
+      </div>
+    );
+  }
+
+  if (apiFailed) {
+    return (
+      <div className="space-y-4 max-w-2xl mx-auto">
+        <div className="relative aspect-video rounded-[2rem] overflow-hidden border-4 border-[#5C3A21] shadow-xl bg-stone-900">
+          <iframe src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`} className="w-full h-full border-0" allowFullScreen />
+        </div>
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex justify-between items-center text-xs">
+          <p className="text-amber-800 font-medium">Klik tanda siap selepas selesai menonton.</p>
+          <Button onClick={onCompleted} size="sm" className="bg-emerald-600 text-white font-bold rounded-xl">Tanda Selesai 🍃</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-4 max-w-2xl mx-auto">
       <div className="relative aspect-video rounded-[2rem] overflow-hidden border-4 border-[#5C3A21] shadow-xl bg-stone-900">
-        <div id={`yt-player-${videoId}`} className="w-full h-full" />
+        <div id={containerId.current} className="w-full h-full" />
       </div>
-
       {isCompleted ? (
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-emerald-50 border border-emerald-200 p-5 rounded-[1.5rem] flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-emerald-500 rounded-2xl text-white"><CheckCircle2 className="w-6 h-6" /></div>
-          <div className="flex-1">
-            <h4 className="font-bold text-emerald-800 text-base">Syabas, Video Selesai! 🍃</h4>
-            <p className="text-emerald-600 text-xs font-medium">Misi tontonan video telah diselesaikan.</p>
-          </div>
-          <div className="bg-lime-100 border border-lime-200 px-4 py-2 rounded-xl text-lime-700 font-black text-sm shadow-sm flex items-center gap-1.5 animate-bounce">
-            <Leaf className="w-4 h-4 fill-lime-500" /> +{xpEarned || 10} XP
-          </div>
-        </motion.div>
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-[1.5rem] flex items-center justify-between shadow-sm">
+          <h4 className="font-bold text-emerald-800 text-sm">Syabas, Video Misi Selesai! 🍃</h4>
+          <div className="bg-lime-100 px-3 py-1.5 rounded-xl text-lime-700 font-black text-xs">+10 XP</div>
+        </div>
       ) : (
-        <div className="bg-sky-50 border border-sky-100 p-4 rounded-2xl flex items-center gap-3">
-          <Tv className="w-5 h-5 text-sky-600 animate-pulse shrink-0" />
-          <p className="text-sky-800 text-xs sm:text-sm font-medium">
-            Tonton video ini sehingga tamat untuk membuka kunci dahan misi yang seterusnya! 🌿
-          </p>
+        <div className="bg-sky-50 p-3 rounded-2xl flex items-center justify-between text-xs text-sky-800 font-medium">
+          <span>Tonton video pengajaran sehingga selesai! 🌿</span>
+          <button type="button" onClick={onCompleted} className="text-sky-600 font-bold underline whitespace-nowrap">Langkau</button>
         </div>
       )}
     </div>
@@ -190,13 +147,11 @@ export default function LessonPage() {
   const [isPremium, setIsPremium] = useState(false);
   const [uiError, setUiError] = useState(null);
 
-  const [explanation, setExplanation] = useState("");
-  const [metaData, setMetaData] = useState({ summary: "", keywords: [] });
   const [flashcards, setFlashcards] = useState(null);
   const [mindMap, setMindMap] = useState(null);
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
 
-  // KANDUNGAN DATA KUSTOM PENTADBIR
+  // DATA KUSTOM HIBRID
   const [customVideoUrl, setCustomVideoUrl] = useState("");
   const [customNotes, setCustomNotes] = useState("");
   const [customInfographic, setCustomInfographic] = useState("");
@@ -212,22 +167,11 @@ export default function LessonPage() {
   const sessionRef = useRef(null);
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
+  const isTopicUnlocked = progressState.quiz_completed || (progressState.video_completed && progressState.lesson_completed && progressState.flashcard_completed && progressState.mindmap_completed);
 
-  const isTopicUnlocked = progressState.quiz_completed || (
-                          progressState.video_completed && progressState.lesson_completed && 
-                          progressState.flashcard_completed && progressState.mindmap_completed);
-
-  // 🎯 PEMBERSIH STRING UNTUK PADANAN AGRESIF (Bypass salah ejaan/emoji/imbuhan)
   const bersihkanTeksPadanan = (str) => {
     if (!str) return "";
-    return str
-      .toLowerCase()
-      .replace(/dan/g, "")
-      .replace(/&/g, "")
-      .replace(/misi\s*\d+/g, "")
-      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}]/gu, "") 
-      .replace(/[^a-z0-9]/g, "") 
-      .trim();
+    return str.toLowerCase().replace(/dan/g, "").replace(/&/g, "").replace(/misi\s*\d+/g, "").replace(/[^a-z0-9]/g, "").trim();
   };
 
   useEffect(() => {
@@ -241,53 +185,44 @@ export default function LessonPage() {
         ]);
         
         if (!isMounted) return;
-        setSubject(sub);
-        setTopic(top);
-        setStudentNickname(user?.nickname || "Sahabat");
-        setIsPremium(user?.is_premium || false);
+        setSubject(sub); setTopic(top);
+        setStudentNickname(user?.nickname || "Sahabat"); setIsPremium(user?.is_premium || false);
 
-        // 🎯 ALGORITMA PENGIKATAN (DATA LINK BRIDGE) DIKEMASKINI 100% PINTAR
+        // 🎯 UNPACK DATA DARI KOTAK DWl-PROTEKSI QUESTIONS_JSON
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
           let foundBank = null;
 
           if (allQuizBanks && allQuizBanks.length > 0) {
-            // Langkah 1: Cuba cari persamaan ID tulen
             foundBank = allQuizBanks.find(b => b.id === topicId);
-
-            // Langkah 2: Jika gagal, tapis guna pembersihan kata kunci tajuk yang dipendam
             if (!foundBank) {
-              const targetSiri = bersihkanTeksPadanan(top.name); // cth: "bandingbanyaksedikit"
+              const targetClean = bersihkanTeksPadanan(top.name);
               foundBank = allQuizBanks.find(b => {
-                const adminSiri = bersihkanTeksPadanan(b.topic_name); // cth: "cabaranbanyaksedikit"
-                
-                // Cari jika ada perkataan penting bergolak yang bertindih
-                return adminSiri.includes("banyak") && targetSiri.includes("banyak") ||
-                       adminSiri.includes("sedikit") && targetSiri.includes("sedikit") ||
-                       adminSiri === targetSiri;
+                if (!b.topic_name) return false;
+                const adminClean = bersihkanTeksPadanan(b.topic_name);
+                return b.id === topicId || adminClean === targetClean || targetClean.includes(adminClean) || adminClean.includes(targetClean);
               });
             }
           }
 
           if (foundBank && isMounted) {
-            console.log("🎯 Jambatan Sukses! Data Admin Dikunci:", foundBank);
-            setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
-            if (foundBank.video_url) setCustomVideoUrl(foundBank.video_url);
+            const parsedQuestions = safeJsonParse(foundBank.questions_json, []);
+            setRawBankQuestions(parsedQuestions);
             if (foundBank.infographic_url) setCustomInfographic(foundBank.infographic_url);
-            if (foundBank.notes_json) {
-              try { setCustomNotes(JSON.parse(foundBank.notes_json)); } 
-              catch (e) { setCustomNotes(foundBank.notes_json); }
+            
+            // 🌟 PROSES PEEKING: Mengambil data video & nota daripada elemen soalan pertama
+            if (parsedQuestions.length > 0) {
+              const itemInduk = parsedQuestions[0];
+              if (itemInduk.custom_video_url) setCustomVideoUrl(itemInduk.custom_video_url);
+              if (itemInduk.custom_notes) setCustomNotes(itemInduk.custom_notes);
             }
           }
-        } catch (quizBankErr) {
-          console.error("Gagal merangkum data resources admin:", quizBankErr);
-        }
+        } catch (quizBankErr) { console.error(quizBankErr); }
 
-        // Muat kemajuan sesi pelajar
+        // Muat progress sesi
         try {
           let cachedSessions = await base44.entities.StudySession.filter({ student_id: user.id, topic_id: topicId }, "-created_date", 1);
           let sessionWithNotes = cachedSessions[0] || null;
-
           if (isMounted && sessionWithNotes) {
             setProgressState({
               video_completed: sessionWithNotes.video_completed || false,
@@ -302,11 +237,7 @@ export default function LessonPage() {
           }
         } catch (sErr) {}
 
-      } catch (err) {
-        if (isMounted) setUiError("Gagal memuat turun data kurikulum.");
-      } finally {
-        if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); }
-      }
+      } catch (err) { if (isMounted) setUiError("Ralat kurikulum."); } finally { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
     };
 
     initializeLesson();
@@ -355,23 +286,78 @@ export default function LessonPage() {
     setActiveTab("map");
   }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
 
-  if (loading) return (<div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]"><Loader2 className="w-12 h-12 text-emerald-500 animate-spin" /><p className="text-sm font-bold text-emerald-700/60 uppercase">Membuka laluan dahan...</p></div>);
+  const handleLessonStageCompleted = async () => {
+    setStatus(p => ({ ...p, lesson: true }));
+    try {
+      let currentSessionId = sessionRef.current;
+      const nextStatePayload = { ...progressState, lesson_completed: true, current_stage: progressState.flashcard_completed ? progressState.current_stage : "flashcard", xp_earned: progressState.xp_earned + (progressState.lesson_completed ? 0 : 15) };
+      if (!currentSessionId) {
+        const user = await base44.auth.me();
+        const newSession = await base44.entities.StudySession.create({ student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic.name, subject_name: subject.name, duration_minutes: 0, ...nextStatePayload });
+        const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
+        setSessionId(validId); sessionRef.current = validId;
+      } else { await base44.entities.StudySession.update(currentSessionId, nextStatePayload); }
+      setProgressState(prev => ({ ...prev, ...nextStatePayload })); triggerConfetti(); setActiveTab("map");
+    } catch (e) {} finally { setStatus(p => ({ ...p, lesson: false })); }
+  };
+
+  const loadFlashcardsOnDemand = async () => {
+    setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return;
+    setStatus(p => ({ ...p, flashcards: true }));
+    try {
+      if (rawBankQuestions && rawBankQuestions.length > 0) {
+        setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer}\n\n${q.explanation || ""}` }))); return;
+      }
+    } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); }
+  };
+
+  const loadMindMapOnDemand = async () => {
+    setActiveTab("mindmap"); if (customInfographic || (mindMap && mindMap.length > 0)) return;
+    setStatus(p => ({ ...p, mindmap: true }));
+    try {
+      const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} });
+      setMindMap(res);
+    } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); }
+  };
+
+  const runQuizGeneration = async (numQ) => {
+    await recordStudyTime(); setStatus(p => ({ ...p, quiz: true }));
+    let currentSessionId = sessionRef.current;
+    try {
+      if (!currentSessionId) {
+        const user = await base44.auth.me();
+        const newSession = await base44.entities.StudySession.create({ student_id: user.id, subject_id: subjectId, topic_id: topicId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", duration_minutes: 0, ...progressState, current_stage: "quiz" });
+        currentSessionId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id;
+        setSessionId(currentSessionId); sessionRef.current = currentSessionId;
+      }
+      const pool = shuffleArray(rawBankQuestions).slice(0, numQ);
+      const quizData = await base44.entities.Quiz.create({ session_id: currentSessionId, topic_name: topic?.name || "Topik", subject_name: subject?.name || "Subjek", questions_json: JSON.stringify(pool), difficulty: numQ >= 20 ? "hard" : "medium", num_questions: pool.length });
+      const finalQuizId = Array.isArray(quizData) ? quizData[0]?.id : quizData?.id;
+      await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" });
+      navigate(`/quiz/${finalQuizId}`);
+    } catch (e) { } finally { setStatus(p => ({ ...p, quiz: false })); }
+  };
+
+  if (loading) return (<div className="flex flex-col items-center justify-center min-h-[60vh] bg-[#FAFAF7]"><Loader2 className="w-12 h-12 text-emerald-500 animate-spin" /></div>);
+
+  const videoSumberUtama = customVideoUrl || topic?.video_url;
 
   return (
-    <div className="px-4 py-6 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto space-y-6 pb-28 font-sans bg-[#FAFAF7] min-h-screen">
+    <div className="px-4 py-6 max-w-4xl mx-auto space-y-6 pb-28 font-sans bg-[#FAFAF7] min-h-screen">
       
       {/* HEADER BAR */}
-      <div className="bg-white rounded-[1.5rem] p-4 border border-emerald-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-2 z-40 backdrop-blur-md bg-white/90">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <Link to={`/study/${subjectId}`} className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-600 hover:bg-[#E3D9C6] shrink-0"><ArrowLeft className="w-5 h-5" /></Link>
-          <div className="min-w-0">
-            <h2 className="text-xs font-black text-emerald-600 uppercase tracking-wider flex items-center gap-1"><Compass className="w-3.5 h-3.5" /> {subject?.name}</h2>
-            <h1 className="text-sm sm:text-base font-black truncate text-stone-800">Misi: {topic?.name}</h1>
+      <div className="bg-white rounded-[1.5rem] p-4 border border-emerald-100 shadow-sm flex items-center justify-between sticky top-2 z-40 backdrop-blur-md bg-white/90">
+        <div className="flex items-center gap-3">
+          <Link to={`/study/${subjectId}`} className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-600 hover:bg-[#E3D9C6]"><ArrowLeft className="w-5 h-5" /></Link>
+          <div>
+            <h2 className="text-xs font-black text-emerald-600 uppercase tracking-wider"><Compass className="w-3.5 h-3.5 inline mr-1" /> {subject?.name}</h2>
+            <h1 className="text-sm sm:text-base font-black text-stone-800">Misi: {topic?.name}</h1>
           </div>
         </div>
-        <div className="bg-gradient-to-r from-lime-400 to-emerald-500 px-4 py-2 rounded-xl text-white font-black text-xs shadow-sm flex items-center gap-1.5"><Leaf className="w-4 h-4 fill-lime-200 text-lime-200" /> {progressState.xp_earned} XP</div>
+        <div className="bg-gradient-to-r from-lime-400 to-emerald-500 px-4 py-2 rounded-xl text-white font-black text-xs shadow-sm"><Leaf className="w-4 h-4 fill-lime-200 inline mr-1" /> {progressState.xp_earned} XP</div>
       </div>
 
+      {/* STAGE CONTAINER LAYER */}
       <AnimatePresence mode="wait">
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
@@ -384,50 +370,58 @@ export default function LessonPage() {
 
         {/* STAGE 1: VIDEO */}
         {activeTab === "video" && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
-            <div className="flex justify-between items-center border-b border-stone-100 pb-4">
-              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🎬 Dahan 1: Video Guru</h3>
-              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-50">Tutup ✖</Button>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-stone-800 flex items-center gap-2">🎬 Dahan 1: Video Pengajaran</h3>
+              <Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="text-stone-500">Tutup ✖</Button>
             </div>
-            
-            {/* 🖥️ MEMAPARKAN VIDEO KUSTOM ADMIN SECARA STRUCTURAL */}
-            <YouTubeLesson videoUrl={customVideoUrl} isCompleted={progressState.video_completed} xpEarned={progressState.video_completed ? 0 : 10} onCompleted={handleVideoStageCompleted} />
-            
-            {/* 🎯 PANEL DIAGNOSTIK AUTOMATIK (Akan keluar HANYA jika video gagal dikesan) */}
-            {!customVideoUrl && (
-              <div className="mt-4 p-4 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 space-y-2 text-xs">
-                <div className="flex items-center gap-1.5 font-black text-amber-800 uppercase text-[10px] tracking-wider">
-                  <Info className="w-4 h-4 text-amber-600" /> Bantuan Hubungan Admin (Diagnostics)
-                </div>
-                <p className="font-medium">Data Admin tidak terpapar kerana sistem gagal memadankan nama kurikulum pelajar dengan fail JSON anda. Sila ikuti langkah penyelesaian ini:</p>
-                <div className="bg-white p-2.5 rounded-xl border border-amber-100 space-y-1 font-mono text-[11px] text-slate-700">
-                  <div>1. Pergi ke borang Admin <span className="font-bold text-indigo-600">LessonResources</span></div>
-                  <div>2. Cipta Topik Baru dengan menaruh nilai ini:</div>
-                  <div className="p-1.5 bg-slate-100 rounded-md mt-1">
-                    <div>• ID Unik Topik: <span className="font-black text-rose-600 select-all">{topicId}</span></div>
-                    <div>• Tajuk Utama: <span className="font-black text-rose-600 select-all">{topic?.name}</span></div>
-                  </div>
-                </div>
-                <p className="text-[10px] text-amber-600/80">Apabila anda menaruh ID dan Tajuk Utama yang tepat seperti di atas, video kustom dan fail JSON anda akan terus masuk ke dahan murid serta merta! ✨</p>
-              </div>
-            )}
-
-            {progressState.video_completed && (
-              <Button onClick={() => setActiveTab("map")} className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 font-black rounded-xl text-white border-0">
-                Kembali Ke Peta Pokok 🌳
-              </Button>
-            )}
+            <YouTubeLesson videoUrl={videoSumberUtama} isCompleted={progressState.video_completed} onCompleted={handleVideoStageCompleted} />
+            {progressState.video_completed && (<Button onClick={() => setActiveTab("map")} className="w-full h-14 bg-emerald-600 font-black rounded-xl text-white">Kembali Ke Peta Pokok 🌳</Button>)}
           </motion.div>
         )}
 
-        {/* ... Dahan Nota, Flashcard & Quiz (Fungsi Asal Dipertahankan Sepenuhnya) ... */}
+        {/* STAGE 2: NOTA PINTAR */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
-            <div className="flex justify-between items-center border-b border-stone-100 pb-4"><h3 className="text-lg font-black text-stone-800 flex items-center gap-2">📖 Dahan 2: Nota Pintar</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")}>Tutup ✖</Button></div>
-            <div className="prose prose-sm max-w-none text-stone-700 max-h-[400px] overflow-y-auto p-4 border border-emerald-50 rounded-2xl bg-[#FAFAF7] shadow-inner">
-              {customNotes ? <p className="whitespace-pre-line text-sm font-semibold">{customNotes}</p> : <p className="text-xs text-slate-400">Sila muat nota menggunakan butang peta.</p>}
+            <div className="flex justify-between items-center border-b pb-4"><h3 className="text-lg font-black text-stone-800">📖 Dahan 2: Nota Pintar</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")}>Tutup ✖</Button></div>
+            <div className="prose prose-sm max-w-none text-stone-700 max-h-[400px] overflow-y-auto p-4 border rounded-2xl bg-[#FAFAF7] shadow-inner">
+              {customNotes ? <p className="whitespace-pre-line text-xs sm:text-sm font-semibold leading-relaxed text-stone-700">{customNotes}</p> : <p className="text-xs text-slate-400">Nota belum dimuat naik.</p>}
             </div>
             <Button onClick={handleLessonStageCompleted} className="w-full h-14 bg-emerald-600 text-white font-black rounded-xl">Selesai Baca Nota 🍃</Button>
+          </motion.div>
+        )}
+
+        {/* STAGE 3: FLASHCARD */}
+        {activeTab === "flashcard" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
+            <div className="flex justify-between items-center border-b pb-4"><h3 className="text-lg font-black text-stone-800">🃏 Dahan 3: Kad Memori</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")}>Tutup ✖</Button></div>
+            <Flashcards flashcards={flashcards || []} lang={getLanguageMode()} />
+            <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-14 bg-emerald-600 text-white font-black rounded-xl mt-4">Selesai Main Kad 🌳</Button>
+          </motion.div>
+        )}
+
+        {/* STAGE 4: MINDMAP */}
+        {activeTab === "mindmap" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-lg space-y-6">
+            <div className="flex justify-between items-center border-b pb-4"><h3 className="text-lg font-black text-stone-800">🧠 Dahan 4: Peta Minda Modul</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")}>Tutup ✖</Button></div>
+            <div className="min-h-[250px] bg-[#FAFAF7] rounded-2xl p-4 border flex flex-col items-center justify-center">
+              {customInfographic ? <img src={customInfographic} alt="Mindmap" className="w-full h-auto rounded-2xl max-h-80 object-contain bg-white border" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
+            </div>
+            <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-14 bg-emerald-600 text-white font-black rounded-xl mt-3">Selesai Teroka Peta! 🗺️</Button>
+          </motion.div>
+        )}
+
+        {/* STAGE 5: FINAL BOSS CHALLENGE */}
+        {activeTab === "quiz" && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-100 via-orange-50 to-amber-100 rounded-[2rem] p-6 border border-amber-200 shadow-xl relative">
+            <div className="space-y-5">
+              <div className="flex justify-between items-center"><h3 className="text-xl font-black text-amber-950">⚔️ Puncak Pokok: Kuiz Boss!</h3><Button size="sm" variant="ghost" onClick={() => setActiveTab("map")} className="text-amber-800">Tutup ✖</Button></div>
+              <p className="text-xs sm:text-sm text-amber-800 font-medium">Sedia untuk menewaskan cabaran terakhir ini untuk menawan dahan ini? 🏆</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-16 font-black rounded-xl">{status.quiz ? "Loading..." : "Cabaran Pantas (10 Soalan)"}</Button>
+                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-16 font-black rounded-xl">{status.quiz ? "Loading..." : "Ujian Boss Padu (20 Soalan)"}</Button>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
