@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, ChevronLeft, ExternalLink
+  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, ChevronLeft, ExternalLink, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
