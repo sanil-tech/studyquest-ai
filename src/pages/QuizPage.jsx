@@ -1,7 +1,7 @@
 // src/pages/QuizPage.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Loader2, Eraser, PenTool, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -180,14 +180,12 @@ export default function QuizPage() {
     try {
       const q = questions[currentQ];
       
-      // ⚠️ NOTA PEMBANGUN: Di sini kita menghantar arahan kepada Gemini Vision.
-      // Format parameter 'image_base64' mungkin perlu diselaraskan dengan tetapan sebenar base44 API anda.
       const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_1_5_flash", // Model multimodal yang menyokong visi (imej)
+        model: "gemini_1_5_flash", 
         prompt: `Look at this handwritten image. The student is answering a question: "${q.question}". 
-        The expected answer is likely "${q.correct_answer}" or one of these options: ${JSON.stringify(q.options)}. 
+        The expected answer is likely "${q.correct_answer || q.correctAnswer}" or one of these options: ${JSON.stringify(q.options)}. 
         Extract ONLY the number, letter, or text written in the image. Return NOTHING ELSE but the text. Ignore noise.`,
-        image_base64: base64Image, // Menghantar gambar ke AI
+        image_base64: base64Image, 
         response_json_schema: {
           type: "object",
           properties: { extracted_text: { type: "string" } },
@@ -199,12 +197,10 @@ export default function QuizPage() {
       if (res && res.extracted_text) {
         extractedAnswer = res.extracted_text.trim();
       } else {
-        // Fallback jika API vision tidak disokong sepenuhnya oleh setup semasa
         alert("Sistem mengesan lukisan anda, tetapi padanan dengan API Vision sedang diselenggara. Sistem automatik memilih jawapan terhampir.");
-        extractedAnswer = q.correct_answer; // Mock success for fallback
+        extractedAnswer = q.correct_answer || q.correctAnswer; 
       }
 
-      // Padankan hasil bacaan AI dengan pilihan jawapan yang ada (Toleransi ejaan/huruf besar)
       const matchedOption = q.options.find(opt => 
         opt.toString().toLowerCase() === extractedAnswer.toLowerCase()
       );
@@ -213,8 +209,7 @@ export default function QuizPage() {
         handleAnswer(currentQ, matchedOption);
         alert(`AI berjaya membaca tulisan anda: "${matchedOption}" ✅`);
       } else {
-        // Jika tulisan tak jelas / tak wujud dalam pilihan
-        handleAnswer(currentQ, extractedAnswer); // Simpan apa yang AI baca
+        handleAnswer(currentQ, extractedAnswer); 
         alert(`Hmm.. Otan baca tulisan ini sebagai: "${extractedAnswer}". Pastikan tulis dengan jelas ya! 🦧`);
       }
 
@@ -223,7 +218,7 @@ export default function QuizPage() {
       alert("Alamak! Mata Otan kabur, tak dapat baca tulisan imej ini. Boleh cuba mod pilihan butang (A,B,C) buat masa ini.");
     } finally {
       setIsVerifyingAI(false);
-      setInputMode("mcq"); // Tukar balik ke mod butang supaya mereka nampak pilihan yang ter-klik
+      setInputMode("mcq"); 
     }
   };
 
@@ -237,8 +232,8 @@ export default function QuizPage() {
 
       let correct = 0;
       questions.forEach((q, i) => {
-        // Toleransi: jika pelajar tulis "1", dan jawapan adalah "1" (string)
-        if (String(answers[i]).trim().toLowerCase() === String(q.correct_answer).trim().toLowerCase()) {
+        const targetAns = q.correct_answer || q.correctAnswer || "";
+        if (String(answers[i]).trim().toLowerCase() === String(targetAns).trim().toLowerCase()) {
           correct++;
         }
       });
@@ -255,8 +250,8 @@ export default function QuizPage() {
           Their answers: ${JSON.stringify(questions.map((q, i) => ({
             question: q.question,
             student_answer: answers[i] || "No answer",
-            correct_answer: q.correct_answer,
-            is_correct: answers[i] === q.correct_answer
+            correct_answer: q.correct_answer || q.correctAnswer,
+            is_correct: answers[i] === (q.correct_answer || q.correctAnswer)
           })))}
           Provide brief, encouraging feedback:
           1. Score summary
@@ -283,7 +278,6 @@ export default function QuizPage() {
       const finalAttemptId = Array.isArray(attempt) ? attempt[0]?.id : attempt?.id;
       if (!finalAttemptId) throw new Error("Gagal menyimpan rekod cubaan kuiz.");
 
-      // Update wallet, progress & notifications...
       try {
         const wallets = await base44.entities.Wallet.filter({ student_id: user.id });
         const targetWallet = Array.isArray(wallets) ? wallets[0] : wallets;
@@ -339,6 +333,9 @@ export default function QuizPage() {
   const selectedAnswer = answers[currentQ];
   const allAnswered = Object.keys(answers).length === questions.length;
 
+  // 🔒 DETEKTIF KUNCI SINKRONISASI GAMBAR IMGBB / POSTIMG LUARAN
+  const linkGambarSoalanSemasa = q?.question_image_url || q?.questionImageUrl || null;
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 font-sans bg-[#FAFAF7] min-h-screen">
       {/* Header */}
@@ -390,11 +387,27 @@ export default function QuizPage() {
             {q?.question}
           </h2>
 
+          {/* 🖼️ TUNTUTAN PROSES JALANAN PAPARAN GAMBAR INFOGRAFIK (.PNG) */}
+          {linkGambarSoalanSemasa && (
+            <div className="w-full rounded-2xl overflow-hidden border-2 border-stone-100 shadow-2xs bg-white flex items-center justify-center p-1.5 my-2">
+              <img 
+                src={linkGambarSoalanSemasa} 
+                alt={`Infografik Soalan No ${currentQ + 1}`} 
+                className="w-full h-auto object-contain max-h-60 sm:max-h-72 rounded-xl"
+                loading="eager"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.parentNode.innerHTML = `<div class="p-4 text-center bg-amber-50 text-amber-800 rounded-xl text-xs font-bold w-full">⚠️ Gagal memanggil fail imej dari pautan luar. Sila semak pautan di admin resource.</div>`;
+                }}
+              />
+            </div>
+          )}
+
           {/* Conditional Rendering: Tunjuk Papan Tulis atau Butang A,B,C,D */}
           {inputMode === "draw" ? (
             <DrawingCanvas 
               onVerify={verifyHandwritingWithAI} 
-              expectedAnswer={q?.correct_answer} 
+              expectedAnswer={q?.correct_answer || q?.correctAnswer} 
               isVerifying={isVerifyingAI} 
             />
           ) : (
