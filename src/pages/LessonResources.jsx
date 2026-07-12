@@ -19,18 +19,18 @@ export default function LessonResources() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
 
-  // 🔄 STRATEGI SUIS MOD: "create" ATAU "edit"
+  // 🔄 STRATEGI SUIS MOD
   const [borangMod, setBorangMod] = useState("create"); 
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
-  // STATE DATA PENGISIAN BORANG
+  // STATE PENGISIAN BORANG (MENGGUNAKAN MEDAN RASMI)
   const [topicId, setTopicId] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [notes, setNotes] = useState(""); 
-  const [coinReward, setCoinReward] = useState(50); // Opsional
+  const [youtubeUrl, setYoutubeUrl] = useState(""); // Untuk kolum video_url
+  const [notes, setNotes] = useState(""); // Untuk kolum notes_content
+  const [coinReward, setCoinReward] = useState(50); 
 
   // PETA MINDA
   const [infographicUrl, setInfographicUrl] = useState(""); 
@@ -41,7 +41,6 @@ export default function LessonResources() {
   const [questions, setQuestions] = useState([
     { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["", "", "", ""], correctAnswer: "A", explanation: "" }
   ]);
-
   const jsonFileInputRef = useRef(null);
 
   // 🎯 1. AUTH GUARD
@@ -59,7 +58,7 @@ export default function LessonResources() {
           setHasAccess(true);
           muatTurunSenaraiLesson(); 
         } else {
-          toast({ title: "Akses Disekat! 🛑", description: "Modul ini khas untuk Pentadbir.", variant: "destructive" });
+          toast({ title: "Akses Disekat! 🛑", variant: "destructive" });
           navigate("/dashboard"); 
         }
       } catch (err) {
@@ -81,16 +80,14 @@ export default function LessonResources() {
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          let width = img.width;
-          let height = img.height;
+          let width = img.width; let height = img.height;
           const MAX_WIDTH = 1200; 
           if (width > MAX_WIDTH) { height = Math.round((height * MAX_WIDTH) / width); width = MAX_WIDTH; }
           canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, width, height);
           canvas.toBlob((blob) => {
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
-            resolve(compressedFile);
+            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: "image/jpeg", lastModified: Date.now() }));
           }, "image/jpeg", 0.70); 
         };
       };
@@ -99,8 +96,7 @@ export default function LessonResources() {
 
   const uploadKeServerRasmi = async (file) => {
     const mampat = await kompresFailGambarUlu(file);
-    const formData = new FormData();
-    formData.append("file", mampat);
+    const formData = new FormData(); formData.append("file", mampat);
     const cubaanSintaks = [
       async () => await base44.integrations.UploadFile.upload({ file: mampat }),
       async () => await base44.integrations.UploadFile.execute({ file: mampat }),
@@ -119,117 +115,66 @@ export default function LessonResources() {
     throw new Error("Pelayan menolak fail imej.");
   };
 
-  const kendaliPilihanInfographic = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setInfographicFile(file);
-    setInfographicPreview(URL.createObjectURL(file));
-  };
+  const kendaliPilihanInfographic = (e) => { const file = e.target.files[0]; if (!file) return; setInfographicFile(file); setInfographicPreview(URL.createObjectURL(file)); };
+  const kendaliPilihanGambarSoalan = (index, file) => { if (!file) return; const updated = [...questions]; updated[index].questionFile = file; updated[index].questionPreview = URL.createObjectURL(file); setQuestions(updated); };
 
-  const kendaliPilihanGambarSoalan = (index, file) => {
-    if (!file) return;
-    const updatedQuestions = [...questions];
-    updatedQuestions[index].questionFile = file;
-    updatedQuestions[index].questionPreview = URL.createObjectURL(file);
-    setQuestions(updatedQuestions);
-  };
-
-  // 🎯 3. AUTO-EXTRACT JSON AI
+  // 🎯 3. AI JSON HANDLER
   const handleJSONFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const parsedData = JSON.parse(event.target.result);
-        if (!Array.isArray(parsedData)) throw new Error("Format dalam fail JSON mestilah Array.");
-        const importedQuestions = parsedData.map(q => ({
-          questionText: q.question || "", questionImageUrl: q.question_image_url || "", 
-          questionFile: null, questionPreview: q.question_image_url || "", 
-          options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""],
-          correctAnswer: q.correct_answer || "A", explanation: q.explanation || "" 
-        }));
-        setQuestions(importedQuestions);
-        toast({ title: "Import Selesai! 🎉", description: `${importedQuestions.length} soalan disusun.` });
+        if (!Array.isArray(parsedData)) throw new Error("Format mesti Array.");
+        setQuestions(parsedData.map(q => ({
+          questionText: q.question || "", questionImageUrl: q.question_image_url || "", questionFile: null, questionPreview: q.question_image_url || "", 
+          options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""], correctAnswer: q.correct_answer || "A", explanation: q.explanation || "" 
+        })));
+        toast({ title: "Import Selesai! 🎉", description: `${parsedData.length} soalan disusun.` });
       } catch (error) { toast({ title: "Gagal Membaca Fail ❌", variant: "destructive" }); }
       if (jsonFileInputRef.current) jsonFileInputRef.current.value = "";
     };
     reader.readAsText(file);
   };
 
-  // 🎯 4. CRUDS LOGIK NETWORK
-  const muatTurunSenaraiLesson = async () => {
-    setIsLoadingList(true);
-    try {
-      const rekodKuiz = await base44.entities.Quiz.filter({});
-      setLessonsList(rekodKuiz || []);
-    } catch (err) {} finally { setIsLoadingList(false); }
-  };
+  const muatTurunSenaraiLesson = async () => { setIsLoadingList(true); try { setLessonsList(await base44.entities.Quiz.filter({}) || []); } catch (err) {} finally { setIsLoadingList(false); } };
 
-  // 🌟 MENGAMBIL DATA TERUS DARI KOLUM RASMI DATABASE
+  // 🎯 4. AMBIL DATA DARI KOLUM RASMI KETIKA MOD EDIT
   const handlePilihLesson = (e) => {
-    const idPilihan = e.target.value;
-    setSelectedLessonId(idPilihan);
+    const idPilihan = e.target.value; setSelectedLessonId(idPilihan);
     if (!idPilihan) { resetSemuaMedanBorang(); return; }
 
-    const lessonDipilih = lessonsList.find(l => l.id === idPilihan);
-    if (lessonDipilih) {
-      setTopicId(lessonDipilih.id); 
-      setTitle(lessonDipilih.topic_name || ""); 
-      setSubtitle(lessonDipilih.subject_name || "");
+    const lesson = lessonsList.find(l => l.id === idPilihan);
+    if (lesson) {
+      setTopicId(lesson.id); setTitle(lesson.topic_name || ""); setSubtitle(lesson.subject_name || "");
+      setCoinReward(lesson.coins_reward || 50);
+      setInfographicUrl(lesson.infographic_url || ""); setInfographicPreview(lesson.infographic_url || ""); setInfographicFile(null);
       
-      // Ambil data tepat dari medan schema baharu
-      setYoutubeUrl(lessonDipilih.video_url || ""); 
-      setNotes(lessonDipilih.notes_content || "");
-      
-      setInfographicUrl(lessonDipilih.infographic_url || ""); 
-      setInfographicPreview(lessonDipilih.infographic_url || ""); 
-      setInfographicFile(null);
-      setCoinReward(lessonDipilih.coins_reward || 50);
+      // Ambil terus dari kolum database rasmi
+      setYoutubeUrl(lesson.video_url || ""); 
+      setNotes(lesson.notes_content || "");
 
       try {
-        const parsedQuestions = typeof lessonDipilih.questions_json === "object" 
-          ? lessonDipilih.questions_json 
-          : JSON.parse(lessonDipilih.questions_json || "[]");
-          
-        if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
-          setQuestions(parsedQuestions.map(q => ({
+        const parsedQ = typeof lesson.questions_json === "object" ? lesson.questions_json : JSON.parse(lesson.questions_json || "[]");
+        if (Array.isArray(parsedQ) && parsedQ.length > 0) {
+          setQuestions(parsedQ.map(q => ({
             questionText: q.question || "", questionImageUrl: q.question_image_url || "", questionPreview: q.question_image_url || "",
             questionFile: null, options: q.options || ["", "", "", ""], correctAnswer: q.correct_answer || "A", explanation: q.explanation || ""
           })));
-        } else {
-          setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
-        }
-      } catch (e) { 
-        setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); 
-      }
+        } else setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
+      } catch (e) { setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); }
     }
   };
 
-  const resetSemuaMedanBorang = () => {
-    setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setCoinReward(50); setNotes("");
-    setInfographicUrl(""); setInfographicFile(null); setInfographicPreview("");
-    setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
-  };
-
+  const resetSemuaMedanBorang = () => { setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setCoinReward(50); setNotes(""); setInfographicUrl(""); setInfographicFile(null); setInfographicPreview(""); setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); };
   const tukarModBorang = (modBaru) => { setBorangMod(modBaru); setSelectedLessonId(""); resetSemuaMedanBorang(); if (modBaru === "edit") muatTurunSenaraiLesson(); };
   const handleAddQuestion = () => setQuestions([...questions, { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
   const handleRemoveQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
-  const handleQuestionChange = (index, field, value) => { const updatedQuestions = [...questions]; updatedQuestions[index][field] = value; setQuestions(updatedQuestions); };
-  const handleOptionChange = (qIndex, optIndex, value) => { const updatedQuestions = [...questions]; if(!updatedQuestions[qIndex].options) updatedQuestions[qIndex].options = ["", "", "", ""]; updatedQuestions[qIndex].options[optIndex] = value; setQuestions(updatedQuestions); };
+  const handleQuestionChange = (index, field, value) => { const updated = [...questions]; updated[index][field] = value; setQuestions(updated); };
+  const handleOptionChange = (qIndex, optIndex, value) => { const updated = [...questions]; if(!updated[qIndex].options) updated[qIndex].options = ["", "", "", ""]; updated[qIndex].options[optIndex] = value; setQuestions(updated); };
+  const handleDeleteLesson = async () => { if (!selectedLessonId) return; if (!window.confirm(`⚠️ PADAM KEKAL?`)) return; setIsDeleting(true); try { await base44.entities.Quiz.delete(selectedLessonId); toast({ title: "Berjaya Dipadam! 🗑️" }); setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson(); } catch (err) {} finally { setIsDeleting(false); } };
 
-  const handleDeleteLesson = async () => {
-    if (!selectedLessonId) return;
-    if (!window.confirm(`⚠️ PADAM KEKAL?`)) return;
-    setIsDeleting(true);
-    try {
-      await base44.entities.Quiz.delete(selectedLessonId);
-      toast({ title: "Berjaya Dipadam! 🗑️" });
-      setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson();
-    } catch (err) { toast({ title: "Ralat Pemadaman", variant: "destructive" }); } finally { setIsDeleting(false); }
-  };
-
-  // 🎯 5. PROSES PENGHANTARAN TERUS KE KOLUM (CLEAN MAPPING)
+  // 🎯 5. PROSES PENGHANTARAN + KOTAK DIAGNOSTIK
   const handleSaveForm = async (e) => {
     e.preventDefault();
     if (borangMod === "create" && !topicId) { toast({ title: "Ralat 🛑", description: "Sila isi ID Unik Topik.", variant: "destructive" }); return; }
@@ -238,46 +183,45 @@ export default function LessonResources() {
     setIsSaving(true);
     try {
       let serverInfographicUrl = infographicUrl; 
-      if (infographicFile) {
-        try { serverInfographicUrl = await uploadKeServerRasmi(infographicFile); } catch (e){}
-      }
+      if (infographicFile) try { serverInfographicUrl = await uploadKeServerRasmi(infographicFile); } catch (e){}
 
       const susunanSoalanKuiz = [];
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
         let serverQImageUrl = q.questionImageUrl; 
-        if (q.questionFile) {
-          try { serverQImageUrl = await uploadKeServerRasmi(q.questionFile); } catch (e){}
-        }
+        if (q.questionFile) try { serverQImageUrl = await uploadKeServerRasmi(q.questionFile); } catch (e){}
 
         susunanSoalanKuiz.push({
-          question: q.questionText.trim(),
-          question_image_url: serverQImageUrl || null,
-          options: (q.options || ["", "", "", ""]).map(opt => opt.trim()),
-          correct_answer: q.correctAnswer || "A",
-          explanation: (q.explanation || "").trim()
+          question: q.questionText.trim(), question_image_url: serverQImageUrl || null,
+          options: (q.options || ["", "", "", ""]).map(opt => opt.trim()), correctAnswer: q.correctAnswer || "A", explanation: (q.explanation || "").trim()
         });
       }
 
-      // 🌟 PADANAN TEPAT: Hantar ke schema yang anda cipta sebentar tadi
+      // Payload rasmi ke Database
       const dataPayload = {
         topic_name: title.trim(), 
         subject_name: subtitle.trim() || "Matematik", 
-        video_url: youtubeUrl.trim(),              // 👈 Kolum Video Baharu
-        notes_content: notes.trim(),               // 👈 Kolum Nota Baharu
-        infographic_url: serverInfographicUrl || null, // 👈 Kolum Imej Baharu
-        questions_json: JSON.stringify(susunanSoalanKuiz) // Kini bebas dari seludupan
+        video_url: youtubeUrl.trim(),              
+        notes_content: notes.trim(),               
+        infographic_url: serverInfographicUrl || null, 
+        questions_json: JSON.stringify(susunanSoalanKuiz) 
       };
+
+      console.log("👉 DATA DIHANTAR:", dataPayload);
+      let responServer;
 
       if (borangMod === "create") {
         const targetId = topicId.trim().toLowerCase().replace(/\s+/g, "-");
-        await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
-        toast({ title: "Misi Baru Dicipta! 🎉", description: "Data Video & Nota selamat diletakkan di ruang rasmi database." });
+        responServer = await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
       } else {
-        const updatePayload = { id: selectedLessonId, ...dataPayload };
-        await base44.entities.Quiz.update(selectedLessonId, updatePayload);
-        toast({ title: "Kemaskini Berjaya! 🔄", description: "Struktur Schema Asli berfungsi dengan cemerlang." });
+        responServer = await base44.entities.Quiz.update(selectedLessonId, { id: selectedLessonId, ...dataPayload });
       }
+
+      console.log("📥 RESPON SERVER:", responServer);
+      
+      // 🕵️‍♂️ KOTAK ALERT DIAGNOSTIK
+      const resData = Array.isArray(responServer) ? responServer[0] : responServer;
+      alert(`[DIAGNOSTIK SISTEM]\n\nData yang dipulangkan oleh pangkalan data:\n\n1. Video URL: ${resData?.video_url || '❌ KOSONG (Field ditolak oleh database cache)'}\n2. Nota: ${resData?.notes_content ? '✅ DISIMPAN' : '❌ KOSONG'}\n\nJika pautan video KOSONG, sila pergi ke tetapan Backend dan klik 'Sync Database' atau 'Publish Changes' untuk mengaktifkan kolum baharu tersebut.`);
 
       resetSemuaMedanBorang(); setSelectedLessonId(""); if (borangMod === "edit") setTimeout(muatTurunSenaraiLesson, 500);
 
@@ -293,7 +237,7 @@ export default function LessonResources() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-emerald-500 animate-pulse" /> Pengurusan Lesson Resources</h1>
-          <p className="text-xs text-slate-500 mt-0.5">🚀 Enjin Schema Asli Diaktifkan: Membaca & Menyimpan terus ke struktur pangkalan data sebenar.</p>
+          <p className="text-xs text-slate-500 mt-0.5">🚀 Enjin Schema Asli Diaktifkan: Membaca & Menyimpan terus ke struktur pangkalan data rasmi.</p>
         </div>
         <div className="flex bg-slate-200/70 p-1 rounded-xl shadow-inner self-start sm:self-center">
           <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-emerald-500" /> Cipta Baru</button>
@@ -339,7 +283,7 @@ export default function LessonResources() {
 
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
             <h3 className="text-sm font-black text-slate-700 border-b pb-1.5 uppercase text-[11px] tracking-wider text-emerald-600">📝 3. Kandungan Nota Pengajian</h3>
-            <textarea rows={4} required value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tuliskan penerangan / nota untuk dibaca oleh murid..." className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium shadow-inner" />
+            <textarea rows={4} required value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tuliskan penerangan / nota..." className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium shadow-inner" />
           </Card>
 
           <div className="space-y-4">
@@ -362,11 +306,6 @@ export default function LessonResources() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Ayat Soalan Kuiz *</label><textarea rows={2} required value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, "questionText", e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
                   <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-emerald-600" /> Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-1">
-                  <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-emerald-500" /> Pautan URL Gambar Soalan #{qIndex + 1}</label>
-                  <input type="text" placeholder="Masukkan URL gambar langsung jika dari AI" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
                 </div>
 
                 {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-28 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
