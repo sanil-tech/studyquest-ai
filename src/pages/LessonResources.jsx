@@ -12,15 +12,19 @@ export default function LessonResources() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  // 🔒 STATE KESELAMATAN & LOADING
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
 
+  // 🔄 STRATEGI SUIS MOD
   const [borangMod, setBorangMod] = useState("create"); 
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
+  // STATE PARAMETER TERAS
   const [topicId, setTopicId] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
@@ -38,28 +42,40 @@ export default function LessonResources() {
   const [infographicFile, setInfographicFile] = useState(null); 
   const [infographicPreview, setInfographicPreview] = useState(""); 
 
+  // ⚔️ 5. STATE KUIZ (KOD ASAL DIKEMBALIKAN PENUH)
   const [questions, setQuestions] = useState([
     { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["", "", "", ""], correctAnswer: "A", explanation: "" }
   ]);
   const jsonFileInputRef = useRef(null);
 
+  // 🎯 1. AUTH GUARD
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
         setCheckingAuth(true);
         const me = await base44.auth.me();
         if (!me) throw new Error("Sesi tidak sah.");
+
         const peranan = me.app_role;
-        if (peranan === "admin" || peranan === "teacher" || peranan === "parent" || me.is_admin === true) {
+        const sahAdmin = peranan === "admin" || peranan === "teacher" || peranan === "parent" || me.is_admin === true;
+
+        if (sahAdmin) {
+          setHasAccess(true);
           muatTurunSenaraiLesson(); 
         } else {
-          toast({ title: "Akses Disekat! 🛑", variant: "destructive" }); navigate("/dashboard"); 
+          toast({ title: "Akses Disekat! 🛑", variant: "destructive" });
+          navigate("/dashboard"); 
         }
-      } catch (err) { navigate("/login"); } finally { setCheckingAuth(false); }
+      } catch (err) {
+        navigate("/login");
+      } finally {
+        setCheckingAuth(false);
+      }
     };
     semakAksesAdmin();
   }, [navigate, toast]);
 
+  // 🎯 2. ENJIN MUAT NAIK GAMBAR (MAMPAT)
   const kompresFailGambarUlu = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader(); reader.readAsDataURL(file);
@@ -103,26 +119,42 @@ export default function LessonResources() {
         }
       } catch (e) {}
     }
-    throw new Error("Pelayan menolak penstoran imej mentah.");
+    throw new Error("Pelayan menolak penstoran imej.");
   };
 
   const kendaliPilihanInfographic = (e) => { const file = e.target.files[0]; if (!file) return; setInfographicFile(file); setInfographicPreview(URL.createObjectURL(file)); };
   const kendaliPilihanNoteImage = (e) => { const file = e.target.files[0]; if (!file) return; setNoteImageFile(file); setNoteImagePreview(URL.createObjectURL(file)); };
-  const kendaliPilihanGambarSoalan = (index, file) => { if (!file) return; const updated = [...questions]; updated[index].questionFile = file; updated[index].questionPreview = URL.createObjectURL(file); setQuestions(updated); };
+  
+  // KOD ASAL KENDALI GAMBAR KUIZ
+  const kendaliPilihanGambarSoalan = (index, file) => { 
+    if (!file) return; 
+    const updated = [...questions]; 
+    updated[index].questionFile = file; 
+    updated[index].questionPreview = URL.createObjectURL(file); 
+    setQuestions(updated); 
+  };
 
+  // 🎯 3. KOD ASAL IMPORT FILE JSON PUKAL DIKEMBALIKAN
   const handleJSONFileUpload = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const parsedData = JSON.parse(event.target.result);
-        if (!Array.isArray(parsedData)) throw new Error("Format mesti Array.");
-        setQuestions(parsedData.map(q => ({
-          questionText: q.question || "", questionImageUrl: q.question_image_url || "", questionFile: null, questionPreview: q.question_image_url || "", 
-          options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""], correctAnswer: q.correct_answer || "A", explanation: q.explanation || "" 
-        })));
-        toast({ title: "Import Selesai! 🎉" });
+        if (!Array.isArray(parsedData)) throw new Error("Format mestilah Array.");
+        const importedQuestions = parsedData.map(q => ({
+          questionText: q.question || "", 
+          questionImageUrl: q.question_image_url || "", 
+          questionFile: null, 
+          questionPreview: q.question_image_url || "", 
+          options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""], 
+          correctAnswer: q.correct_answer || "A", 
+          explanation: q.explanation || "" 
+        }));
+        setQuestions(importedQuestions);
+        toast({ title: "Import Selesai! 🎉", description: `${importedQuestions.length} soalan disusun.` });
       } catch (error) { toast({ title: "Gagal Membaca Fail ❌", variant: "destructive" }); }
+      if (jsonFileInputRef.current) jsonFileInputRef.current.value = "";
     };
     reader.readAsText(file);
   };
@@ -140,7 +172,7 @@ export default function LessonResources() {
       setInfographicUrl(lesson.infographic_url || ""); setInfographicPreview(lesson.infographic_url || ""); setInfographicFile(null);
       setYoutubeUrl(lesson.video_url || ""); 
 
-      // 🧠 ENJIN DECODE JSON NOTA PINTAR (KALIS SENGKANG KESELAMATAN HOST)
+      // Peledak nota JSON
       const rawNotes = lesson.notes_content || "";
       if (rawNotes) {
         try {
@@ -149,14 +181,26 @@ export default function LessonResources() {
           const parsedNotes = typeof rawNotes === "object" ? rawNotes : JSON.parse(cleanStr);
           
           if (parsedNotes && (parsedNotes.text !== undefined || parsedNotes.image !== undefined)) {
-            setNotes(parsedNotes.text || "");
-            setNoteImageUrl(parsedNotes.image || "");
-            setNoteImagePreview(parsedNotes.image || "");
-          } else {
-            setNotes(String(rawNotes)); setNoteImageUrl(""); setNoteImagePreview(""); 
-          }
+            setNotes(parsedNotes.text || ""); setNoteImageUrl(parsedNotes.image || ""); setNoteImagePreview(parsedNotes.image || "");
+          } else { setNotes(String(rawNotes)); setNoteImageUrl(""); setNoteImagePreview(""); }
         } catch (err) { setNotes(String(rawNotes)); setNoteImageUrl(""); setNoteImagePreview(""); }
       }
+
+      // KOD ASAL PARSE DATA SOALAN KUIZ BERSERTA GAMBARNYA
+      try {
+        const parsedQ = typeof lesson.questions_json === "object" ? lesson.questions_json : JSON.parse(lesson.questions_json || "[]");
+        if (Array.isArray(parsedQ) && parsedQ.length > 0) {
+          setQuestions(parsedQ.map(q => ({
+            questionText: q.question || "", 
+            questionImageUrl: q.question_image_url || "", 
+            questionPreview: q.question_image_url || "",
+            questionFile: null, 
+            options: q.options || ["", "", "", ""], 
+            correctAnswer: q.correct_answer || "A", 
+            explanation: q.explanation || ""
+          })));
+        } else setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
+      } catch (e) { setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); }
     }
   };
 
@@ -166,55 +210,54 @@ export default function LessonResources() {
   const handleRemoveQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
   const handleQuestionChange = (index, field, value) => { const updated = [...questions]; updated[index][field] = value; setQuestions(updated); };
   const handleOptionChange = (qIndex, optIndex, value) => { const updated = [...questions]; if(!updated[qIndex].options) updated[qIndex].options = ["", "", "", ""]; updated[qIndex].options[optIndex] = value; setQuestions(updated); };
+  const handleDeleteLesson = async () => { if (!selectedLessonId) return; if (!window.confirm(`⚠️ PADAM KEKAL?`)) return; setIsDeleting(true); try { await base44.entities.Quiz.delete(selectedLessonId); toast({ title: "Berjaya Dipadam! 🗑️" }); setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson(); } catch (err) {} finally { setIsDeleting(false); } };
 
-  // 🎯 PROSES PENGHANTARAN DATA (DILENGKAPI PENGESAN RALAT LIVE UPLOAD)
+  // 🎯 PROSES PAYLOAD SIMPANAN HARMONI (NOTA JSON + KUIZ GAMBAR PENUH)
   const handleSaveForm = async (e) => {
     e.preventDefault();
-    if (borangMod === "create" && !topicId) { toast({ title: "ID Diperlukan", variant: "destructive" }); return; }
-    if (!title || !youtubeUrl) { toast({ title: "Medan Wajib Isi", variant: "destructive" }); return; }
+    if (borangMod === "create" && !topicId) { toast({ title: "ID Topik Diperlukan", variant: "destructive" }); return; }
+    if (!title || !youtubeUrl) { toast({ title: "Medan Diperlukan", variant: "destructive" }); return; }
 
     setIsSaving(true);
     try {
       let serverInfographicUrl = infographicUrl; 
       if (infographicFile) try { serverInfographicUrl = await uploadKeServerRasmi(infographicFile); } catch (e){}
 
-      // 🖼️ LIVE UPLOAD CHECKER UNTUK GAMBAR NOTA
       let serverNoteImageUrl = noteImageUrl;
       if (noteImageFile) {
         try {
           serverNoteImageUrl = await uploadKeServerRasmi(noteImageFile);
-          if (!serverNoteImageUrl) throw new Error("Gagal memperoleh link respons dari server.");
         } catch (uploadError) {
-          alert(`⚠️ INTEGRASI RALAT: Gagal memuat naik Gambar Nota.\nSebab: ${uploadError.message}\n\nSistem menghentikan simpanan untuk mengelakkan kehilangan data.`);
-          setIsSaving(false);
-          return;
+          alert(`⚠️ Gagal memuat naik Gambar Nota.\nSebab: ${uploadError.message}`);
+          setIsSaving(false); return;
         }
       }
 
+      // KOD ASAL: PROSES KUNCI IMMEJ SETIAP SOALAN KUIZ
       const susunanSoalanKuiz = [];
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
         let serverQImageUrl = q.questionImageUrl; 
         if (q.questionFile) try { serverQImageUrl = await uploadKeServerRasmi(q.questionFile); } catch (e){}
+
         susunanSoalanKuiz.push({
-          question: q.questionText.trim(), question_image_url: serverQImageUrl || null,
-          options: (q.options || ["", "", "", ""]).map(opt => opt.trim()), correctAnswer: q.correctAnswer || "A", explanation: (q.explanation || "").trim()
+          question: q.questionText.trim(), 
+          question_image_url: serverQImageUrl || null,
+          options: (q.options || ["", "", "", ""]).map(opt => opt.trim()), 
+          correct_answer: q.correctAnswer || "A", 
+          explanation: (q.explanation || "").trim()
         });
       }
 
-      // 🧠 BUNGKUS KE FORMAT JSON STRIP ASLI SEPERTI PERMINTAAN ANDA
-      const payloadFormatJSON = JSON.stringify({
-        text: notes.trim(),
-        image: serverNoteImageUrl || null
-      });
+      const payloadFormatJSON = JSON.stringify({ text: notes.trim(), image: serverNoteImageUrl || null });
 
       const dataPayload = {
         topic_name: title.trim(), 
         subject_name: subtitle.trim() || "Matematik", 
         video_url: youtubeUrl.trim(),              
-        notes_content: payloadFormatJSON, // 👈 Dihantar sebagai Fresh JSON String
+        notes_content: payloadFormatJSON, 
         infographic_url: serverInfographicUrl || null, 
-        questions_json: JSON.stringify(susunanSoalanKuiz) 
+        questions_json: JSON.stringify(susunanSoalanKuiz) // Data kuiz tulen tersimpan rapi
       };
 
       if (borangMod === "create") {
@@ -224,12 +267,10 @@ export default function LessonResources() {
         await base44.entities.Quiz.update(selectedLessonId, dataPayload);
       }
 
-      toast({ title: "Kandungan Berjaya Dikunci! 🎉", description: "Format JSON Nota dimuatkan dengan sempurna." });
+      toast({ title: "Kandungan Berjaya Dikunci! 🎉", description: "Set soalan kuiz dan nota multimedia selamat dikemaskini." });
       resetSemuaMedanBorang(); setSelectedLessonId(""); if (borangMod === "edit") setTimeout(muatTurunSenaraiLesson, 500);
 
-    } catch (err) {
-      alert("❌ RALAT DATABASE: " + err.message);
-    } finally { setIsSaving(false); }
+    } catch (err) { alert("❌ RALAT DATABASE: " + err.message); } finally { setIsSaving(false); }
   };
 
   if (checkingAuth) return (<div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>);
@@ -239,7 +280,7 @@ export default function LessonResources() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-emerald-500 animate-pulse" /> Pengurusan Lesson Resources</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Enjin Resiliensi JSON: Menjana struktur fail imej muat naik secara murni.</p>
+          <p className="text-xs text-slate-500 mt-0.5">🚀 Mod Penuh Diaktifkan: Kuiz fail JSON dan Nota Imej bersepadu.</p>
         </div>
         <div className="flex bg-slate-200/70 p-1 rounded-xl shadow-inner self-start sm:self-center">
           <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-emerald-500" /> Cipta Baru</button>
@@ -259,6 +300,7 @@ export default function LessonResources() {
 
       {(borangMod === "create" || selectedLessonId) ? (
         <form onSubmit={handleSaveForm} className="space-y-6">
+          {/* SEKSYEN 1 */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-emerald-600"><BookOpen className="w-4 h-4 inline mr-1" /> 1. Parameter Teras</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -267,11 +309,13 @@ export default function LessonResources() {
             </div>
           </Card>
 
+          {/* SEKSYEN 2 */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-emerald-600"><Video className="w-4 h-4 inline mr-1" /> 2. Dahan 1: Video Youtube</h3>
             <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">URL YouTube Video*</label><input type="url" required value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
           </Card>
 
+          {/* SEKSYEN 3 */}
           <Card className="p-5 bg-blue-50/40 border border-blue-200/70 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-blue-700 border-b border-blue-200 pb-2 uppercase text-[11px] tracking-wider"><ImageIcon className="w-4 h-4 inline mr-1" /> 3. Dahan 2: Kandungan Nota & Infografik (PNG)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -288,10 +332,11 @@ export default function LessonResources() {
 
             <div className="space-y-1 pt-2 border-t border-blue-100">
               <label className="text-[10px] font-bold text-slate-500 uppercase">Teks Ayat Nota Pengajian (Pilihan)</label>
-              <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Taip huraian pengajaran (jika ada)..." className="w-full px-3 py-2.5 bg-white border border-blue-200 rounded-xl text-xs font-medium shadow-inner" />
+              <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Taip huraian pengajaran..." className="w-full px-3 py-2.5 bg-white border border-blue-200 rounded-xl text-xs font-medium shadow-inner" />
             </div>
           </Card>
 
+          {/* SEKSYEN 4 */}
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-purple-600"><UploadCloud className="w-4 h-4 inline mr-1" /> 4. Dahan 4: Peta Minda Keseluruhan</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -301,35 +346,48 @@ export default function LessonResources() {
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-32 object-contain bg-white" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
           </Card>
 
-          {/* SUNTIKAN KUIZ */}
+          {/* ⚔️ SEKSYEN 5: STRUKTUR SET KUIZ ASAL DIKEMBALIKAN PENUH */}
           <div className="space-y-4">
-            <div className="flex justify-between items-center px-1">
-              <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px]"><HelpCircle className="w-4 h-4 text-emerald-600" /> 5. Set Kuiz Objektif ({questions.length})</h3>
-              <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-emerald-600 text-white rounded-xl font-bold"><Plus className="w-3.5 h-3.5 mr-1" /> Tambah Manual</Button>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-1 gap-4">
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px] tracking-wide"><HelpCircle className="w-4 h-4 text-emerald-600" /> 5. Set Penyediaan Soalan ({questions.length})</h3>
+              <div className="flex bg-slate-100/60 p-1.5 rounded-xl border border-slate-200 gap-2 w-full sm:w-auto shadow-inner">
+                <input type="file" accept=".json,application/json" ref={jsonFileInputRef} onChange={handleJSONFileUpload} className="hidden" />
+                <Button type="button" size="sm" onClick={() => jsonFileInputRef.current?.click()} className="h-9 text-[11px] bg-slate-800 text-white rounded-xl font-bold gap-2"><FileJson className="w-4 h-4 text-amber-400" /> Muat Naik JSON</Button>
+                <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-emerald-600 text-white rounded-xl font-bold gap-1"><Plus className="w-3.5 h-3.5" /> Tambah Manual</Button>
+              </div>
             </div>
 
             {questions.map((q, qIndex) => (
-              <Card key={qIndex} className="p-5 bg-white border border-emerald-100/60 rounded-2xl space-y-4 relative">
-                <div className="flex justify-between items-center border-b pb-2">
-                  <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full text-[10px]">Soalan #{qIndex + 1}</span>
-                  {questions.length > 1 && (<Button type="button" size="sm" variant="ghost" onClick={() => handleRemoveQuestion(qIndex)} className="text-rose-500 h-7 text-[10px]"><Trash2 className="w-3.5 h-3.5" /></Button>)}
+              <Card key={qIndex} className="p-5 bg-white border border-emerald-100/60 rounded-2xl shadow-xs space-y-4 relative">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                  <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full uppercase text-[10px]">Soalan #{qIndex + 1}</span>
+                  {questions.length > 1 && (<Button type="button" size="sm" variant="ghost" onClick={() => handleRemoveQuestion(qIndex)} className="h-7 text-[10px] text-rose-500 px-2"><Trash2 className="w-3.5 h-3.5 mr-1" /> Padam</Button>)}
                 </div>
+                
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Ayat Soalan *</label><textarea rows={2} required value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, "questionText", e.target.value)} className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-xs font-medium" /></div>
-                  <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 border rounded-xl bg-slate-50 p-1" /></div>
+                  <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Ayat Soalan Kuiz *</label><textarea rows={2} required value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, "questionText", e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-emerald-600" /> Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1 cursor-pointer" /></div>
                 </div>
-                {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-24 object-contain bg-white border" /></div>)}
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-1">
+                  <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-emerald-500" /> Pautan URL Gambar Soalan #{qIndex + 1}</label>
+                  <input type="text" placeholder="Masukkan URL gambar langsung jika dari AI" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
+                </div>
+
+                {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-24 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
 
                 <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Pilihan Jawapan Objektif:</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {["A", "B", "C", "D"].map((label, optIndex) => (
-                      <div key={optIndex} className="flex items-center gap-2 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100"><span className="w-6 h-6 rounded-lg bg-white border font-black text-xs text-slate-700 flex items-center justify-center">{label}</span><input type="text" required value={q.options ? q.options[optIndex] : ""} onChange={(e) => handleOptionChange(qIndex, optIndex, e.target.value)} className="flex-1 px-2.5 py-1 bg-white border rounded-lg text-xs font-medium" /></div>
+                      <div key={optIndex} className="flex items-center gap-2 bg-slate-50/50 p-1.5 rounded-xl border border-slate-100"><span className="w-6 h-6 rounded-lg bg-white border font-black text-xs text-slate-700 flex items-center justify-center">{label}</span><input type="text" required value={q.options ? q.options[optIndex] : ""} onChange={(e) => handleOptionChange(qIndex, optIndex, e.target.value)} className="flex-1 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium" /></div>
                     ))}
                   </div>
                 </div>
+
                 <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                  <div className="bg-slate-50/80 p-2.5 rounded-xl border flex items-center shrink-0"><span className="text-[10px] font-bold text-slate-600 uppercase">Jawapan Betul:</span><select value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)} className="ml-3 bg-white border rounded-lg text-xs font-black px-4 py-1 text-purple-700 cursor-pointer"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
-                  <div className="flex-1 w-full bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100"><textarea rows={1} placeholder="Penerangan jawapan..." value={q.explanation || ""} onChange={(e) => handleQuestionChange(qIndex, "explanation", e.target.value)} className="w-full px-2.5 py-1.5 bg-white border rounded-lg text-xs font-medium shadow-inner" /></div>
+                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between shrink-0"><span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-emerald-600" /> Kunci Jawapan:</span><select value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)} className="ml-3 bg-white border border-slate-200 rounded-lg text-xs font-black px-4 py-1 text-purple-700 cursor-pointer"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
+                  <div className="flex-1 w-full bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100"><span className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1 mb-1"><Sparkles className="w-3 h-3" /> Penerangan Jawapan</span><textarea rows={1} placeholder="Terangkan rumusan..." value={q.explanation || ""} onChange={(e) => handleQuestionChange(qIndex, "explanation", e.target.value)} className="w-full px-2.5 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-medium shadow-inner" /></div>
                 </div>
               </Card>
             ))}
