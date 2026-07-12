@@ -2,53 +2,50 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  BookOpen, Video, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, Loader2, PlusCircle, Edit3, Search, UploadCloud, FileJson, Link as LinkIcon, Image as ImageIcon
+  BookOpen, Video, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, Loader2, PlusCircle, Edit3, Search, UploadCloud, FileJson, Link as LinkIcon, Image as ImageIcon, FileText
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function LessonResources() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // 🔒 STATE KESELAMATAN & LOADING
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
 
-  // 🔄 STRATEGI SUIS MOD
   const [borangMod, setBorangMod] = useState("create"); 
   const [lessonsList, setLessonsList] = useState([]);
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
-  // STATE PARAMETER TERAS
   const [topicId, setTopicId] = useState("");
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState(""); 
-  const [coinReward, setCoinReward] = useState(50); 
 
-  // 📝 3. NOTA & INFOGRAFIK JSON
   const [notes, setNotes] = useState(""); 
   const [noteImageUrl, setNoteImageUrl] = useState(""); 
   const [noteImageFile, setNoteImageFile] = useState(null); 
   const [noteImagePreview, setNoteImagePreview] = useState(""); 
 
-  // 🗺️ 4. PETA MINDA UTAMA (Dahan 4)
   const [infographicUrl, setInfographicUrl] = useState(""); 
   const [infographicFile, setInfographicFile] = useState(null); 
   const [infographicPreview, setInfographicPreview] = useState(""); 
 
-  // ⚔️ 5. STATE KUIZ
   const [questions, setQuestions] = useState([
     { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["", "", "", ""], correctAnswer: "A", explanation: "" }
   ]);
   const jsonFileInputRef = useRef(null);
+  
+  // 🌟 BARU: STATE UNTUK FUNGSI COPY-PASTE JSON
+  const [showPasteJson, setShowPasteJson] = useState(false);
+  const [pastedJson, setPastedJson] = useState("");
 
-  // 🎯 1. AUTH GUARD
   useEffect(() => {
     const semakAksesAdmin = async () => {
       try {
@@ -57,25 +54,16 @@ export default function LessonResources() {
         if (!me) throw new Error("Sesi tidak sah.");
 
         const peranan = me.app_role;
-        const sahAdmin = peranan === "admin" || peranan === "teacher" || peranan === "parent" || me.is_admin === true;
-
-        if (sahAdmin) {
-          setHasAccess(true);
-          muatTurunSenaraiLesson(); 
+        if (peranan === "admin" || peranan === "teacher" || peranan === "parent" || me.is_admin === true) {
+          setHasAccess(true); muatTurunSenaraiLesson(); 
         } else {
-          toast({ title: "Akses Disekat! 🛑", variant: "destructive" });
-          navigate("/dashboard"); 
+          toast({ title: "Akses Disekat! 🛑", variant: "destructive" }); navigate("/dashboard"); 
         }
-      } catch (err) {
-        navigate("/login");
-      } finally {
-        setCheckingAuth(false);
-      }
+      } catch (err) { navigate("/login"); } finally { setCheckingAuth(false); }
     };
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. ENJIN MUAT NAIK GAMBAR (MAMPAT)
   const kompresFailGambarUlu = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader(); reader.readAsDataURL(file);
@@ -93,9 +81,7 @@ export default function LessonResources() {
           const mimeType = isPNG ? "image/png" : "image/jpeg";
           const extension = isPNG ? ".png" : ".jpg";
 
-          canvas.toBlob((blob) => { 
-            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, { type: mimeType, lastModified: Date.now() })); 
-          }, mimeType, isPNG ? undefined : 0.75); 
+          canvas.toBlob((blob) => { resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, { type: mimeType, lastModified: Date.now() })); }, mimeType, isPNG ? undefined : 0.75); 
         };
       };
     });
@@ -126,30 +112,54 @@ export default function LessonResources() {
   const kendaliPilihanNoteImage = (e) => { const file = e.target.files[0]; if (!file) return; setNoteImageFile(file); setNoteImagePreview(URL.createObjectURL(file)); };
   const kendaliPilihanGambarSoalan = (index, file) => { if (!file) return; const updated = [...questions]; updated[index].questionFile = file; updated[index].questionPreview = URL.createObjectURL(file); setQuestions(updated); };
 
+  // FUNGSI 1: BACA JSON DARI FAIL (YANG LAMA)
   const handleJSONFileUpload = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const parsedData = JSON.parse(event.target.result);
-        if (!Array.isArray(parsedData)) throw new Error("Format mestilah Array.");
-        const importedQuestions = parsedData.map(q => {
-          const linkGambar = q.questionImageUrl || q.question_image_url || "";
-          return {
-            questionText: q.question || "", 
-            questionImageUrl: linkGambar, 
-            questionFile: null, 
-            questionPreview: linkGambar, 
-            options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""], 
-            correctAnswer: q.correct_answer || "A", 
-            explanation: q.explanation || "" 
-          };
-        });
-        setQuestions(importedQuestions);
-        toast({ title: "Import Selesai! 🎉" });
-      } catch (error) { toast({ title: "Gagal Membaca Fail ❌", variant: "destructive" }); }
-    };
+    reader.onload = (event) => { prosesDataJSONMentah(event.target.result); };
     reader.readAsText(file);
+  };
+
+  // 🌟 FUNGSI 2: BACA JSON DARI COPY-PASTE (YANG BARU)
+  const handlePasteJSON = () => {
+    if (!pastedJson.trim()) return toast({ title: "Kotak Kosong!", variant: "destructive" });
+    prosesDataJSONMentah(pastedJson);
+  };
+
+  // ENJIN PEMPROSES JSON (Dikongsi untuk Fail & Paste)
+  const prosesDataJSONMentah = (jsonString) => {
+    try {
+      // Bersihkan string dari format markdown ```json jika ada
+      let cleanString = jsonString.trim();
+      if (cleanString.startsWith("```json")) {
+        cleanString = cleanString.replace(/^```json/, "").replace(/```$/, "").trim();
+      }
+      
+      const parsedData = JSON.parse(cleanString);
+      if (!Array.isArray(parsedData)) throw new Error("Format mestilah Array bermula dengan [ dan berakhir dengan ].");
+      
+      const importedQuestions = parsedData.map(q => {
+        const linkGambar = q.questionImageUrl || q.question_image_url || "";
+        return {
+          questionText: q.question || "", 
+          questionImageUrl: linkGambar, 
+          questionFile: null, 
+          questionPreview: linkGambar, 
+          options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""], 
+          correctAnswer: q.correct_answer || "A", 
+          explanation: q.explanation || "" 
+        };
+      });
+      setQuestions(importedQuestions);
+      toast({ title: "Import Berjaya Selesai! 🎉", description: `${importedQuestions.length} soalan disusun.` });
+      
+      // Tutup panel paste selepas berjaya
+      setShowPasteJson(false);
+      setPastedJson("");
+      if (jsonFileInputRef.current) jsonFileInputRef.current.value = "";
+    } catch (error) { 
+      toast({ title: "Ralat Membaca JSON ❌", description: "Pastikan format JSON anda tepat.", variant: "destructive" }); 
+    }
   };
 
   const muatTurunSenaraiLesson = async () => { setIsLoadingList(true); try { setLessonsList(await base44.entities.Quiz.filter({}) || []); } catch (err) {} finally { setIsLoadingList(false); } };
@@ -161,7 +171,6 @@ export default function LessonResources() {
     const lesson = lessonsList.find(l => l.id === idPilihan);
     if (lesson) {
       setTopicId(lesson.id); setTitle(lesson.topic_name || ""); setSubtitle(lesson.subject_name || "");
-      setCoinReward(lesson.coins_reward || 50);
       setInfographicUrl(lesson.infographic_url || ""); setInfographicPreview(lesson.infographic_url || ""); setInfographicFile(null);
       setYoutubeUrl(lesson.video_url || ""); 
 
@@ -177,20 +186,14 @@ export default function LessonResources() {
         } catch (err) { setNotes(String(rawNotes)); setNoteImageUrl(""); setNoteImagePreview(""); }
       }
 
-      // Membaca dwi-format dari database dengan selamat
       try {
         const parsedQ = typeof lesson.questions_json === "object" ? lesson.questions_json : JSON.parse(lesson.questions_json || "[]");
         if (Array.isArray(parsedQ) && parsedQ.length > 0) {
           setQuestions(parsedQ.map(q => {
             const linkGambarDitemui = q.questionImageUrl || q.question_image_url || "";
             return {
-              questionText: q.question || "", 
-              questionImageUrl: linkGambarDitemui, 
-              questionPreview: linkGambarDitemui,
-              questionFile: null, 
-              options: q.options || ["", "", "", ""], 
-              correctAnswer: q.correct_answer || q.correctAnswer || "A", 
-              explanation: q.explanation || ""
+              questionText: q.question || "", questionImageUrl: linkGambarDitemui, questionPreview: linkGambarDitemui, questionFile: null, 
+              options: q.options || ["", "", "", ""], correctAnswer: q.correct_answer || q.correctAnswer || "A", explanation: q.explanation || ""
             };
           }));
         } else setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
@@ -198,7 +201,7 @@ export default function LessonResources() {
     }
   };
 
-  const resetSemuaMedanBorang = () => { setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setCoinReward(50); setNotes(""); setNoteImageUrl(""); setNoteImageFile(null); setNoteImagePreview(""); setInfographicUrl(""); setInfographicFile(null); setInfographicPreview(""); setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); };
+  const resetSemuaMedanBorang = () => { setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setNotes(""); setNoteImageUrl(""); setNoteImageFile(null); setNoteImagePreview(""); setInfographicUrl(""); setInfographicFile(null); setInfographicPreview(""); setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); };
   const tukarModBorang = (modBaru) => { setBorangMod(modBaru); setSelectedLessonId(""); resetSemuaMedanBorang(); if (modBaru === "edit") muatTurunSenaraiLesson(); };
   const handleAddQuestion = () => setQuestions([...questions, { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
   const handleRemoveQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
@@ -223,7 +226,6 @@ export default function LessonResources() {
         }
       }
 
-      // 🌟 KUNCI PEMBETULAN: Membina objek kuiz dengan dwi-format kekunci imej & jawapan
       const susunanSoalanKuiz = [];
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
@@ -232,11 +234,8 @@ export default function LessonResources() {
 
         susunanSoalanKuiz.push({
           question: q.questionText.trim(), 
-          
-          // 🛡️ SUNTIKAN DWI-FORMAT (Menyimpan dua-dua nama sekaligus untuk pelbagai jenis skrin kuiz)
           question_image_url: serverQImageUrl || null, 
           questionImageUrl: serverQImageUrl || null,   
-          
           options: (q.options || ["", "", "", ""]).map(opt => opt.trim()), 
           correct_answer: q.correctAnswer || "A", 
           correctAnswer: q.correctAnswer || "A", 
@@ -262,7 +261,7 @@ export default function LessonResources() {
         await base44.entities.Quiz.update(selectedLessonId, dataPayload);
       }
 
-      toast({ title: "Kandungan Berjaya Dikunci! 🎉", description: "Dwi-format imej soalan kuiz disinkronisasikan." });
+      toast({ title: "Kandungan Berjaya Dikunci! 🎉", description: "Bahan pengajian selamat disimpan menggunakan URL murni." });
       resetSemuaMedanBorang(); setSelectedLessonId(""); if (borangMod === "edit") setTimeout(muatTurunSenaraiLesson, 500);
 
     } catch (err) { alert("❌ RALAT DATABASE KRITIKAL: " + err.message); } finally { setIsSaving(false); }
@@ -275,7 +274,7 @@ export default function LessonResources() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-emerald-500 animate-pulse" /> Pengurusan Lesson Resources</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Enjin Harmoni: Menyuntik dwi-format kolum imej kuiz (`questionImageUrl`).</p>
+          <p className="text-xs text-slate-500 mt-0.5">Enjin Harmoni: Menyokong ciri Copy-Paste JSON Kuiz terpantas.</p>
         </div>
         <div className="flex bg-slate-200/70 p-1 rounded-xl shadow-inner self-start sm:self-center">
           <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-emerald-500" /> Cipta Baru</button>
@@ -337,17 +336,54 @@ export default function LessonResources() {
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-32 object-contain bg-white" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
           </Card>
 
-          {/* SEKSYEN KUIZ */}
+          {/* 🌟 SEKSYEN KUIZ DENGAN PANEL COPY PASTE JSON */}
           <div className="space-y-4">
-            <div className="flex justify-between items-center px-1">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-1 gap-4">
               <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px]"><HelpCircle className="w-4 h-4 text-emerald-600" /> 5. Set Kuiz Objektif ({questions.length})</h3>
-              <div className="flex bg-slate-100/60 p-1.5 rounded-xl border border-slate-200 gap-2 shadow-inner">
+              
+              <div className="flex flex-wrap bg-slate-100/60 p-1.5 rounded-xl border border-slate-200 gap-2 shadow-inner">
                 <input type="file" accept=".json,application/json" ref={jsonFileInputRef} onChange={handleJSONFileUpload} className="hidden" />
-                <Button type="button" size="sm" onClick={() => jsonFileInputRef.current?.click()} className="h-9 text-[11px] bg-slate-800 text-white rounded-xl font-bold gap-2"><FileJson className="w-4 h-4 text-amber-400" /> Muat Naik JSON</Button>
-                <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-emerald-600 text-white rounded-xl font-bold"><Plus className="w-3.5 h-3.5 mr-1" /> Tambah Manual</Button>
+                
+                {/* Butang Lama: File Upload */}
+                <Button type="button" size="sm" onClick={() => jsonFileInputRef.current?.click()} className="h-9 text-[11px] bg-slate-800 text-white rounded-xl font-bold gap-1.5">
+                  <FileJson className="w-4 h-4 text-amber-400" /> Fail .JSON
+                </Button>
+                
+                {/* 🌟 Butang Baru: Paste Text */}
+                <Button type="button" size="sm" onClick={() => setShowPasteJson(!showPasteJson)} className="h-9 text-[11px] bg-indigo-600 text-white rounded-xl font-bold gap-1.5">
+                  <FileText className="w-3.5 h-3.5" /> Tampal Teks
+                </Button>
+                
+                {/* Butang Lama: Manual */}
+                <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-emerald-600 text-white rounded-xl font-bold">
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Tambah Manual
+                </Button>
               </div>
             </div>
 
+            {/* 🌟 PANEL TERSEMBUNYI UNTUK PASTE JSON */}
+            <AnimatePresence>
+              {showPasteJson && (
+                <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}} className="p-4 bg-indigo-50/50 border-2 border-indigo-200 rounded-2xl space-y-3 shadow-inner">
+                  <label className="text-xs font-black text-indigo-800 uppercase flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Tampal (Paste) Kod JSON Dari ChatGPT Di Sini:
+                  </label>
+                  <textarea 
+                    rows={6} 
+                    value={pastedJson} 
+                    onChange={(e) => setPastedJson(e.target.value)} 
+                    placeholder={`Contoh:\n[\n  {\n    "question": "1 + 1 = ?",\n    "options": ["1", "2", "3", "4"],\n    "correct_answer": "B"\n  }\n]`} 
+                    className="w-full p-3 text-[11px] font-mono leading-relaxed text-stone-700 bg-white border border-indigo-200 rounded-xl shadow-xs" 
+                  />
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button type="button" variant="outline" onClick={() => setShowPasteJson(false)} className="h-9 text-xs font-bold rounded-xl text-stone-500">Batal</Button>
+                    <Button type="button" onClick={handlePasteJSON} className="h-9 text-xs font-black rounded-xl bg-indigo-600 text-white">Susun Soalan Sekarang 🚀</Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* RENDERING KAD SOALAN */}
             {questions.map((q, qIndex) => (
               <Card key={qIndex} className="p-5 bg-white border border-emerald-100/60 rounded-2xl space-y-4 relative">
                 <div className="flex justify-between items-center border-b pb-2">
