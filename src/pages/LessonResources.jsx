@@ -31,7 +31,7 @@ export default function LessonResources() {
   const [youtubeUrl, setYoutubeUrl] = useState(""); 
   const [coinReward, setCoinReward] = useState(50); 
 
-  // 📝 3. NOTA & INFOGRAFIK JSON MULTIMEDIA
+  // 📝 3. NOTA & INFOGRAFIK JSON
   const [notes, setNotes] = useState(""); 
   const [noteImageUrl, setNoteImageUrl] = useState(""); 
   const [noteImageFile, setNoteImageFile] = useState(null); 
@@ -84,7 +84,7 @@ export default function LessonResources() {
         img.onload = () => {
           const canvas = document.createElement("canvas");
           let width = img.width; let height = img.height;
-          const MAX_WIDTH = 1000; // Dikurangkan sedikit bagi meringankan Base64 string
+          const MAX_WIDTH = 1200; 
           if (width > MAX_WIDTH) { height = Math.round((height * MAX_WIDTH) / width); width = MAX_WIDTH; }
           canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext("2d"); ctx.drawImage(img, 0, 0, width, height);
@@ -95,7 +95,7 @@ export default function LessonResources() {
 
           canvas.toBlob((blob) => { 
             resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, { type: mimeType, lastModified: Date.now() })); 
-          }, mimeType, isPNG ? undefined : 0.70); 
+          }, mimeType, isPNG ? undefined : 0.75); 
         };
       };
     });
@@ -122,15 +122,6 @@ export default function LessonResources() {
     throw new Error("Kuota integrasi pelayan penuh.");
   };
 
-  // 💥 ENJIN PENUKAR BASE64 SECARA LOKAL (PINTU KECEMASAN BEBAS KREDIT)
-  const tukarFailKeBase64Lokal = (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onloadend = () => resolve(reader.result);
-    });
-  };
-
   const kendaliPilihanInfographic = (e) => { const file = e.target.files[0]; if (!file) return; setInfographicFile(file); setInfographicPreview(URL.createObjectURL(file)); };
   const kendaliPilihanNoteImage = (e) => { const file = e.target.files[0]; if (!file) return; setNoteImageFile(file); setNoteImagePreview(URL.createObjectURL(file)); };
   const kendaliPilihanGambarSoalan = (index, file) => { if (!file) return; const updated = [...questions]; updated[index].questionFile = file; updated[index].questionPreview = URL.createObjectURL(file); setQuestions(updated); };
@@ -142,10 +133,19 @@ export default function LessonResources() {
       try {
         const parsedData = JSON.parse(event.target.result);
         if (!Array.isArray(parsedData)) throw new Error("Format mestilah Array.");
-        setQuestions(parsedData.map(q => ({
-          questionText: q.question || "", questionImageUrl: q.question_image_url || "", questionFile: null, questionPreview: q.question_image_url || "", 
-          options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""], correctAnswer: q.correct_answer || "A", explanation: q.explanation || "" 
-        })));
+        const importedQuestions = parsedData.map(q => {
+          const linkGambar = q.questionImageUrl || q.question_image_url || "";
+          return {
+            questionText: q.question || "", 
+            questionImageUrl: linkGambar, 
+            questionFile: null, 
+            questionPreview: linkGambar, 
+            options: Array.isArray(q.options) ? [...q.options, "", "", "", ""].slice(0, 4) : ["", "", "", ""], 
+            correctAnswer: q.correct_answer || "A", 
+            explanation: q.explanation || "" 
+          };
+        });
+        setQuestions(importedQuestions);
         toast({ title: "Import Selesai! 🎉" });
       } catch (error) { toast({ title: "Gagal Membaca Fail ❌", variant: "destructive" }); }
     };
@@ -171,20 +171,28 @@ export default function LessonResources() {
           let cleanStr = String(rawNotes).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
           if (cleanStr.startsWith('"') && cleanStr.endsWith('"')) { cleanStr = cleanStr.substring(1, cleanStr.length - 1); }
           const parsedNotes = typeof rawNotes === "object" ? rawNotes : JSON.parse(cleanStr);
-          
           if (parsedNotes && (parsedNotes.text !== undefined || parsedNotes.image !== undefined)) {
             setNotes(parsedNotes.text || ""); setNoteImageUrl(parsedNotes.image || ""); setNoteImagePreview(parsedNotes.image || "");
           } else { setNotes(String(rawNotes)); setNoteImageUrl(""); setNoteImagePreview(""); }
         } catch (err) { setNotes(String(rawNotes)); setNoteImageUrl(""); setNoteImagePreview(""); }
       }
 
+      // Membaca dwi-format dari database dengan selamat
       try {
         const parsedQ = typeof lesson.questions_json === "object" ? lesson.questions_json : JSON.parse(lesson.questions_json || "[]");
         if (Array.isArray(parsedQ) && parsedQ.length > 0) {
-          setQuestions(parsedQ.map(q => ({
-            questionText: q.question || "", questionImageUrl: q.question_image_url || "", questionPreview: q.question_image_url || "",
-            questionFile: null, options: q.options || ["", "", "", ""], correctAnswer: q.correct_answer || "A", explanation: q.explanation || ""
-          })));
+          setQuestions(parsedQ.map(q => {
+            const linkGambarDitemui = q.questionImageUrl || q.question_image_url || "";
+            return {
+              questionText: q.question || "", 
+              questionImageUrl: linkGambarDitemui, 
+              questionPreview: linkGambarDitemui,
+              questionFile: null, 
+              options: q.options || ["", "", "", ""], 
+              correctAnswer: q.correct_answer || q.correctAnswer || "A", 
+              explanation: q.explanation || ""
+            };
+          }));
         } else setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
       } catch (e) { setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); }
     }
@@ -196,9 +204,7 @@ export default function LessonResources() {
   const handleRemoveQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
   const handleQuestionChange = (index, field, value) => { const updated = [...questions]; updated[index][field] = value; setQuestions(updated); };
   const handleOptionChange = (qIndex, optIndex, value) => { const updated = [...questions]; if(!updated[qIndex].options) updated[qIndex].options = ["", "", "", ""]; updated[qIndex].options[optIndex] = value; setQuestions(updated); };
-  const handleDeleteLesson = async () => { if (!selectedLessonId) return; if (!window.confirm(`⚠️ PADAM KEKAL?`)) return; setIsDeleting(true); try { await base44.entities.Quiz.delete(selectedLessonId); toast({ title: "Berjaya Dipadam! 🗑️" }); setSelectedLessonId(""); resetSemuaMedanBorang(); muatTurunSenaraiLesson(); } catch (err) {} finally { setIsDeleting(false); } };
 
-  // 🎯 PROSES SUBMIT: SEPENUHNYA KALIS SENGKANG & KALIS SEKATAN KREDIT PLATFORM
   const handleSaveForm = async (e) => {
     e.preventDefault();
     if (borangMod === "create" && !topicId) { toast({ title: "ID Topik Diperlukan", variant: "destructive" }); return; }
@@ -206,48 +212,39 @@ export default function LessonResources() {
 
     setIsSaving(true);
     try {
-      // 1. Peta Minda (Dahan 4) Fallback
       let serverInfographicUrl = infographicUrl; 
-      if (infographicFile) {
-        try { serverInfographicUrl = await uploadKeServerRasmi(infographicFile); } 
-        catch (e){ serverInfographicUrl = await tukarFailKeBase64Lokal(infographicFile); }
-      }
+      if (infographicFile) { try { serverInfographicUrl = await uploadKeServerRasmi(infographicFile); } catch (e){} }
 
-      // 2. Gambar Nota (Dahan 2) Fallback - PENYELESAIAN MASALAH UTAMA ANDA
       let serverNoteImageUrl = noteImageUrl;
       if (noteImageFile) {
-        try {
-          serverNoteImageUrl = await uploadKeServerRasmi(noteImageFile);
-        } catch (uploadError) {
-          // 🚀 JALAN PELEPASAN: Pelayan tiada kredit? Tukar kepada Base64 text secara senyap!
-          serverNoteImageUrl = await tukarFailKeBase64Lokal(noteImageFile);
+        try { serverNoteImageUrl = await uploadKeServerRasmi(noteImageFile); } catch (uploadError) {
+          alert(`🛑 AMBAR SEKATAN:\nAkaun Base44 anda tiada kuota muat naik fail.\nSila padam fail pilihan dan gunakan 'Pautan URL Gambar Alternatif' (Contoh: ImgBB / Google Drive Direct).`);
+          setIsSaving(false); return;
         }
       }
 
-      // 3. Gambar Soalan Kuiz Fallback
+      // 🌟 KUNCI PEMBETULAN: Membina objek kuiz dengan dwi-format kekunci imej & jawapan
       const susunanSoalanKuiz = [];
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
         let serverQImageUrl = q.questionImageUrl; 
-        if (q.questionFile) {
-          try { serverQImageUrl = await uploadKeServerRasmi(q.questionFile); } 
-          catch (e){ serverQImageUrl = await tukarFailKeBase64Lokal(q.questionFile); }
-        }
+        if (q.questionFile) { try { serverQImageUrl = await uploadKeServerRasmi(q.questionFile); } catch (e){} }
 
         susunanSoalanKuiz.push({
           question: q.questionText.trim(), 
-          question_image_url: serverQImageUrl || null,
+          
+          // 🛡️ SUNTIKAN DWI-FORMAT (Menyimpan dua-dua nama sekaligus untuk pelbagai jenis skrin kuiz)
+          question_image_url: serverQImageUrl || null, 
+          questionImageUrl: serverQImageUrl || null,   
+          
           options: (q.options || ["", "", "", ""]).map(opt => opt.trim()), 
           correct_answer: q.correctAnswer || "A", 
+          correctAnswer: q.correctAnswer || "A", 
           explanation: (q.explanation || "").trim()
         });
       }
 
-      // Bungkus data ke struktur murni JSON String
-      const payloadFormatJSON = JSON.stringify({
-        text: notes.trim(),
-        image: serverNoteImageUrl || null
-      });
+      const payloadFormatJSON = JSON.stringify({ text: notes.trim(), image: serverNoteImageUrl || null });
 
       const dataPayload = {
         topic_name: title.trim(), 
@@ -265,7 +262,7 @@ export default function LessonResources() {
         await base44.entities.Quiz.update(selectedLessonId, dataPayload);
       }
 
-      toast({ title: "Kandungan Berjaya Dikunci! 🎉", description: "Sistem Base64 berjaya memintas sekatan kredit pelayan." });
+      toast({ title: "Kandungan Berjaya Dikunci! 🎉", description: "Dwi-format imej soalan kuiz disinkronisasikan." });
       resetSemuaMedanBorang(); setSelectedLessonId(""); if (borangMod === "edit") setTimeout(muatTurunSenaraiLesson, 500);
 
     } catch (err) { alert("❌ RALAT DATABASE KRITIKAL: " + err.message); } finally { setIsSaving(false); }
@@ -278,7 +275,7 @@ export default function LessonResources() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-emerald-500 animate-pulse" /> Pengurusan Lesson Resources</h1>
-          <p className="text-xs text-slate-500 mt-0.5">🛡️ Mod Kalis Kredit Aktif: Menggunakan storan dwi-mod murni.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Enjin Harmoni: Menyuntik dwi-format kolum imej kuiz (`questionImageUrl`).</p>
         </div>
         <div className="flex bg-slate-200/70 p-1 rounded-xl shadow-inner self-start sm:self-center">
           <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-emerald-500" /> Cipta Baru</button>
@@ -316,7 +313,7 @@ export default function LessonResources() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">🖼️ Muat Naik Infografik Nota</label>
-                <input type="file" accept="image/png, image/jpeg" onChange={kendaliPilihanNoteImage} className="w-full text-xs text-slate-500 border border-blue-200 rounded-xl bg-white p-1" />
+                <input type="file" accept="image/png, image/jpeg" onChange={kendaliPilihanNoteImage} className="w-full text-xs text-slate-500 border border-blue-200 rounded-xl bg-white p-1 cursor-pointer" />
               </div>
               <div className="p-3 bg-white rounded-xl border border-blue-100 space-y-1">
                 <label className="text-[10px] font-bold text-slate-600 uppercase">Pautan URL Gambar Alternatif</label>
@@ -334,7 +331,7 @@ export default function LessonResources() {
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
             <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-purple-600"><UploadCloud className="w-4 h-4 inline mr-1" /> 4. Dahan 4: Peta Minda Keseluruhan</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">Muat Naik Gambar Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
+              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">Muat Naik Gambar Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1 cursor-pointer" /></div>
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1">URL Gambar Alternatif</label><input type="text" placeholder="URL Peta Minda" value={infographicUrl} onChange={(e) => { setInfographicUrl(e.target.value); if(e.target.value) setInfographicPreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium" /></div>
             </div>
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-32 object-contain bg-white" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
@@ -344,7 +341,11 @@ export default function LessonResources() {
           <div className="space-y-4">
             <div className="flex justify-between items-center px-1">
               <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px]"><HelpCircle className="w-4 h-4 text-emerald-600" /> 5. Set Kuiz Objektif ({questions.length})</h3>
-              <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-emerald-600 text-white rounded-xl font-bold"><Plus className="w-3.5 h-3.5 mr-1" /> Tambah Manual</Button>
+              <div className="flex bg-slate-100/60 p-1.5 rounded-xl border border-slate-200 gap-2 shadow-inner">
+                <input type="file" accept=".json,application/json" ref={jsonFileInputRef} onChange={handleJSONFileUpload} className="hidden" />
+                <Button type="button" size="sm" onClick={() => jsonFileInputRef.current?.click()} className="h-9 text-[11px] bg-slate-800 text-white rounded-xl font-bold gap-2"><FileJson className="w-4 h-4 text-amber-400" /> Muat Naik JSON</Button>
+                <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-emerald-600 text-white rounded-xl font-bold"><Plus className="w-3.5 h-3.5 mr-1" /> Tambah Manual</Button>
+              </div>
             </div>
 
             {questions.map((q, qIndex) => (
@@ -355,11 +356,11 @@ export default function LessonResources() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Ayat Soalan *</label><textarea rows={2} required value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, "questionText", e.target.value)} className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-xs font-medium" /></div>
-                  <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 border rounded-xl bg-slate-50 p-1" /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 border rounded-xl bg-slate-50 p-1 cursor-pointer" /></div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-1">
                   <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-emerald-500" /> Pautan URL Gambar Soalan #{qIndex + 1}</label>
-                  <input type="text" placeholder="Masukkan URL gambar langsung jika dari AI" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
+                  <input type="text" placeholder="Masukkan URL gambar langsung jika dari AI / Google Drive" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
                 </div>
                 {q.questionPreview && (<div className="p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={q.questionPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-24 object-contain bg-white border" /><button type="button" onClick={() => { const updated = [...questions]; updated[qIndex].questionFile = null; updated[qIndex].questionPreview = ""; updated[qIndex].questionImageUrl = ""; setQuestions(updated); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Gambar</button></div>)}
 
