@@ -3,15 +3,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  ArrowLeft, Play, Loader2, Trophy, Compass, Tv, 
-  CheckCircle2, Leaf, Sprout, ChevronLeft, Award
+  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, ChevronLeft, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 
-import LessonContent from "@/components/lesson/LessonContent";
-import VoicePlayer from "@/components/lesson/VoicePlayer";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
@@ -35,7 +32,7 @@ const BALAI_BAHAN_PELAJARAN = {
 };
 
 // ============================================================================
-// COMPONENT 1: YouTubeLesson (Versi Native - 100% Kalis RemoveChild Crash)
+// COMPONENT 1: YouTubeLesson (Versi Kalis Sekatan Sandbox Browser)
 // ============================================================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
@@ -58,14 +55,26 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 
   return (
     <div className="space-y-4 w-full">
-      {/* NATIVE IFRAME LAYER: Dijamin tidak akan mengacau DOM tree React */}
+      {/* 🌟 IFRAME LAYER DENGAN POLISI KEBENARAN LENGKAP UNTUK MEMPINTAS ERROR 153 */}
       <div className="relative aspect-video w-full rounded-2xl sm:rounded-[1.5rem] overflow-hidden border-2 border-stone-800 bg-stone-950 shadow-md">
         <iframe 
-          src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`} 
+          src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1`} 
           className="w-full h-full border-0 absolute inset-0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen 
         />
+      </div>
+
+      {/* 🌟 PINTU KECEMASAN: Jika Sandbox IDE anda terlalu keras mendepani YouTube, klik ini untuk tonton terus */}
+      <div className="text-center pt-0.5">
+        <a 
+          href={`https://www.youtube.com/watch?v=${videoId}`} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-[11px] text-stone-500 hover:text-emerald-600 font-bold underline inline-flex items-center gap-1.5 bg-stone-100 hover:bg-stone-200/70 px-3 py-2 rounded-xl border border-stone-200/60 transition-colors shadow-2xs"
+        >
+          <ExternalLink className="w-3.5 h-3.5 text-emerald-500" /> Ralat Konfigurasi Browser? Klik sini untuk tonton terus di YouTube
+        </a>
       </div>
 
       {/* STATUS ACTION PANEL */}
@@ -81,7 +90,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
         <div className="bg-stone-900 border border-stone-800 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
           <p className="text-[11px] text-stone-300 font-medium flex items-center gap-1.5">
             <Tv className="w-4 h-4 text-emerald-400 animate-pulse shrink-0" />
-            Selesai menonton video pengajaran di atas? Klik butang hijau di sebelah untuk menuntut ganjaran!
+            Selesai menonton video pengajaran? Klik butang hijau di sebelah untuk menuntut ganjaran!
           </p>
           <Button 
             onClick={onCompleted} 
@@ -200,7 +209,7 @@ export default function LessonPage() {
           }
         } catch (sErr) {}
 
-      } catch (err) {} { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
+      } catch (err) {} finally { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
     };
 
     initializeLesson();
@@ -303,7 +312,6 @@ export default function LessonPage() {
 
   if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
 
-  // SISTEM BACAAN STRUKTUR REGISTRI LOKAL
   const dataLokalModul = BALAI_BAHAN_PELAJARAN[topicId];
   const videoSumberUtama = dataLokalModul?.videoUrl || topic?.video_url;
   const notesSumberUtama = dataLokalModul?.notes || "Nota pengajian sedang disediakan.";
@@ -312,7 +320,7 @@ export default function LessonPage() {
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
       
-      {/* HEADER NAVIGATION (MOD BARU KALIS GANGGUAN / THEATER INTERFACE) */}
+      {/* GLOBAL HEADER BAR */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
