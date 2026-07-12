@@ -1,7 +1,7 @@
 // src/pages/QuizPage.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { useParams, navigate, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom"; // 👈 Selesai dibersihkan dari ralat!
 import { ArrowLeft, CheckCircle2, Loader2, Eraser, PenTool, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -387,7 +387,7 @@ export default function QuizPage() {
             {q?.question}
           </h2>
 
-          {/* 🖼️ TUNTUTAN PROSES JALANAN PAPARAN GAMBAR INFOGRAFIK (.PNG) */}
+          {/* 🖼️ PAPARAN GAMBAR INFOGRAFIK KUIZ */}
           {linkGambarSoalanSemasa && (
             <div className="w-full rounded-2xl overflow-hidden border-2 border-stone-100 shadow-2xs bg-white flex items-center justify-center p-1.5 my-2">
               <img 
