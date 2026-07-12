@@ -69,82 +69,6 @@ const shuffleArray = (array) => {
   return newArr;
 };
 
-// 🌟 BARU: ENJIN PENAPIS PINTAR MARKDOWN UNTUK NOTA BERSIH & BERGAYA PREMIUM
-const parseMarkdownToHTML = (text) => {
-  if (!text) return "";
-  const lines = text.split("\n");
-  let inList = false;
-  let htmlOutput = [];
-
-  lines.forEach((line) => {
-    let trimmed = line.trim();
-
-    // Tutup senarai ulat bulu jika baris baru bukan elemen senarai
-    if (!trimmed.startsWith("* ") && !trimmed.startsWith("- ") && inList) {
-      htmlOutput.push("</ul>");
-      inList = false;
-    }
-
-    // 1. Simbol Garis Pemisah (---)
-    if (trimmed === "---") {
-      htmlOutput.push('<hr class="my-4 border-stone-200" />');
-      return;
-    }
-
-    // 2. Simbol Tajuk Utama Gergasi (#)
-    if (trimmed.startsWith("# ")) {
-      htmlOutput.push(`<h1 class="text-base sm:text-lg font-black text-stone-800 border-b border-stone-200 pb-1.5 mt-4 mb-2 text-center text-purple-700">${trimmed.replace("# ", "")}</h1>`);
-      return;
-    }
-
-    // 3. Simbol Tajuk Sederhana (##)
-    if (trimmed.startsWith("## ")) {
-      htmlOutput.push(`<h2 class="text-sm sm:text-base font-black text-stone-800 mt-4 mb-2">${trimmed.replace("## ", "")}</h2>`);
-      return;
-    }
-
-    // 4. Simbol Tajuk Kecil (###)
-    if (trimmed.startsWith("### ")) {
-      htmlOutput.push(`<h3 class="text-xs sm:text-sm font-bold text-emerald-600 mt-3 mb-1 flex items-center gap-1">${trimmed.replace("### ", "")}</h3>`);
-      return;
-    }
-
-    // 5. Simbol Kotak Nyanyian / Petikan (>)
-    if (trimmed.startsWith(">")) {
-      let content = trimmed.substring(1).trim();
-      htmlOutput.push(`<blockquote class="border-l-4 border-amber-400 pl-3.5 italic text-stone-600 my-3 bg-amber-50/50 p-2.5 rounded-r-2xl leading-relaxed text-xs sm:text-sm">${content}</blockquote>`);
-      return;
-    }
-
-    // 6. Simbol Senarai Poin (* atau -)
-    if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) {
-      if (!inList) {
-        htmlOutput.push('<ul class="space-y-1.5 my-2.5 pl-1.5">');
-        inList = true;
-      }
-      let content = trimmed.substring(2);
-      htmlOutput.push(`<li class="list-disc ml-4 text-xs sm:text-sm text-stone-600 leading-relaxed font-medium">${content}</li>`);
-      return;
-    }
-
-    // Abaikan baris kosong
-    if (trimmed === "") return;
-
-    // 7. Perenggan Ayat Teks Biasa
-    htmlOutput.push(`<p class="text-xs sm:text-sm text-stone-600 font-medium leading-relaxed mb-3">${trimmed}</p>`);
-  });
-
-  if (inList) htmlOutput.push("</ul>");
-
-  let finalHtml = htmlOutput.join("\n");
-  
-  // 8. Simbol Huruf Tebal (**) & Huruf Senget (*)
-  finalHtml = finalHtml.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-stone-900 bg-yellow-100/60 px-1 rounded-sm">$1</strong>');
-  finalHtml = finalHtml.replace(/\*(.*?)\*/g, '<em class="italic text-stone-700 font-semibold">$1</em>');
-  
-  return finalHtml;
-};
-
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
   const navigate = useNavigate();
@@ -173,6 +97,20 @@ export default function LessonPage() {
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
   const isTopicUnlocked = progressState.quiz_completed || (progressState.video_completed && progressState.lesson_completed && progressState.flashcard_completed && progressState.mindmap_completed);
+
+  // 🌟 BARU: SUIS AUTOMATIK FULLSCREEN (GERENTI KALIS GANGGUAN)
+  useEffect(() => {
+    if (activeTab !== "map") {
+      const el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    } else {
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      }
+    }
+  }, [activeTab]);
 
   const bersihkanTeksPadanan = (str) => { return str ? str.toLowerCase().replace(/dan/g, "").replace(/&/g, "").replace(/misi\s*\d+/g, "").replace(/[^a-z0-9]/g, "").trim() : ""; };
 
@@ -310,12 +248,32 @@ export default function LessonPage() {
     } 
   };
 
+  const parseMarkdownToHTML = (text) => {
+    if (!text) return ""; const lines = text.split("\n"); let inList = false; let htmlOutput = [];
+    lines.forEach((line) => {
+      let trimmed = line.trim();
+      if (!trimmed.startsWith("* ") && !trimmed.startsWith("- ") && inList) { htmlOutput.push("</ul>"); inList = false; }
+      if (trimmed === "---") { htmlOutput.push('<hr class="my-4 border-stone-200" />'); return; }
+      if (trimmed.startsWith("# ")) { htmlOutput.push(`<h1 class="text-base sm:text-lg font-black text-stone-800 border-b border-stone-200 pb-1.5 mt-4 mb-2 text-center text-purple-700">${trimmed.replace("# ", "")}</h1>`); return; }
+      if (trimmed.startsWith("## ")) { htmlOutput.push(`<h2 class="text-sm sm:text-base font-black text-stone-800 mt-4 mb-2">${trimmed.replace("## ", "")}</h2>`); return; }
+      if (trimmed.startsWith("### ")) { htmlOutput.push(`<h3 class="text-xs sm:text-sm font-bold text-emerald-600 mt-3 mb-1 flex items-center gap-1">${trimmed.replace("### ", "")}</h3>`); return; }
+      if (trimmed.startsWith(">")) { let content = trimmed.substring(1).trim(); htmlOutput.push(`<blockquote class="border-l-4 border-amber-400 pl-3.5 italic text-stone-600 my-3 bg-amber-50/50 p-2.5 rounded-r-2xl leading-relaxed text-xs sm:text-sm">${content}</blockquote>`); return; }
+      if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) { if (!inList) { htmlOutput.push('<ul class="space-y-1.5 my-2.5 pl-1.5">'); inList = true; } let content = trimmed.substring(2); htmlOutput.push(`<li class="list-disc ml-4 text-xs sm:text-sm text-stone-600 leading-relaxed font-medium">${content}</li>`); return; }
+      if (trimmed === "") return;
+      htmlOutput.push(`<p class="text-xs sm:text-sm text-stone-600 font-medium leading-relaxed mb-3">${trimmed}</p>`);
+    });
+    if (inList) htmlOutput.push("</ul>");
+    let finalHtml = htmlOutput.join("\n");
+    finalHtml = finalHtml.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-stone-900 bg-yellow-100/60 px-1 rounded-sm">$1</strong>');
+    finalHtml = finalHtml.replace(/\*(.*?)\*/g, '<em class="italic text-stone-700 font-semibold">$1</em>');
+    return finalHtml;
+  };
+
   if (loading) return (<div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAFAF7]"><Loader2 className="w-10 h-10 text-emerald-500 animate-spin" /></div>);
   const videoSumberUtama = videoUrl || topic?.video_url;
 
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAFAF7] min-h-screen">
-      
       {/* GLOBAL HEADER BAR */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-xs flex items-center justify-between transition-all duration-300">
@@ -323,8 +281,8 @@ export default function LessonPage() {
           <div className="bg-gradient-to-r from-lime-400 to-emerald-500 px-3 py-1.5 rounded-xl text-white font-black text-xs shadow-xs"><Leaf className="w-3.5 h-3.5 fill-lime-200 inline mr-1" /> {progressState.xp_earned} XP</div>
         </div>
       ) : (
-        <div className="bg-stone-950 text-stone-300 rounded-xl p-2.5 flex items-center justify-between shadow-xs transition-all duration-300">
-          <button type="button" onClick={() => setActiveTab("map")} className="flex items-center gap-1.5 text-xs font-bold text-stone-300 hover:text-white bg-stone-900/50 px-3 py-1 rounded-lg border border-stone-800 transition-colors"><ChevronLeft className="w-4 h-4" /> Keluar Mod Misi</button><span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 truncate max-w-[50%]">{topic?.name}</span>
+        <div className="bg-stone-950 text-stone-300 rounded-xl p-2.5 flex items-center justify-between shadow-xs transition-all duration-300 animate-in fade-in">
+          <button type="button" onClick={() => setActiveTab("map")} className="flex items-center gap-1.5 text-xs font-bold text-stone-300 hover:text-white bg-stone-900/50 px-3 py-1 rounded-lg border border-stone-800 transition-colors">🚪 Keluar Mod Misi</button><span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 truncate max-w-[50%]">🖥️ Skrin Fokus Penuh</span>
         </div>
       )}
 
@@ -344,22 +302,11 @@ export default function LessonPage() {
         {/* STAGE 2: NOTA PINTAR & INFOGRAFIK PNG */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
-            <div className="max-h-[480px] overflow-y-auto p-4 border rounded-xl bg-white shadow-inner flex flex-col items-center border-stone-200/60">
-              
-              {/* Gambar Infografik Utama Nota */}
+            <div className="max-h-[75vh] overflow-y-auto p-4 border rounded-xl bg-white shadow-inner flex flex-col items-center border-stone-200/60">
               {notesImage && (<img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200/80 shadow-xs mb-5 bg-white" />)}
-              
-              {/* 🌟 PENAPIS DILANCARKAN: Menukar kod teks murni markdown kepada format HTML bervisual premium */}
-              <div className="w-full">
-                {notesContent ? (
-                  <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} className="text-left w-full space-y-1" />
-                ) : (
-                  (!notesImage) && <p className="text-xs text-slate-400 text-center py-4">Nota pengajian belum disediakan.</p>
-                )}
-              </div>
-
+              <div className="w-full">{notesContent ? (<div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} className="text-left w-full space-y-1" />) : ((!notesImage) && <p className="text-xs text-slate-400 text-center py-4">Nota pengajian belum disediakan.</p>)}</div>
             </div>
-            <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 shadow-xs active:scale-[0.99] transition-transform">Selesai Membaca Nota 🍃</Button>
+            <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 shadow-xs">Selesai Membaca Nota 🍃</Button>
           </motion.div>
         )}
 
@@ -371,8 +318,8 @@ export default function LessonPage() {
         {/* STAGE 4: MINDMAP */}
         {activeTab === "mindmap" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border border-emerald-100 shadow-md space-y-4">
-            <div className="min-h-[220px] bg-[#FAFAF7] rounded-xl p-3 border flex flex-col items-center justify-center">
-              {infographicUrl ? <img src={infographicUrl} alt="Mindmap" className="w-full h-auto rounded-xl max-h-72 object-contain bg-white border shadow-2xs" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
+            <div className="min-h-[50vh] bg-[#FAFAF7] rounded-xl p-3 border flex flex-col items-center justify-center">
+              {infographicUrl ? <img src={infographicUrl} alt="Mindmap" className="w-full h-auto rounded-xl max-h-[60vh] object-contain bg-white border shadow-2xs" /> : <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} lang={getLanguageMode()} />}
             </div>
             <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-600 text-white text-xs font-black rounded-xl border-0 mt-2 shadow-xs">Selesai Teroka Peta! 🗺️</Button>
           </motion.div>
@@ -384,14 +331,9 @@ export default function LessonPage() {
             <div className="space-y-4 text-center sm:text-left">
               <h3 className="text-base font-black text-amber-950">⚔️ Misi Terakhir: Kuiz Puncak Dahan</h3>
               <p className="text-xs text-amber-800 font-medium">Sedia menduduki ujian cabaran minda untuk menawan kemuncak dahan ilmu ini? 🏆</p>
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">
-                  {status.quiz ? "Mencari Soalan..." : "Cabaran Pantas (10 Soalan)"}
-                </Button>
-                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">
-                  {status.quiz ? "Mencari Soalan..." : "Ujian Boss Padu (20 Soalan)"}
-                </Button>
+                <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Mencari Soalan..." : "Cabaran Pantas (10 Soalan)"}</Button>
+                <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-2xs">{status.quiz ? "Mencari Soalan..." : "Ujian Boss Padu (20 Soalan)"}</Button>
               </div>
             </div>
           </motion.div>
