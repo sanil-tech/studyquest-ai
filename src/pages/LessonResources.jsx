@@ -70,7 +70,6 @@ export default function LessonResources() {
     semakAksesAdmin();
   }, [navigate, toast]);
 
-  // 🎯 2. ENJIN MUAT NAIK (Dinaik taraf untuk mengekalkan kualiti PNG)
   const kompresFailGambarUlu = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -85,7 +84,6 @@ export default function LessonResources() {
           canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext("2d"); ctx.drawImage(img, 0, 0, width, height);
           
-          // 🌟 Kunci Kualiti: Kekalkan PNG jika fail asal adalah PNG
           const isPNG = file.type === "image/png";
           const mimeType = isPNG ? "image/png" : "image/jpeg";
           const kualiti = isPNG ? undefined : 0.75;
@@ -155,17 +153,24 @@ export default function LessonResources() {
       setInfographicUrl(lesson.infographic_url || ""); setInfographicPreview(lesson.infographic_url || ""); setInfographicFile(null);
       setYoutubeUrl(lesson.video_url || ""); 
 
-      try {
-        const parsedNotes = JSON.parse(lesson.notes_content);
-        if (parsedNotes && typeof parsedNotes === "object") {
-          setNotes(parsedNotes.text || "");
-          setNoteImageUrl(parsedNotes.image || "");
-          setNoteImagePreview(parsedNotes.image || "");
-        } else {
-          setNotes(lesson.notes_content || ""); setNoteImageUrl(""); setNoteImagePreview(""); 
+      // 🧠 ENJIN PEMBACA NOTA JSON (KALIS RALAT DOUBLE-PARSE)
+      const rawNotes = lesson.notes_content;
+      if (rawNotes) {
+        try {
+          const parsedNotes = typeof rawNotes === "object" ? rawNotes : JSON.parse(rawNotes);
+          if (parsedNotes && (parsedNotes.text !== undefined || parsedNotes.image !== undefined)) {
+            setNotes(parsedNotes.text || "");
+            setNoteImageUrl(parsedNotes.image || "");
+            setNoteImagePreview(parsedNotes.image || "");
+          } else {
+            setNotes(typeof rawNotes === "string" ? rawNotes : JSON.stringify(rawNotes));
+            setNoteImageUrl(""); setNoteImagePreview(""); 
+          }
+        } catch (err) {
+          setNotes(String(rawNotes)); setNoteImageUrl(""); setNoteImagePreview("");
         }
-      } catch (err) {
-        setNotes(lesson.notes_content || ""); setNoteImageUrl(""); setNoteImagePreview("");
+      } else {
+        setNotes(""); setNoteImageUrl(""); setNoteImagePreview("");
       }
 
       try {
@@ -353,7 +358,7 @@ export default function LessonResources() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between shrink-0"><span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-emerald-600" /> Kunci Jawapan:</span><select value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)} className="ml-3 bg-white border border-slate-200 rounded-lg text-xs font-black px-4 py-1 text-emerald-700 cursor-pointer"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
+                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between shrink-0"><span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-emerald-600" /> Kunci Jawapan:</span><select value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)} className="ml-3 bg-white border border-slate-200 rounded-lg text-xs font-black px-4 py-1 text-purple-700 cursor-pointer"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
                   <div className="flex-1 w-full bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100"><span className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1 mb-1"><Sparkles className="w-3 h-3" /> Penerangan Jawapan</span><textarea rows={1} placeholder="Terangkan rumusan..." value={q.explanation || ""} onChange={(e) => handleQuestionChange(qIndex, "explanation", e.target.value)} className="w-full px-2.5 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-medium shadow-inner" /></div>
                 </div>
               </Card>
