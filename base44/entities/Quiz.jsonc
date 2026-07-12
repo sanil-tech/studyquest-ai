@@ -4,7 +4,7 @@
   "properties": {
     "session_id": {
       "type": "string",
-      "description": "ID of the study session"
+      "description": "ID of the study session (Optional for admin global template)"
     },
     "topic_name": {
       "type": "string",
@@ -30,10 +30,21 @@
     "num_questions": {
       "type": "number",
       "default": 5
+    },
+    "video_url": {
+      "type": "string",
+      "description": "URL of the YouTube lesson video"
+    },
+    "notes_content": {
+      "type": "string",
+      "description": "Full text content of the lesson notes"
+    },
+    "infographic_url": {
+      "type": "string",
+      "description": "URL of the mind map infographic image"
     }
   },
   "required": [
-    "session_id",
     "topic_name",
     "questions_json"
   ]
