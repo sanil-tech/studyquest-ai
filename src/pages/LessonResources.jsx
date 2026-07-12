@@ -12,7 +12,7 @@ export default function LessonResources() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // 🔒 STATE KESELAMATAN & LOADING SYSTEM
+  // 🔒 STATE KESELAMATAN & LOADING
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -29,8 +29,8 @@ export default function LessonResources() {
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [coinReward, setCoinReward] = useState(50);
   const [notes, setNotes] = useState(""); 
+  const [coinReward, setCoinReward] = useState(50); // Opsional
 
   // PETA MINDA
   const [infographicUrl, setInfographicUrl] = useState(""); 
@@ -166,6 +166,7 @@ export default function LessonResources() {
     } catch (err) {} finally { setIsLoadingList(false); }
   };
 
+  // 🌟 MENGAMBIL DATA TERUS DARI KOLUM RASMI DATABASE
   const handlePilihLesson = (e) => {
     const idPilihan = e.target.value;
     setSelectedLessonId(idPilihan);
@@ -173,19 +174,25 @@ export default function LessonResources() {
 
     const lessonDipilih = lessonsList.find(l => l.id === idPilihan);
     if (lessonDipilih) {
-      setTopicId(lessonDipilih.id); setTitle(lessonDipilih.topic_name || ""); setSubtitle(lessonDipilih.subject_name || "");
+      setTopicId(lessonDipilih.id); 
+      setTitle(lessonDipilih.topic_name || ""); 
+      setSubtitle(lessonDipilih.subject_name || "");
+      
+      // Ambil data tepat dari medan schema baharu
+      setYoutubeUrl(lessonDipilih.video_url || ""); 
+      setNotes(lessonDipilih.notes_content || "");
+      
+      setInfographicUrl(lessonDipilih.infographic_url || ""); 
+      setInfographicPreview(lessonDipilih.infographic_url || ""); 
+      setInfographicFile(null);
       setCoinReward(lessonDipilih.coins_reward || 50);
-      setInfographicUrl(lessonDipilih.infographic_url || ""); setInfographicPreview(lessonDipilih.infographic_url || ""); setInfographicFile(null);
 
       try {
-        const parsedQuestions = lessonDipilih.questions_json ? JSON.parse(lessonDipilih.questions_json) : [];
-        if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
+        const parsedQuestions = typeof lessonDipilih.questions_json === "object" 
+          ? lessonDipilih.questions_json 
+          : JSON.parse(lessonDipilih.questions_json || "[]");
           
-          // 🧠 Ekstrak data video & nota HANYA daripada elemen pertama (index 0)
-          const dataSandaran = parsedQuestions[0];
-          if (dataSandaran.custom_video_url) setYoutubeUrl(dataSandaran.custom_video_url);
-          if (dataSandaran.custom_notes) setNotes(dataSandaran.custom_notes);
-
+        if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
           setQuestions(parsedQuestions.map(q => ({
             questionText: q.question || "", questionImageUrl: q.question_image_url || "", questionPreview: q.question_image_url || "",
             questionFile: null, options: q.options || ["", "", "", ""], correctAnswer: q.correct_answer || "A", explanation: q.explanation || ""
@@ -222,7 +229,7 @@ export default function LessonResources() {
     } catch (err) { toast({ title: "Ralat Pemadaman", variant: "destructive" }); } finally { setIsDeleting(false); }
   };
 
-  // 🎯 5. PROSES PENGHANTARAN ULTRA-LIGHT (SINGLE-SHOT PIGGYBACK)
+  // 🎯 5. PROSES PENGHANTARAN TERUS KE KOLUM (CLEAN MAPPING)
   const handleSaveForm = async (e) => {
     e.preventDefault();
     if (borangMod === "create" && !topicId) { toast({ title: "Ralat 🛑", description: "Sila isi ID Unik Topik.", variant: "destructive" }); return; }
@@ -243,39 +250,33 @@ export default function LessonResources() {
           try { serverQImageUrl = await uploadKeServerRasmi(q.questionFile); } catch (e){}
         }
 
-        const dataSoalanObj = {
+        susunanSoalanKuiz.push({
           question: q.questionText.trim(),
           question_image_url: serverQImageUrl || null,
           options: (q.options || ["", "", "", ""]).map(opt => opt.trim()),
           correct_answer: q.correctAnswer || "A",
           explanation: (q.explanation || "").trim()
-        };
-
-        // 🌟 KUNCI STRATEGI RINGAN: Suntik video & nota HANYA pada soalan indeks ke-0 (Item Pertama) sahaja!
-        if (i === 0) {
-          dataSoalanObj.custom_video_url = youtubeUrl.trim();
-          dataSoalanObj.custom_notes = notes.trim();
-        }
-
-        susunanSoalanKuiz.push(dataSoalanObj);
+        });
       }
 
+      // 🌟 PADANAN TEPAT: Hantar ke schema yang anda cipta sebentar tadi
       const dataPayload = {
         topic_name: title.trim(), 
         subject_name: subtitle.trim() || "Matematik", 
-        infographic_url: serverInfographicUrl || null, 
-        coins_reward: Number(coinReward), 
-        questions_json: JSON.stringify(susunanSoalanKuiz) 
+        video_url: youtubeUrl.trim(),              // 👈 Kolum Video Baharu
+        notes_content: notes.trim(),               // 👈 Kolum Nota Baharu
+        infographic_url: serverInfographicUrl || null, // 👈 Kolum Imej Baharu
+        questions_json: JSON.stringify(susunanSoalanKuiz) // Kini bebas dari seludupan
       };
 
       if (borangMod === "create") {
         const targetId = topicId.trim().toLowerCase().replace(/\s+/g, "-");
         await base44.entities.Quiz.create({ id: targetId, ...dataPayload });
-        toast({ title: "Misi Baru Dicipta! 🎉", description: "Data terselamat dengan saiz optimum." });
+        toast({ title: "Misi Baru Dicipta! 🎉", description: "Data Video & Nota selamat diletakkan di ruang rasmi database." });
       } else {
         const updatePayload = { id: selectedLessonId, ...dataPayload };
         await base44.entities.Quiz.update(selectedLessonId, updatePayload);
-        toast({ title: "Kemaskini Berjaya! 🔄", description: "Kandungan video berjaya dikunci pada server." });
+        toast({ title: "Kemaskini Berjaya! 🔄", description: "Struktur Schema Asli berfungsi dengan cemerlang." });
       }
 
       resetSemuaMedanBorang(); setSelectedLessonId(""); if (borangMod === "edit") setTimeout(muatTurunSenaraiLesson, 500);
@@ -291,11 +292,11 @@ export default function LessonResources() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 bg-slate-50/30 min-h-screen font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
         <div>
-          <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" /> Pengurusan Lesson Resources</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Enjin Single-Shot Piggyback Aktif: Saiz JSON dioptimumkan untuk mengelak ralat had saiz database.</p>
+          <h1 className="text-xl font-black text-slate-800 flex items-center gap-2"><Sparkles className="w-5 h-5 text-emerald-500 animate-pulse" /> Pengurusan Lesson Resources</h1>
+          <p className="text-xs text-slate-500 mt-0.5">🚀 Enjin Schema Asli Diaktifkan: Membaca & Menyimpan terus ke struktur pangkalan data sebenar.</p>
         </div>
         <div className="flex bg-slate-200/70 p-1 rounded-xl shadow-inner self-start sm:self-center">
-          <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-indigo-500" /> Cipta Baru</button>
+          <button type="button" onClick={() => tukarModBorang("create")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "create" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><PlusCircle className="w-3.5 h-3.5 text-emerald-500" /> Cipta Baru</button>
           <button type="button" onClick={() => tukarModBorang("edit")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "edit" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><Edit3 className="w-3.5 h-3.5 text-amber-500" /> Edit / Padam</button>
         </div>
       </div>
@@ -316,59 +317,55 @@ export default function LessonResources() {
       {(borangMod === "create" || selectedLessonId) ? (
         <form onSubmit={handleSaveForm} className="space-y-6">
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
-            <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600"><BookOpen className="w-4 h-4 inline mr-1" /> 1. Parameter Teras</h3>
+            <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-emerald-600"><BookOpen className="w-4 h-4 inline mr-1" /> 1. Parameter Teras</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">ID Unik Topik*</label><input type="text" required value={topicId} onChange={(e) => setTopicId(e.target.value)} disabled={borangMod === "edit"} className={`w-full px-3 py-2 border rounded-xl text-xs font-bold ${borangMod === "edit" ? "bg-slate-100 text-slate-400" : "bg-slate-50"}`} /></div>
               <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Tajuk Utama Modul*</label><input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="sm:col-span-3 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Nama Subjek / Deskripsi Pendek</label><input type="text" placeholder="Contoh: Matematik Tahun 1" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">XP Ganjaran</label><input type="number" min={1} value={coinReward} onChange={(e) => setCoinReward(e.target.value)} className="w-full px-3 py-2 bg-amber-50/50 border border-amber-200 rounded-xl text-xs font-black text-amber-700 text-center" /></div>
-            </div>
           </Card>
 
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
-            <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-indigo-600"><Video className="w-4 h-4 inline mr-1" /> 2. Media Pengajaran</h3>
+            <h3 className="text-sm font-black text-slate-700 border-b pb-2 uppercase text-[11px] tracking-wider text-emerald-600"><Video className="w-4 h-4 inline mr-1" /> 2. Media Pengajaran (Video & Peta Minda)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">URL YouTube Video*</label><input type="url" required value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-indigo-500" /> Muat Naik Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
+              <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-emerald-500" /> Muat Naik Peta Minda</label><input type="file" accept="image/*" onChange={kendaliPilihanInfographic} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
             </div>
             <div className="p-3 bg-slate-100/60 rounded-xl border border-slate-200 space-y-1">
-              <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-indigo-500" /> Pautan URL Alternatif (Rajah Utama)</label>
-              <input type="text" placeholder="Masukkan link gambar langsung jika butang upload ralat" value={infographicUrl} onChange={(e) => { setInfographicUrl(e.target.value); if(e.target.value) setInfographicPreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
+              <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-emerald-500" /> Pautan URL Alternatif (Rajah Utama)</label>
+              <input type="text" placeholder="Masukkan link gambar langsung (Jika perlu)" value={infographicUrl} onChange={(e) => { setInfographicUrl(e.target.value); if(e.target.value) setInfographicPreview(e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
             </div>
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-md"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-44 object-contain bg-white border" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
           </Card>
 
           <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
-            <h3 className="text-sm font-black text-slate-700 border-b pb-1.5 uppercase text-[11px] tracking-wider text-indigo-600">📝 3. Kandungan Nota Pengajian</h3>
-            <textarea rows={4} required value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium shadow-inner" />
+            <h3 className="text-sm font-black text-slate-700 border-b pb-1.5 uppercase text-[11px] tracking-wider text-emerald-600">📝 3. Kandungan Nota Pengajian</h3>
+            <textarea rows={4} required value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tuliskan penerangan / nota untuk dibaca oleh murid..." className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium shadow-inner" />
           </Card>
 
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-1 gap-4">
-              <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px] tracking-wide"><HelpCircle className="w-4 h-4 text-purple-600" /> 4. Set Penyediaan Soalan ({questions.length})</h3>
+              <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px] tracking-wide"><HelpCircle className="w-4 h-4 text-emerald-600" /> 4. Set Penyediaan Soalan ({questions.length})</h3>
               <div className="flex bg-slate-100/60 p-1.5 rounded-xl border border-slate-200 gap-2 w-full sm:w-auto shadow-inner">
                 <input type="file" accept=".json,application/json" ref={jsonFileInputRef} onChange={handleJSONFileUpload} className="hidden" />
                 <Button type="button" size="sm" onClick={() => jsonFileInputRef.current?.click()} className="h-9 text-[11px] bg-slate-800 text-white rounded-xl font-bold gap-2"><FileJson className="w-4 h-4 text-amber-400" /> Muat Naik JSON</Button>
-                <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-purple-600 text-white rounded-xl font-bold gap-1"><Plus className="w-3.5 h-3.5" /> Tambah Manual</Button>
+                <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-emerald-600 text-white rounded-xl font-bold gap-1"><Plus className="w-3.5 h-3.5" /> Tambah Manual</Button>
               </div>
             </div>
 
             {questions.map((q, qIndex) => (
-              <Card key={qIndex} className="p-5 bg-white border border-purple-100/60 rounded-2xl shadow-xs space-y-4 relative">
+              <Card key={qIndex} className="p-5 bg-white border border-emerald-100/60 rounded-2xl shadow-xs space-y-4 relative">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                  <span className="text-xs font-black text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full uppercase text-[10px]">Soalan #{qIndex + 1}</span>
+                  <span className="text-xs font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full uppercase text-[10px]">Soalan #{qIndex + 1}</span>
                   {questions.length > 1 && (<Button type="button" size="sm" variant="ghost" onClick={() => handleRemoveQuestion(qIndex)} className="h-7 text-[10px] text-rose-500 px-2"><Trash2 className="w-3.5 h-3.5 mr-1" /> Padam</Button>)}
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Ayat Soalan Kuiz *</label><textarea rows={2} required value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, "questionText", e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
-                  <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-purple-600" /> Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
+                  <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><UploadCloud className="w-3.5 h-3.5 text-emerald-600" /> Gambar Soalan</label><input type="file" accept="image/*" onChange={(e) => kendaliPilihanGambarSoalan(qIndex, e.target.files[0])} className="w-full text-xs text-slate-500 border border-slate-200 rounded-xl bg-slate-50/50 p-1" /></div>
                 </div>
 
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-1">
-                  <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-purple-500" /> Pautan URL Gambar Soalan #{qIndex + 1}</label>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><LinkIcon className="w-3 h-3 text-emerald-500" /> Pautan URL Gambar Soalan #{qIndex + 1}</label>
                   <input type="text" placeholder="Masukkan URL gambar langsung jika dari AI" value={q.questionImageUrl || ""} onChange={(e) => { handleQuestionChange(qIndex, "questionImageUrl", e.target.value); if(e.target.value) handleQuestionChange(qIndex, "questionPreview", e.target.value); }} className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium" />
                 </div>
 
@@ -384,7 +381,7 @@ export default function LessonResources() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between shrink-0"><span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-purple-600" /> Kunci Jawapan:</span><select value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)} className="ml-3 bg-white border border-slate-200 rounded-lg text-xs font-black px-4 py-1 text-purple-700 cursor-pointer"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
+                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between shrink-0"><span className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5 text-emerald-600" /> Kunci Jawapan:</span><select value={q.correctAnswer || "A"} onChange={(e) => handleQuestionChange(qIndex, "correctAnswer", e.target.value)} className="ml-3 bg-white border border-slate-200 rounded-lg text-xs font-black px-4 py-1 text-emerald-700 cursor-pointer"><option value="A">Pilihan A</option><option value="B">Pilihan B</option><option value="C">Pilihan C</option><option value="D">Pilihan D</option></select></div>
                   <div className="flex-1 w-full bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100"><span className="text-[10px] font-bold text-emerald-700 uppercase flex items-center gap-1 mb-1"><Sparkles className="w-3 h-3" /> Penerangan Jawapan</span><textarea rows={1} placeholder="Terangkan rumusan..." value={q.explanation || ""} onChange={(e) => handleQuestionChange(qIndex, "explanation", e.target.value)} className="w-full px-2.5 py-1.5 bg-white border border-emerald-200 rounded-lg text-xs font-medium shadow-inner" /></div>
                 </div>
               </Card>
@@ -392,7 +389,7 @@ export default function LessonResources() {
           </div>
 
           <div className="pt-4 flex items-center justify-end border-t">
-            <Button type="submit" disabled={isSaving} className="text-white font-black text-xs rounded-xl shadow-md px-6 h-10 bg-gradient-to-r from-amber-500 to-orange-500">
+            <Button type="submit" disabled={isSaving} className="text-white font-black text-xs rounded-xl shadow-md px-6 h-10 bg-gradient-to-r from-emerald-500 to-teal-500">
               {isSaving ? <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan Data...</> : <><Save className="w-4 h-4" /> Kunci Kandungan Modul</>}
             </Button>
           </div>
