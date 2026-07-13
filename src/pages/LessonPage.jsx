@@ -112,10 +112,7 @@ export default function LessonPage() {
   const [progressState, setProgressState] = useState({ video_completed: false, lesson_completed: false, flashcard_completed: false, mindmap_completed: false, quiz_completed: false, current_stage: "video", xp_earned: 0 });
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
   
-  // 🔊 AUDIO STATED
   const [isSpeaking, setIsSpeaking] = useState(false);
-
-  // 🎯 CHECKPOINT STATE (UNTUK MEREKOD PROGRESS KUIZ TERGANTUNG)
   const [savedQuizProgress, setSavedQuizProgress] = useState(null);
   
   const studyStartRef = useRef(null);
@@ -146,7 +143,7 @@ export default function LessonPage() {
 
   const bersihkanTeksPadanan = (str) => { return str ? str.toLowerCase().replace(/dan/g, "").replace(/&/g, "").replace(/misi\s*\d+/g, "").replace(/[^a-z0-9]/g, "").trim() : ""; };
 
-  // INITIALIZATION DATA & CHECKPOINT DETECTION
+  // DATA INITIALIZATION & LOCAL CHECKPOINT DETECTION
   useEffect(() => {
     let isMounted = true;
     const initializeLesson = async () => {
@@ -155,13 +152,10 @@ export default function LessonPage() {
         if (!isMounted) return;
         setSubject(sub); setTopic(top);
 
-        // Semak sekiranya ada progres kuiz tergantung di LocalStorage untuk murid ini
         const checkpointKey = `studyquest_checkpoint_${user.id}_${topicId}`;
         const dataTerpelihara = localStorage.getItem(checkpointKey);
         if (dataTerpelihara) {
-          try {
-            setSavedQuizProgress(JSON.parse(dataTerpelihara));
-          } catch(e) {}
+          try { setSavedQuizProgress(JSON.parse(dataTerpelihara)); } catch(e) {}
         }
 
         try {
@@ -220,7 +214,6 @@ export default function LessonPage() {
             });
             setSessionId(sessionWithNotes.id);
 
-            // 🌟 CHECKPOINT 1: Jika misi belum selesai sepenuhnya, hantar murid terus ke fasa terakhir mereka berhenti
             if (!sessionWithNotes.quiz_completed) {
               setActiveTab(savedStage);
             }
@@ -295,7 +288,6 @@ export default function LessonPage() {
         await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }).catch(()=>{});
       }
 
-      // 🎯 MEMBAIKI BUG & CHECKPOINT: Hantar query resume=true jika murid menyambung kuiz tergantung
       if (isResume && savedQuizProgress) {
         navigate(`/quiz/${actualQuizId}?limit=${savedQuizProgress.limit}&resume=true`);
       } else {
@@ -309,15 +301,22 @@ export default function LessonPage() {
     } 
   };
 
-  // NATIVE VOICE-OVER CONTROLLER
+  // 🔊 FILTER SUARA OKI (STRIP KOD JADUAL & GAMBAR UNTUK SPEECH SYNTHESIS)
   const bersihkanTeksUntukSuara = (text) => {
     if (!text) return "";
-    return text.replace(/[#*>\-_`]/g, "").trim();
+    return text
+      .split("\n")
+      .filter(line => !line.trim().startsWith("|"))  // Filter membuang data jadual
+      .filter(line => !line.trim().startsWith("![")) // Filter membuang URL gambar inline
+      .join(" ")
+      .replace(/[#*>\-_`🔸]/g, "") // Bersihkan baki simbol karakter markdown
+      .replace(/\s+/g, " ")       // Trim jarak ruang putih berlebihan
+      .trim();
   };
 
   const urusSuaraNota = (teksNota) => {
     if (!window.speechSynthesis) {
-      alert("⚠️ Alamak! Peranti tidak menyokong fungsi suara.");
+      alert("⚠️ Alamak! Peranti tidak menyokong enjin suara.");
       return;
     }
 
@@ -346,23 +345,69 @@ export default function LessonPage() {
     window.speechSynthesis.speak(sebutan);
   };
 
+  // 📊 FILTER PAPARAN TULISAN JADUAL & GAMBAR MARKDOWN (HTML CONVERTER)
   const parseMarkdownToHTML = (text) => {
-    if (!text) return ""; const lines = text.split("\n"); let inList = false; let htmlOutput = [];
+    if (!text) return ""; 
+    const lines = text.split("\n"); 
+    let inList = false; 
+    let inTable = false;
+    let htmlOutput = [];
+
     lines.forEach((line) => {
       let trimmed = line.trim();
+      
       if (!trimmed.startsWith("* ") && !trimmed.startsWith("- ") && inList) { htmlOutput.push("</ul>"); inList = false; }
-      if (trimmed === "---") { htmlOutput.push('<hr class="my-4 border-emerald-200" />'); return; }
-      if (trimmed.startsWith("# ")) { htmlOutput.push(`<h1 class="text-base sm:text-lg font-black text-stone-800 border-b-2 border-emerald-200 pb-1.5 mt-4 mb-2 text-center text-emerald-700">${trimmed.replace("# ", "")}</h1>`); return; }
-      if (trimmed.startsWith("## ")) { htmlOutput.push(`<h2 class="text-sm sm:text-base font-black text-stone-800 mt-4 mb-2 text-emerald-800">${trimmed.replace("## ", "")}</h2>`); return; }
-      if (trimmed.startsWith("### ")) { htmlOutput.push(`<h3 class="text-xs sm:text-sm font-bold text-amber-600 mt-3 mb-1 flex items-center gap-1">🔸 ${trimmed.replace("### ", "")}</h3>`); return; }
-      if (trimmed.startsWith(">")) { let content = trimmed.substring(1).trim(); htmlOutput.push(`<blockquote class="border-l-4 border-amber-400 pl-3.5 italic text-stone-600 my-3 bg-amber-50/70 p-3 rounded-r-2xl leading-relaxed text-xs sm:text-sm">${content}</blockquote>`); return; }
-      if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) { if (!inList) { htmlOutput.push('<ul class="space-y-2 my-2.5 pl-1.5">'); inList = true; } let content = trimmed.substring(2); htmlOutput.push(`<li class="list-disc ml-5 text-xs sm:text-sm text-stone-600 leading-relaxed font-bold">${content}</li>`); return; }
+      if (!(trimmed.startsWith("|") && trimmed.endsWith("|")) && inTable) { htmlOutput.push("</tbody></table></div>"); inTable = false; }
       if (trimmed === "") return;
+      if (trimmed === "---") { htmlOutput.push('<hr class="my-6 border-emerald-200 border-dashed border-2 rounded-full" />'); return; }
+
+      // 🖼️ FILTER & RENDER GAMBAR INLINE
+      if (trimmed.startsWith("![") && trimmed.includes("](")) {
+        const imgMatch = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
+        if (imgMatch) {
+          htmlOutput.push(`<div class="w-full flex justify-center my-5"><img src="${imgMatch[2]}" alt="${imgMatch[1]}" class="w-full max-w-md h-auto rounded-2xl border-4 border-stone-800 shadow-md bg-white transition-transform hover:scale-102 duration-300" /></div>`);
+          return;
+        }
+      }
+
+      // Headings
+      if (trimmed.startsWith("# ")) { htmlOutput.push(`<h1 class="text-base sm:text-lg font-black text-emerald-700 border-b-4 border-emerald-200 pb-2 mt-6 mb-4 text-center bg-emerald-50/60 p-3 rounded-2xl shadow-2xs">${trimmed.replace("# ", "")}</h1>`); return; }
+      if (trimmed.startsWith("## ")) { htmlOutput.push(`<h2 class="text-sm sm:text-base font-black text-amber-600 mt-5 mb-2.5 flex items-center gap-1">✨ ${trimmed.replace("## ", "")}</h2>`); return; }
+      if (trimmed.startsWith("### ")) { htmlOutput.push(`<h3 class="text-xs sm:text-sm font-black text-stone-800 mt-4 mb-2 pl-2 border-l-4 border-lime-400">${trimmed.replace("### ", "")}</h3>`); return; }
+      if (trimmed.startsWith(">")) { let content = trimmed.substring(1).trim(); htmlOutput.push(`<blockquote class="border-l-4 border-amber-400 pl-4 italic text-amber-950 my-4 bg-amber-50 p-3.5 rounded-r-2xl leading-relaxed text-xs sm:text-sm shadow-2xs font-black">🎶 Lirik: ${content}</blockquote>`); return; }
+
+      // 📊 FILTER & RENDER JADUAL DATA EJAAN NOMBOR
+      if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+        if (trimmed.includes("---")) return; // Abaikan baris divider pembatas markdown
+        let columns = trimmed.split("|").map(c => c.trim()).filter((c, i, arr) => i > 0 && i < arr.length - 1);
+        
+        if (!inTable) {
+          htmlOutput.push('<div class="overflow-x-auto my-5 border-2 border-emerald-600/20 rounded-2xl bg-white shadow-xs max-w-md mx-auto w-full"><table class="w-full border-collapse text-xs sm:text-sm text-center"><thead><tr class="bg-emerald-500 text-white font-black border-b-2 border-emerald-600">');
+          columns.forEach(col => htmlOutput.push(`<th class="p-3 font-black">${col}</th>`));
+          htmlOutput.push('</tr></thead><tbody>');
+          inTable = true;
+        } else {
+          htmlOutput.push('<tr class="border-b border-stone-100 last:border-0 odd:bg-stone-50/40 hover:bg-emerald-50/40 transition-colors">');
+          columns.forEach(col => htmlOutput.push(`<td class="p-3 font-bold text-stone-700">${col}</td>`));
+          htmlOutput.push('</tr>');
+        }
+        return;
+      }
+
+      if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) {
+        if (!inList) { htmlOutput.push('<ul class="space-y-2 my-3 pl-1">'); inList = true; }
+        let content = trimmed.substring(2); htmlOutput.push(`<li class="list-disc ml-5 text-xs sm:text-sm text-stone-600 leading-relaxed font-bold">${content}</li>`); return;
+      }
+
       htmlOutput.push(`<p class="text-xs sm:text-sm text-stone-700 font-bold leading-relaxed mb-3">${trimmed}</p>`);
     });
+
     if (inList) htmlOutput.push("</ul>");
+    if (inTable) htmlOutput.push("</tbody></table></div>");
+
     let finalHtml = htmlOutput.join("\n");
-    finalHtml = finalHtml.replace(/\*\frac.*?\*\*/g, '<strong class="font-black text-emerald-950 bg-amber-200/70 px-1.5 py-0.5 rounded-md">$1</strong>');
+    // 🎯 PEMBAIKAN TYPO: Menukar tag bold dengan tepat
+    finalHtml = finalHtml.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-emerald-950 bg-amber-200/70 px-1.5 py-0.5 rounded-md">$1</strong>');
     finalHtml = finalHtml.replace(/\*(.*?)\*/g, '<em class="italic text-stone-800 font-semibold">$1</em>');
     return finalHtml;
   };
@@ -451,7 +496,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 2: KIT NOTA KHAZANAH */}
+        {/* STAGE 2: KIT NOTA KHAZANAH DENGAN FILTER TULISAN RESILIENT */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <div className="border-b-2 border-stone-100 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -470,9 +515,9 @@ export default function LessonPage() {
 
             <div className="max-h-[70vh] overflow-y-auto p-4 border-2 border-stone-200/80 rounded-2xl bg-stone-50/50 shadow-inner flex flex-col items-center">
               {notesImage && (<img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200 shadow-xs mb-5 bg-white" />)}
-              <div className="w-full">
+              <div className="w-full text-left">
                 {notesContent ? (
-                  <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} className="text-left w-full space-y-1" />
+                  <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} className="space-y-1 w-full" />
                 ) : (
                   (!notesImage) && <p className="text-xs text-stone-400 text-center py-6 font-bold">Nota khazanah belum disediakan.</p>
                 )}
@@ -542,15 +587,14 @@ export default function LessonPage() {
                 Anda sudah sampai di kemuncak gunung ilmu ini! Sedia menewaskan Boss Padu untuk menawan lencana subjek dan membuktikan kebijaksanaan anda? 🏆
               </p>
 
-              {/* 🌟 CHECKPOINT 2: PAPARKAN BUTANG SAMBUNG KUIZ JIKA DATA TERGANTUNG DIKESAN */}
               {savedQuizProgress && (
-                <div className="p-3 bg-emerald-50 border-2 border-emerald-400/50 rounded-2xl shadow-sm text-left border-dashed animate-pulse-slow">
+                <div className="p-3 bg-emerald-50 border-2 border-emerald-400/50 rounded-2xl shadow-sm text-left border-dashed">
                   <p className="text-[11px] text-emerald-950 font-black mb-2 flex items-center gap-1">
                     ⚡ Sistem mengesan perlawanan tergantung!
                   </p>
                   <Button 
                     onClick={() => runQuizGeneration(savedQuizProgress.limit, true)}
-                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white h-12 text-xs font-black rounded-xl border-0 shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 animate-bounce-short"
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white h-12 text-xs font-black rounded-xl border-0 shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2"
                   >
                     <Play className="w-4 h-4 fill-white" /> Sambung Pertempuran (Soalan Ke-{savedQuizProgress.questionIndex + 1})
                   </Button>
