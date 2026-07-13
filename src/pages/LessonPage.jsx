@@ -143,7 +143,7 @@ export default function LessonPage() {
 
   const bersihkanTeksPadanan = (str) => { return str ? str.toLowerCase().replace(/dan/g, "").replace(/&/g, "").replace(/misi\s*\d+/g, "").replace(/[^a-z0-9]/g, "").trim() : ""; };
 
-  // DATA INITIALIZATION & LOCAL CHECKPOINT DETECTION
+  // 🌟 DATA INITIALIZATION & PARSING SEPENUHNYA KALIS RALAT
   useEffect(() => {
     let isMounted = true;
     const initializeLesson = async () => {
@@ -179,18 +179,33 @@ export default function LessonPage() {
             
             const rawNotes = foundBank.notes_content;
             if (rawNotes) {
+              let textData = "";
+              let imageData = "";
+              
+              // 🛠️ EKSTRAKSI JADUAL & MARKTXT DARIPADA STRUKTUR JSON MENTAH DENGAN KUAT
               try {
-                let cleanStr = String(rawNotes).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                if (cleanStr.startsWith('"') && cleanStr.endsWith('"')) { cleanStr = cleanStr.substring(1, cleanStr.length - 1); }
-                const parsedNotes = typeof rawNotes === "object" ? rawNotes : JSON.parse(cleanStr);
-                
-                if (parsedNotes && (parsedNotes.text !== undefined || parsedNotes.image !== undefined)) {
-                  setNotesContent(parsedNotes.text || "");
-                  setNotesImage(parsedNotes.image || "");
+                let parsed = typeof rawNotes === "object" ? rawNotes : JSON.parse(String(rawNotes).trim());
+                if (parsed && (parsed.text !== undefined || parsed.image !== undefined)) {
+                  textData = parsed.text || "";
+                  imageData = parsed.image || "";
                 } else {
-                  setNotesContent(String(rawNotes)); setNotesImage("");
+                  textData = String(rawNotes);
                 }
-              } catch (e) { setNotesContent(String(rawNotes)); setNotesImage(""); }
+              } catch (jsonErr) {
+                textData = String(rawNotes);
+              }
+
+              // Kebal-Ralat Sekiranya Objek Masih Terperangkap Sebagai String JSON Mentah
+              if (typeof textData === "string" && textData.trim().startsWith("{")) {
+                try {
+                  const secondaryParse = JSON.parse(textData.trim());
+                  textData = secondaryParse.text || textData;
+                  imageData = secondaryParse.image || imageData;
+                } catch (e) {}
+              }
+
+              setNotesContent(textData);
+              setNotesImage(imageData || "");
             }
             
             const parsedQuestions = safeJsonParse(foundBank.questions_json, []);
@@ -301,22 +316,24 @@ export default function LessonPage() {
     } 
   };
 
-  // 🔊 FILTER SUARA OKI (STRIP KOD JADUAL & GAMBAR UNTUK SPEECH SYNTHESIS)
+  // 🔊 FILTER SUARA OKI (MENAPIS STRUKTUR JADUAL & BANNER GAMBAR UNTUK BACAAN NATURAL)
   const bersihkanTeksUntukSuara = (text) => {
     if (!text) return "";
-    return text
+    // Tukar literal "\n" teks kepada baris baharu
+    const normalizedText = String(text).replace(/\\n/g, "\n");
+    return normalizedText
       .split("\n")
-      .filter(line => !line.trim().startsWith("|"))  // Filter membuang data jadual
-      .filter(line => !line.trim().startsWith("![")) // Filter membuang URL gambar inline
+      .filter(line => !line.trim().startsWith("|"))  
+      .filter(line => !line.trim().startsWith("![")) 
       .join(" ")
-      .replace(/[#*>\-_`🔸]/g, "") // Bersihkan baki simbol karakter markdown
-      .replace(/\s+/g, " ")       // Trim jarak ruang putih berlebihan
+      .replace(/[#*>\-_`🔸]/g, "") 
+      .replace(/\s+/g, " ")       
       .trim();
   };
 
   const urusSuaraNota = (teksNota) => {
     if (!window.speechSynthesis) {
-      alert("⚠️ Alamak! Peranti tidak menyokong enjin suara.");
+      alert("⚠️ Peranti anda tidak menyokong fungsi audio pembaca.");
       return;
     }
 
@@ -345,10 +362,12 @@ export default function LessonPage() {
     window.speechSynthesis.speak(sebutan);
   };
 
-  // 📊 FILTER PAPARAN TULISAN JADUAL & GAMBAR MARKDOWN (HTML CONVERTER)
+  // 📊 FILTER PAPARAN TULISAN JADUAL & GAMBAR MARKDOWN (HTML PARSER SEBENAR)
   const parseMarkdownToHTML = (text) => {
     if (!text) return ""; 
-    const lines = text.split("\n"); 
+    // 🛠️ LANGKAH UTAMA: Tukar tulisan "\n" jenis teks kepada baris baharu sistem
+    const cleanText = String(text).replace(/\\n/g, "\n");
+    const lines = cleanText.split("\n"); 
     let inList = false; 
     let inTable = false;
     let htmlOutput = [];
@@ -361,8 +380,8 @@ export default function LessonPage() {
       if (trimmed === "") return;
       if (trimmed === "---") { htmlOutput.push('<hr class="my-6 border-emerald-200 border-dashed border-2 rounded-full" />'); return; }
 
-      // 🖼️ FILTER & RENDER GAMBAR INLINE
-      if (trimmed.startsWith("![") && trimmed.includes("](")) {
+      // 🖼️ PENAPIS UTAMA ELEMEN GAMBAR MARKDOWN
+      if (trimmed.startsWith("![") && trimmed.includes("](") && trimmed.endsWith(")")) {
         const imgMatch = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
         if (imgMatch) {
           htmlOutput.push(`<div class="w-full flex justify-center my-5"><img src="${imgMatch[2]}" alt="${imgMatch[1]}" class="w-full max-w-md h-auto rounded-2xl border-4 border-stone-800 shadow-md bg-white transition-transform hover:scale-102 duration-300" /></div>`);
@@ -376,14 +395,14 @@ export default function LessonPage() {
       if (trimmed.startsWith("### ")) { htmlOutput.push(`<h3 class="text-xs sm:text-sm font-black text-stone-800 mt-4 mb-2 pl-2 border-l-4 border-lime-400">${trimmed.replace("### ", "")}</h3>`); return; }
       if (trimmed.startsWith(">")) { let content = trimmed.substring(1).trim(); htmlOutput.push(`<blockquote class="border-l-4 border-amber-400 pl-4 italic text-amber-950 my-4 bg-amber-50 p-3.5 rounded-r-2xl leading-relaxed text-xs sm:text-sm shadow-2xs font-black">🎶 Lirik: ${content}</blockquote>`); return; }
 
-      // 📊 FILTER & RENDER JADUAL DATA EJAAN NOMBOR
+      // 📊 PENAPIS JADUAL STRUKTUR 0 HINGGA 10
       if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
-        if (trimmed.includes("---")) return; // Abaikan baris divider pembatas markdown
+        if (trimmed.includes("---")) return; 
         let columns = trimmed.split("|").map(c => c.trim()).filter((c, i, arr) => i > 0 && i < arr.length - 1);
         
         if (!inTable) {
           htmlOutput.push('<div class="overflow-x-auto my-5 border-2 border-emerald-600/20 rounded-2xl bg-white shadow-xs max-w-md mx-auto w-full"><table class="w-full border-collapse text-xs sm:text-sm text-center"><thead><tr class="bg-emerald-500 text-white font-black border-b-2 border-emerald-600">');
-          columns.forEach(col => htmlOutput.push(`<th class="p-3 font-black">${col}</th>`));
+          columns.forEach(col => htmlOutput.push(`<th class="p-3 font-black tracking-wide">${col}</th>`));
           htmlOutput.push('</tr></thead><tbody>');
           inTable = true;
         } else {
@@ -406,7 +425,7 @@ export default function LessonPage() {
     if (inTable) htmlOutput.push("</tbody></table></div>");
 
     let finalHtml = htmlOutput.join("\n");
-    // 🎯 PEMBAIKAN TYPO: Menukar tag bold dengan tepat
+    // 🎯 PENAPIS TULISAN BOLD YANG SEBENARNYA (DIBAIKI)
     finalHtml = finalHtml.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-emerald-950 bg-amber-200/70 px-1.5 py-0.5 rounded-md">$1</strong>');
     finalHtml = finalHtml.replace(/\*(.*?)\*/g, '<em class="italic text-stone-800 font-semibold">$1</em>');
     return finalHtml;
@@ -496,7 +515,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 2: KIT NOTA KHAZANAH DENGAN FILTER TULISAN RESILIENT */}
+        {/* STAGE 2: KIT NOTA KHAZANAH */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <div className="border-b-2 border-stone-100 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -514,7 +533,7 @@ export default function LessonPage() {
             </div>
 
             <div className="max-h-[70vh] overflow-y-auto p-4 border-2 border-stone-200/80 rounded-2xl bg-stone-50/50 shadow-inner flex flex-col items-center">
-              {notesImage && (<img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200 shadow-xs mb-5 bg-white" />)}
+              {notesImage && (<img src={notesImage} alt="Infografik Nota" className="w-full max-w-sm h-auto rounded-xl border border-stone-200 shadow-xs mb-5 bg-white" />)}
               <div className="w-full text-left">
                 {notesContent ? (
                   <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} className="space-y-1 w-full" />
@@ -574,7 +593,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 5: KUIZ BOSS PADU (CHECKPOINT AKTIF) */}
+        {/* STAGE 5: KUIZ BOSS PADU */}
         {activeTab === "quiz" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-50 to-orange-100/70 rounded-2xl p-5 border-2 border-amber-300 shadow-md">
             <div className="space-y-4 text-center sm:text-left">
