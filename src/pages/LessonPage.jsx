@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, Loader2, Sparkles, Trophy
+  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, Loader2, Sparkles, Trophy, Play
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,7 +52,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
       </div>
 
       {isCompleted ? (
-        <div className="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm animate-bounce-short">
+        <div className="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <span className="font-black text-emerald-900 text-xs sm:text-sm">Cayalah! Anda selesai menonton video taklimat kembara ini. 🍃</span>
@@ -111,13 +111,20 @@ export default function LessonPage() {
   const [activeTab, setActiveTab] = useState("map"); 
   const [progressState, setProgressState] = useState({ video_completed: false, lesson_completed: false, flashcard_completed: false, mindmap_completed: false, quiz_completed: false, current_stage: "video", xp_earned: 0 });
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
+  
+  // 🔊 AUDIO STATED
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // 🎯 CHECKPOINT STATE (UNTUK MEREKOD PROGRESS KUIZ TERGANTUNG)
+  const [savedQuizProgress, setSavedQuizProgress] = useState(null);
+  
   const studyStartRef = useRef(null);
   const sessionRef = useRef(null);
 
   useEffect(() => { sessionRef.current = sessionId; }, [sessionId]);
   const isTopicUnlocked = progressState.quiz_completed || (progressState.video_completed && progressState.lesson_completed && progressState.flashcard_completed && progressState.mindmap_completed);
 
-  // 🌟 SUIS AUTOMATIK FULLSCREEN (KALIS GANGGUAN FOKUS RIMBA)
+  // 🌟 SUIS AUTOMATIK FULLSCREEN
   useEffect(() => {
     if (activeTab !== "map") {
       const el = document.documentElement;
@@ -131,8 +138,15 @@ export default function LessonPage() {
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+    };
+  }, [activeTab]);
+
   const bersihkanTeksPadanan = (str) => { return str ? str.toLowerCase().replace(/dan/g, "").replace(/&/g, "").replace(/misi\s*\d+/g, "").replace(/[^a-z0-9]/g, "").trim() : ""; };
 
+  // INITIALIZATION DATA & CHECKPOINT DETECTION
   useEffect(() => {
     let isMounted = true;
     const initializeLesson = async () => {
@@ -140,6 +154,15 @@ export default function LessonPage() {
         const [sub, top, user] = await Promise.all([base44.entities.Subject.get(subjectId), base44.entities.Topic.get(topicId), base44.auth.me()]);
         if (!isMounted) return;
         setSubject(sub); setTopic(top);
+
+        // Semak sekiranya ada progres kuiz tergantung di LocalStorage untuk murid ini
+        const checkpointKey = `studyquest_checkpoint_${user.id}_${topicId}`;
+        const dataTerpelihara = localStorage.getItem(checkpointKey);
+        if (dataTerpelihara) {
+          try {
+            setSavedQuizProgress(JSON.parse(dataTerpelihara));
+          } catch(e) {}
+        }
 
         try {
           const allQuizBanks = await base44.entities.Quiz.filter({});
@@ -185,8 +208,22 @@ export default function LessonPage() {
           let cachedSessions = await base44.entities.StudySession.filter({ student_id: user.id, topic_id: topicId }, "-created_date", 1);
           let sessionWithNotes = cachedSessions[0] || null;
           if (isMounted && sessionWithNotes) {
-            setProgressState({ video_completed: sessionWithNotes.video_completed || false, lesson_completed: sessionWithNotes.lesson_completed || false, flashcard_completed: sessionWithNotes.flashcard_completed || false, mindmap_completed: sessionWithNotes.mindmap_completed || false, quiz_completed: sessionWithNotes.quiz_completed || false, current_stage: sessionWithNotes.current_stage || "video", xp_earned: sessionWithNotes.xp_earned || 0 });
+            const savedStage = sessionWithNotes.current_stage || "video";
+            setProgressState({ 
+              video_completed: sessionWithNotes.video_completed || false, 
+              lesson_completed: sessionWithNotes.lesson_completed || false, 
+              flashcard_completed: sessionWithNotes.flashcard_completed || false, 
+              mindmap_completed: sessionWithNotes.mindmap_completed || false, 
+              quiz_completed: sessionWithNotes.quiz_completed || false, 
+              current_stage: savedStage, 
+              xp_earned: sessionWithNotes.xp_earned || 0 
+            });
             setSessionId(sessionWithNotes.id);
+
+            // 🌟 CHECKPOINT 1: Jika misi belum selesai sepenuhnya, hantar murid terus ke fasa terakhir mereka berhenti
+            if (!sessionWithNotes.quiz_completed) {
+              setActiveTab(savedStage);
+            }
           }
         } catch (sErr) {}
       } catch (err) {} finally { if (isMounted) { studyStartRef.current = Date.now(); setLoading(false); } }
@@ -242,7 +279,7 @@ export default function LessonPage() {
   const loadFlashcardsOnDemand = async () => { setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return; setStatus(p => ({ ...p, flashcards: true })); try { if (rawBankQuestions && rawBankQuestions.length > 0) { setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer || q.correctAnswer}\n\n${q.explanation || ""}` }))); return; } } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } };
   const loadMindMapOnDemand = async () => { setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return; setStatus(p => ({ ...p, mindmap: true })); try { const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} }); setMindMap(res); } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); } };
 
-  const runQuizGeneration = async (numQ) => { 
+  const runQuizGeneration = async (numQ, isResume = false) => { 
     await recordStudyTime(); 
     setStatus(p => ({ ...p, quiz: true })); 
     let currentSessionId = sessionRef.current; 
@@ -258,14 +295,55 @@ export default function LessonPage() {
         await base44.entities.StudySession.update(currentSessionId, { quiz_completed: true, current_stage: "quiz" }).catch(()=>{});
       }
 
-      // 🎯 MEMBAIKI BUG: numQ kini dihantar dengan betul melalui URL query params
-      navigate(`/quiz/${actualQuizId}?limit=${numQ}`);
+      // 🎯 MEMBAIKI BUG & CHECKPOINT: Hantar query resume=true jika murid menyambung kuiz tergantung
+      if (isResume && savedQuizProgress) {
+        navigate(`/quiz/${actualQuizId}?limit=${savedQuizProgress.limit}&resume=true`);
+      } else {
+        navigate(`/quiz/${actualQuizId}?limit=${numQ}`);
+      }
 
     } catch (e) { 
       navigate(`/quiz/${actualQuizId || topicId}?limit=${numQ}`);
     } finally { 
       setStatus(p => ({ ...p, quiz: false })); 
     } 
+  };
+
+  // NATIVE VOICE-OVER CONTROLLER
+  const bersihkanTeksUntukSuara = (text) => {
+    if (!text) return "";
+    return text.replace(/[#*>\-_`]/g, "").trim();
+  };
+
+  const urusSuaraNota = (teksNota) => {
+    if (!window.speechSynthesis) {
+      alert("⚠️ Alamak! Peranti tidak menyokong fungsi suara.");
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const teksBersih = bersihkanTeksUntukSuara(teksNota);
+    const sebutan = new SpeechSynthesisUtterance(teksBersih);
+    const modBahasa = getLanguageMode();
+    
+    sebutan.lang = modBahasa === "en" ? "en-MY" : "ms-MY";
+    sebutan.rate = 0.85;  
+    sebutan.pitch = 1.25; 
+
+    const senaraiSuara = window.speechSynthesis.getVoices();
+    const suaraTerbaik = senaraiSuara.find(v => v.lang.startsWith(modBahasa === "en" ? "en" : "ms"));
+    if (suaraTerbaik) sebutan.voice = suaraTerbaik;
+
+    sebutan.onstart = () => setIsSpeaking(true);
+    sebutan.onend = () => setIsSpeaking(false);
+    sebutan.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(sebutan);
   };
 
   const parseMarkdownToHTML = (text) => {
@@ -284,7 +362,7 @@ export default function LessonPage() {
     });
     if (inList) htmlOutput.push("</ul>");
     let finalHtml = htmlOutput.join("\n");
-    finalHtml = finalHtml.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-emerald-950 bg-amber-200/70 px-1.5 py-0.5 rounded-md">$1</strong>');
+    finalHtml = finalHtml.replace(/\*\frac.*?\*\*/g, '<strong class="font-black text-emerald-950 bg-amber-200/70 px-1.5 py-0.5 rounded-md">$1</strong>');
     finalHtml = finalHtml.replace(/\*(.*?)\*/g, '<em class="italic text-stone-800 font-semibold">$1</em>');
     return finalHtml;
   };
@@ -294,7 +372,7 @@ export default function LessonPage() {
 
   return (
     <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAF8F5] min-h-screen selection:bg-emerald-200">
-      {/* GLOBAL HEADER BAR - TEMA KEMBARA BORNEO */}
+      {/* GLOBAL HEADER BAR */}
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border-2 border-emerald-600/30 shadow-[0_4px_0_rgba(16,185,129,0.1)] flex items-center justify-between transition-all duration-300">
           <div className="flex items-center gap-3">
@@ -318,7 +396,11 @@ export default function LessonPage() {
         <div className="bg-stone-950 text-stone-200 rounded-xl p-3 flex items-center justify-between shadow-md transition-all duration-300 animate-in fade-in">
           <button 
             type="button" 
-            onClick={() => setActiveTab("map")} 
+            onClick={() => {
+              if (window.speechSynthesis) window.speechSynthesis.cancel();
+              setIsSpeaking(false);
+              setActiveTab("map");
+            }} 
             className="flex items-center gap-1.5 text-xs font-black text-stone-200 hover:text-white bg-stone-900/80 px-4 py-1.5 rounded-xl border border-stone-700 shadow-xs transition-all active:scale-95"
           >
             🚪 Keluar Skrin Fokus
@@ -351,7 +433,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 1: TAKLIMAT VIDEO VIDEO */}
+        {/* STAGE 1: TAKLIMAT VIDEO */}
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-4 sm:p-5 border-2 border-stone-200 shadow-md space-y-4">
             <div className="border-b-2 border-stone-100 pb-2">
@@ -369,24 +451,39 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 2: NOTA PINTAR & INFOGRAFIK */}
+        {/* STAGE 2: KIT NOTA KHAZANAH */}
         {activeTab === "lesson" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
-            <div className="border-b-2 border-stone-100 pb-2">
+            <div className="border-b-2 border-stone-100 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-sm font-black text-stone-800 flex items-center gap-1.5">📜 Langkah 2: Kit Nota Khazanah</h3>
+              {notesContent && (
+                <Button
+                  onClick={() => urusSuaraNota(notesContent)}
+                  className={`h-9 text-xs font-black rounded-xl border-0 transition-all shadow-xs flex items-center gap-2 px-4 ${
+                    isSpeaking ? "bg-red-500 hover:bg-red-600 text-white animate-pulse" : "bg-amber-400 hover:bg-amber-500 text-stone-900 shadow-[0_3px_0_#d97706]"
+                  }`}
+                >
+                  {isSpeaking ? "🛑 Berhenti" : "🔊 Dengar Suara Oki"}
+                </Button>
+              )}
             </div>
+
             <div className="max-h-[70vh] overflow-y-auto p-4 border-2 border-stone-200/80 rounded-2xl bg-stone-50/50 shadow-inner flex flex-col items-center">
               {notesImage && (<img src={notesImage} alt="Infografik Nota" className="w-full h-auto rounded-xl border border-stone-200 shadow-xs mb-5 bg-white" />)}
               <div className="w-full">
                 {notesContent ? (
                   <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} className="text-left w-full space-y-1" />
                 ) : (
-                  (!notesImage) && <p className="text-xs text-stone-400 text-center py-6 font-bold">Nota khazanah belum disediakan untuk kawasan ini.</p>
+                  (!notesImage) && <p className="text-xs text-stone-400 text-center py-6 font-bold">Nota khazanah belum disediakan.</p>
                 )}
               </div>
             </div>
             <Button 
-              onClick={handleLessonStageCompleted} 
+              onClick={() => {
+                if (window.speechSynthesis) window.speechSynthesis.cancel();
+                setIsSpeaking(false);
+                handleLessonStageCompleted();
+              }} 
               className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black rounded-xl shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none border-0 transition-all"
             >
               Selesai Hadam Nota! Simpan dalam Beg 🎒
@@ -394,11 +491,11 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 3: KAD KILAT RIMBA */}
+        {/* STAGE 3: KAD KILAT */}
         {activeTab === "flashcard" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <div className="border-b-2 border-stone-100 pb-2">
-              <h3 className="text-sm font-black text-stone-800 flex items-center gap-1.5">⚡ Langkah 3: Ujian Kad Kilat Kilat</h3>
+              <h3 className="text-sm font-black text-stone-800 flex items-center gap-1.5">⚡ Langkah 3: Ujian Kad Kilat</h3>
             </div>
             <Flashcards flashcards={flashcards || []} lang={getLanguageMode()} />
             <Button 
@@ -410,7 +507,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 4: PETA MINDA KENYALANG */}
+        {/* STAGE 4: PETA MINDA */}
         {activeTab === "mindmap" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <div className="border-b-2 border-stone-100 pb-2">
@@ -432,7 +529,7 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 5: UJIAN BOSS PADU */}
+        {/* STAGE 5: KUIZ BOSS PADU (CHECKPOINT AKTIF) */}
         {activeTab === "quiz" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-50 to-orange-100/70 rounded-2xl p-5 border-2 border-amber-300 shadow-md">
             <div className="space-y-4 text-center sm:text-left">
@@ -440,24 +537,44 @@ export default function LessonPage() {
                 <Trophy className="w-6 h-6 text-orange-500 animate-bounce" />
                 <h3 className="text-base font-black text-stone-900">⚔️ Peringkat Akhir: Ujian Boss Padu</h3>
               </div>
+              
               <p className="text-xs text-stone-700 font-bold leading-relaxed">
                 Anda sudah sampai di kemuncak gunung ilmu ini! Sedia menewaskan Boss Padu untuk menawan lencana subjek dan membuktikan kebijaksanaan anda? 🏆
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
-                <Button 
-                  onClick={() => runQuizGeneration(10)} 
-                  disabled={status.quiz} 
-                  className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-[0_4px_0_#d97706] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
-                >
-                  {status.quiz ? "Menyeru Boss..." : "⚡ Misi Kilat (10 Soalan)"}
-                </Button>
-                <Button 
-                  onClick={() => runQuizGeneration(20)} 
-                  disabled={status.quiz} 
-                  className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-[0_4px_0_#c2410c] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
-                >
-                  {status.quiz ? "Menyeru Boss..." : "⚔️ Lawan Boss Padu (20 Soalan)"}
-                </Button>
+
+              {/* 🌟 CHECKPOINT 2: PAPARKAN BUTANG SAMBUNG KUIZ JIKA DATA TERGANTUNG DIKESAN */}
+              {savedQuizProgress && (
+                <div className="p-3 bg-emerald-50 border-2 border-emerald-400/50 rounded-2xl shadow-sm text-left border-dashed animate-pulse-slow">
+                  <p className="text-[11px] text-emerald-950 font-black mb-2 flex items-center gap-1">
+                    ⚡ Sistem mengesan perlawanan tergantung!
+                  </p>
+                  <Button 
+                    onClick={() => runQuizGeneration(savedQuizProgress.limit, true)}
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white h-12 text-xs font-black rounded-xl border-0 shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 animate-bounce-short"
+                  >
+                    <Play className="w-4 h-4 fill-white" /> Sambung Pertempuran (Soalan Ke-{savedQuizProgress.questionIndex + 1})
+                  </Button>
+                </div>
+              )}
+
+              <div className="border-t border-stone-200/60 pt-3">
+                <p className="text-[10px] text-stone-500 font-black mb-2 uppercase tracking-wide text-center sm:text-left">Atau Mulakan Misi Baharu:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Button 
+                    onClick={() => runQuizGeneration(10)} 
+                    disabled={status.quiz} 
+                    className="bg-amber-500 hover:bg-amber-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-[0_4px_0_#d97706] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
+                  >
+                    {status.quiz ? "Menyeru Boss..." : "⚡ Misi Kilat Baru (10 Soalan)"}
+                  </Button>
+                  <Button 
+                    onClick={() => runQuizGeneration(20)} 
+                    disabled={status.quiz} 
+                    className="bg-orange-500 hover:bg-orange-600 text-white h-14 text-xs font-black rounded-xl w-full border-0 shadow-[0_4px_0_#c2410c] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
+                  >
+                    {status.quiz ? "Menyeru Boss..." : "⚔️ Lawan Boss Padu Baru (20 Soalan)"}
+                  </Button>
+                </div>
               </div>
             </div>
           </motion.div>
