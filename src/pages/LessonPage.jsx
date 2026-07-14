@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, Loader2, Sparkles, Trophy, Play
+  ArrowLeft, Compass, Tv, CheckCircle2, Leaf, Loader2, Sparkles, Trophy, Play, Gamepad2, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,7 +17,7 @@ import JungleMemory from "@/components/lesson/JungleMemory";
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
     if (!url) return null;
-    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/)|youtu\.be\/)([^"&?/\s]{11})/i;
     const match = url.match(regExp);
     return (match && match[1].length === 11) ? match[1] : null;
   };
@@ -144,7 +144,7 @@ export default function LessonPage() {
 
   const bersihkanTeksPadanan = (str) => { return str ? str.toLowerCase().replace(/dan/g, "").replace(/&/g, "").replace(/misi\s*\d+/g, "").replace(/[^a-z0-9]/g, "").trim() : ""; };
 
-  // 🌟 DATA INITIALIZATION & PARSING SEPENUHNYA KALIS RALAT
+  // DATA INITIALIZATION & LOCAL CHECKPOINT DETECTION
   useEffect(() => {
     let isMounted = true;
     const initializeLesson = async () => {
@@ -183,7 +183,6 @@ export default function LessonPage() {
               let textData = "";
               let imageData = "";
               
-              // 🛠️ EKSTRAKSI JADUAL & MARKTXT DARIPADA STRUKTUR JSON MENTAH DENGAN KUAT
               try {
                 let parsed = typeof rawNotes === "object" ? rawNotes : JSON.parse(String(rawNotes).trim());
                 if (parsed && (parsed.text !== undefined || parsed.image !== undefined)) {
@@ -196,7 +195,6 @@ export default function LessonPage() {
                 textData = String(rawNotes);
               }
 
-              // Kebal-Ralat Sekiranya Objek Masih Terperangkap Sebagai String JSON Mentah
               if (typeof textData === "string" && textData.trim().startsWith("{")) {
                 try {
                   const secondaryParse = JSON.parse(textData.trim());
@@ -231,7 +229,8 @@ export default function LessonPage() {
             setSessionId(sessionWithNotes.id);
 
             if (!sessionWithNotes.quiz_completed) {
-              setActiveTab(savedStage);
+              // Jika pengguna tersangkut di tab game memori semasa keluar, kembalikan ke tab memori
+              setActiveTab(savedStage === "flashcard" && localStorage.getItem(`last_mode_${topicId}`) === "game" ? "memory" : savedStage);
             }
           }
         } catch (sErr) {}
@@ -285,8 +284,32 @@ export default function LessonPage() {
     } catch (e) {} finally { setStatus(p => ({ ...p, lesson: false })); }
   };
 
-  const loadFlashcardsOnDemand = async () => { setActiveTab("flashcard"); if (flashcards && flashcards.length > 0) return; setStatus(p => ({ ...p, flashcards: true })); try { if (rawBankQuestions && rawBankQuestions.length > 0) { setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer || q.correctAnswer}\n\n${q.explanation || ""}` }))); return; } } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } };
-  const loadMindMapOnDemand = async () => { setActiveTab("mindmap"); if (mindMap && mindMap.length > 0) return; setStatus(p => ({ ...p, mindmap: true })); try { const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} }); setMindMap(res); } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); } };
+  const loadFlashcardsOnDemand = async () => { 
+    // Semak jika pengguna lebih suka mod game memori rimba sebelum ini
+    if (localStorage.getItem(`last_mode_${topicId}`) === "game") {
+      setActiveTab("memory");
+    } else {
+      setActiveTab("flashcard");
+    }
+    if (flashcards && flashcards.length > 0) return; 
+    setStatus(p => ({ ...p, flashcards: true })); 
+    try { 
+      if (rawBankQuestions && rawBankQuestions.length > 0) { 
+        setFlashcards(shuffleArray(rawBankQuestions).slice(0, 5).map(q => ({ front: q.question, back: `${q.correct_answer || q.correctAnswer}\n\n${q.explanation || ""}` }))); 
+        return; 
+      } 
+    } catch (err) {} finally { setStatus(p => ({ ...p, flashcards: false })); } 
+  };
+  
+  const loadMindMapOnDemand = async () => { 
+    setActiveTab("mindmap"); 
+    if (mindMap && mindMap.length > 0) return; 
+    setStatus(p => ({ ...p, mindmap: true })); 
+    try { 
+      const res = await base44.integrations.Core.InvokeLLM({ model: "gemini_3_flash", prompt: `Generate mindmap branches array for summary: ${topic.name}`, response_json_schema: {type: "array", items: {type: "object", properties: { label: { type: "string" }, children: { type: "array", items: { type: "string" } } }, required: ["label", "children"]}} }); 
+      setMindMap(res); 
+    } catch (e) {} finally { setStatus(p => ({ ...p, mindmap: false })); } 
+  };
 
   const runQuizGeneration = async (numQ, isResume = false) => { 
     await recordStudyTime(); 
@@ -317,10 +340,9 @@ export default function LessonPage() {
     } 
   };
 
-  // 🔊 FILTER SUARA OKI (MENAPIS STRUKTUR JADUAL & BANNER GAMBAR UNTUK BACAAN NATURAL)
+  // 🔊 FILTER SUARA OKI
   const bersihkanTeksUntukSuara = (text) => {
     if (!text) return "";
-    // Tukar literal "\n" teks kepada baris baharu
     const normalizedText = String(text).replace(/\\n/g, "\n");
     return normalizedText
       .split("\n")
@@ -363,10 +385,9 @@ export default function LessonPage() {
     window.speechSynthesis.speak(sebutan);
   };
 
-  // 📊 FILTER PAPARAN TULISAN JADUAL & GAMBAR MARKDOWN (HTML PARSER SEBENAR)
+  // 📊 FILTER PAPARAN TULISAN JADUAL & GAMBAR MARKDOWN (HTML PARSER)
   const parseMarkdownToHTML = (text) => {
     if (!text) return ""; 
-    // 🛠️ LANGKAH UTAMA: Tukar tulisan "\n" jenis teks kepada baris baharu sistem
     const cleanText = String(text).replace(/\\n/g, "\n");
     const lines = cleanText.split("\n"); 
     let inList = false; 
@@ -381,7 +402,6 @@ export default function LessonPage() {
       if (trimmed === "") return;
       if (trimmed === "---") { htmlOutput.push('<hr class="my-6 border-emerald-200 border-dashed border-2 rounded-full" />'); return; }
 
-      // 🖼️ PENAPIS UTAMA ELEMEN GAMBAR MARKDOWN
       if (trimmed.startsWith("![") && trimmed.includes("](") && trimmed.endsWith(")")) {
         const imgMatch = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
         if (imgMatch) {
@@ -390,13 +410,11 @@ export default function LessonPage() {
         }
       }
 
-      // Headings
       if (trimmed.startsWith("# ")) { htmlOutput.push(`<h1 class="text-base sm:text-lg font-black text-emerald-700 border-b-4 border-emerald-200 pb-2 mt-6 mb-4 text-center bg-emerald-50/60 p-3 rounded-2xl shadow-2xs">${trimmed.replace("# ", "")}</h1>`); return; }
       if (trimmed.startsWith("## ")) { htmlOutput.push(`<h2 class="text-sm sm:text-base font-black text-amber-600 mt-5 mb-2.5 flex items-center gap-1">✨ ${trimmed.replace("## ", "")}</h2>`); return; }
       if (trimmed.startsWith("### ")) { htmlOutput.push(`<h3 class="text-xs sm:text-sm font-black text-stone-800 mt-4 mb-2 pl-2 border-l-4 border-lime-400">${trimmed.replace("### ", "")}</h3>`); return; }
       if (trimmed.startsWith(">")) { let content = trimmed.substring(1).trim(); htmlOutput.push(`<blockquote class="border-l-4 border-amber-400 pl-4 italic text-amber-950 my-4 bg-amber-50 p-3.5 rounded-r-2xl leading-relaxed text-xs sm:text-sm shadow-2xs font-black">🎶 Lirik: ${content}</blockquote>`); return; }
 
-      // 📊 PENAPIS JADUAL STRUKTUR 0 HINGGA 10
       if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
         if (trimmed.includes("---")) return; 
         let columns = trimmed.split("|").map(c => c.trim()).filter((c, i, arr) => i > 0 && i < arr.length - 1);
@@ -426,7 +444,6 @@ export default function LessonPage() {
     if (inTable) htmlOutput.push("</tbody></table></div>");
 
     let finalHtml = htmlOutput.join("\n");
-    // 🎯 PENAPIS TULISAN BOLD YANG SEBENARNYA (DIBAIKI)
     finalHtml = finalHtml.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-emerald-950 bg-amber-200/70 px-1.5 py-0.5 rounded-md">$1</strong>');
     finalHtml = finalHtml.replace(/\*(.*?)\*/g, '<em class="italic text-stone-800 font-semibold">$1</em>');
     return finalHtml;
@@ -556,19 +573,63 @@ export default function LessonPage() {
           </motion.div>
         )}
 
-        {/* STAGE 3: KAD KILAT */}
+        {/* STAGE 3: KAD KILAT (DENGAN TOGGLE PEMICU GAME MEMORI) */}
         {activeTab === "flashcard" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
-            <div className="border-b-2 border-stone-100 pb-2">
-              <h3 className="text-sm font-black text-stone-800 flex items-center gap-1.5">⚡ Langkah 3: Ujian Kad Kilat</h3>
+            <div className="border-b-2 border-stone-100 pb-2 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-black text-stone-800 flex items-center gap-1.5"><Zap className="w-4 h-4 text-amber-500" /> Langkah 3: Ulangkaji Kad Kilat</h3>
+              
+              {/* 🎮 BUTANG PEMICU 1: BERTUKAR KE GAME MEMORI */}
+              <Button 
+                onClick={() => {
+                  localStorage.setItem(`last_mode_${topicId}`, "game");
+                  setActiveTab("memory");
+                }}
+                className="h-9 text-xs font-black rounded-xl border-0 transition-all bg-amber-400 hover:bg-amber-500 text-stone-900 shadow-[0_3px_0_#d97706] flex items-center gap-1.5 px-3"
+              >
+                <Gamepad2 className="w-4 h-4" /> Game Memori Rimba
+              </Button>
             </div>
+            
             <Flashcards flashcards={flashcards || []} lang={getLanguageMode()} />
+            
             <Button 
-              onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} 
+              onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => {
+                localStorage.removeItem(`last_mode_${topicId}`);
+                setActiveTab("map");
+              })} 
               className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black rounded-xl shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none border-0 mt-2 transition-all"
             >
               Ulangkaji Selesai! Teruskan Kembara 🚀
             </Button>
+          </motion.div>
+        )}
+
+        {/* STAGE 3.5: MISI MEMORI RIMBA (DENGAN BUTANG TOGGLE BALIK KE KAD) */}
+        {activeTab === "memory" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
+            <div className="border-b-2 border-stone-100 pb-2 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-black text-stone-800 flex items-center gap-1.5"><Gamepad2 className="w-4 h-4 text-emerald-600" /> Mod Permainan Aktif</h3>
+              
+              {/* ⚡ BUTANG PEMICU 2: BERTUKAR BALIK KE KAD KILAT */}
+              <Button 
+                onClick={() => {
+                  localStorage.setItem(`last_mode_${topicId}`, "cards");
+                  setActiveTab("flashcard");
+                }}
+                className="h-9 text-xs font-black rounded-xl border-0 transition-all bg-stone-200 hover:bg-stone-300 text-stone-700 flex items-center gap-1.5 px-3"
+              >
+                <Zap className="w-4 h-4 text-amber-500" /> Mod Kad Kilat
+              </Button>
+            </div>
+
+            <JungleMemory 
+              questions={rawBankQuestions} 
+              onComplete={() => updateStageProgress("flashcard", "mindmap", 15).then(() => {
+                localStorage.removeItem(`last_mode_${topicId}`);
+                setActiveTab("map");
+              })} 
+            />
           </motion.div>
         )}
 
@@ -593,15 +654,6 @@ export default function LessonPage() {
             </Button>
           </motion.div>
         )}
-        {/* STAGE 3.5: MISI MEMORI RIMBA */}
-{activeTab === "memory" && (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
-    <JungleMemory 
-      questions={rawBankQuestions} 
-      onComplete={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} 
-    />
-  </motion.div>
-)}
 
         {/* STAGE 5: KUIZ BOSS PADU */}
         {activeTab === "quiz" && (
