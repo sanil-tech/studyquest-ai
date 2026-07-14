@@ -28,7 +28,27 @@
     },
     "duration_minutes": {
       "type": "number",
-      "description": "Duration of study session"
+      "default": 0,
+      "description": "Calculated duration of study session"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "completed",
+        "abandoned"
+      ],
+      "default": "in_progress"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when session started"
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when session ended (set by backend)"
     }
   },
   "required": [
@@ -67,16 +87,9 @@
       ]
     },
     "update": {
-      "$or": [
-        {
-          "data.student_id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "delete": {
       "user_condition": {
