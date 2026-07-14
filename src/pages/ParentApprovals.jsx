@@ -68,12 +68,12 @@ export default function ParentApprovals() {
   const handleDecision = async (req, decision) => {
     setProcessing(req.id);
     try {
-      // Panggil API backend anda yang mengendalikan asServiceRole secara selamat
+      // ✅ Menggunakan panggilan fetch standard pelayar. 
+      // Pelayar secara automatik akan menyertakan kuki sesi (session credentials) ke backend anda.
       const response = await fetch("/api/approve-reward-request", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${await base44.auth.getToken()}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           requestId: req.id,
@@ -81,6 +81,34 @@ export default function ParentApprovals() {
           responseMessage: messages[req.id] || ""
         })
       });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Gagal menyimpan keputusan.");
+      }
+
+      toast({ 
+        title: decision === "approved" ? "Ganjaran berjaya diluluskan! 🎁" : "Permintaan ditolak.",
+        variant: decision === "approved" ? "default" : "destructive"
+      });
+      
+      // Bersihkan memo teks bagi id ini
+      setMessages(prev => { const copy = { ...prev }; delete copy[req.id]; return copy; });
+      
+      // Muat semula pangkalan data
+      setTimeout(() => { loadData(); }, 300);
+    } catch (err) {
+      console.error(err);
+      toast({ 
+        title: "Transaction Error", 
+        description: err.message || "Failed to save request decision details.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setProcessing(null);
+    }
+  };
 
       const result = await response.json();
 
