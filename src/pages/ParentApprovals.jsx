@@ -64,12 +64,11 @@ export default function ParentApprovals() {
 
   useEffect(() => { loadData(); }, []);
 
-  // FIXED: Ganti manipulasi entiti client-side kepada panggilan Edge Function backend
+  // FIXED: Membuang base44.auth.getToken() untuk mengelakkan ralat fungsi
   const handleDecision = async (req, decision) => {
     setProcessing(req.id);
     try {
-      // ✅ Menggunakan panggilan fetch standard pelayar. 
-      // Pelayar secara automatik akan menyertakan kuki sesi (session credentials) ke backend anda.
+      // Panggil API backend standard, pelayar akan menyertakan kuki sesi/kredensial secara automatik
       const response = await fetch("/api/approve-reward-request", {
         method: "POST",
         headers: {
@@ -81,34 +80,6 @@ export default function ParentApprovals() {
           responseMessage: messages[req.id] || ""
         })
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Gagal menyimpan keputusan.");
-      }
-
-      toast({ 
-        title: decision === "approved" ? "Ganjaran berjaya diluluskan! 🎁" : "Permintaan ditolak.",
-        variant: decision === "approved" ? "default" : "destructive"
-      });
-      
-      // Bersihkan memo teks bagi id ini
-      setMessages(prev => { const copy = { ...prev }; delete copy[req.id]; return copy; });
-      
-      // Muat semula pangkalan data
-      setTimeout(() => { loadData(); }, 300);
-    } catch (err) {
-      console.error(err);
-      toast({ 
-        title: "Transaction Error", 
-        description: err.message || "Failed to save request decision details.", 
-        variant: "destructive" 
-      });
-    } finally {
-      setProcessing(null);
-    }
-  };
 
       const result = await response.json();
 
