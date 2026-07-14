@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const EMOJIS = ["🍦", "🎮", "🎬", "📱", "🛍️", "🎂", "🏀", "🎵", "📚", "✈️", "🎁", "⭐"];
 
-// Helper function added here!
+// Helper function to resolve names cleanly
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
@@ -37,27 +37,44 @@ export default function ParentRewards() {
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
       
-      // 2. Fetch structural child relationships
+      // 2. Fetch structural active child relationships
       const relationships = await base44.entities.ParentChildRelationship.filter({
         parent_id: u.id,
         status: "active",
       });
 
-      // 3. Resolve actual child user profiles in parallel
+      // 3. Resolve actual child user profiles in parallel with RLS fallback guardrails
       const childDetails = await Promise.all(
         relationships.map(async (rel) => {
           try {
+            // Check if parent account has the child cached in their RLS permissions
+            const hasAccess = u.linked_student_ids?.includes(rel.child_id);
+            
+            if (!hasAccess) {
+              return {
+                id: rel.child_id,
+                full_name: `Pelajar (SQ-${rel.child_id.substring(0, 4).toUpperCase()})`,
+                email: "",
+                username: ""
+              };
+            }
+
             const child = await base44.entities.User.get(rel.child_id);
             return {
               id: child.id,
-              // Using your helper function here
               full_name: getDisplayName(child),
               email: child.email || "",
               username: child.username || ""
             };
           } catch (childErr) {
-            console.error(`Failed to load user info for child id ${rel.child_id}:`, childErr);
-            return null;
+            console.warn(`RLS Safe Guard triggered for child id ${rel.child_id}:`, childErr);
+            // Graceful fallback so the whole screen doesn't crash if RLS blocks cross-read
+            return {
+              id: rel.child_id,
+              full_name: `Pelajar (SQ-${rel.child_id.substring(0, 4).toUpperCase()})`,
+              email: "",
+              username: ""
+            };
           }
         })
       );
@@ -67,7 +84,7 @@ export default function ParentRewards() {
 
     } catch (err) {
       console.error("Error loading parent reward data framework:", err);
-      toast({ title: "Sync Failure", description: "Could not link active profiles.", variant: "destructive" });
+      toast({ title: "Sync Failure", description: "Could not link active profiles securely.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -99,7 +116,7 @@ export default function ParentRewards() {
 
   const handleSave = async () => {
     if (!form.title || !form.coin_cost || !form.student_id) {
-      toast({ title: "Please fill out all fields", variant: "destructive" });
+      toast({ title: "Sila isi semua ruangan", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -119,7 +136,7 @@ export default function ParentRewards() {
           status: editingReward.status || "active",
         };
         await base44.entities.Reward.update(editingReward.id, data);
-        toast({ title: "Reward updated! ✨" });
+        toast({ title: "Ganjaran berjaya dikemaskini! ✨" });
       } else {
         if (form.student_id === "all") {
           await Promise.all(
@@ -137,7 +154,7 @@ export default function ParentRewards() {
               });
             })
           );
-          toast({ title: "Reward published to all children! 🎁" });
+          toast({ title: "Ganjaran dihantar kepada semua anak! 🎁" });
         } else {
           const selectedChild = children.find(c => c.id === form.student_id);
           await base44.entities.Reward.create({
@@ -151,16 +168,16 @@ export default function ParentRewards() {
             parent_email: user.email,
             status: "active",
           });
-          toast({ title: "Reward created for selected child! 🎁" });
+          toast({ title: "Ganjaran berjaya dicipta! 🎁" });
         }
       }
       setDialogOpen(false);
       
-      // Yield execution space for database write verification
+      // Delay explicitly for data propagation across servers
       setTimeout(() => { loadData(); }, 300);
     } catch (err) {
       console.error(err);
-      toast({ title: "Error saving reward", variant: "destructive" });
+      toast({ title: "Ralat ketika menyimpan ganjaran", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -172,19 +189,31 @@ export default function ParentRewards() {
       await base44.entities.Reward.update(reward.id, { status: newStatus });
       loadData();
     } catch (err) {
-      console.error(err);
+      console.error("Failed to toggle status:", err);
+      toast({ title: "Ralat status", description: "Gagal mengubah status ganjaran.", variant: "destructive" });
     }
   };
 
   const deleteReward = async (id) => {
-    if (!confirm("Are you sure you want to delete this reward permanently?")) return;
+    if (!confirm("Adakah anda pasti mahu memadam ganjaran ini secara kekal?")) return;
     try {
       await base44.entities.Reward.delete(id);
+      toast({ title: "Ganjaran dipadam." });
       loadData();
     } catch (err) {
-      console.error(err);
+      console.error("Failed to delete reward:", err);
+      toast({ title: "Ralat pemadaman", description: "Gagal memadam ganjaran.", variant: "destructive" });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <p className="text-slate-500 text-sm font-medium animate-pulse">Memuatkan data ganjaran...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-12 max-w-5xl mx-auto px-1">
@@ -194,45 +223,46 @@ export default function ParentRewards() {
         <div>
           <div className="flex items-center gap-1.5 mb-1 text-xs font-bold uppercase tracking-wider text-indigo-600">
             <Sparkles className="w-3.5 h-3.5 fill-indigo-100" />
-            Incentive System
+            Sistem Insentif
           </div>
-          <h1 className="text-2xl font-black font-heading tracking-tight text-slate-800">Reward Manager 🎁</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Design customized reward targets to fuel your child's learning motivation.</p>
+          <h1 className="text-2xl font-black font-heading tracking-tight text-slate-800">Pengurus Ganjaran 🎁</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Cipta sasaran hadiah tersuai untuk menyemarakkan motivasi belajar anak anda.</p>
         </div>
         <Button 
           onClick={openCreate} 
           disabled={children.length === 0} 
           className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 shadow-sm px-5 py-5 shrink-0 border-0"
         >
-          <Plus className="w-4 h-4 mr-1.5 stroke-[3]" /> Create Reward
+          <Plus className="w-4 h-4 mr-1.5 stroke-[3]" /> Cipta Ganjaran
         </Button>
       </div>
 
-      {/* EMPTY STATES */}
+      {/* EMPTY STATE: NO LINKED ACCOUNTS */}
       {children.length === 0 && (
         <div className="text-center py-12 bg-white rounded-3xl border border-slate-200 border-dashed max-w-md mx-auto">
           <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="font-bold text-slate-700">No Approved Linked Accounts</h3>
+          <h3 className="font-bold text-slate-700">Tiada Akaun Pelajar Di-paut</h3>
           <p className="text-slate-400 text-xs px-6 mt-1">
-            You must finish linking a child's account and ensure it is fully approved on your main dashboard before setting up custom incentives.
+            Anda perlu melengkapkan pautan akaun anak dan memastikan ia aktif di papan pemuka utama sebelum menetapkan insentif.
           </p>
         </div>
       )}
 
+      {/* EMPTY STATE: NO REWARDS CREATED */}
       {rewards.length === 0 && children.length > 0 ? (
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-100 shadow-sm max-w-lg mx-auto">
           <Gift className="w-14 h-14 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-700">No items created yet</h3>
+          <h3 className="text-lg font-bold text-slate-700">Katalog masih kosong</h3>
           <p className="text-slate-400 text-sm px-4 mt-1">
-            Set goals like "30 min Gaming" or "Ice Cream Trip" to encourage consistent study habits!
+            Tetapkan matlamat ganjaran seperti "Main Game 30 Minit" atau "Beli Ais Krim" untuk membina tabiat belajar yang konsisten!
           </p>
           <Button onClick={openCreate} variant="outline" className="mt-4 rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold">
-            Add Your First Reward
+            Tambah Ganjaran Pertama
           </Button>
         </div>
       ) : (
         /* REWARDS LIST GRID */
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <AnimatePresence>
             {rewards.map((reward, i) => {
               const assignedChild = children.find(c => c.id === reward.student_id);
@@ -243,6 +273,7 @@ export default function ParentRewards() {
                   key={reward.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: i * 0.04 }}
                   className={`bg-white rounded-2xl p-4 border shadow-2xs transition-all flex flex-col justify-between group ${
                     isActive ? "border-slate-100 hover:shadow-sm" : "border-slate-100 bg-slate-50/50 opacity-65"
@@ -262,25 +293,26 @@ export default function ParentRewards() {
                       
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
                         <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100/50">
-                          {reward.coin_cost} coins
+                          {reward.coin_cost} syiling
                         </span>
                         
-                        {/* Removed the .split(" ")[0] here so full nickname displays! */}
-                        <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg max-w-[140px] truncate">
-                          👤 {assignedChild ? assignedChild.full_name : "Unknown Child"}
+                        <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg max-w-[180px] truncate">
+                          👤 {assignedChild ? assignedChild.full_name : "Tidak Dikenali"}
                         </span>
                       </div>
                     </div>
                   </div>
 
+                  {/* BOTTOM ACTION BAR */}
                   <div className="flex items-center justify-between border-t border-slate-100 mt-4 pt-3">
                     <span className={`text-[11px] font-bold tracking-wide uppercase ${isActive ? "text-emerald-600" : "text-slate-400"}`}>
-                      {isActive ? "● Live in shop" : "○ Disabled"}
+                      {isActive ? "● Kedai Aktif" : "○ Dinyahaktif"}
                     </span>
                     
                     <div className="flex items-center gap-1 bg-slate-50 p-0.5 rounded-xl border border-slate-100">
                       <button 
                         onClick={() => toggleStatus(reward)} 
+                        title={isActive ? "Nyahaktifkan Ganjaran" : "Aktifkan Ganjaran"}
                         className="p-2 rounded-lg hover:bg-white hover:shadow-3xs transition-all text-slate-400 hover:text-indigo-600"
                       >
                         {isActive ? (
@@ -292,6 +324,7 @@ export default function ParentRewards() {
 
                       <button 
                         onClick={() => openEdit(reward)} 
+                        title="Sunting Ganjaran"
                         className="p-2 rounded-lg hover:bg-white hover:shadow-3xs transition-all text-slate-400 hover:text-indigo-600"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -299,6 +332,7 @@ export default function ParentRewards() {
 
                       <button 
                         onClick={() => deleteReward(reward.id)} 
+                        title="Padam Ganjaran"
                         className="p-2 rounded-lg hover:bg-rose-50 hover:shadow-3xs transition-all text-slate-400 hover:text-rose-500"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -323,17 +357,17 @@ export default function ParentRewards() {
         <DialogContent className="rounded-3xl max-w-md p-6 overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-black font-heading tracking-tight text-slate-800">
-              {editingReward ? "Modify Reward Vault" : "Design New Reward"}
+              {editingReward ? "Kemaskini Peti Ganjaran" : "Reka Ganjaran Baharu"}
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Fill out configuration metrics below to publish this prize token to your child's client catalog shop.
+              Tetapkan metrik konfigurasi di bawah untuk menerbitkan tiket hadiah ini ke katalog kedai anak anda.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-5 pt-3">
             {/* Emoji Selector */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Select Card Icon</Label>
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pilih Ikon Kad</Label>
               <div className="grid grid-cols-6 gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 {EMOJIS.map(e => (
                   <button
@@ -354,10 +388,10 @@ export default function ParentRewards() {
 
             {/* Reward Title */}
             <div className="space-y-1.5">
-              <Label htmlFor="reward-title" className="text-xs font-bold text-slate-500 uppercase tracking-wide">Reward Title</Label>
+              <Label htmlFor="reward-title" className="text-xs font-bold text-slate-500 uppercase tracking-wide">Nama Ganjaran</Label>
               <Input
                 id="reward-title"
-                placeholder="e.g., Friday Late Night Gaming Session"
+                placeholder="cth., Sesi Main Game Malam Jumaat"
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 className="rounded-xl border-slate-200 focus-visible:ring-indigo-500 font-medium py-5 text-sm"
@@ -366,11 +400,11 @@ export default function ParentRewards() {
 
             {/* Coin Cost */}
             <div className="space-y-1.5">
-              <Label htmlFor="coin-cost" className="text-xs font-bold text-slate-500 uppercase tracking-wide">Coin Purchase Price</Label>
+              <Label htmlFor="coin-cost" className="text-xs font-bold text-slate-500 uppercase tracking-wide">Harga Belian Syiling</Label>
               <Input
                 id="coin-cost"
                 type="number"
-                placeholder="e.g., 350"
+                placeholder="cth., 350"
                 value={form.coin_cost}
                 onChange={e => setForm(f => ({ ...f, coin_cost: e.target.value }))}
                 className="rounded-xl border-slate-200 focus-visible:ring-indigo-500 font-bold py-5 text-sm"
@@ -379,15 +413,15 @@ export default function ParentRewards() {
 
             {/* Target Assignment Dropdown */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Target Recipient</Label>
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Penerima Sasaran</Label>
               <Select value={form.student_id} onValueChange={v => setForm(f => ({ ...f, student_id: v }))}>
                 <SelectTrigger className="rounded-xl border-slate-200 py-5 font-semibold text-slate-700">
-                  <SelectValue placeholder="Choose a child profile" />
+                  <SelectValue placeholder="Pilih profil anak" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   {!editingReward && children.length > 1 && (
                     <SelectItem value="all" className="rounded-lg font-bold text-indigo-600 hover:text-indigo-700">
-                      ✨ All Children (Create Individual Copies)
+                      ✨ Semua Anak (Salinan Individu)
                     </SelectItem>
                   )}
                   {children.map(c => (
@@ -407,12 +441,12 @@ export default function ParentRewards() {
             >
               {saving ? (
                 <span className="flex items-center gap-2 justify-center">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Saving Changes...
+                  <Loader2 className="w-4 h-4 animate-spin" /> Menyimpan Perubahan...
                 </span>
               ) : editingReward ? (
-                "Update Target Reward"
+                "Kemaskini Sasaran Ganjaran"
               ) : (
-                "Publish Reward Ticket"
+                "Terbitkan Tiket Ganjaran"
               )}
             </Button>
           </div>
