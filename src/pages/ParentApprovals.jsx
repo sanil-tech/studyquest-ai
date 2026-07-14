@@ -64,50 +64,47 @@ export default function ParentApprovals() {
 
   useEffect(() => { loadData(); }, []);
 
+  // FIXED: Ganti manipulasi entiti client-side kepada panggilan Edge Function backend
   const handleDecision = async (req, decision) => {
     setProcessing(req.id);
     try {
-      if (decision === "approved") {
-        const wallets = await base44.entities.Wallet.filter({ student_id: req.student_id });
-        if (wallets.length > 0) {
-          const newBalance = Math.max(0, wallets[0].balance - req.coin_cost);
-          await base44.entities.Wallet.update(wallets[0].id, { balance: newBalance });
-        }
-        
-        await base44.entities.Transaction.create({
-          student_id: req.student_id,
-          type: "spend",
-          amount: req.coin_cost,
-          reason: `Reward approved: ${req.reward_title}`,
-          reference_id: req.id,
-        });
+      // Panggil API backend anda yang mengendalikan asServiceRole secara selamat
+      const response = await fetch("/api/approve-reward-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${await base44.auth.getToken()}`
+        },
+        body: JSON.stringify({
+          requestId: req.id,
+          decision: decision, // "approved" atau "rejected"
+          responseMessage: messages[req.id] || ""
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Gagal menyimpan keputusan.");
       }
 
-      await base44.entities.RewardRequest.update(req.id, {
-        status: decision,
-        parent_response_message: messages[req.id] || "",
-      });
-
-      await base44.entities.Notification.create({
-        user_id: req.student_id,
-        title: decision === "approved" ? "Reward Approved! 🎉" : "Reward Declined 📋",
-        message: decision === "approved"
-          ? `Your request for "${req.reward_title}" was approved! ${req.coin_cost} coins deducted.`
-          : `Your request for "${req.reward_title}" was declined.${messages[req.id] ? ` Notes: ${messages[req.id]}` : ""}`,
-        type: decision === "approved" ? "reward_approved" : "reward_rejected",
-        reference_id: req.id,
-      });
-
       toast({ 
-        title: decision === "approved" ? "Reward granted successfully! 🎁" : "Request declined.",
+        title: decision === "approved" ? "Ganjaran berjaya diluluskan! 🎁" : "Permintaan ditolak.",
         variant: decision === "approved" ? "default" : "destructive"
       });
       
+      // Bersihkan memo teks bagi id ini
       setMessages(prev => { const copy = { ...prev }; delete copy[req.id]; return copy; });
+      
+      // Muat semula pangkalan data
       setTimeout(() => { loadData(); }, 300);
     } catch (err) {
       console.error(err);
-      toast({ title: "Transaction Error", description: "Failed to save request decision details.", variant: "destructive" });
+      toast({ 
+        title: "Transaction Error", 
+        description: err.message || "Failed to save request decision details.", 
+        variant: "destructive" 
+      });
     } finally {
       setProcessing(null);
     }
@@ -117,7 +114,7 @@ export default function ParentApprovals() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
         <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-sm font-medium text-slate-500 animate-pulse">Checking approval logs...</p>
+        <p className="text-sm font-medium text-slate-500 animate-pulse">Memeriksa log kelulusan...</p>
       </div>
     );
   }
@@ -134,31 +131,31 @@ export default function ParentApprovals() {
         <div>
           <div className="flex items-center gap-1.5 mb-1 text-xs font-bold uppercase tracking-wider text-indigo-600">
             <Sparkles className="w-3.5 h-3.5 fill-indigo-100" />
-            Decision Center
+            Pusat Keputusan
           </div>
-          <h1 className="text-2xl font-black font-heading tracking-tight text-slate-800">Reward Approvals ✅</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Review, sign off, or comment on prizes claimed by your connected child profiles.</p>
+          <h1 className="text-2xl font-black font-heading tracking-tight text-slate-800">Kelulusan Ganjaran ✅</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Semak, sahkan, atau beri ulasan pada hadiah yang dituntut oleh profil anak anda.</p>
         </div>
         
         <div className={`px-4 py-2.5 rounded-2xl border font-bold text-sm shrink-0 shadow-3xs ${
           pending.length > 0 ? "bg-amber-50 text-amber-700 border-amber-200/70" : "bg-slate-100 text-slate-500 border-transparent"
         }`}>
-          {pending.length} Action Item{pending.length !== 1 ? "s" : ""} Remaining
+          {pending.length} Tugasan Perlu Semakan
         </div>
       </div>
 
       {/* 2. PENDING REQUESTS SECTION */}
       <div className="space-y-4">
         <h2 className="text-lg font-extrabold text-slate-800 font-heading flex items-center gap-2">
-          <Clock className="w-4 h-4 text-amber-500" /> Pending Review
+          <Clock className="w-4 h-4 text-amber-500" /> Menunggu Semakan
         </h2>
 
         {pending.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-3xl border border-slate-100 shadow-sm max-w-md mx-auto">
             <Check className="w-10 h-10 text-emerald-500 bg-emerald-50 p-2 rounded-full mx-auto mb-3" />
-            <h3 className="font-bold text-slate-700">Inbox Completely Clear!</h3>
+            <h3 className="font-bold text-slate-700">Peti Masuk Kosong!</h3>
             <p className="text-slate-400 text-xs px-6 mt-1">
-              No pending orders are awaiting your signature. You are completely up to date.
+              Tiada tuntutan hadiah baharu yang memerlukan tanda tangan anda buat masa ini.
             </p>
           </div>
         ) : (
@@ -190,15 +187,15 @@ export default function ParentApprovals() {
 
                     <div className="flex items-center gap-1.5 bg-amber-50/60 border border-amber-100/60 w-fit px-3 py-1 rounded-xl mb-4 shadow-3xs">
                       <Coins className="w-4 h-4 text-amber-500 fill-amber-400/20" />
-                      <span className="font-black text-amber-700 text-xs">{req.coin_cost} Gold Coins Requested</span>
+                      <span className="font-black text-amber-700 text-xs">{req.coin_cost} Syiling Emas Diminta</span>
                     </div>
 
                     <div className="space-y-1 mb-4 relative">
                       <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                        <MessageCircle className="w-3 h-3 text-slate-400" /> Attached Memo (Optional)
+                        <MessageCircle className="w-3 h-3 text-slate-400" /> Nota Memo Ibu Bapa (Opsional)
                       </label>
                       <Textarea
-                        placeholder="Great work study champ! / Let's talk about saving up first..."
+                        placeholder="Syabas anak bijak! / Mari kita bincang tentang cara menyimpan dahulu..."
                         value={messages[req.id] || ""}
                         onChange={e => setMessages(m => ({ ...m, [req.id]: e.target.value }))}
                         className="rounded-xl border-slate-200 focus-visible:ring-indigo-500 text-xs py-2 bg-slate-50/40 resize-none font-medium min-h-[60px]"
@@ -241,7 +238,7 @@ export default function ParentApprovals() {
       {approved.length > 0 && (
         <div className="space-y-4 pt-2">
           <h2 className="text-md font-extrabold text-emerald-700 font-heading flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600 bg-emerald-50 rounded-full p-0.5" /> Approved Rewards History
+            <Check className="w-4 h-4 text-emerald-600 bg-emerald-50 rounded-full p-0.5" /> Sejarah Ganjaran Diluluskan
           </h2>
           
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -272,7 +269,7 @@ export default function ParentApprovals() {
 
                 <div className="flex items-center justify-between border-t border-slate-50/60 pt-2.5 mt-1">
                   <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide flex items-center gap-1 bg-emerald-50/50 px-2 py-0.5 rounded-md border border-emerald-100/30">
-                    <Check className="w-3 h-3 stroke-[3]" /> Released
+                    <Check className="w-3 h-3 stroke-[3]" /> Ditebus
                   </span>
                   <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100/60 text-emerald-600">
                     <span className="text-xs font-black">-{req.coin_cost}</span>
@@ -289,7 +286,7 @@ export default function ParentApprovals() {
       {rejected.length > 0 && (
         <div className="space-y-4 pt-2">
           <h2 className="text-md font-extrabold text-rose-700 font-heading flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500" /> Declined Request Records
+            <AlertCircle className="w-4 h-4 text-rose-500" /> Rekod Tuntutan Ditolak
           </h2>
           
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -312,7 +309,7 @@ export default function ParentApprovals() {
                   {req.parent_response_message && (
                     <div className="bg-rose-50/30 rounded-xl p-2 border border-rose-100/40 mb-3">
                       <p className="text-[11px] text-rose-600/80 font-medium italic leading-normal">
-                        Reason: "{req.parent_response_message}"
+                        Sebab: "{req.parent_response_message}"
                       </p>
                     </div>
                   )}
@@ -320,7 +317,7 @@ export default function ParentApprovals() {
 
                 <div className="flex items-center justify-between border-t border-slate-50/60 pt-2.5 mt-1">
                   <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1 bg-rose-50/50 px-2 py-0.5 rounded-md border border-rose-100/30">
-                    <X className="w-3 h-3 stroke-[3]" /> Declined
+                    <X className="w-3 h-3 stroke-[3]" /> Ditolak
                   </span>
                   <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100/60 text-slate-400 line-through">
                     <span className="text-xs font-bold">{req.coin_cost}</span>
