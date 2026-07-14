@@ -12,7 +12,7 @@ import confetti from "canvas-confetti";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
-import JungleMemory from "@/components/lesson/JungleMemory";
+import JungleMemory from "@/components/Lesson/JungleMemory";
 
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
