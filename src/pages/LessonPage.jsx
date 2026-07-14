@@ -12,6 +12,7 @@ import confetti from "canvas-confetti";
 import Flashcards from "@/components/lesson/Flashcards";
 import MindMap from "@/components/lesson/MindMap";
 import LessonProgress from "@/components/lesson/LessonProgress";
+import JungleMemory from "@/components/lesson/JungleMemory";
 
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const getYouTubeId = (url) => {
@@ -592,6 +593,15 @@ export default function LessonPage() {
             </Button>
           </motion.div>
         )}
+        {/* STAGE 3.5: MISI MEMORI RIMBA */}
+{activeTab === "memory" && (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
+    <JungleMemory 
+      questions={rawBankQuestions} 
+      onComplete={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} 
+    />
+  </motion.div>
+)}
 
         {/* STAGE 5: KUIZ BOSS PADU */}
         {activeTab === "quiz" && (
