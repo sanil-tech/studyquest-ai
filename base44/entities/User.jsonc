@@ -5,241 +5,103 @@
     "app_role": {
       "type": "string",
       "enum": [
-        "student",
+        "super_admin",
+        "content_admin",
+        "school_admin",
+        "teacher",
+        "moderator",
         "parent",
-        "teacher"
+        "student"
       ],
-      "description": "App-specific role selected during onboarding"
+      "description": "Primary RBAC role"
     },
-    "student_id": {
+    "account_status": {
       "type": "string",
-      "description": "Unique StudyQuest Student ID (e.g., SQ-8F3K92) - auto-generated for students"
+      "enum": ["active", "suspended", "banned", "pending_approval"],
+      "default": "active"
     },
-    "linked_parent_id": {
+    "school_id": {
       "type": "string",
-      "description": "For students - their parent's user ID"
+      "description": "Foreign key to School entity (Nullable)"
     },
-    "linked_student_ids": {
+    "teacher_id": {
+      "type": "string",
+      "description": "Direct assigned teacher ID (Nullable)"
+    },
+    "parent_id": {
+      "type": "string",
+      "description": "Unified Parent ID for 1:N relationship (Mirrors linked_parent_id)"
+    },
+    "permissions": {
       "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "For parents - their children's user IDs",
-      "default": []
+      "items": { "type": "string" },
+      "description": "Optional granular permissions (e.g., ['bypass_payment', 'beta_tester'])"
     },
-    "avatar_emoji": {
+    "created_by": {
       "type": "string",
-      "default": "\ud83c\udf93"
+      "description": "User ID of the creator (Admin/Parent/Teacher)"
     },
-    "avatar_photo_url": {
-      "type": "string",
-      "description": "URL to uploaded profile photo"
+    "updated_by": {
+      "type": "string"
     },
-    "school_year": {
+    "last_login": {
       "type": "string",
-      "description": "Student's year level (e.g. Standard 1, Form 3)"
+      "format": "date-time"
     },
-    "school_name": {
-      "type": "string",
-      "description": "Name of the school"
-    },
-    "class_name": {
-      "type": "string",
-      "description": "Class or form name (e.g. 1A, 3B)"
-    },
-    "nickname": {
-      "type": "string",
-      "description": "Preferred name or nickname"
-    },
-    "gender": {
-      "type": "string",
-      "enum": [
-        "male",
-        "female",
-        "other",
-        "prefer_not_to_say"
+    "full_name": { "type": "string" },
+    "email": { "type": "string" },
+    "linked_parent_id": { "type": "string" },
+    "linked_student_ids": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "avatar_emoji": { "type": "string", "default": "🎓" },
+    "avatar_photo_url": { "type": "string" },
+    "school_year": { "type": "string" },
+    "school_name": { "type": "string" },
+    "class_name": { "type": "string" },
+    "nickname": { "type": "string" },
+    "gender": { "type": "string", "enum": ["male", "female", "other", "prefer_not_to_say"] },
+    "date_of_birth": { "type": "string", "format": "date" },
+    "country": { "type": "string", "default": "Malaysia" },
+    "state": { "type": "string" },
+    "education_level": { "type": "string" },
+    "grade_year": { "type": "string" },
+    "preferred_language": { "type": "string", "default": "ms" },
+    "phone_number": { "type": "string" },
+    "profile_picture_url": { "type": "string" },
+    "num_children": { "type": "number" },
+    "children_names": { "type": "string" },
+    "teaching_subjects": { "type": "string" },
+    "teaching_level": { "type": "string" },
+    "profile_completed": { "type": "boolean", "default": false },
+    "notification_preferences": { "type": "object", "default": null },
+    "learning_preferences": { "type": "object", "default": null },
+    "username": { "type": "string" },
+    "password_hash": { "type": "string" },
+    "pin_hash": { "type": "string" },
+    "pin_enabled": { "type": "boolean", "default": false },
+    "login_method": { "type": "string", "enum": ["password", "pin", "both"], "default": "password" },
+    "failed_login_attempts": { "type": "number", "default": 0 },
+    "account_locked": { "type": "boolean", "default": false },
+    "last_login_at": { "type": "string", "format": "date-time" },
+    "is_child_account": { "type": "boolean", "default": false }
+  },
+  "required": ["app_role", "account_status"],
+  "rls": {
+    "read": {
+      "$or": [
+        { "data.id": "{{user.id}}" },
+        { "data.parent_id": "{{user.id}}" },
+        { "data.school_id": "{{user.data.school_id}}" },
+        { "user_condition": { "app_role": { "$in": ["super_admin", "school_admin", "moderator"] } } }
       ]
     },
-    "date_of_birth": {
-      "type": "string",
-      "format": "date",
-      "description": "Date of birth"
+    "update": {
+      "$or": [
+        { "data.id": "{{user.id}}" },
+        { "user_condition": { "app_role": "super_admin" } }
+      ]
     },
-    "country": {
-      "type": "string",
-      "default": "Malaysia",
-      "description": "Country of residence"
-    },
-    "state": {
-      "type": "string",
-      "description": "State or region"
-    },
-    "education_level": {
-      "type": "string",
-      "enum": [
-        "Standard 1",
-        "Standard 2",
-        "Standard 3",
-        "Standard 4",
-        "Standard 5",
-        "Standard 6",
-        "Form 1",
-        "Form 2",
-        "Form 3",
-        "Form 4",
-        "Form 5",
-        "Other"
-      ],
-      "description": "Current education level"
-    },
-    "grade_year": {
-      "type": "string",
-      "description": "Grade or year level"
-    },
-    "preferred_language": {
-      "type": "string",
-      "default": "ms",
-      "description": "Preferred language for learning content"
-    },
-    "phone_number": {
-      "type": "string",
-      "description": "Phone number for contact"
-    },
-    "profile_picture_url": {
-      "type": "string",
-      "description": "URL to profile picture (alternative to avatar_photo_url)"
-    },
-    "num_children": {
-      "type": "number",
-      "description": "Number of children (for parents)"
-    },
-    "children_names": {
-      "type": "string",
-      "description": "Children's names separated by commas (for parents)"
-    },
-    "teaching_subjects": {
-      "type": "string",
-      "description": "Subjects taught (for teachers)"
-    },
-    "teaching_level": {
-      "type": "string",
-      "description": "Teaching level - primary/secondary (for teachers)"
-    },
-    "profile_completed": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether user completed onboarding profile"
-    },
-    "notification_preferences": {
-      "type": "object",
-      "properties": {
-        "email_notifications": {
-          "type": "boolean",
-          "default": true
-        },
-        "push_notifications": {
-          "type": "boolean",
-          "default": true
-        },
-        "quiz_reminders": {
-          "type": "boolean",
-          "default": true
-        },
-        "daily_learning_reminder": {
-          "type": "boolean",
-          "default": true
-        },
-        "parent_progress_reports": {
-          "type": "boolean",
-          "default": true
-        },
-        "weekly_achievement_summary": {
-          "type": "boolean",
-          "default": true
-        }
-      },
-      "default": null
-    },
-    "learning_preferences": {
-      "type": "object",
-      "properties": {
-        "daily_goal_minutes": {
-          "type": "number",
-          "default": 20,
-          "enum": [
-            10,
-            20,
-            30,
-            60
-          ]
-        },
-        "favorite_subjects": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "difficulty_preference": {
-          "type": "string",
-          "enum": [
-            "easy",
-            "medium",
-            "hard"
-          ],
-          "default": "medium"
-        }
-      },
-      "default": null
-    },
-    "username": {
-      "type": "string",
-      "description": "Optional username for child login (e.g., emma.tan)"
-    },
-    "password_hash": {
-      "type": "string",
-      "description": "Hashed password for child account authentication"
-    },
-    "pin_hash": {
-      "type": "string",
-      "description": "Hashed 4-6 digit PIN for younger children login"
-    },
-    "pin_enabled": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether PIN login is enabled for this child"
-    },
-    "login_method": {
-      "type": "string",
-      "enum": [
-        "password",
-        "pin",
-        "both"
-      ],
-      "default": "password",
-      "description": "Allowed login method(s) for this child"
-    },
-    "failed_login_attempts": {
-      "type": "number",
-      "default": 0,
-      "description": "Number of consecutive failed login attempts"
-    },
-    "account_locked": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether account is temporarily locked due to failed attempts"
-    },
-    "last_login_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Timestamp of last successful login"
-    },
-    "is_child_account": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether this is a child account (under 13, no email login)"
+    "delete": {
+      "user_condition": { "app_role": "super_admin" }
     }
-  },
-  "required": [
-    "app_role"
-  ]
+  }
 }
