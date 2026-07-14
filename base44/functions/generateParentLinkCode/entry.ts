@@ -5,6 +5,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     
+    // 1. Pengesahan Akses Pengguna
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -13,18 +14,22 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Only students can generate Parent Link Codes' }, { status: 403 });
     }
 
-    // Invalidate any existing active codes for this student
+    // 2. OPTIMASI: Nyahaktifkan kod lama secara serentak (Parallel Processing)
     const existingCodes = await base44.asServiceRole.entities.ParentLinkCode.filter({ 
       child_id: user.id,
       is_active: true
     });
 
-    for (const code of existingCodes) {
-      await base44.asServiceRole.entities.ParentLinkCode.update(code.id, { is_active: false });
+    if (existingCodes.length > 0) {
+      await Promise.all(
+        existingCodes.map((code: any) => 
+          base44.asServiceRole.entities.ParentLinkCode.update(code.id, { is_active: false })
+        )
+      );
     }
 
-    // Generate new code
-    const generateCode = () => {
+    // 3. Penjanaan Kod Rawak Berentropi Tinggi (Mudah dibaca manusia)
+    const generateCode = (): string => {
       const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let code = '';
       for (let i = 0; i < 8; i++) {
@@ -33,25 +38,31 @@ Deno.serve(async (req) => {
       return code;
     };
 
-    const code = generateCode();
+    const newCode = generateCode();
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours from now
+    expiresAt.setHours(expiresAt.getHours() + 24); // Sah untuk tempoh 24 jam tepat
 
-    // Create the link code record
-    const linkCode = await base44.asServiceRole.entities.ParentLinkCode.create({
+    // 4. Cipta Rekod Kod Pautan Baru ke Pangkalan Data
+    await base44.asServiceRole.entities.ParentLinkCode.create({
       child_id: user.id,
-      code: code,
+      code: newCode,
       expires_at: expiresAt.toISOString(),
       is_active: true
     });
 
+    // 5. Pulangkan Payload Lengkap ke Frontend UI
     return Response.json({ 
-      code: code,
+      success: true,
+      code: newCode,
       expires_at: expiresAt.toISOString(),
       student_id: user.student_id
     });
-  } catch (error) {
-    console.error('Generate Parent Link Code error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+
+  } catch (error: any) {
+    console.error('Generate Parent Link Code Runtime Error:', error);
+    return Response.json(
+      { error: error.message || 'Internal server transaction error' }, 
+      { status: 500 }
+    );
   }
 });
