@@ -20,11 +20,16 @@
     },
     "reason": {
       "type": "string",
-      "description": "Reason for transaction"
+      "description": "Reason for transaction (e.g., 'Completed Science Quiz', 'Redeemed Roblox Gift Card')"
     },
     "reference_id": {
       "type": "string",
       "description": "Related quiz attempt or reward request ID"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the transaction for sorting history"
     }
   },
   "required": [
@@ -35,16 +40,9 @@
   ],
   "rls": {
     "create": {
-      "$or": [
-        {
-          "data.student_id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "read": {
       "$or": [
@@ -53,8 +51,7 @@
         },
         {
           "data.student_id": {
-            "$in": "{{user.data.linked_student_ids}}",
-            "$exists": true
+            "$in": "{{user.data.linked_student_ids}}"
           }
         },
         {
