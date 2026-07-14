@@ -1,0 +1,17 @@
+{
+  "name": "School",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "registration_code": { "type": "string" },
+    "region": { "type": "string" },
+    "subscription_tier": { "type": "string", "enum": ["free", "pro", "enterprise"] }
+  },
+  "required": ["name", "registration_code"],
+  "rls": {
+    "create": { "user_condition": { "app_role": "super_admin" } },
+    "read": { "$or": [ { "data.id": "{{user.data.school_id}}" }, { "user_condition": { "app_role": "super_admin" } } ] },
+    "update": { "$or": [ { "data.id": "{{user.data.school_id}}", "user_condition": { "app_role": "school_admin" } }, { "user_condition": { "app_role": "super_admin" } } ] },
+    "delete": { "user_condition": { "app_role": "super_admin" } }
+  }
+}
