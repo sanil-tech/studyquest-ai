@@ -4,19 +4,19 @@
   "properties": {
     "student_id": {
       "type": "string",
-      "description": "ID of the student (UUID from User table)"
+      "description": "ID of the student (filled when accepted)"
     },
     "student_name": {
       "type": "string",
-      "description": "Display name of the student"
+      "description": "Display name of the student (filled when accepted)"
     },
     "student_email": {
       "type": "string",
-      "description": "Email of the student (Optional for under-13 accounts)"
+      "description": "Email of the student"
     },
     "parent_id": {
       "type": "string",
-      "description": "ID of the parent who initiated the link (UUID from User table)"
+      "description": "ID of the parent who initiated the link"
     },
     "parent_email": {
       "type": "string",
@@ -43,20 +43,10 @@
         "rejected"
       ],
       "default": "pending"
-    },
-    "metadata": {
-      "type": "string",
-      "description": "Stringified JSON object for storing additional request data (e.g., profile update approvals)"
-    },
-    "responded_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Timestamp when the request was approved or rejected"
     }
   },
   "required": [
-    "student_id",
-    "parent_id",
-    "status"
+    "student_email",
+    "parent_email"
   ]
 }

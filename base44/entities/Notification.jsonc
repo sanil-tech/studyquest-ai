@@ -19,17 +19,7 @@
         "coins_earned",
         "reward_requested",
         "reward_approved",
-        "reward_rejected",
-        "parent_link_request",
-        "parent_linked_success",
-        "profile_update_alert",
-        "profile_updated",
-        "link_approved",
-        "link_rejected",
-        "parent_unlinked",
-        "security_update",
-        "inactive_student",
-        "system"
+        "reward_rejected"
       ],
       "description": "Notification type"
     },
@@ -39,7 +29,7 @@
     },
     "reference_id": {
       "type": "string",
-      "description": "Related entity ID (e.g., Parent ID, Reward ID)"
+      "description": "Related entity ID"
     }
   },
   "required": [

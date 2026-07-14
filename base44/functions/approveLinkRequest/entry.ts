@@ -14,17 +14,16 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { method, student_id, link_code, childId } = body;
+    const { method, student_id, link_code, childId, requestedChanges } = body;
 
     let child;
 
-    // =========================================================================
-    // METHOD 1: STUDENT ID (Creates Pending Relationship Request)
-    // =========================================================================
+    // ===================================
+    // METHOD 1: STUDENT ID (Creates Pending Relationship)
+    // ===================================
     if (method === 'student_id') {
-      // FIX: Changed filter key from 'student_code' to 'student_id' to match schema
       const users = await base44.entities.User.filter({
-        student_id: student_id
+        student_code: student_id
       });
 
       if (!users.length) {
@@ -37,9 +36,9 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Not a student account' }, { status: 400 });
       }
 
-      // FIX: Changed filter key from 'student_id' to 'child_id' to match schema
+      // Check for any existing relationship entry
       const existing = await base44.entities.ParentChildRelationship.filter({
-        child_id: child.id,
+        student_id: child.id,
         parent_id: parent.id
       });
 
@@ -56,12 +55,11 @@ Deno.serve(async (req) => {
         linked_at: new Date().toISOString()
       });
 
-      // FIX: Changed notification type to 'system' (or 'relationship') so it maps to the correct UI channel
       await base44.entities.Notification.create({
         user_id: child.id,
         title: 'Parent Link Request',
         message: `${parent.full_name || parent.email} wants to link to your account.`,
-        type: 'system', 
+        type: 'quiz_complete',
         reference_id: parent.id
       });
 
@@ -72,9 +70,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // =========================================================================
-    // METHOD 2: LINK CODE (Creates Active Relationship Immediately via QR/Token)
-    // =========================================================================
+    // ===================================
+    // METHOD 2: LINK CODE (Creates Active Relationship Immediately)
+    // ===================================
     else if (method === 'link_code') {
       const codes = await base44.entities.ParentLinkCode.filter({
         code: link_code,
@@ -103,62 +101,40 @@ Deno.serve(async (req) => {
 
       const existing = await base44.entities.ParentChildRelationship.filter({
         parent_id: parent.id,
-        child_id: child.id
+        child_id: child.id,
+        status: 'active'
       });
 
-      // Handle cases where a pending request exists or it's already active
       if (existing.length > 0) {
-        if (existing[0].status === 'active') {
-          return Response.json({ error: 'Already linked to this child' }, { status: 400 });
-        } else {
-          // Upgrade pending to active since they have a valid direct code
-          await base44.entities.ParentChildRelationship.update(existing[0].id, {
-            status: 'active',
-            linked_at: new Date().toISOString()
-          });
-        }
-      } else {
-        // Create brand new relationship entry
-        await base44.entities.ParentChildRelationship.create({
-          parent_id: parent.id,
-          child_id: child.id,
-          relationship: 'parent',
-          status: 'active',
-          linked_at: new Date().toISOString()
-        });
+        return Response.json({ error: 'Already linked to this child' }, { status: 400 });
       }
 
-      // Deactivate token code
+      await base44.entities.ParentChildRelationship.create({
+        parent_id: parent.id,
+        child_id: child.id,
+        relationship: 'parent',
+        status: 'active',
+        linked_at: new Date().toISOString()
+      });
+
       await base44.entities.ParentLinkCode.update(linkCode.id, {
         used_at: new Date().toISOString(),
         used_by_parent_id: parent.id,
         is_active: false
       });
 
-      // OPTIMIZATION: Keep the Parent cache object synchronized
-      try {
-        const currentLinks = parent.linked_student_ids || [];
-        if (!currentLinks.includes(child.id)) {
-          await base44.entities.User.update(parent.id, {
-            linked_student_ids: [...currentLinks, child.id],
-            num_children: (parent.num_children || 0) + 1
-          });
-        }
-      } catch (cacheError) {
-        console.error('Failed to sync parent cache structures:', cacheError);
-      }
-
       return Response.json({ success: true, message: 'Successfully linked' });
     }
 
-    // =========================================================================
+    // ===================================
     // METHOD 3: CRITICAL PROFILE CHANGE APPROVAL
-    // =========================================================================
+    // ===================================
     else if (method === 'request_approval') {
       if (!childId) {
         return Response.json({ error: 'Missing childId' }, { status: 400 });
       }
 
+      // Check if they are already active before allowing change processing
       const relations = await base44.entities.ParentChildRelationship.filter({
         parent_id: parent.id,
         child_id: childId,
@@ -169,11 +145,12 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'No active parental relationship found' }, { status: 403 });
       }
 
+      // Notify child about update state log
       await base44.entities.Notification.create({
         user_id: childId,
         title: 'Critical Change Requested',
         message: 'Your parent requested a profile change configuration modification.',
-        type: 'system', 
+        type: 'quiz_complete',
         reference_id: parent.id
       });
 

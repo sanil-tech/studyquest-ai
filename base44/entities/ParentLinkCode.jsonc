@@ -4,7 +4,7 @@
   "properties": {
     "child_id": {
       "type": "string",
-      "description": "ID of the student/child user (UUID)"
+      "description": "ID of the student/child user"
     },
     "code": {
       "type": "string",
@@ -18,16 +18,16 @@
     "used_at": {
       "type": "string",
       "format": "date-time",
-      "description": "Timestamp when the code was successfully redeemed"
+      "description": "When the code was used (if used)"
     },
     "used_by_parent_id": {
       "type": "string",
-      "description": "ID of parent who used this code (UUID)"
+      "description": "ID of parent who used this code (if used)"
     },
     "is_active": {
       "type": "boolean",
       "default": true,
-      "description": "Whether the code is still valid and unredeemed"
+      "description": "Whether the code is still valid"
     }
   },
   "required": [

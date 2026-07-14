@@ -25,7 +25,7 @@
         "Form 4",
         "Form 5"
       ],
-      "description": "Malaysian school level — Standard 1-6 (primary, KSSR) or Form 1-5 (secondary, KSSM)"
+      "description": "Malaysian school level \u2014 Standard 1-6 (primary, KSSR) or Form 1-5 (secondary, KSSM)"
     }
   },
   "required": [
@@ -33,39 +33,9 @@
     "subject_id"
   ],
   "rls": {
-    "create": {
-      "$or": [
-        {
-          "user_condition": {
-            "app_role": "teacher"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "read": null,
-    "update": {
-      "$or": [
-        {
-          "user_condition": {
-            "app_role": "teacher"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
+    "read": true,
+    "create": true,
+    "update": true,
+    "delete": true
   }
 }

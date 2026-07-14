@@ -17,7 +17,7 @@ const ALLOWED_EDITABLE_FIELDS = [
 // Fields that trigger learning level recalculation
 const RECALCULATION_TRIGGER_FIELDS = ['date_of_birth', 'education_level', 'grade_year'];
 
-const calculateAge = (birthDate: string): number => {
+const calculateAge = (birthDate) => {
   const today = new Date();
   const birth = new Date(birthDate);
   let age = today.getFullYear() - birth.getFullYear();
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     
-    // 1. Pengesahan Ibu Bapa
+    // Verify parent is authenticated
     const parent = await base44.auth.me();
     if (!parent || parent.app_role !== 'parent') {
       return Response.json({ error: 'Unauthorized - Parent access required' }, { status: 401 });
@@ -40,33 +40,34 @@ Deno.serve(async (req) => {
 
     const { childId, updates } = await req.json();
     
-    if (!childId || !updates || Object.keys(updates).length === 0) {
-      return Response.json({ error: 'childId and updates payload are required' }, { status: 400 });
+    if (!childId || !updates) {
+      return Response.json({ error: 'childId and updates are required' }, { status: 400 });
     }
 
-    // 2. Pengesahan Perhubungan (Guna Service Role)
-    const relationships = await base44.asServiceRole.entities.ParentChildRelationship.filter({
+    // Verify parent-child relationship
+    const relationship = await base44.entities.ParentChildRelationship.filter({
       parent_id: parent.id,
       child_id: childId,
       status: 'active'
     });
 
-    if (!relationships || relationships.length === 0) {
+    if (!relationship || relationship.length === 0) {
       return Response.json({ error: 'Unauthorized - You are not linked to this child' }, { status: 403 });
     }
 
-    // 3. Dapatkan Data Pelajar Semasa
-    const child = await base44.asServiceRole.entities.User.get(childId);
+    // Get current child data
+    const child = await base44.entities.User.get(childId);
     if (!child) {
       return Response.json({ error: 'Child not found' }, { status: 404 });
     }
 
-    // 4. Penapisan Keselamatan & Semakan Keperluan Pengiraan Semula
-    const filteredUpdates: Record<string, any> = {};
+    // Filter updates to only allowed fields
+    const filteredUpdates = {};
     let needsRecalculation = false;
 
     for (const field of ALLOWED_EDITABLE_FIELDS) {
       if (updates[field] !== undefined) {
+        // Check if this field triggers recalculation
         if (RECALCULATION_TRIGGER_FIELDS.includes(field) && updates[field] !== child[field]) {
           needsRecalculation = true;
         }
@@ -74,12 +75,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ✅ PEMBETULAN LOGIK: Kira Umur Baharu Secara Automatik jika DOB bertukar
-    if (filteredUpdates.date_of_birth && filteredUpdates.date_of_birth !== child.date_of_birth) {
-      filteredUpdates.age = calculateAge(filteredUpdates.date_of_birth);
-    }
-
-    // [Pilihan] Amaran Log Keselamatan
+    // Block any attempt to update learning-related fields
     const BLOCKED_FIELDS = [
       'balance', 'coins', 'wallet', 'progress', 'streak', 'xp',
       'quiz_attempts', 'lesson_completions', 'achievements',
@@ -89,25 +85,17 @@ Deno.serve(async (req) => {
 
     for (const field of BLOCKED_FIELDS) {
       if (updates[field] !== undefined) {
-        console.warn(`[SECURITY WARN] Parent ${parent.id} attempted to update blocked field '${field}' for child ${childId}`);
+        console.warn(`Parent ${parent.id} attempted to update blocked field '${field}' for child ${childId}`);
       }
     }
 
-    // 5. Kemas Kini Pangkalan Data (Guna Service Role untuk pintas RLS)
-    const updatedChild = await base44.asServiceRole.entities.User.update(childId, filteredUpdates);
+    // Apply updates
+    const updatedChild = await base44.entities.User.update(childId, filteredUpdates);
 
-    // 6. Hantar Notifikasi Kepada Pelajar
-    try {
-      await base44.asServiceRole.entities.Notification.create({
-        user_id: childId,
-        title: 'Profil Dikemas Kini 📝',
-        message: `Maklumat profil anda telah dikemas kini oleh ${parent.full_name || 'ibu bapa anda'}.`,
-        type: 'profile_updated',
-        reference_id: parent.id
-      });
-    } catch (notifErr) {
-      console.warn("Gagal menghantar notifikasi kemas kini profil:", notifErr);
-    }
+    console.log(`Profile updated for child ${childId} by parent ${parent.id}:`, {
+      fields: Object.keys(filteredUpdates),
+      needsRecalculation
+    });
 
     return Response.json({
       success: true,
@@ -116,7 +104,6 @@ Deno.serve(async (req) => {
         full_name: updatedChild.full_name,
         nickname: updatedChild.nickname,
         education_level: updatedChild.education_level,
-        age: updatedChild.age // Pulangkan umur baharu ke UI
       },
       needsRecalculation,
       message: needsRecalculation 
@@ -124,8 +111,8 @@ Deno.serve(async (req) => {
         : 'Profile updated successfully'
     });
 
-  } catch (error: any) {
-    console.error('UpdateChildProfile error:', error.message);
+  } catch (error) {
+    console.error('UpdateChildProfile error:', error.message, error.stack);
     return Response.json({ error: error.message || 'Failed to update profile' }, { status: 500 });
   }
 });

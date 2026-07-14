@@ -2,14 +2,6 @@
   "name": "User",
   "type": "object",
   "properties": {
-    "full_name": {
-      "type": "string",
-      "description": "User's full legal name"
-    },
-    "email": {
-      "type": "string",
-      "description": "User's email address (optional for under 13)"
-    },
     "app_role": {
       "type": "string",
       "enum": [
@@ -37,7 +29,7 @@
     },
     "avatar_emoji": {
       "type": "string",
-      "default": "🎓"
+      "default": "\ud83c\udf93"
     },
     "avatar_photo_url": {
       "type": "string",
@@ -249,46 +241,5 @@
   },
   "required": [
     "app_role"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "read": {
-      "$or": [
-        {
-          "data.id": "{{user.id}}"
-        },
-        {
-          "data.id": {
-            "$in": "{{user.data.linked_student_ids}}"
-          }
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "update": {
-      "$or": [
-        {
-          "data.id": "{{user.id}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
-  }
+  ]
 }
