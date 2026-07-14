@@ -6,6 +6,10 @@
       "type": "string",
       "description": "ID of the student"
     },
+    "parent_id": {
+      "type": "string",
+      "description": "ID of the targeted parent for approval"
+    },
     "reward_id": {
       "type": "string",
       "description": "ID of the reward"
@@ -34,8 +38,65 @@
   },
   "required": [
     "student_id",
+    "parent_id",
     "reward_id",
     "reward_title",
     "coin_cost"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
