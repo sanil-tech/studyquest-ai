@@ -5,6 +5,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     
+    // 1. Pengesahan Akses
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -13,14 +14,20 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Only students can have a Student ID' }, { status: 403 });
     }
 
-    // If user already has a student_id, return it
+    // 2. Semakan Sedia Ada (Idempotency)
+    // Jika pelajar sudah mempunyai ID, pulangkan ID tersebut terus
     if (user.student_id) {
-      return Response.json({ student_id: user.student_id });
+      return Response.json({ 
+        success: true, 
+        student_id: user.student_id,
+        is_new: false
+      });
     }
 
-    // Generate unique Student ID
-    const generateId = () => {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1 to avoid confusion
+    // 3. Fungsi Penjanaan ID Unik
+    const generateId = (): string => {
+      // Mengecualikan I, O, 0, 1 untuk mengelakkan kekeliruan visual
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; 
       let id = 'SQ-';
       for (let i = 0; i < 6; i++) {
         id += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -28,26 +35,46 @@ Deno.serve(async (req) => {
       return id;
     };
 
-    // Ensure uniqueness
+    // 4. Proses Semakan Pertindihan (Collision Detection)
     let studentId = generateId();
     let attempts = 0;
-    while (attempts < 10) {
-      const existing = await base44.asServiceRole.entities.User.filter({ student_id: studentId });
-      if (existing.length === 0) break;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+      const existing = await base44.asServiceRole.entities.User.filter({ 
+        student_id: studentId 
+      });
+      
+      if (existing.length === 0) break; // ID adalah unik, keluar dari loop
+      
       studentId = generateId();
       attempts++;
     }
 
-    if (attempts >= 10) {
-      return Response.json({ error: 'Failed to generate unique ID' }, { status: 500 });
+    if (attempts >= maxAttempts) {
+      return Response.json(
+        { error: 'System busy. Failed to generate a unique ID after 10 attempts.' }, 
+        { status: 500 }
+      );
     }
 
-    // Assign to user
-    await base44.auth.updateMe({ student_id: studentId });
+    // 5. Kemas Kini Pangkalan Data (Menggunakan Service Role untuk Override RLS)
+    await base44.asServiceRole.entities.User.update(user.id, { 
+      student_id: studentId 
+    });
 
-    return Response.json({ student_id: studentId });
-  } catch (error) {
-    console.error('Generate Student ID error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    // 6. Pulangkan Respon
+    return Response.json({ 
+      success: true, 
+      student_id: studentId,
+      is_new: true
+    });
+
+  } catch (error: any) {
+    console.error('Generate Student ID Runtime Error:', error);
+    return Response.json(
+      { error: error.message || 'Internal server transaction error' }, 
+      { status: 500 }
+    );
   }
 });
