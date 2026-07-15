@@ -69,7 +69,7 @@ export default function StudentDashboard() {
       navigate(`/quiz/topik-sifir-darab`);
     } else {
       // Bawa ke ruang belajar interaktif multimedia
-      navigate(`/learning-space?branch=${stepKey}`);
+      navigate(`/LearningSpace?branch=${stepKey}`);
     }
   };
 
