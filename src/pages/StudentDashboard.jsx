@@ -6,7 +6,7 @@ import {
   Trophy, Flame, Sparkles, LogOut, Loader2, 
   Compass, ShieldAlert, Award, User
 } from "lucide-react";
-import LessonProgress from "@/components/LessonProgress";
+import LessonProgress from "../components/lesson/LessonProgress";
 import { Button } from "@/components/ui/button";
 
 export default function StudentDashboard() {
