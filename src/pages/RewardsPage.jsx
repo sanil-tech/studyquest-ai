@@ -1,283 +1,185 @@
+// src/pages/RewardStore.jsx
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Gift, Check, Clock, X, Loader2, Sparkles, Lock, Leaf, Sprout } from "lucide-react";
+import { Gift, Sparkles, Loader2, ShoppingBag, CheckCircle, AlertTriangle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { motion } from "framer-motion";
 
-export default function RewardsPage() {
-  const [user, setUser] = useState(null);
-  const [rewards, setRewards] = useState([]);
-  const [wallet, setWallet] = useState(null);
-  const [requests, setRequests] = useState([]);
+// Senarai Harta Karun Tempatan Borneo & Baucer Game Yang Digemari Kanak-kanak
+const REWARD_ITEMS = [
+  { id: "item-1", title: "Patung Boneka Otan Cilik 🦧", cost: 100, icon: "🧸", desc: "Patung maskot Otan berbulu lembut edisi terhad StudyQuest." },
+  { id: "item-2", title: "Baucer 100 Robux / Mobile Legends 🎮", cost: 250, icon: "💎", desc: "Kod tebusan rasmi untuk top-up game kegemaran anda." },
+  { id: "item-3", title: "Makan KFC Combo Ahad Bersama Keluarga 🍗", cost: 500, icon: "🍟", desc: "Ibu bapa akan menerima e-mel baucer makan malam KFC." },
+  { id: "item-4", title: "Lencana Sayap Kenyalang Neon (Profil) 🦅", cost: 50, icon: "✨", desc: "Kosmetik premium untuk menyerlahkan nama anda di papan pendahulu." }
+];
+
+export default function RewardStore() {
+  const [wallet, setWallet] = useState({ balance: 0 });
+  const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [requesting, setRequesting] = useState(null);
+  const [purchasingId, setPurchasingId] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const loadStudentData = async () => {
-      try {
-        const studentUser = await base44.auth.me();
-        setUser(studentUser);
+  const loadWalletData = async () => {
+    try {
+      setLoading(true);
+      const me = await base44.auth.me();
+      if (!me) return;
+      setStudent(me);
 
-        // Cari ID ibu bapa yang aktif
-        const relationships = await base44.entities.ParentChildRelationship.filter({
-          child_id: studentUser.id,
-          status: "active",
-        });
-
-        const activeParentId = relationships[0]?.parent_id || null;
-
-        // Gunakan Promise.allSettled untuk API yang kebal
-        const results = await Promise.allSettled([
-          activeParentId 
-            ? base44.entities.Reward.filter({ parent_id: activeParentId, student_id: studentUser.id }) 
-            : Promise.resolve([]),
-          base44.entities.Wallet.filter({ student_id: studentUser.id }),
-          base44.entities.RewardRequest.filter({ student_id: studentUser.id }, "-created_date", 20),
-        ]);
-
-        setRewards(results[0].status === "fulfilled" ? results[0].value : []);
-        setWallet(results[1].status === "fulfilled" && results[1].value.length > 0 ? results[1].value[0] : { balance: 0 });
-        setRequests(results[2].status === "fulfilled" ? results[2].value : []);
-      } catch (err) {
-        console.error("Ralat memuat turun data ganjaran:", err);
-      } finally {
-        setLoading(false);
+      // ✅ SAH DILULUSKAN: RLS membenarkan pembacaan baki terus dari frontend!
+      const walletData = await base44.entities.Wallet.filter({ student_id: me.id });
+      if (walletData && walletData.length > 0) {
+        setWallet(walletData[0]);
       }
-    };
-    loadStudentData();
+    } catch (err) {
+      console.error("Gagal memuat baki dompet:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadWalletData();
   }, []);
 
-  const requestReward = async (reward) => {
-    const currentBalance = wallet?.balance || 0;
-    if (currentBalance < reward.coin_cost) {
-      toast({ 
-        title: "Daun Emas tidak mencukupi! 🍃", 
-        description: `Awak perlukan ${reward.coin_cost} daun untuk hadiah ini. Jom kumpul lagi!`, 
-        variant: "destructive" 
+  // ✅ KUNCI UTAMA: Memanggil Edge Function untuk memotong baki Wallet yang dikunci oleh RLS Super Admin
+  const handlePurchase = async (item) => {
+    if (wallet.balance < item.cost) {
+      toast({
+        title: "Syiling Tidak Cukup! 🛑",
+        description: `Alamak, anda perlukan ${item.cost - wallet.balance} syiling lagi. Jom sambung belajar!`,
+        variant: "destructive"
       });
       return;
     }
-    
-    if (!user) return;
-    setRequesting(reward.id);
-    
+
+    setPurchasingId(item.id);
     try {
-      const req = await base44.entities.RewardRequest.create({
-        student_id: user.id,
-        student_email: user.email, 
-        reward_id: reward.id,
-        reward_title: reward.title,
-        coin_cost: reward.coin_cost,
-        status: "pending"
+      const response = await base44.functions.invoke("purchase-reward", {
+        body: { itemId: item.id, cost: item.cost }
       });
 
-      // Notis kepada ibu bapa
-      if (reward.parent_id) {
-        await base44.entities.Notification.create({
-          user_id: reward.parent_id,
-          title: "Permintaan Ganjaran Baru! 🎁",
-          message: `${user.nickname || user.full_name || "Anak anda"} telah meminta "${reward.title}" (Kos: ${reward.coin_cost} Daun Emas)`,
-          type: "reward_requested",
-          reference_id: req.id,
-        });
-      }
+      if (response.error) throw new Error(response.error);
 
-      setRequests(prev => [req, ...prev]);
-      setWallet(prev => prev ? { ...prev, balance: Math.max(0, prev.balance - reward.coin_cost) } : prev);
+      setShowSuccess(true);
+      try { new Audio("https://assets.mixkit.co/active_storage/sfx/2019/2019-2017.wav").play(); } catch(e){}
       
-      toast({ 
-        title: "Permintaan dihantar! 🎉", 
-        description: "Otan dah maklumkan pada ibu bapa awak untuk sahkan ganjaran ini." 
-      });
+      setTimeout(() => {
+        setShowSuccess(false);
+        loadWalletData(); // Muat semula baki baharu yang telah dipotong pelayan
+      }, 2500);
+
     } catch (err) {
       toast({
-        title: "Ralat",
-        description: "Gagal menghantar permintaan. Sila cuba lagi.",
+        title: "Transaksi Gagal",
+        description: err.message || "Ralat pelayan semasa memproses pembelian.",
         variant: "destructive"
       });
     } finally {
-      setRequesting(null);
+      setPurchasingId(null);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]">
-        <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-          <Leaf className="w-12 h-12 text-lime-500" />
-        </motion.div>
-        <p className="text-sm font-bold text-lime-700/60 uppercase tracking-widest">Membuka Kedai Otan...</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-[#FFFDE7] flex flex-col items-center justify-center p-4">
+      <Loader2 className="w-8 h-8 animate-spin text-amber-600 mb-2" />
+      <p className="text-xs font-black text-amber-800 uppercase tracking-widest animate-pulse">Membuka Peti Harta Kedai... 🪙</p>
+    </div>
+  );
 
-  const statusIcon = {
-    pending: <Clock className="w-4 h-4" />,
-    approved: <Check className="w-4 h-4" />,
-    rejected: <X className="w-4 h-4" />,
-  };
-
-  const statusStyle = {
-    pending: "bg-amber-50 text-amber-700 border-amber-200",
-    approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    rejected: "bg-rose-50 text-rose-700 border-rose-200",
-  };
+  const isKid = student?.age_group !== "teen";
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7] font-sans pb-12 pt-6">
-      <div className="space-y-8 max-w-5xl mx-auto px-4">
+    <div className={`min-h-screen font-sans pb-16 pt-6 transition-colors duration-500 ${
+      isKid ? "bg-gradient-to-b from-[#FFFDE7] via-[#FFFDF0] to-[#F4FBF7]" : "bg-slate-950 text-slate-100"
+    }`}>
+      <div className="max-w-4xl mx-auto px-4 space-y-8">
         
-        {/* HERO VAULT BANNER (Nature Theme) */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg border border-emerald-800/20">
-          <div className="absolute -right-6 -top-6 w-36 h-36 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute right-20 -bottom-10 w-28 h-28 bg-lime-400/30 rounded-full blur-xl" />
-          
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        {/* HEADER KEDAI: DUOLINGO BANNER INTERACTIVE STYLE */}
+        <div className={`relative rounded-[2.5rem] p-6 sm:p-8 border-b-[6px] shadow-lg overflow-hidden ${
+          isKid ? "bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 border-orange-700 text-white" : "bg-slate-900 border-slate-800 text-white"
+        }`}>
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="relative z-10 flex items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-1.5 mb-2 bg-lime-400 w-fit px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest text-green-900 shadow-sm">
-                <Sparkles className="w-3.5 h-3.5 fill-current" />
-                Kedai Ganjaran
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight drop-shadow-sm">Tebus Daun Emas!</h1>
-              <p className="text-emerald-50 font-medium text-sm sm:text-base mt-1.5 max-w-sm">
-                Tukar daun emas yang dikumpul dari hasil titik peluh belajar kepada hadiah dunia sebenar.
-              </p>
+              <span className="text-[9px] font-black uppercase tracking-widest bg-black/10 px-3 py-1 rounded-full inline-block">Pasar Tamu Ganjaran</span>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight mt-1">Tukar Syiling Harta Karun! 🪙</h1>
+              <p className="text-xs opacity-90 mt-0.5 font-medium">Belanjakan emas hasil usaha gigih anda mendaki dahan ilmu.</p>
             </div>
-
-            <div className="bg-white/10 backdrop-blur-md rounded-[1.5rem] p-4 flex items-center gap-4 border border-white/20 shadow-inner shrink-0 self-start sm:self-auto">
-              <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-md transform rotate-3">
-                <Leaf className="w-8 h-8 text-lime-500 fill-lime-400/30" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-emerald-100 uppercase tracking-wide">Baki Akaun</p>
-                <p className="text-2xl font-black tracking-tight">{wallet?.balance || 0} <span className="text-lg font-medium text-lime-200">Daun</span></p>
-              </div>
+            {/* PAPARAN BAKI SYILING BESAR ELEGAN */}
+            <div className="bg-white/20 backdrop-blur-md border border-white/20 px-5 py-3 rounded-2xl text-center shadow-inner shrink-0">
+              <span className="block text-[9px] font-black text-amber-200 uppercase tracking-wider">Baki Anda</span>
+              <span className="text-xl sm:text-2xl font-mono font-black text-white block mt-0.5">🪙 {wallet.balance}</span>
             </div>
           </div>
         </div>
 
-        {/* AVAILABLE REWARDS GRID */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-black text-stone-800 flex items-center gap-2">
-            <Gift className="w-6 h-6 text-emerald-500" /> Senarai Ganjaran
-          </h2>
-          
-          {rewards.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-[2rem] border border-emerald-100 shadow-sm">
-              <Sprout className="w-14 h-14 text-stone-300 mx-auto mb-3" />
-              <h3 className="text-lg font-black text-stone-800">Pokok masih kosong!</h3>
-              <p className="text-stone-500 text-sm max-w-xs mx-auto mt-1 font-medium">
-                Belum ada ganjaran diletakkan. Cuba pujuk ibu bapa untuk tambah hadiah di sini!
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {rewards.map((reward, i) => {
-                const currentBalance = wallet?.balance || 0;
-                const canAfford = currentBalance >= reward.coin_cost;
-                const hasPending = requests.some(r => r.reward_id === reward.id && r.status === "pending");
-                
-                return (
-                  <motion.div
-                    key={reward.id}
-                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.05 }}
-                    className={`bg-white rounded-[1.5rem] p-5 border transition-all flex flex-col justify-between group relative overflow-hidden ${
-                      canAfford ? "border-emerald-200 shadow-sm hover:shadow-md hover:border-emerald-400" : "border-stone-100 opacity-90"
+        {/* GRID KAD ITEM GANJARAN */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {REWARD_ITEMS.map((item) => {
+            const canAfford = wallet.balance >= item.cost;
+            return (
+              <Card key={item.id} className={`p-5 rounded-[2.2rem] border-2 flex flex-col justify-between gap-4 relative overflow-hidden transition-all shadow-xs ${
+                isKid ? "bg-white border-slate-100" : "bg-slate-900 border-slate-800"
+              }`}>
+                <div className="flex gap-4 items-start">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-slate-950 border flex items-center justify-center text-3xl shadow-inner shrink-0">
+                    {item.icon}
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className={`text-sm sm:text-base font-black tracking-tight ${!isKid && "text-white"}`}>{item.title}</h3>
+                    <p className="text-[11px] text-slate-400 font-medium leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-dashed border-slate-100 dark:border-slate-800">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wide">Harga Tebusan</span>
+                    <span className="text-sm font-mono font-black text-amber-600 dark:text-amber-400">🪙 {item.cost} Syiling</span>
+                  </div>
+
+                  <Button
+                    onClick={() => handlePurchase(item)}
+                    disabled={purchasingId !== null}
+                    className={`text-xs font-black px-5 h-10 rounded-xl transition-all border-b-4 ${
+                      canAfford
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-500 border-emerald-800 text-white hover:brightness-105 active:border-b-0 active:translate-y-1"
+                        : "bg-slate-100 border-slate-300 text-slate-400 cursor-not-allowed border-b-0 shadow-none dark:bg-slate-800 dark:border-slate-700"
                     }`}
                   >
-                    {/* Hiasan background corak jika mampu beli */}
-                    {canAfford && (
-                      <div className="absolute -right-4 -top-4 text-emerald-50/50 group-hover:text-emerald-50 transition-colors z-0">
-                        <Gift className="w-32 h-32" />
-                      </div>
+                    {purchasingId === item.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : canAfford ? (
+                      "Tebus Harta 🎁"
+                    ) : (
+                      "Syiling Tak Cukup"
                     )}
-
-                    <div className="relative z-10">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-inner border shrink-0 transition-transform group-hover:scale-105 group-hover:-rotate-6 ${
-                          canAfford ? "bg-lime-50 border-lime-100" : "bg-stone-50 border-stone-100"
-                        }`}>
-                          {reward.icon || "🎁"}
-                        </div>
-                        
-                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-sm border shadow-sm ${
-                          canAfford ? "bg-lime-100/50 text-lime-700 border-lime-200" : "bg-stone-50 text-stone-400 border-stone-100"
-                        }`}>
-                          <Leaf className="w-4 h-4 text-lime-500 fill-lime-400/30" />
-                          {reward.coin_cost}
-                        </div>
-                      </div>
-
-                      <h3 className="font-black text-stone-800 text-lg leading-snug tracking-tight mb-5">
-                        {reward.title}
-                      </h3>
-                    </div>
-
-                    <Button
-                      onClick={() => requestReward(reward)}
-                      disabled={!canAfford || hasPending || requesting === reward.id}
-                      className={`relative z-10 w-full rounded-xl font-black py-6 shadow-sm transition-all border-0 text-sm ${
-                        hasPending 
-                          ? "bg-amber-100 text-amber-700 hover:bg-amber-100" 
-                          : !canAfford 
-                          ? "bg-[#F3EFE6] text-stone-400 hover:bg-[#F3EFE6]" 
-                          : "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98]"
-                      }`}
-                    >
-                      {requesting === reward.id ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : hasPending ? (
-                        <span className="flex items-center gap-2 justify-center">
-                          <Clock className="w-4 h-4" /> Menunggu Pengesahan
-                        </span>
-                      ) : !canAfford ? (
-                        <span className="flex items-center gap-2 justify-center text-xs">
-                          <Lock className="w-4 h-4" /> Kunci (Kurang {reward.coin_cost - currentBalance} Daun)
-                        </span>
-                      ) : (
-                        "Tebus Hadiah Ini!"
-                      )}
-                    </Button>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* REQUEST HISTORY SECTION */}
-        {requests.length > 0 && (
-          <div className="space-y-4 pt-6">
-            <h2 className="font-black text-stone-800 text-lg">Sejarah Penebusan</h2>
-            
-            <div className="grid gap-3 sm:grid-cols-2">
-              {requests.map(req => (
-                <div 
-                  key={req.id} 
-                  className="flex items-center justify-between p-4 bg-white rounded-2xl border border-stone-200 shadow-sm hover:border-emerald-200 transition-colors"
-                >
-                  <div className="min-w-0 pr-3">
-                    <p className="text-sm font-bold text-stone-800 truncate">{req.reward_title}</p>
-                    <div className="flex items-center gap-1 mt-1 text-xs text-stone-500 font-medium">
-                      <Leaf className="w-3.5 h-3.5 text-lime-500" />
-                      <span>{req.coin_cost} daun</span>
-                    </div>
-                  </div>
-                  
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border capitalize shrink-0 shadow-sm ${statusStyle[req.status] || "bg-stone-50 text-stone-700"}`}>
-                    {statusIcon[req.status] || <Clock className="w-3.5 h-3.5" />}
-                    {req.status === 'pending' ? 'Menunggu' : req.status === 'approved' ? 'Lulus' : 'Ditolak'}
-                  </span>
+                  </Button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+              </Card>
+            );
+          })}
+        </div>
       </div>
+
+      {/* OVERLAY TAHNIAH PASCA TEBUSAN RASMI (DUOLINGO ANIMATION STYLE) */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.85, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.85, y: 30 }} className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2.5rem] text-center max-w-sm w-full shadow-2xl border-b-[8px] border-emerald-700">
+              <div className="text-5xl animate-bounce mb-2">🦧🎉</div>
+              <h2 className="text-lg font-black text-slate-800 dark:text-white tracking-tight">Tebusan Berjaya! Bossku!</h2>
+              <p className="text-xs text-slate-400 font-medium mt-1">
+                Sistem telah merekodkan tuntutan anda. Sila maklumkan kepada ibu bapa untuk kod kelulusan hadiah fizikal!
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
