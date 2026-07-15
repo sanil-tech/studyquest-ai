@@ -1,338 +1,187 @@
 // src/pages/StudentDashboard.jsx
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import {
-  Trophy, BookOpen, Target, Award, Play, CheckCircle2, 
-  UserCheck, UserX, ShieldAlert, Sparkles, Leaf, TreePine, Sprout
+import { useNavigate } from "react-router-dom";
+import { 
+  Trophy, Flame, Sparkles, LogOut, Loader2, 
+  Compass, ShieldAlert, Award, User
 } from "lucide-react";
+import LessonProgress from "@/components/LessonProgress";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { motion, AnimatePresence } from "framer-motion";
-import moment from "moment";
 
 export default function StudentDashboard() {
-  const [dashboardState, setDashboardState] = useState({
-    user: null,
-    progress: { level: 1, total_xp: 0, streak_days: 0 },
-    wallet: { balance: 0 },
-    sessions: [],
-    quizzes: [],
-    pendingRequests: [],
-  });
+  const navigate = useNavigate();
+  const [student, setStudent] = useState(null);
+  const [wallet, setWallet] = useState({ balance: 0 });
+  const [progress, setProgress] = useState({ total_xp: 0, level: 1, total_study_time: 0 });
+  const [lessonSteps, setLessonSteps] = useState({ video: false, lesson: false, flashcard: false, mindmap: false, quiz: false });
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const { toast } = useToast();
 
-  const loadDashboardData = useCallback(async () => {
+  // Muat turun segala data profil & akademik anak secara serentak
+  const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const currentUser = await base44.auth.me();
+      const me = await base44.auth.me();
+      if (!me || me.app_role !== "student") {
+        await base44.auth.signOut();
+        navigate("/student-login");
+        return;
+      }
+      setStudent(me);
 
-      // Gunakan Promise.allSettled untuk API yang lebih kebal (resilient)
-      const results = await Promise.allSettled([
-        base44.entities.Progress.filter({ student_id: currentUser.id }),
-        base44.entities.Wallet.filter({ student_id: currentUser.id }),
-        base44.entities.StudySession.filter({ student_id: currentUser.id }, "-created_date", 10),
-        base44.entities.QuizAttempt.filter({ student_id: currentUser.id }, "-created_date", 10),
-        base44.entities.ParentChildRelationship.filter({ child_id: currentUser.id, status: "pending" }),
+      // Fetch Wallet & Progres Murid menggunakan ID murid yang sah
+      const [walletData, progressData] = await Promise.all([
+        base44.entities.Wallet.filter({ student_id: me.id }),
+        base44.entities.Progress.filter({ student_id: me.id })
       ]);
 
-      const progress = results[0].status === "fulfilled" && results[0].value?.[0] 
-        ? results[0].value[0] 
-        : { level: 1, total_xp: 0, streak_days: 0 };
-      const wallet = results[1].status === "fulfilled" && results[1].value?.[0] 
-        ? results[1].value[0] 
-        : { balance: 0 };
-      const sessions = results[2].status === "fulfilled" && results[2].value ? results[2].value : [];
-      const quizzes = results[3].status === "fulfilled" && results[3].value ? results[3].value : [];
-      const pendingRels = results[4].status === "fulfilled" ? results[4].value : [];
-
-      let pendingRequests = [];
-      if (pendingRels && pendingRels.length > 0) {
-        const hydratedRequests = await Promise.all(
-          pendingRels.map(async (rel) => {
-            try {
-              const parentUser = await base44.entities.User.get(rel.parent_id);
-              return {
-                id: rel.id,
-                parent_name: parentUser.full_name || parentUser.nickname || parentUser.username,
-                parent_email: parentUser.email || "Tiada emel",
-              };
-            } catch {
-              return { id: rel.id, parent_name: "Akaun Penjaga Tidak Diketahui", parent_email: "Pengesahan sistem diperlukan" };
-            }
-          })
-        );
-        pendingRequests = hydratedRequests;
+      if (walletData && walletData.length > 0) setWallet(walletData[0]);
+      if (progressData && progressData.length > 0) {
+        setProgress(progressData[0]);
+        
+        // Ciri Pintar: Buka dahan pokok berdasarkan simulasi data progres sebenar
+        // Anda boleh memetakan ini daripada jadual pangkalan data Tugasan anda nanti
+        setLessonSteps({
+          video: progressData[0].total_study_time > 0,
+          lesson: progressData[0].total_xp >= 50,
+          flashcard: progressData[0].total_xp >= 100,
+          mindmap: progressData[0].total_xp >= 150,
+          quiz: progressData[0].total_xp >= 200,
+        });
       }
 
-      // Batch update to avoid multiple re-renders
-      setDashboardState({
-        user: currentUser,
-        progress,
-        wallet,
-        sessions,
-        quizzes,
-        pendingRequests,
-      });
     } catch (err) {
-      console.error("Ralat memuat turun data pelajar:", err);
-      toast({ title: "Alamak!", description: "Gagal memuat turun data pembelajaran anda.", variant: "destructive" });
+      console.error("Gagal memuatkan data papan pemuka murid:", err);
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  };
 
-  useEffect(() => { 
-    loadDashboardData(); 
-  }, [loadDashboardData]);
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
-  const handleLinkAction = useCallback(async (relationshipId, actionType) => {
-    setActionLoading(true);
-    try {
-      if (actionType === "approve") {
-        await base44.entities.ParentChildRelationship.update(relationshipId, { status: "active" });
-        toast({ title: "Akaun Berjaya Disambung! 🎉", description: "Papan pemuka anda kini terhubung dengan ibu bapa." });
-      } else {
-        await base44.entities.ParentChildRelationship.delete(relationshipId);
-        toast({ title: "Permintaan Ditolak", description: "Sambungan dengan ibu bapa telah dibatalkan." });
-      }
-      loadDashboardData();
-    } catch (err) {
-      toast({ title: "Gagal memproses", description: err.message, variant: "destructive" });
-    } finally {
-      setActionLoading(false);
+  // Logik apabila anak mengetuk dahan pokok (Duolingo Path Controller)
+  const handleStepClick = (stepKey) => {
+    if (stepKey === "quiz") {
+      // Bawa ke bilik kuiz yang telah kita bina dan amankan
+      navigate(`/quiz/topik-sifir-darab`);
+    } else {
+      // Bawa ke ruang belajar interaktif multimedia
+      navigate(`/learning-space?branch=${stepKey}`);
     }
-  }, [toast, loadDashboardData]);
+  };
 
-  // Memoize computed values
-  const { level, xp, nextLevelXp, xpPercentage } = useMemo(() => {
-    const lvl = dashboardState.progress?.level || 1;
-    const xpVal = dashboardState.progress?.total_xp || 0;
-    const nextLvlXp = lvl * 200;
-    const pct = Math.min((xpVal / nextLvlXp) * 100, 100);
-    return { level: lvl, xp: xpVal, nextLevelXp: nextLvlXp, xpPercentage: pct };
-  }, [dashboardState.progress]);
+  const handleLogout = async () => {
+    await base44.auth.signOut();
+    localStorage.removeItem("active_student_id");
+    localStorage.removeItem("active_student_name");
+    window.location.href = "/student-login";
+  };
 
-  // Memoize today's minutes calculation
-  const today = useMemo(() => moment(), []);
-  const todayMinutes = useMemo(() => 
-    dashboardState.sessions
-      .filter(s => s.created_date && moment(s.created_date).isSame(today, "day"))
-      .reduce((sum, s) => sum + (s.duration_minutes || 0), 0),
-    [dashboardState.sessions, today]
+  if (loading) return (
+    <div className="min-h-screen bg-gradient-to-b from-sky-300 to-lime-50 flex flex-col items-center justify-center p-4">
+      <Loader2 className="w-10 h-10 animate-spin text-teal-600 mb-2" />
+      <p className="text-xs font-black text-teal-800 uppercase tracking-widest animate-pulse">Memanggil Maskot Otan... 🦧</p>
+    </div>
   );
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]">
-        <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-          <Leaf className="w-12 h-12 text-emerald-500" />
-        </motion.div>
-        <p className="text-sm font-bold text-emerald-700/60 uppercase tracking-widest">Otan sedang meninjau pokok...</p>
-      </div>
-    );
-  }
-
-  const { user, progress, wallet, sessions, quizzes, pendingRequests } = dashboardState;
+  // Tentukan kumpulan umur secara dinamik untuk penyesuaian UI (7-12: Kid theme, 13-17: Teen theme)
+  const isKid = student?.age_group !== "teen"; 
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700">
+    <div className={`min-h-screen font-sans pb-10 transition-colors duration-500 ${
+      isKid ? "bg-gradient-to-b from-sky-100 via-emerald-50 to-lime-50" : "bg-slate-950 text-slate-100"
+    }`}>
       
-      {/* 1. TOP BAR (Frosted Nature Style) */}
-      <div className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-stone-200/50 px-4 py-3 flex justify-between items-center max-w-5xl mx-auto">
-        <div className="flex items-center gap-3">
-          {/* Level / Dahan Pokok */}
-          <div className="flex items-center gap-1.5 font-black text-emerald-600 bg-emerald-50/80 px-3 py-1.5 rounded-2xl border border-emerald-100">
-            <TreePine className="w-5 h-5" />
-            <span className="text-sm">Dahan {level}</span>
-          </div>
-        </div>
+      {/* 🌟 1. BANNER DIRI DENGAN KAD IMERSIF GAME (HERO DASHBOARD) */}
+      <div className={`w-full px-4 pt-6 pb-20 rounded-b-[3rem] relative overflow-hidden shadow-lg border-b-4 ${
+        isKid 
+          ? "bg-gradient-to-r from-teal-500 via-emerald-500 to-lime-500 border-teal-700" 
+          : "bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-indigo-900"
+      }`}>
+        {/* SVG Hiasan Alam Gunung Kinabalu / Garisan Siber */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
         
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* Streak -> Kelip-kelip */}
-          <div className="flex items-center gap-1.5 font-black text-amber-500 bg-amber-50/50 px-3 py-1.5 rounded-2xl">
-            <Sparkles className="w-5 h-5 fill-amber-400" />
-            <span className="text-sm">{progress?.streak_days || 0}</span>
-          </div>
-          {/* Wallet -> Daun Emas */}
-          <div className="flex items-center gap-1.5 font-black text-lime-600 bg-lime-50/50 px-3 py-1.5 rounded-2xl">
-            <Leaf className="w-5 h-5 fill-lime-500" />
-            <span className="text-sm">{wallet?.balance || 0}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 mt-6 space-y-8">
-        
-        {/* 2. HERO BANNER (Canopy Theme) */}
-        <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg overflow-hidden flex flex-col md:flex-row items-center justify-between">
-          {/* Light rays through leaves */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative z-10">
           
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner flex items-center justify-center text-5xl shrink-0">
-              🦧 {/* Otan Mascot Emoji */}
+          {/* PROFILE CARD & TAHAP LEVEL */}
+          <div className="flex items-center gap-4">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-md transform -rotate-3 ${
+              isKid ? "bg-white border-amber-300 text-teal-600" : "bg-slate-800 border-indigo-500 text-indigo-400"
+            }`}>
+              <User className="w-7 h-7" />
             </div>
-
-            <div>
-              <div className="flex items-center justify-center md:justify-start gap-2 mb-1.5">
-                <span className="bg-lime-400 text-green-900 font-extrabold px-3 py-1 rounded-full text-[10px] uppercase tracking-widest shadow-sm">
-                  Akademi Rumah Pokok
-                </span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-sm">
-                Hai, {user?.nickname || user?.full_name?.split(" ")[0] || "Penjelajah"}!
-              </h1>
-              <p className="text-emerald-50 font-medium mt-1.5 text-sm sm:text-base max-w-sm leading-relaxed">
-                Otan kata awak dah sedia nak panjat dahan seterusnya hari ini. Jom kumpul Daun Emas!
-              </p>
-            </div>
-          </div>
-
-          <Button className="relative z-10 bg-white text-emerald-700 hover:bg-lime-50 font-extrabold text-base px-6 py-6 rounded-2xl shadow-md border border-emerald-100 group w-full md:w-auto">
-            <Sprout className="w-5 h-5 mr-2 text-emerald-600 group-hover:scale-110 transition-transform" />
-            Mula Memanjat
-          </Button>
-        </div>
-
-        {/* 3. PENDING PARENT REQUEST (Wooden Signpost Alert) */}
-        <AnimatePresence>
-          {pendingRequests.length > 0 && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
-              className="bg-[#F3EFE6] rounded-[2rem] p-6 border border-[#E3D9C6] shadow-sm relative overflow-hidden"
-            >
-              {/* Subtle wood grain or warm background feel */}
-              <div className="flex items-center gap-2 text-amber-800 font-black text-sm uppercase tracking-wide mb-4">
-                <ShieldAlert className="w-5 h-5" /> Jemputan Keluarga
-              </div>
+            <div className="text-white">
+              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-white/20 inline-block`}>
+                {isKid ? "🦁 Petualang Cilik" : "⚡ Apex Ranger"}
+              </span>
+              <h1 className="text-xl font-black tracking-tight mt-1 uppercase">Bah, Selamat Kembali, {student?.nickname || "Hero"}!</h1>
               
-              <div className="space-y-3">
-                {pendingRequests.map(req => (
-                  <div key={req.id} className="bg-white rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 border border-[#E3D9C6] shadow-sm">
-                    <div className="text-center sm:text-left">
-                      <p className="text-base font-black text-stone-800">{req.parent_name}</p>
-                      <p className="text-xs font-medium text-stone-500 mt-0.5">{req.parent_email} • Ingin pautkan akaun</p>
-                    </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <Button 
-                        onClick={() => handleLinkAction(req.id, "approve")} 
-                        disabled={actionLoading} 
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-10">
-                        <UserCheck className="w-4 h-4 mr-2" /> Terima
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleLinkAction(req.id, "reject")} 
-                        disabled={actionLoading} 
-                        className="flex-1 border-[#E3D9C6] text-stone-500 font-bold rounded-xl h-10">
-                        <UserX className="w-4 h-4 mr-2" /> Tolak
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+              {/* XP BAR METER (STYLE DUOLINGO / KHAN ACADEMY) */}
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-[10px] font-mono font-black text-amber-200">LVL {progress.level}</span>
+                <div className="w-32 sm:w-48 h-2.5 bg-black/30 rounded-full overflow-hidden p-0.5 border border-white/10 shadow-inner">
+                  <div 
+                    className="h-full bg-gradient-to-r from-yellow-300 to-amber-400 rounded-full"
+                    style={{ width: `${(progress.total_xp % 1000) / 10}%` }}
+                  />
+                </div>
+                <span className="text-[9px] font-bold opacity-80">{progress.total_xp} XP</span>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* 4. PROGRESS BAR (Vine Growing Concept) */}
-        <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-emerald-100 shadow-sm relative">
-          <div className="flex justify-between items-end mb-4">
-            <div>
-              <h2 className="text-lg font-black text-stone-800 flex items-center gap-2">
-                <Target className="w-5 h-5 text-emerald-500" /> Ketinggian Pokok Anda
-              </h2>
-              <p className="text-sm font-medium text-stone-500 mt-1">{xp} / {nextLevelXp} Meter XP dipanjat</p>
-            </div>
-            <div className="hidden sm:flex items-center text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl">
-              <Leaf className="w-3.5 h-3.5 mr-1" /> {Math.round(nextLevelXp - xp)}M lagi ke Dahan {level + 1}
             </div>
           </div>
 
-          <div className="h-4 bg-[#F3EFE6] rounded-full overflow-hidden shadow-inner relative mt-2">
-            <motion.div
-              initial={{ width: 0 }} animate={{ width: `${xpPercentage}%` }} transition={{ duration: 1.5, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-lime-400 to-emerald-500 rounded-full"
-            />
+          {/* PETI HARTA GANJARAN KANAN */}
+          <div className="flex items-center gap-3 self-stretch sm:self-center justify-between sm:justify-start bg-black/15 backdrop-blur-md p-3 rounded-2xl border border-white/10 shadow-inner">
+            <div className="text-center px-4">
+              <span className="block text-[9px] font-black text-amber-200 uppercase tracking-wider">Peti Syiling</span>
+              <span className="text-lg font-mono font-black text-white flex items-center justify-center gap-1 mt-0.5">
+                🪙 {wallet.balance}
+              </span>
+            </div>
+            <div className="w-[1px] h-8 bg-white/20" />
+            <div className="text-center px-4">
+              <span className="block text-[9px] font-black text-orange-300 uppercase tracking-wider">Streak</span>
+              <span className="text-lg font-black text-white flex items-center justify-center gap-1 mt-0.5">
+                <Flame className="w-4 h-4 fill-orange-500 text-orange-500 animate-pulse" /> {progress.streak_days || 0} Hari
+              </span>
+            </div>
+            <div className="w-[1px] h-8 bg-white/20" />
+            <button 
+              onClick={handleLogout}
+              className="p-2 text-white/70 hover:text-rose-300 hover:bg-white/10 rounded-xl transition-all"
+              title="Log Keluar"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
+
         </div>
-
-        {/* 5. CONTENT CARDS (Minimalist with Subtle Green Touches) */}
-        <div className="grid md:grid-cols-2 gap-6">
-          
-          {/* Nota Terkini */}
-          <div className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-black text-stone-800 flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-emerald-500" /> Jurnal Ilmu Otan
-              </h3>
-            </div>
-            
-            <div className="space-y-3 flex-1">
-              {sessions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 opacity-60">
-                  <Leaf className="w-10 h-10 text-stone-300 mb-2" />
-                  <p className="text-center text-stone-400 font-medium text-sm">Belum ada nota dibaca hari ini.</p>
-                </div>
-              ) : (
-                sessions.slice(0, 3).map((s) => (
-                  <div key={s.id} className="group p-3 rounded-2xl hover:bg-emerald-50/50 transition-colors flex items-center justify-between">
-                    <div className="min-w-0 pr-4">
-                      <p className="font-bold text-stone-700 truncate">{s.topic_name || "Meneroka Hutan Ilmu"}</p>
-                      <p className="text-xs font-medium text-stone-400 mt-0.5">{moment(s.created_date).fromNow()}</p>
-                    </div>
-                    <div className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg shrink-0">
-                      {s.duration_minutes || 0} min
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Rekod Kuiz */}
-          <div className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-black text-stone-800 flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-500" /> Ujian Keberanian
-              </h3>
-            </div>
-            
-            <div className="space-y-3 flex-1">
-              {quizzes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 opacity-60">
-                  <ShieldAlert className="w-10 h-10 text-stone-300 mb-2" />
-                  <p className="text-center text-stone-400 font-medium text-sm">Berani uji minda anda?</p>
-                </div>
-              ) : (
-                quizzes.slice(0, 3).map((q) => {
-                  const isHigh = q.score >= 80;
-                  const scoreTheme = isHigh 
-                    ? "text-emerald-600 bg-emerald-50" 
-                    : q.score >= 50 
-                      ? "text-amber-600 bg-amber-50" 
-                      : "text-rose-500 bg-rose-50";
-
-                  return (
-                    <div key={q.id} className="group p-3 rounded-2xl hover:bg-stone-50 transition-colors flex items-center justify-between">
-                      <div className="min-w-0 pr-4">
-                        <p className="font-bold text-stone-700 truncate">{q.topic_name || "Cabaran Minda"}</p>
-                        <p className="text-xs font-medium text-stone-400 mt-0.5">{moment(q.created_date).fromNow()}</p>
-                      </div>
-                      <div className={`${scoreTheme} text-xs font-black px-2.5 py-1 rounded-lg shrink-0`}>
-                        {q.score}%
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-
       </div>
+
+      {/* 🌳 2. PETA UTAMA: POHON ILMU PINTAR BORNEO */}
+      <div className="max-w-xl mx-auto px-4 -mt-12 relative z-20">
+        <motion.div 
+          initial={{ y: 30, opacity: 0 }} 
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 100 }}
+        >
+          {/* PEMANGGIL KOMPONEN POKOK YANG KITA CIPTA SEBELUM INI */}
+          <LessonProgress 
+            steps={lessonSteps} 
+            onStepClick={handleStepClick} 
+          />
+        </motion.div>
+      </div>
+
+      {/* FOOTER NOTIS PANDUAN PENGEMBARAAN */}
+      <div className="text-center mt-8 px-4">
+        <p className={`text-[10px] font-black uppercase tracking-widest ${isKid ? "text-slate-400" : "text-slate-600"}`}>
+          🗺️ Petunjuk Misi: Dahan hijau = Siap • Dahan oren = Aktif • Dahan kelabu = Terkunci
+        </p>
+      </div>
+
     </div>
   );
 }
