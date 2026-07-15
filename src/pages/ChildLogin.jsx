@@ -1,3 +1,4 @@
+// src/pages/ChildLogin.jsx
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -20,7 +21,8 @@ export default function ChildLogin() {
     setLoading(true);
 
     try {
-      const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+      // 1. Bersihkan input username (Dibenarkan ada titik "." kerana format baru mempunyainya)
+      const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_.]/g, "");
 
       if (!cleanUsername) {
         throw new Error("Sila masukkan Username anda.");
@@ -29,60 +31,43 @@ export default function ChildLogin() {
         throw new Error("PIN mestilah tepat 4 digit angka.");
       }
 
-      // Cari akaun murid berdasarkan username (token ibu bapa digunakan untuk akses RLS)
-      const users = await base44.entities.User.filter({ username: cleanUsername });
+      // 2. 🌟 KUNCI UTAMA: Bina semula e-mel maya mengikut domain sistem backend (.internal)
+      const virtualEmail = `${cleanUsername}@studyquest.internal`;
 
-      if (!users || users.length === 0) {
-        throw new Error("Username tidak dijumpai. Sila semak dengan ibu bapa anda.");
+      // 3. 🌟 PANGGIL AUTH RASMI: Cetus log masuk rasmi ke dalam pelayan keselamatan SDK
+      // Ini akan menyimpan JWT token dan sesi secara automatik ke dalam memori SDK
+      const { data, error: authError } = await base44.auth.signInWithPassword({
+        email: virtualEmail,
+        password: pin, // PIN bertindak sebagai password rasmi
+      });
+
+      if (authError) {
+        throw new Error("Username atau PIN rahsia salah. Sila semak semula.");
       }
 
-      const childUser = users[0];
+      // 4. Ambil maklumat profil penuh murid yang sah selepas token berjaya dijana
+      const childUser = await base44.auth.me();
 
-      // Sahkan akaun adalah murid
-      if (childUser.app_role !== "student" || !childUser.is_child_account) {
+      if (!childUser) {
+        throw new Error("Gagal memuatkan profil murid dari pelayan.");
+      }
+
+      // Sahkan peranan akaun untuk keselamatan portal murid
+      if (childUser.app_role !== "student") {
+        await base44.auth.signOut(); // Tendang keluar jika tersalah masuk
         throw new Error("Akaun ini bukan akaun murid.");
       }
 
-      // Semak akaun dikunci
-      if (childUser.account_locked) {
-        throw new Error("Akaun telah dikunci. Sila hubungi ibu bapa anda.");
-      }
-
-      // Semak PIN
-      if (childUser.pin_hash !== pin) {
-        throw new Error("PIN salah. Sila cuba lagi.");
-      }
-
-      // Simpan sesi anak dalam localStorage (format yang AuthContext kenali)
-      localStorage.setItem("studyquest_session", JSON.stringify({ userId: childUser.id }));
-      localStorage.setItem("studyquest_user", JSON.stringify(childUser));
+      // 5. Kekalkan state tambahan untuk kegunaan context UI frontend anda
       localStorage.setItem("active_student_id", childUser.id);
       localStorage.setItem("active_student_name", childUser.nickname || childUser.full_name || "Pelajar");
 
-      // Bawa terus ke dashboard anak!
-      window.location.href = "/dashboard";
+      // 6. Alihkan ke Dashboard secara 'Smooth' tanpa perlu hard reload halaman web
+      navigate("/dashboard");
 
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
-      
-      // Mengekstrak teks ralat secara selamat
-      let safeErrorMessage = "Username atau PIN salah. Sila semak semula.";
-      
-      if (err) {
-        if (typeof err === "string") {
-          safeErrorMessage = err;
-        } else if (err.message && typeof err.message === "string") {
-          safeErrorMessage = err.message;
-        } else {
-          try {
-            safeErrorMessage = err.message ? String(err.message) : JSON.stringify(err);
-          } catch (e) {
-            safeErrorMessage = "Ralat sistem semasa mendaftar masuk.";
-          }
-        }
-      }
-      
-      setError(safeErrorMessage);
+      setError(err?.message || "Username atau PIN salah. Sila semak semula.");
     } finally {
       setLoading(false);
     }
@@ -116,7 +101,7 @@ export default function ChildLogin() {
             <Input
               id="username"
               type="text"
-              placeholder="Contoh: ali_4021"
+              placeholder="Contoh: ali.a1b2c3"
               value={usernameInput}
               onChange={(e) => setUsernameInput(e.target.value)}
               className="pl-10 h-12 rounded-xl border-slate-200 text-sm font-medium"
@@ -154,7 +139,7 @@ export default function ChildLogin() {
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Mengesahkan Kod...
+              Meninggalkan Gerbang Portal...
             </>
           ) : (
             "Mula Belajar Sekarang ✨"
