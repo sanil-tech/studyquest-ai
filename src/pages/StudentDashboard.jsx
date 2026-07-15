@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import LessonProgress from "../components/lesson/LessonProgress";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
