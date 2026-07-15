@@ -1,4 +1,5 @@
-import { useState } from "react";
+// src/components/AddChildModal.jsx
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { UserPlus, Loader2, KeyRound, CheckCircle2, Sparkles, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
     const message = `🌟 Maklumat Log Masuk StudyQuest Untuk Anak Anda 🌟\n\nNama: ${nickname || fullName}\nUsername: ${createdUsername}\nPIN: ${pin}\n\nLangkah Log Masuk:\n1. Buka aplikasi StudyQuest\n2. Pilih "Portal Murid"\n3. Masukkan Username & PIN di atas\n\nSimpan maklumat ini dengan selamat! 🔐`;
     navigator.clipboard.writeText(message).then(() => {
       setCopied(true);
-      toast({ title: "Disalin! 📋", description: "Maklumat log masuk telah disalin ke papan keratan." });
+      toast({ title: "Disalin! 📋", description: "Maklumat log masuk telah disalin." });
       setTimeout(() => setCopied(false), 3000);
     }).catch(() => {
       toast({ title: "Gagal Menyalin", description: "Sila salin secara manual.", variant: "destructive" });
@@ -39,65 +40,25 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
     setLoading(true);
     try {
-      // 1. Dapatkan maklumat akaun Ibu Bapa semasa
-      const me = await base44.auth.me();
-      if (!me?.id) throw new Error("Sesi log masuk ibu bapa tidak ditemui.");
-
-      const cleanNickname = (nickname || fullName.split(" ")[0]).trim();
-      const usernameMaya = `${cleanNickname.toLowerCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
-      const virtualEmail = `${usernameMaya}@studyquest.local`;
-
-      console.log("🚀 Mencipta profil murid berpandukan Skema JSON rasmi...");
-
-      // 2. Cipta akaun anak menggunakan medan skema yang betul (pin_hash, is_child_account)
-      const newStudent = await base44.entities.User.create({
-        full_name: fullName,           // 🎯 Simpan nama penuh anak
-        app_role: "student",
-        email: virtualEmail,           // 🎯 E-mel maya diperlukan oleh sistem
-        account_status: "active",
-        nickname: cleanNickname,
-        username: usernameMaya,
-        pin_hash: pin,                 // 🎯 Mengikut skema backend anda
-        pin_enabled: true,             // 🎯 Mengaktifkan log masuk PIN
-        login_method: "pin",           // 🎯 Set kaedah log masuk eksklusif PIN
-        is_child_account: true,        // 🎯 Menandakan akaun anak bawah umur
-        profile_completed: true,
-        parent_id: me.id,             // 🎯 Diperlukan oleh RLS User.read (data.parent_id)
-        linked_parent_id: me.id        // 🎯 Pautan terus ke ID Ibu Bapa
+      // ✅ PANGGIL BACKEND: Alihkan proses pendaftaran ke Edge Function yang selamat
+      const response = await base44.functions.invoke("create-child-account", {
+        body: {
+          fullName: fullName.trim(),
+          nickname: (nickname || fullName.split(" ")[0]).trim(),
+          pin: pin
+        }
       });
 
-      if (!newStudent?.id) {
-        throw new Error("Pelayan gagal menjana ID Murid baharu.");
-      }
+      if (response.error) throw new Error(response.error);
 
-      // 3. Kemaskini array linked_student_ids milik Ibu Bapa (Pautan 2 hala mengikut skema)
-      const currentLinkedIds = me.linked_student_ids || [];
-      await base44.entities.User.update(me.id, {
-        linked_student_ids: [...currentLinkedIds, newStudent.id]
-      });
-
-      // 4. Sediakan entiti sokongan akademik anak jika RLS membenarkan
-      try {
-        await base44.entities.Wallet.create({ student_id: newStudent.id, balance: 0 });
-        await base44.entities.Progress.create({ 
-          student_id: newStudent.id, 
-          total_xp: 0, 
-          level: 1, 
-          streak_days: 0, 
-          total_study_time: 0 
-        });
-      } catch (e) {
-        console.warn("Info: Entiti akademik tambahan diuruskan oleh pangkalan data.");
-      }
-
-      setCreatedUsername(usernameMaya);
+      setCreatedUsername(response.data.username);
       setIsSuccess(true);
 
     } catch (err) {
-      console.error("🚨 Ralat Pendaftaran Skema:", err);
+      console.error("Ralat Pendaftaran:", err);
       toast({
         title: "Pendaftaran Gagal 🛑",
-        description: err.message || "Gagal menyimpan data ke pelayan pangkalan data.",
+        description: err.message || "Gagal menghubungi pelayan untuk mencipta akaun.",
         variant: "destructive"
       });
     } finally {
