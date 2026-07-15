@@ -19,3 +19,9 @@
     "name"
   ]
 }
+"rls": {
+    "read": null,
+    "create": { "user_condition": { "app_role": { "$in": ["super_admin", "content_admin"] } } },
+    "update": { "user_condition": { "app_role": { "$in": ["super_admin", "content_admin"] } } },
+    "delete": { "user_condition": { "app_role": { "$in": ["super_admin", "content_admin"] } } }
+  }
