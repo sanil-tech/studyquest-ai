@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { UserPlus, Loader2, KeyRound, CheckCircle2, Sparkles } from "lucide-react";
+import { UserPlus, Loader2, KeyRound, CheckCircle2, Sparkles, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,7 +12,19 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false); 
   const [createdUsername, setCreatedUsername] = useState("");
+  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+
+  const handleCopyCredentials = () => {
+    const message = `🌟 Maklumat Log Masuk StudyQuest Untuk Anak Anda 🌟\n\nNama: ${nickname || fullName}\nUsername: ${createdUsername}\nPIN: ${pin}\n\nLangkah Log Masuk:\n1. Buka aplikasi StudyQuest\n2. Pilih "Portal Murid"\n3. Masukkan Username & PIN di atas\n\nSimpan maklumat ini dengan selamat! 🔐`;
+    navigator.clipboard.writeText(message).then(() => {
+      setCopied(true);
+      toast({ title: "Disalin! 📋", description: "Maklumat log masuk telah disalin ke papan keratan." });
+      setTimeout(() => setCopied(false), 3000);
+    }).catch(() => {
+      toast({ title: "Gagal Menyalin", description: "Sila salin secara manual.", variant: "destructive" });
+    });
+  };
 
   const handleRegisterChild = async (e) => {
     e.preventDefault();
@@ -204,6 +216,14 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
               </div>
               <p className="text-[10px] text-slate-400 font-medium text-center">Simpan Username & PIN ini untuk log masuk Portal Murid 🔐</p>
             </div>
+
+            <Button
+              onClick={handleCopyCredentials}
+              className={`w-full font-black rounded-xl text-xs h-10 border-0 transition-all flex items-center justify-center gap-2 ${copied ? "bg-emerald-500 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"}`}
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Telah Disalin!" : "Salin Maklumat Log Masuk"}
+            </Button>
 
             <div className="pt-2">
               <Button onClick={handleCloseModal} className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs h-10">
