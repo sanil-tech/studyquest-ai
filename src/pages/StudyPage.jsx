@@ -4,9 +4,9 @@ import { base44 } from "@/api/base44Client";
 import { useParams, Link } from "react-router-dom";
 import { 
   ArrowLeft, ChevronRight, BookOpen, FolderOpen, 
-  Map, Library, Leaf, TreePine, Sprout, Compass 
+  Map, Library, Leaf, Compass, Sparkles, Flame, Trophy, Lock, CheckCircle
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function StudyPage() {
   const { subjectId } = useParams();
@@ -17,12 +17,10 @@ export default function StudyPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // State untuk laci kabinet buku teks
   const [activeLibrarySubject, setActiveLibrarySubject] = useState(null);
 
   useEffect(() => {
     const load = async () => {
-      // PEMERKASAAN: Gunakan Promise.allSettled untuk API yang kebal ralat
       const results = await Promise.allSettled([
         base44.entities.Subject.list(),
         base44.entities.Textbook.list("-created_date", 50),
@@ -52,17 +50,11 @@ export default function StudyPage() {
     load();
   }, [subjectId]);
 
-  // Memoize filtered topics to avoid recalculation
   const filteredTopics = useMemo(() => {
-    if (!topics || !user) {
-      return topics || [];
-    }
+    if (!topics || !user) return topics || [];
     const userLevel = user.education_level || user.school_year;
-    if (!userLevel) {
-      return topics;
-    }
+    if (!userLevel) return topics;
     
-    // PEMERKASAAN: Penapisan kebal ralat huruf besar/kecil dan ruang kosong
     const safeUserLevel = userLevel.trim().toLowerCase();
     return topics.filter(t => {
       if (!t.form_level) return true;
@@ -83,7 +75,6 @@ export default function StudyPage() {
     setLoading(false);
   };
 
-  // Memoize grouped books to avoid recalculation on every render
   const booksBySubject = useMemo(() => {
     return textbooks.reduce((acc, book) => {
       if (!acc[book.subject_name]) acc[book.subject_name] = [];
@@ -92,80 +83,101 @@ export default function StudyPage() {
     }, {});
   }, [textbooks]);
 
-  const studentFirstName = user?.name ? user.name.split(" ")[0] : (user?.nickname || "Penjelajah");
+  const studentFirstName = user?.nickname || (user?.name ? user.name.split(" ")[0] : "Penjelajah");
+  
+  // 💥 KUNCI UTAMA: Tentukan dwi-tema berdasarkan kumpulan umur (7-12 Kid, 13-17 Teen)
+  const isKid = user?.age_group !== "teen";
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]">
-        <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-          <Leaf className="w-12 h-12 text-emerald-500" />
+      <div className={`flex flex-col items-center justify-center min-h-screen space-y-4 ${isKid ? "bg-[#FAFAF7]" : "bg-slate-950"}`}>
+        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}>
+          <Compass className={`w-12 h-12 ${isKid ? "text-emerald-600" : "text-emerald-400"}`} />
         </motion.div>
-        <p className="text-sm font-bold text-emerald-700/60 uppercase tracking-widest">Otan sedang sediakan peta...</p>
+        <p className={`text-xs font-black uppercase tracking-widest ${isKid ? "text-emerald-800/60" : "text-slate-500"}`}>
+          Otan sedang melakar garisan peta... 🦧
+        </p>
       </div>
     );
   }
 
   // =====================================================================
-  // VIEW 1: MAIN DASHBOARD (PILIHAN SUBJEK & PERPUSTAKAAN)
+  // VIEW 1: MAIN DASHBOARD (PILIHAN SUBJEK & KABINET BUKU TEKS)
   // =====================================================================
   if (!selectedSubject) {
     return (
-      <div className="min-h-screen bg-[#FAFAF7] font-sans pb-12 pt-6">
+      <div className={`min-h-screen font-sans pb-16 pt-6 transition-colors duration-500 ${
+        isKid ? "bg-gradient-to-b from-[#F4FBF7] to-[#FFFDE7]" : "bg-slate-950 text-slate-100"
+      }`}>
         <div className="space-y-8 max-w-5xl mx-auto px-4">
           
-          {/* HEADER: Nature Explorer Theme */}
-          <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 border border-emerald-800/20 overflow-hidden shadow-lg">
-            {/* Pantulan Cahaya Hutan */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          {/* BANNER UTAMA TEMA PENGEMBARA BORNEO */}
+          <div className={`relative rounded-[2.5rem] p-6 sm:p-10 border-b-[6px] overflow-hidden shadow-xl ${
+            isKid 
+              ? "bg-gradient-to-br from-emerald-600 to-green-700 border-green-900 text-white" 
+              : "bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 border-slate-800 text-slate-100"
+          }`}>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none" />
             
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-1.5 text-lime-900 font-extrabold text-[10px] uppercase tracking-widest bg-lime-400 px-3 py-1 rounded-full w-max shadow-sm">
-                  <Leaf className="w-3.5 h-3.5 fill-current" /> Peta Penjelajahan Ilmu
+              <div className="space-y-2">
+                <div className={`flex items-center gap-1.5 font-black text-[10px] uppercase tracking-widest px-3 py-1 rounded-full w-max shadow-sm ${
+                  isKid ? "bg-lime-400 text-lime-950" : "bg-slate-800 text-emerald-400"
+                }`}>
+                  <Leaf className="w-3.5 h-3.5 fill-current" /> Peta Penjelajahan Rimba Ilmu
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-sm mt-2">
+                <h1 className="text-2xl sm:text-4xl font-black tracking-tight drop-shadow-sm pt-1">
                   Sedia untuk teroka, {studentFirstName}? 🗺️
                 </h1>
-                <p className="text-emerald-50 font-medium text-sm sm:text-base mt-1 max-w-lg">
-                  Pilih dahan subjek di bawah untuk capai matlamat <span className="font-bold text-lime-300">{user?.education_level || user?.school_year || "tahap anda"}</span> hari ini!
+                <p className={`text-xs sm:text-sm max-w-lg font-medium ${isKid ? "text-emerald-50" : "text-slate-400"}`}>
+                  Pilih dahan subjek di bawah untuk memulakan ekspedisi ilmu bagi tahap <span className="font-bold text-lime-300 uppercase">{user?.education_level || "Pelajar"}</span> hari ini!
                 </p>
               </div>
               
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner flex items-center justify-center text-5xl shrink-0 self-start">
-                🦧 {/* Maskot Otan */}
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 shadow-inner flex items-center justify-center text-5xl shrink-0 self-start sm:self-center transform rotate-3 animate-pulse">
+                🦧
               </div>
             </div>
           </div>
 
-          {/* GRID SUBJEK */}
-          <div>
-            <h2 className="text-lg font-black text-stone-700 mb-4 flex items-center gap-2">
-              <Compass className="w-5 h-5 text-emerald-600" />
-              <span>Laluan Subjek</span>
+          {/* GRID PILIHAN SUBJEK (DUOLINGO GAMES MENU METAPHOR) */}
+          <div className="space-y-4">
+            <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 px-1">
+              <Compass className="w-4 h-4 text-emerald-500" /> Laluan Ekspedisi Subjek
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {subjects.map((sub, i) => {
-                const themeColor = sub.color || "#10B981"; // Default Emerald
+                const themeColor = sub.color || "#10B981";
                 return (
                   <motion.button
                     key={sub.id}
-                    initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                    transition={{ type: "spring", stiffness: 120, delay: i * 0.03 }}
-                    whileHover={{ y: -6, scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    whileHover={{ y: -6, scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => handleSelectSubject(sub)}
-                    className="group relative p-5 rounded-[2rem] bg-white border border-emerald-100 hover:border-emerald-300 transition-all text-center flex flex-col items-center justify-center shadow-sm hover:shadow-md"
+                    className={`group relative p-6 rounded-[2.5rem] border-2 transition-all text-center flex flex-col items-center justify-center shadow-xs hover:shadow-md ${
+                      isKid 
+                        ? "bg-white border-emerald-100 hover:border-emerald-400" 
+                        : "bg-slate-900 border-slate-800 hover:border-emerald-500/50"
+                    }`}
                   >
                     <div 
-                      className="w-16 h-16 rounded-2xl mb-3 flex items-center justify-center text-4xl shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 border border-transparent"
+                      className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center text-4xl shadow-inner transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
                       style={{ backgroundColor: `${themeColor}15` }}
                     >
                       {sub.icon || "🌿"}
                     </div>
-                    <h3 className="font-black text-sm sm:text-base text-stone-800 tracking-tight leading-snug">
+                    <h3 className={`font-black text-sm sm:text-base tracking-tight leading-snug ${!isKid && "text-white"}`}>
                       {sub.name}
                     </h3>
-                    <div className="mt-3 px-3 py-1 bg-[#F3EFE6] rounded-full text-[11px] font-bold text-stone-500 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                      Teroka ➜
+                    <div className={`mt-4 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors border ${
+                      isKid 
+                        ? "bg-slate-50 border-slate-100 text-slate-500 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-transparent" 
+                        : "bg-slate-950 border-slate-800 text-slate-400 group-hover:bg-emerald-500 group-hover:text-slate-950 group-hover:border-transparent"
+                    }`}>
+                      Mula Teroka ➜
                     </div>
                   </motion.button>
                 );
@@ -173,69 +185,77 @@ export default function StudyPage() {
             </div>
           </div>
 
-          {/* PERPUSTAKAAN (Library Cabinets) */}
+          {/* PERPUSTAKAAN DAUN TUALANG (KHAN ACADEMY LOCKER STYLE) */}
           {textbooks.length > 0 && (
-            <div className="bg-[#F3EFE6] rounded-[2rem] border border-[#E3D9C6] p-6 sm:p-8">
+            <Card className={`p-6 sm:p-8 rounded-[2.5rem] border shadow-xs ${
+              isKid ? "bg-[#F4F1E9] border-[#E2DCCE]" : "bg-slate-900 border-slate-800"
+            }`}>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-amber-600 flex items-center justify-center text-white shadow-sm shrink-0">
-                  <Library className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-md shrink-0">
+                  <Library className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="font-black text-stone-800 text-lg">Perpustakaan Daun Tualang</h2>
-                  <p className="text-xs sm:text-sm text-stone-500 font-medium">Buka folder subjek untuk membaca buku teks digital anda.</p>
+                  <h2 className={`font-black text-base sm:text-lg ${!isKid && "text-white"}`}>Perpustakaan Daun Tualang</h2>
+                  <p className="text-xs text-slate-400 font-medium">Klik pada subjek untuk mengeluarkan lembaran buku teks digital rasmi.</p>
                 </div>
               </div>
 
-              {/* Folder Susunan */}
+              {/* Grid Folder Kabinet */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {Object.keys(booksBySubject).map((subjectName) => (
-                  <button
-                    key={subjectName}
-                    onClick={() => setActiveLibrarySubject(activeLibrarySubject === subjectName ? null : subjectName)}
-                    className={`flex items-center justify-between p-4 rounded-xl border transition-all text-left ${
-                      activeLibrarySubject === subjectName 
-                        ? "bg-amber-100/50 border-amber-300 shadow-sm" 
-                        : "bg-white border-[#E3D9C6] hover:border-amber-300 hover:shadow-sm"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <FolderOpen className={`w-5 h-5 shrink-0 ${activeLibrarySubject === subjectName ? 'text-amber-700' : 'text-stone-400'}`} />
-                      <div className="min-w-0">
-                        <p className="font-bold text-xs sm:text-sm text-stone-800 truncate">{subjectName}</p>
-                        <p className="text-[11px] text-stone-500 font-medium">{booksBySubject[subjectName].length} Buku</p>
+                {Object.keys(booksBySubject).map((subjectName) => {
+                  const isActive = activeLibrarySubject === subjectName;
+                  return (
+                    <button
+                      key={subjectName}
+                      onClick={() => setActiveLibrarySubject(isActive ? null : subjectName)}
+                      className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left ${
+                        isActive
+                          ? isKid ? "bg-white border-amber-400 shadow-md" : "bg-slate-950 border-emerald-500 shadow-md"
+                          : isKid ? "bg-white/80 border-[#E2DCCE] hover:border-amber-400" : "bg-slate-950/40 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <FolderOpen className={`w-5 h-5 shrink-0 ${isActive ? 'text-amber-600' : 'text-slate-400'}`} />
+                        <div className="min-w-0">
+                          <p className={`font-black text-xs sm:text-sm truncate ${!isKid && "text-slate-200"}`}>{subjectName}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{booksBySubject[subjectName].length} Naskah</p>
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight className={`w-4 h-4 text-stone-400 transition-transform ${activeLibrarySubject === subjectName ? "rotate-90 text-amber-700" : ""}`} />
-                  </button>
-                ))}
+                      <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${isActive ? "rotate-90 text-amber-600" : ""}`} />
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Kandungan Folder Beranimasi */}
-              {activeLibrarySubject && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-4 bg-white rounded-2xl border border-amber-200/70 grid grid-cols-1 sm:grid-cols-2 gap-3"
-                >
-                  {booksBySubject[activeLibrarySubject].map((book) => (
-                    <a
-                      key={book.id}
-                      href={book.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3 rounded-xl bg-[#FAFAF7] border border-transparent hover:border-amber-200 hover:bg-amber-50/50 transition-colors group"
-                    >
-                      <div className="min-w-0 pr-2">
-                        <p className="font-bold text-xs sm:text-sm text-stone-800 truncate group-hover:text-amber-800">{book.title}</p>
-                        <p className="text-[10px] text-stone-500 font-semibold">{book.form_level || "Umum"}</p>
-                      </div>
-                      <span className="text-[11px] font-bold bg-white px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 group-hover:border-amber-300 group-hover:text-amber-700 shrink-0 whitespace-nowrap">
-                        Buku 📖
-                      </span>
-                    </a>
-                  ))}
-                </motion.div>
-              )}
-            </div>
+              {/* Paparan Dokumen Buku Di Bawah Laci */}
+              <AnimatePresence>
+                {activeLibrarySubject && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                    className={`mt-4 p-4 rounded-2xl border-2 grid grid-cols-1 sm:grid-cols-2 gap-3 ${
+                      isKid ? "bg-white border-amber-200" : "bg-slate-950 border-slate-800"
+                    }`}
+                  >
+                    {booksBySubject[activeLibrarySubject].map((book) => (
+                      <a
+                        key={book.id} href={book.file_url} target="_blank" rel="noopener noreferrer"
+                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all group ${
+                          isKid ? "bg-slate-50 hover:bg-amber-50/50 hover:border-amber-300 border-transparent" : "bg-slate-900 hover:bg-slate-800 border-transparent hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="min-w-0 pr-3">
+                          <p className={`font-bold text-xs sm:text-sm truncate ${isKid ? "text-slate-800 group-hover:text-amber-900" : "text-slate-300 group-hover:text-white"}`}>{book.title}</p>
+                          <span className="inline-block text-[9px] font-black uppercase tracking-wider text-slate-400 mt-1">{book.form_level || "Umum"}</span>
+                        </div>
+                        <span className={`text-[10px] font-black bg-white px-3 py-1.5 rounded-lg border text-slate-600 group-hover:scale-103 shadow-xs shrink-0 transition-transform ${!isKid && "bg-slate-800 border-slate-700 text-slate-300"}`}>
+                          Buka PDF 📖
+                        </span>
+                      </a>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Card>
           )}
         </div>
       </div>
@@ -243,125 +263,148 @@ export default function StudyPage() {
   }
 
   // =====================================================================
-  // VIEW 2: ROADMAP SELECTION (CHAPTERS)
+  // VIEW 2: MAP / PATHWAY BOARD (TAMPILAN STEPPING CHAPTERS ZIG-ZAG)
   // =====================================================================
   const subjectThemeColor = selectedSubject.color || "#10B981";
   const subjectBooks = textbooks.filter(b => b.subject_id === selectedSubject.id);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7] font-sans pb-12 pt-6">
-      <div className="space-y-6 max-w-3xl mx-auto px-4">
+    <div className={`min-h-screen font-sans pb-20 pt-6 transition-colors duration-500 ${
+      isKid ? "bg-gradient-to-b from-sky-50 via-[#F4FBF7] to-lime-50" : "bg-slate-950 text-slate-100"
+    }`}>
+      <div className="max-w-2xl mx-auto px-4 space-y-8">
         
-        {/* Navigation Title Bar (Wooden Theme) */}
-        <div className="flex items-center gap-4 bg-white p-4 rounded-[1.5rem] border border-emerald-100 shadow-sm">
+        {/* TOP COMPASS NAVBAR BAR */}
+        <div className={`flex items-center gap-4 p-4 rounded-[2rem] border transition-all shadow-sm ${
+          isKid ? "bg-white border-emerald-100" : "bg-slate-900 border-slate-800"
+        }`}>
           <button 
             onClick={() => setSelectedSubject(null)}
-            className="p-3 rounded-xl bg-[#F3EFE6] text-stone-600 hover:bg-[#E3D9C6] transition-transform active:scale-95 shrink-0"
+            className={`p-3 rounded-xl transition-transform active:scale-95 shrink-0 shadow-xs border ${
+              isKid ? "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100" : "bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-900"
+            }`}
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">{selectedSubject.icon || "🌿"}</span>
-              <h1 className="text-xl sm:text-2xl font-black text-stone-800">
+              <span className="text-2xl shrink-0">{selectedSubject.icon || "🌿"}</span>
+              <h1 className={`text-lg sm:text-xl font-black tracking-tight truncate ${!isKid && "text-white"}`}>
                 {selectedSubject.name}
               </h1>
             </div>
-            <p className="text-stone-500 text-xs font-medium">Pilih bab dari peta laluan di bawah untuk mulakan misi!</p>
+            <p className="text-slate-400 text-[11px] font-semibold uppercase tracking-wide mt-0.5">
+              Laluan Pendakian Gunung Kinabalu Ilmu ⛰️
+            </p>
           </div>
         </div>
 
-        {filteredTopics.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-[2rem] border border-emerald-100 max-w-md mx-auto shadow-sm">
-            <span className="text-5xl block mb-4">🦧</span>
-            <h3 className="font-black text-stone-800 text-lg">Misi Dalam Pembinaan!</h3>
-            <p className="text-stone-500 text-sm max-w-xs mx-auto mt-2 px-4">
-              Otan sedang bertungkus-lumus membina laluan untuk bab ini. Nantikan kemunculannya, {studentFirstName}!
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            
-            {/* Shortcut Buku Teks */}
-            {subjectBooks.length > 0 && (
-              <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">📗</span>
-                  <p className="text-sm font-bold text-amber-900">Perlukan rujukan buku teks?</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {subjectBooks.map(book => (
-                    <a
-                      key={book.id}
-                      href={book.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] font-bold bg-white text-amber-800 border border-amber-300 px-3 py-1.5 rounded-lg hover:bg-amber-100 shadow-sm whitespace-nowrap"
-                    >
-                      Buka {book.form_level || "Buku"} ➜
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Peta Laluan (Roadmap List) */}
-            <div className="space-y-3 relative">
-              {/* Garis menjalar (Vine line) di belakang nombor */}
-              <div className="absolute left-7 top-6 bottom-6 w-1 bg-emerald-200 rounded-full z-0 hidden sm:block" />
-
-              <div className="flex items-center justify-between px-1 mb-2 relative z-10">
-                <span className="text-xs font-black tracking-wider text-stone-400 uppercase">Peta Misi Bab</span>
-                <span className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full font-bold">
-                  {filteredTopics.length} Cabaran
-                </span>
-              </div>
-
-              {filteredTopics.map((topic, i) => (
-                <motion.div
-                  key={topic.id}
-                  initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ type: "spring", stiffness: 100, delay: i * 0.03 }}
-                  className="relative z-10"
+        {/* REKOD BUKU RUJUKAN PINTAS JIKA WUJUD */}
+        {subjectBooks.length > 0 && (
+          <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs ${
+            isKid ? "bg-amber-50/70 border-amber-200" : "bg-slate-900/40 border-slate-800"
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📗</span>
+              <p className={`text-xs font-black ${isKid ? "text-amber-900" : "text-slate-300"}`}>Buku Teks Rujukan Pantas Khas:</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {subjectBooks.map(book => (
+                <a
+                  key={book.id} href={book.file_url} target="_blank" rel="noopener noreferrer"
+                  className={`text-[10px] font-black uppercase tracking-wider border px-3 py-1.5 rounded-xl shadow-xs transition-colors ${
+                    isKid ? "bg-white text-amber-800 border-amber-200 hover:bg-amber-50" : "bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-900"
+                  }`}
                 >
-                  <Link
-                    to={`/study/${selectedSubject.id}/${topic.id}`}
-                    className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-emerald-100 hover:border-emerald-400 transition-all group shadow-sm hover:shadow-md relative overflow-hidden"
-                  >
-                    {/* Left color accent block */}
-                    <div 
-                      className="absolute left-0 top-0 bottom-0 w-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ backgroundColor: subjectThemeColor }}
-                    />
-
-                    {/* Circle Node (Tree mark) */}
-                    <div 
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full font-black text-sm sm:text-base flex items-center justify-center shrink-0 border-4 bg-white relative"
-                      style={{ 
-                        borderColor: `${subjectThemeColor}40`,
-                        color: subjectThemeColor 
-                      }}
-                    >
-                      {i + 1}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-sm sm:text-base text-stone-800 tracking-tight truncate group-hover:text-emerald-700 transition-colors">
-                        {topic.name}
-                      </h3>
-                      {topic.form_level && (
-                        <span className="inline-block text-[10px] font-extrabold bg-[#F3EFE6] text-stone-500 px-2.5 py-0.5 rounded-md mt-1.5 border border-[#E3D9C6]">
-                          {topic.form_level}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-all transform group-hover:scale-110 shrink-0">
-                      <Map className="w-5 h-5" />
-                    </div>
-                  </Link>
-                </motion.div>
+                  Buka {book.form_level || "Manual"} ➜
+                </a>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* PETA LALUAN BERLIAS DUOLINGO (ZIG-ZAG STEPPING PATHWAY) */}
+        {filteredTopics.length === 0 ? (
+          <Card className={`text-center py-16 rounded-[2.5rem] border max-w-sm mx-auto shadow-sm ${
+            isKid ? "bg-white border-emerald-100" : "bg-slate-900 border-slate-800"
+          }`}>
+            <span className="text-5xl block mb-4 animate-bounce">🦧</span>
+            <h3 className={`font-black text-base ${!isKid && "text-white"}`}>Misi Dalam Pembinaan!</h3>
+            <p className="text-slate-400 text-xs font-medium max-w-xs mx-auto mt-2 px-6 leading-relaxed">
+              Toko Otan sedang menyusun ranting-ranting kayu untuk bab ini. Sebentar ya, {studentFirstName}!
+            </p>
+          </Card>
+        ) : (
+          <div className="relative py-4 flex flex-col items-center">
+            
+            {/* Teras Batang Pokok / Tali Menjalar di Bahagian Tengah Belakang */}
+            <div 
+              className="absolute top-10 bottom-10 w-2 rounded-full z-0 pointer-events-none shadow-inner" 
+              style={{ backgroundColor: `${subjectThemeColor}20` }}
+            />
+
+            <div className="w-full space-y-12 relative z-10">
+              {filteredTopics.map((topic, i) => {
+                // Formula matematik untuk hasilkan susunan melengkung zig-zag kiri/tengah/kanan (Duolingo Path Layout)
+                const positionStyles = [
+                  "sm:justify-start sm:pl-12",   // Kiri
+                  "sm:justify-center",           // Tengah
+                  "sm:justify-end sm:pr-12",     // Kanan
+                  "sm:justify-center"            // Tengah
+                ];
+                const alignmentClass = positionStyles[i % 4];
+
+                return (
+                  <motion.div
+                    key={topic.id}
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 100, delay: i * 0.04 }}
+                    className={`flex justify-center ${alignmentClass} w-full`}
+                  >
+                    <Link
+                      to={`/study/${selectedSubject.id}/${topic.id}`}
+                      className="group flex flex-col items-center text-center relative max-w-[240px]"
+                    >
+                      {/* STEPPING STONE NODE BUTTON */}
+                      <motion.div
+                        whileHover={{ scale: 1.1, rotate: 2 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="w-20 h-20 rounded-full border-[6px] flex flex-col items-center justify-center font-mono font-black text-lg shadow-lg relative bg-white transition-all border-b-[10px]"
+                        style={{ 
+                          borderColor: subjectThemeColor,
+                          color: subjectThemeColor,
+                          boxShadow: `0 10px 20px ${subjectThemeColor}20`
+                        }}
+                      >
+                        {/* Hiasan Puncak Daun Kecil Di Atas Node */}
+                        <Leaf className="w-3.5 h-3.5 absolute -top-3.5 text-emerald-500 fill-emerald-400 rotate-12 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        
+                        <span className="text-xl group-hover:scale-110 transition-transform">{i + 1}</span>
+                        
+                        {/* Lencana Selesai / Kunci Kecil Terapung */}
+                        <div className="absolute -bottom-1 -right-1 bg-white p-0.5 rounded-full shadow-md border">
+                          <Map className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                        </div>
+                      </motion.div>
+
+                      {/* PAPAN TEXT BANNER DI BAWAH NODE */}
+                      <div className={`mt-3 px-4 py-2 rounded-2xl border shadow-xs group-hover:shadow-md transition-all max-w-[200px] ${
+                        isKid ? "bg-white border-slate-100" : "bg-slate-900 border-slate-800"
+                      }`}>
+                        <h4 className={`text-xs font-black tracking-tight truncate w-full group-hover:text-emerald-500 transition-colors ${!isKid && "text-slate-200"}`}>
+                          {topic.name}
+                        </h4>
+                        {topic.form_level && (
+                          <span className="text-[9px] font-black uppercase tracking-wider opacity-60 mt-0.5 block truncate">
+                            {topic.form_level}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
         )}
