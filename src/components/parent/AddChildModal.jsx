@@ -91,9 +91,6 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       }
 
       setCreatedUsername(usernameMaya);
-      if (typeof onChildAdded === "function") {
-        onChildAdded(); 
-      }
       setIsSuccess(true);
 
     } catch (err) {
@@ -109,12 +106,16 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
   };
 
   const handleCloseModal = () => {
+    const wasSuccess = isSuccess;
     setFullName("");
     setNickname("");
     setPin("");
     setCreatedUsername("");
     setIsSuccess(false);
     onOpenChange(false);
+    if (wasSuccess && typeof onChildAdded === "function") {
+      onChildAdded();
+    }
   };
 
   return (
