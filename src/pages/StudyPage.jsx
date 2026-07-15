@@ -7,6 +7,7 @@ import {
   Map, Library, Leaf, Compass, Sparkles, Flame, Trophy, Lock, CheckCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Card } from "@/components/ui/card";
 
 export default function StudyPage() {
   const { subjectId } = useParams();
