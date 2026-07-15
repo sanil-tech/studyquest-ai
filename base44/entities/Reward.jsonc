@@ -36,5 +36,71 @@
     "student_id",
     "title",
     "coin_cost"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "app_role": "super_admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": "{{user.data.student_id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "app_role": {
+              "$in": [
+                "super_admin",
+                "school_admin"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "app_role": "super_admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "app_role": "super_admin"
+          }
+        }
+      ]
+    }
+  }
 }
