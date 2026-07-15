@@ -33,6 +33,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
       const cleanNickname = (nickname || fullName.split(" ")[0]).trim();
       const usernameMaya = `${cleanNickname.toLowerCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
+      const virtualEmail = `${usernameMaya}@studyquest.local`;
 
       console.log("🚀 Mencipta profil murid berpandukan Skema JSON rasmi...");
 
@@ -40,6 +41,8 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       const newStudent = await base44.entities.User.create({
         full_name: fullName,           // 🎯 Simpan nama penuh anak
         app_role: "student",
+        email: virtualEmail,           // 🎯 E-mel maya diperlukan oleh sistem
+        account_status: "active",
         nickname: cleanNickname,
         username: usernameMaya,
         pin_hash: pin,                 // 🎯 Mengikut skema backend anda
