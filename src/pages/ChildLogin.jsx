@@ -20,39 +20,47 @@ export default function ChildLogin() {
     setLoading(true);
 
     try {
-      const inputVal = usernameInput.trim().toLowerCase();
-      
-      if (!inputVal) {
+      const cleanUsername = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+
+      if (!cleanUsername) {
         throw new Error("Sila masukkan Username anda.");
       }
       if (pin.length !== 4) {
         throw new Error("PIN mestilah tepat 4 digit angka.");
       }
 
-      console.log("🚀 Menghubungi sistem Edge Function auth pelayan...");
+      // Cari akaun murid berdasarkan username (token ibu bapa digunakan untuk akses RLS)
+      const users = await base44.entities.User.filter({ username: cleanUsername });
 
-      // 🎯 KEMBALI KEPADA LOGIK ASAL ANDA: 
-      // Menggunakan format e-mel maya untuk memintas sekatan RLS
-      const fakeEmail = inputVal.includes("@") 
-        ? inputVal 
-        : `child-${inputVal}@studyquest.local`;
-
-      // 🎯 PENTING: Kita jadikan PIN 4-digit tersebut sebagai "password" untuk sistem auth pelayan
-      await base44.auth.loginViaEmailPassword(fakeEmail, pin);
-
-      // Ambil data maklumat murid untuk mengesahkan sesi aktif
-      const user = await base44.auth.me();
-
-      if (user) {
-        // (Pilihan) Simpan nama untuk paparan dashboard anak jika perlu
-        localStorage.setItem("active_student_id", user.id);
-        localStorage.setItem("active_student_name", user.nickname || "Pelajar");
-        
-        // Bawa terus ke dashboard anak!
-        window.location.href = "/dashboard";
-      } else {
-        throw new Error("Gagal memuatkan profil murid dari pelayan.");
+      if (!users || users.length === 0) {
+        throw new Error("Username tidak dijumpai. Sila semak dengan ibu bapa anda.");
       }
+
+      const childUser = users[0];
+
+      // Sahkan akaun adalah murid
+      if (childUser.app_role !== "student" || !childUser.is_child_account) {
+        throw new Error("Akaun ini bukan akaun murid.");
+      }
+
+      // Semak akaun dikunci
+      if (childUser.account_locked) {
+        throw new Error("Akaun telah dikunci. Sila hubungi ibu bapa anda.");
+      }
+
+      // Semak PIN
+      if (childUser.pin_hash !== pin) {
+        throw new Error("PIN salah. Sila cuba lagi.");
+      }
+
+      // Simpan sesi anak dalam localStorage (format yang AuthContext kenali)
+      localStorage.setItem("studyquest_session", JSON.stringify({ userId: childUser.id }));
+      localStorage.setItem("studyquest_user", JSON.stringify(childUser));
+      localStorage.setItem("active_student_id", childUser.id);
+      localStorage.setItem("active_student_name", childUser.nickname || childUser.full_name || "Pelajar");
+
+      // Bawa terus ke dashboard anak!
+      window.location.href = "/dashboard";
 
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);

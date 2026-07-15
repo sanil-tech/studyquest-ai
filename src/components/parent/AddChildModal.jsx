@@ -11,6 +11,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
   const [pin, setPin] = useState(""); 
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false); 
+  const [createdUsername, setCreatedUsername] = useState("");
   const { toast } = useToast();
 
   const handleRegisterChild = async (e) => {
@@ -37,6 +38,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
       // 2. Cipta akaun anak menggunakan medan skema yang betul (pin_hash, is_child_account)
       const newStudent = await base44.entities.User.create({
+        full_name: fullName,           // 🎯 Simpan nama penuh anak
         app_role: "student",
         nickname: cleanNickname,
         username: usernameMaya,
@@ -45,6 +47,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
         login_method: "pin",           // 🎯 Set kaedah log masuk eksklusif PIN
         is_child_account: true,        // 🎯 Menandakan akaun anak bawah umur
         profile_completed: true,
+        parent_id: me.id,             // 🎯 Diperlukan oleh RLS User.read (data.parent_id)
         linked_parent_id: me.id        // 🎯 Pautan terus ke ID Ibu Bapa
       });
 
@@ -72,6 +75,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
         console.warn("Info: Entiti akademik tambahan diuruskan oleh pangkalan data.");
       }
 
+      setCreatedUsername(usernameMaya);
       if (typeof onChildAdded === "function") {
         onChildAdded(); 
       }
@@ -93,6 +97,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
     setFullName("");
     setNickname("");
     setPin("");
+    setCreatedUsername("");
     setIsSuccess(false);
     onOpenChange(false);
   };
@@ -174,11 +179,17 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
               <p className="text-xs text-slate-400 font-medium mt-1">Akaun ekspres telah didaftarkan dengan selamat ke dalam sistem utama.</p>
             </div>
 
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50/60 border border-orange-100 p-4 rounded-2xl text-left space-y-2 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50/60 border border-orange-100 p-4 rounded-2xl text-left space-y-3 relative overflow-hidden">
               <div className="absolute -right-6 -bottom-6 text-orange-200/40 font-black text-6xl select-none">🦖</div>
               <div className="text-xs">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Petualang Cilik</p>
                 <p className="font-black text-slate-700 text-sm mt-0.5 uppercase">{nickname || fullName}</p>
+              </div>
+              <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-orange-100/80">
+                <div>
+                  <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Username Log Masuk</p>
+                  <p className="text-base font-black tracking-wide text-slate-800 mt-0.5 font-mono">{createdUsername}</p>
+                </div>
               </div>
               <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-orange-100/80">
                 <div>
@@ -188,6 +199,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
                   <p className="text-xl font-black tracking-[0.4em] text-slate-800 mt-0.5">{pin}</p>
                 </div>
               </div>
+              <p className="text-[10px] text-slate-400 font-medium text-center">Simpan Username & PIN ini untuk log masuk Portal Murid 🔐</p>
             </div>
 
             <div className="pt-2">
