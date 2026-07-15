@@ -1,95 +1,98 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { motion } from "framer-motion";
-import { Coins, Zap, Trophy, ArrowLeft, Loader2, Home, RotateCcw } from "lucide-react";
+import { useParams, Link } from "react-router-dom";
+import { Trophy, Coins, Zap, RotateCcw, ArrowRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import confetti from "canvas-confetti";
+import ReactMarkdown from "react-markdown";
+import { motion } from "framer-motion";
+import Celebration from "@/components/celebration/Celebration";
 
 export default function QuizResult() {
   const { attemptId } = useParams();
   const [attempt, setAttempt] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    const loadAttempt = async () => {
-      try {
-        const data = await base44.entities.QuizAttempt.get(attemptId);
-        setAttempt(data);
-        if (data?.score >= 50) {
-          confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-        }
-      } catch (err) {
-        setError(err.message || "Gagal memuatkan keputusan kuiz.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadAttempt();
+    base44.entities.QuizAttempt.get(attemptId).then(a => {
+      setAttempt(a);
+      setLoading(false);
+    });
   }, [attemptId]);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground mt-3 font-bold">Memuatkan keputusan...</p>
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (error || !attempt) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
-        <p className="text-sm text-destructive font-bold mb-4">{error || "Keputusan tidak dijumpai."}</p>
-        <Link to="/dashboard">
-          <Button variant="outline" className="rounded-xl">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Dashboard
-          </Button>
-        </Link>
-      </div>
-    );
-  }
-
-  const score = attempt.score || 0;
-  const isPass = score >= 50;
+  const score = attempt?.score || 0;
+  const isGreat = score >= 80;
+  const isPerfect = score === 100;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div className="space-y-6">
+      <Celebration active={isPerfect} />
+      {/* Score Hero */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center"
-      >
-        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${isPass ? "bg-emerald-50" : "bg-orange-50"}`}>
-          <Trophy className={`w-10 h-10 ${isPass ? "text-emerald-500" : "text-orange-500"}`} />
-        </div>
-        <h1 className="text-2xl font-black text-stone-800">
-          {isPass ? "Tahniah! Misi Selesai! 🎉" : "Teruskan Berusaha! 💪"}
-        </h1>
-        <p className="text-sm text-muted-foreground font-medium mt-1">
-          {attempt.topic_name} • {attempt.subject_name}
-        </p>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-2xl p-6 border-2 border-stone-200 shadow-sm text-center"
+        className={`rounded-3xl p-8 text-center relative overflow-hidden ${
+          isPerfect
+            ? "bg-gradient-to-br from-amber-400 to-orange-500"
+            : isGreat
+              ? "bg-gradient-to-br from-emerald-400 to-teal-500"
+              : "bg-gradient-to-br from-primary to-indigo-600"
+        }`}
       >
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Skor Akhir</p>
-        <p className={`text-5xl font-black ${isPass ? "text-emerald-600" : "text-orange-500"}`}>{Math.round(score)}%</p>
-        <div className="mt-3 h-2 bg-stone-100 rounded-full overflow-hidden">
+        <div className="relative z-10">
           <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${score}%` }}
-            transition={{ delay: 0.4, duration: 0.8 }}
-            className={`h-full rounded-full ${isPass ? "bg-emerald-500" : "bg-orange-400"}`}
-          />
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="text-6xl mb-3"
+          >
+            {isPerfect ? "🏆" : isGreat ? "🌟" : "💪"}
+          </motion.div>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-white/80 text-sm font-medium mb-1"
+          >
+            {attempt?.topic_name}
+          </motion.p>
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="text-5xl font-heading font-bold text-white mb-2"
+          >
+            {score}%
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-white/90 font-medium"
+          >
+            {isPerfect ? "Perfect Score!" : isGreat ? "Great Job!" : "Keep Going!"}
+          </motion.p>
+        </div>
+        <div className="absolute inset-0 opacity-10">
+          {[...Array(20)].map((_, i) => (
+            <Star key={i} className="absolute text-white" style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              width: `${Math.random() * 20 + 10}px`,
+              transform: `rotate(${Math.random() * 360}deg)`,
+            }} />
+          ))}
         </div>
       </motion.div>
 
+      {/* Rewards earned */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -98,42 +101,48 @@ export default function QuizResult() {
       >
         <div className="bg-amber-50 rounded-2xl p-4 text-center border border-amber-100">
           <Coins className="w-6 h-6 text-amber-500 mx-auto mb-1" />
-          <p className="text-2xl font-bold text-amber-700">+{attempt.coins_earned || 0}</p>
-          <p className="text-xs text-amber-500">Syiling Diperoleh</p>
+          <p className="text-2xl font-bold text-amber-700">+{attempt?.coins_earned || 0}</p>
+          <p className="text-xs text-amber-500">Coins Earned</p>
         </div>
         <div className="bg-purple-50 rounded-2xl p-4 text-center border border-purple-100">
           <Zap className="w-6 h-6 text-purple-500 mx-auto mb-1" />
-          <p className="text-2xl font-bold text-purple-700">+{attempt.xp_earned || Math.round(score / 10)}</p>
-          <p className="text-xs text-purple-500">XP Diperoleh</p>
+          <p className="text-2xl font-bold text-purple-700">+{Math.round(score / 2)}</p>
+          <p className="text-xs text-purple-500">XP Earned</p>
         </div>
       </motion.div>
 
-      {attempt.feedback_text && (
+      {/* AI Feedback */}
+      {attempt?.feedback_text && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="bg-indigo-50 rounded-2xl p-5 border border-indigo-100"
+          transition={{ delay: 0.7 }}
+          className="bg-white rounded-2xl p-5 border border-border/50"
         >
-          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-wider mb-2">💬 Maklum Balas Cikgu Otan</p>
-          <p className="text-sm text-indigo-900 font-medium leading-relaxed">{attempt.feedback_text}</p>
+          <h3 className="font-heading font-semibold mb-3 flex items-center gap-2">
+            <span className="text-lg">🤖</span> AI Feedback
+          </h3>
+          <div className="prose prose-sm max-w-none text-muted-foreground">
+            <ReactMarkdown>{attempt.feedback_text}</ReactMarkdown>
+          </div>
         </motion.div>
       )}
 
+      {/* Actions */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1 }}
-        className="flex gap-3"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="space-y-3"
       >
-        <Link to="/dashboard" className="flex-1">
-          <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl border-0">
-            <Home className="w-4 h-4 mr-2" /> Dashboard
+        <Link to="/study" className="block">
+          <Button className="w-full h-12 rounded-xl text-base">
+            Study Next Topic <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </Link>
-        <Link to="/study" className="flex-1">
-          <Button variant="outline" className="w-full h-12 font-black rounded-xl">
-            <RotateCcw className="w-4 h-4 mr-2" /> Belajar Lagi
+        <Link to="/dashboard" className="block">
+          <Button variant="outline" className="w-full h-12 rounded-xl">
+            Back to Dashboard
           </Button>
         </Link>
       </motion.div>

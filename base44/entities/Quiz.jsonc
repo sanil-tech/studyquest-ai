@@ -42,49 +42,10 @@
     "infographic_url": {
       "type": "string",
       "description": "URL of the mind map infographic image"
-    },
-    "created_by": {
-      "type": "string",
-      "description": "User ID of the teacher or admin who created this quiz"
     }
   },
   "required": [
     "topic_name",
     "questions_json"
-  ],
-  "rls": {
-    "read": null,
-    "create": {
-      "user_condition": {
-        "app_role": {
-          "$in": [
-            "super_admin",
-            "content_admin",
-            "teacher"
-          ]
-        }
-      }
-    },
-    "update": {
-      "user_condition": {
-        "app_role": {
-          "$in": [
-            "super_admin",
-            "content_admin",
-            "teacher"
-          ]
-        }
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "app_role": {
-          "$in": [
-            "super_admin",
-            "content_admin"
-          ]
-        }
-      }
-    }
-  }
+  ]
 }

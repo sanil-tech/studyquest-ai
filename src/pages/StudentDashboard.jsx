@@ -1,290 +1,338 @@
 // src/pages/StudentDashboard.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { useNavigate } from "react-router-dom";
-import { 
-  Trophy, Flame, Sparkles, LogOut, Loader2, Bell, Compass, 
-  ChevronRight, Target, Star, Gift, Shield, CheckCircle, MessageSquare
+import {
+  Trophy, BookOpen, Target, Award, Play, CheckCircle2, 
+  UserCheck, UserX, ShieldAlert, Sparkles, Leaf, TreePine, Sprout
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-
-// Senarai Kata-kata Semangat Rahsia Toko Otan & Kenyalang (Borneo Vibe)
-const BORNEO_MOTIVATIONS = [
-  "Bah! Tiada gunung yang terlalu tinggi kalau kita daki pelan-pelan. Kinabalu pun boleh ditawan, inikan pula silabus sekolah! ⛰️",
-  "Aram gait! Luaskan sayap pengembaraan kamu macam Burung Kenyalang terbang tinggi merentas rimba! 🦅",
-  "Bulih juga tu bossku! Sikit lagi kita mahu buka peti harta karun misteri hari ini. Jangan kasi lama! 🦧",
-  "Tenang-tenang jak, tapi mantap! Pokok yang besar bermula daripada benih yang kecil di lantai hutan. Semangat! 🌱"
-];
+import { useToast } from "@/components/ui/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import moment from "moment";
 
 export default function StudentDashboard() {
-  const navigate = useNavigate();
-  const [student, setStudent] = useState(null);
-  const [wallet, setWallet] = useState({ balance: 0 });
-  const [progress, setProgress] = useState({ total_xp: 0, level: 1, streak_days: 0 });
-  const [notifications, setNotifications] = useState([]);
+  const [dashboardState, setDashboardState] = useState({
+    user: null,
+    progress: { level: 1, total_xp: 0, streak_days: 0 },
+    wallet: { balance: 0 },
+    sessions: [],
+    quizzes: [],
+    pendingRequests: [],
+  });
   const [loading, setLoading] = useState(true);
-  const [quote, setQuote] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const { toast } = useToast();
 
-  // Simulasi Cabaran Harian (Daily Quests ala Duolingo)
-  const [dailyQuests, setDailyQuests] = useState([
-    { id: 1, text: "Tonton 1 Video Guru di Dahan Misi", xp: 50, done: false },
-    { id: 2, text: "Kutip 20 Syiling Emas", xp: 100, done: true },
-    { id: 3, text: "Selesaikan 1 Kuiz Tanpa Salah", xp: 150, done: false }
-  ]);
+  const loadDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const currentUser = await base44.auth.me();
 
-  useEffect(() => {
-    // Pilih kata semangat secara rawak semasa halaman dimuatkan
-    const randomQuote = BORNEO_MOTIVATIONS[Math.floor(Math.random() * BORNEO_MOTIVATIONS.length)];
-    setQuote(randomQuote);
+      // Gunakan Promise.allSettled untuk API yang lebih kebal (resilient)
+      const results = await Promise.allSettled([
+        base44.entities.Progress.filter({ student_id: currentUser.id }),
+        base44.entities.Wallet.filter({ student_id: currentUser.id }),
+        base44.entities.StudySession.filter({ student_id: currentUser.id }, "-created_date", 10),
+        base44.entities.QuizAttempt.filter({ student_id: currentUser.id }, "-created_date", 10),
+        base44.entities.ParentChildRelationship.filter({ child_id: currentUser.id, status: "pending" }),
+      ]);
 
-    const loadHubData = async () => {
-      try {
-        setLoading(true);
-        const me = await base44.auth.me();
-        if (!me || me.app_role !== "student") {
-          await base44.auth.signOut();
-          navigate("/student-login");
-          return;
-        }
-        setStudent(me);
+      const progress = results[0].status === "fulfilled" && results[0].value?.[0] 
+        ? results[0].value[0] 
+        : { level: 1, total_xp: 0, streak_days: 0 };
+      const wallet = results[1].status === "fulfilled" && results[1].value?.[0] 
+        ? results[1].value[0] 
+        : { balance: 0 };
+      const sessions = results[2].status === "fulfilled" && results[2].value ? results[2].value : [];
+      const quizzes = results[3].status === "fulfilled" && results[3].value ? results[3].value : [];
+      const pendingRels = results[4].status === "fulfilled" ? results[4].value : [];
 
-        // 1. Ambil data Progress, Wallet, dan Notifikasi terkini
-        const [walletData, progressData, notifData] = await Promise.all([
-          base44.entities.Wallet.filter({ student_id: me.id }),
-          base44.entities.Progress.filter({ student_id: me.id }),
-          base44.entities.Notification.filter({ user_id: me.id }).catch(() => [])
-        ]);
-
-        if (walletData && walletData.length > 0) setWallet(walletData[0]);
-        if (progressData && progressData.length > 0) setProgress(progressData[0]);
-        if (notifData) setNotifications(notifData.slice(0, 3)); // Ambil 3 yang terbaharu sahaja
-
-      } catch (err) {
-        console.error("Gagal memuatkan Hab Utama:", err);
-      } finally {
-        setLoading(false);
+      let pendingRequests = [];
+      if (pendingRels && pendingRels.length > 0) {
+        const hydratedRequests = await Promise.all(
+          pendingRels.map(async (rel) => {
+            try {
+              const parentUser = await base44.entities.User.get(rel.parent_id);
+              return {
+                id: rel.id,
+                parent_name: parentUser.full_name || parentUser.nickname || parentUser.username,
+                parent_email: parentUser.email || "Tiada emel",
+              };
+            } catch {
+              return { id: rel.id, parent_name: "Akaun Penjaga Tidak Diketahui", parent_email: "Pengesahan sistem diperlukan" };
+            }
+          })
+        );
+        pendingRequests = hydratedRequests;
       }
-    };
-    loadHubData();
-  }, [navigate]);
 
-  const handleLogout = async () => {
-    await base44.auth.signOut();
-    localStorage.clear();
-    window.location.href = "/student-login";
-  };
+      // Batch update to avoid multiple re-renders
+      setDashboardState({
+        user: currentUser,
+        progress,
+        wallet,
+        sessions,
+        quizzes,
+        pendingRequests,
+      });
+    } catch (err) {
+      console.error("Ralat memuat turun data pelajar:", err);
+      toast({ title: "Alamak!", description: "Gagal memuat turun data pembelajaran anda.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#F3FBF7] flex flex-col items-center justify-center p-4">
-      <Loader2 className="w-10 h-10 animate-spin text-emerald-600 mb-2" />
-      <p className="text-xs font-black text-emerald-800 uppercase tracking-widest animate-pulse">Menghias Basecamp Pengembara... 🏕️</p>
-    </div>
+  useEffect(() => { 
+    loadDashboardData(); 
+  }, [loadDashboardData]);
+
+  const handleLinkAction = useCallback(async (relationshipId, actionType) => {
+    setActionLoading(true);
+    try {
+      if (actionType === "approve") {
+        await base44.entities.ParentChildRelationship.update(relationshipId, { status: "active" });
+        toast({ title: "Akaun Berjaya Disambung! 🎉", description: "Papan pemuka anda kini terhubung dengan ibu bapa." });
+      } else {
+        await base44.entities.ParentChildRelationship.delete(relationshipId);
+        toast({ title: "Permintaan Ditolak", description: "Sambungan dengan ibu bapa telah dibatalkan." });
+      }
+      loadDashboardData();
+    } catch (err) {
+      toast({ title: "Gagal memproses", description: err.message, variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  }, [toast, loadDashboardData]);
+
+  // Memoize computed values
+  const { level, xp, nextLevelXp, xpPercentage } = useMemo(() => {
+    const lvl = dashboardState.progress?.level || 1;
+    const xpVal = dashboardState.progress?.total_xp || 0;
+    const nextLvlXp = lvl * 200;
+    const pct = Math.min((xpVal / nextLvlXp) * 100, 100);
+    return { level: lvl, xp: xpVal, nextLevelXp: nextLvlXp, xpPercentage: pct };
+  }, [dashboardState.progress]);
+
+  // Memoize today's minutes calculation
+  const today = useMemo(() => moment(), []);
+  const todayMinutes = useMemo(() => 
+    dashboardState.sessions
+      .filter(s => s.created_date && moment(s.created_date).isSame(today, "day"))
+      .reduce((sum, s) => sum + (s.duration_minutes || 0), 0),
+    [dashboardState.sessions, today]
   );
 
-  const isKid = student?.age_group !== "teen";
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]">
+        <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
+          <Leaf className="w-12 h-12 text-emerald-500" />
+        </motion.div>
+        <p className="text-sm font-bold text-emerald-700/60 uppercase tracking-widest">Otan sedang meninjau pokok...</p>
+      </div>
+    );
+  }
+
+  const { user, progress, wallet, sessions, quizzes, pendingRequests } = dashboardState;
 
   return (
-    <div className={`min-h-screen font-sans pb-12 transition-colors duration-500 ${
-      isKid ? "bg-gradient-to-b from-[#E8F5E9] via-[#F4FBF7] to-[#FFFDE7]" : "bg-slate-950 text-slate-100"
-    }`}>
+    <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700">
       
-      {/* 🌟 1. HERO PENGASAS (TOP HUB BAR) */}
-      <div className={`w-full px-4 pt-6 pb-24 rounded-b-[3.5rem] relative overflow-hidden shadow-lg border-b-4 ${
-        isKid 
-          ? "bg-gradient-to-r from-teal-600 via-emerald-500 to-lime-500 border-teal-800" 
-          : "bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-slate-800"
-      }`}>
-        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:20px_20px]" />
+      {/* 1. TOP BAR (Frosted Nature Style) */}
+      <div className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-stone-200/50 px-4 py-3 flex justify-between items-center max-w-5xl mx-auto">
+        <div className="flex items-center gap-3">
+          {/* Level / Dahan Pokok */}
+          <div className="flex items-center gap-1.5 font-black text-emerald-600 bg-emerald-50/80 px-3 py-1.5 rounded-2xl border border-emerald-100">
+            <TreePine className="w-5 h-5" />
+            <span className="text-sm">Dahan {level}</span>
+          </div>
+        </div>
         
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-          
-          {/* STATS KAD KIRI */}
-          <div className="flex items-center gap-4">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black border-2 shadow-md ${
-              isKid ? "bg-white border-amber-300 text-teal-600" : "bg-slate-900 border-slate-800 text-emerald-400"
-            }`}>
-              {progress.level}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-md text-white">
-                  Tahap {progress.level}
-                </span>
-                <span className="text-xs font-black text-amber-200">✨ {progress.total_xp} XP</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-1 uppercase">
-                {student?.nickname || student?.full_name || "Petualang"}
-              </h1>
-            </div>
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Streak -> Kelip-kelip */}
+          <div className="flex items-center gap-1.5 font-black text-amber-500 bg-amber-50/50 px-3 py-1.5 rounded-2xl">
+            <Sparkles className="w-5 h-5 fill-amber-400" />
+            <span className="text-sm">{progress?.streak_days || 0}</span>
           </div>
-
-          {/* MENUBAR STATUS UTAMA (DUOLINGO BAR METRICS) */}
-          <div className="flex items-center gap-3 bg-black/20 backdrop-blur-md p-2 rounded-2xl border border-white/10 w-full md:w-auto justify-around md:justify-start">
-            <div className="text-center px-4">
-              <span className="block text-[9px] font-black text-amber-200 uppercase tracking-wide">Peti Emas</span>
-              <span className="text-base font-mono font-black text-white mt-0.5 block">🪙 {wallet.balance}</span>
-            </div>
-            <div className="w-[1px] h-6 bg-white/10" />
-            <div className="text-center px-4">
-              <span className="block text-[9px] font-black text-orange-300 uppercase tracking-wide">Streak</span>
-              <span className="text-base font-black text-white mt-0.5 flex items-center gap-1">
-                <Flame className="w-4 h-4 fill-orange-500 text-orange-500 animate-pulse" /> {progress.streak_days || 0} Hari
-              </span>
-            </div>
-            <div className="w-[1px] h-6 bg-white/10" />
-            <button onClick={handleLogout} className="p-2 text-white/60 hover:text-rose-400 rounded-xl hover:bg-white/5 transition-all">
-              <LogOut className="w-4.5 h-4.5" />
-            </button>
+          {/* Wallet -> Daun Emas */}
+          <div className="flex items-center gap-1.5 font-black text-lime-600 bg-lime-50/50 px-3 py-1.5 rounded-2xl">
+            <Leaf className="w-5 h-5 fill-lime-500" />
+            <span className="text-sm">{wallet?.balance || 0}</span>
           </div>
-
         </div>
       </div>
 
-      {/* 🌳 MAIN LAYOUT CONTAINER */}
-      <div className="max-w-6xl mx-auto px-4 -mt-16 grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-30">
+      <div className="max-w-4xl mx-auto px-4 mt-6 space-y-8">
         
-        {/* ========================================================== */}
-        {/* GRID KIRI & TENGAH: CABARAN & PILIHAN PENGEMBARAAN         */}
-        {/* ========================================================== */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* 2. HERO BANNER (Canopy Theme) */}
+        <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg overflow-hidden flex flex-col md:flex-row items-center justify-between">
+          {/* Light rays through leaves */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           
-          {/* KAD PANGGILAN CEPAT: LAUNCH STUDY SPACE */}
-          <motion.div whileHover={{ y: -4 }} className="w-full">
-            <Card className={`p-6 rounded-[2.5rem] border-b-[8px] relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-4 ${
-              isKid 
-                ? "bg-gradient-to-br from-amber-400 via-orange-400 to-yellow-500 border-orange-700 text-white shadow-xl shadow-orange-100" 
-                : "bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-900 text-white shadow-xl"
-            }`}>
-              <div className="absolute -left-6 -bottom-6 text-8xl opacity-10 select-none">🌴</div>
-              <div className="text-center sm:text-left space-y-1">
-                <span className="text-[10px] font-black uppercase tracking-widest bg-black/10 px-2.5 py-1 rounded-full inline-block">Misi Semasa</span>
-                <h2 className="text-lg sm:text-xl font-black tracking-tight mt-1">Sifir Darab Hutan Kanopi 🌳</h2>
-                <p className="text-xs opacity-90 font-medium">Sambung dahan pembelajaran anda dan kutip 150+ XP sekarang!</p>
+          <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner flex items-center justify-center text-5xl shrink-0">
+              🦧 {/* Otan Mascot Emoji */}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-1.5">
+                <span className="bg-lime-400 text-green-900 font-extrabold px-3 py-1 rounded-full text-[10px] uppercase tracking-widest shadow-sm">
+                  Akademi Rumah Pokok
+                </span>
               </div>
-              <Button 
-                onClick={() => navigate("/study")} 
-                className="bg-white hover:bg-slate-50 text-orange-600 font-black rounded-2xl px-6 h-12 shadow-md shrink-0 flex items-center gap-1 text-xs border-b-4 border-slate-200 active:border-b-0 active:translate-y-1 transition-all"
-              >
-                Masuk Hutan Ilmu <Compass className="w-4 h-4 animate-spin-slow" />
-              </Button>
-            </Card>
-          </motion.div>
-
-          {/* SEKSYEN: CABARAN HARIAN (DAILY QUESTS) */}
-          <Card className={`p-6 rounded-[2.5rem] border shadow-sm ${isKid ? "bg-white border-slate-100" : "bg-slate-900 border-slate-800"}`}>
-            <div className="flex items-center gap-2 border-b pb-3 mb-4">
-              <Target className="w-5 h-5 text-indigo-500" />
-              <h3 className={`text-sm font-black uppercase tracking-wider ${!isKid && "text-white"}`}>Cabaran Harian Petualang</h3>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-sm">
+                Hai, {user?.nickname || user?.full_name?.split(" ")[0] || "Penjelajah"}!
+              </h1>
+              <p className="text-emerald-50 font-medium mt-1.5 text-sm sm:text-base max-w-sm leading-relaxed">
+                Otan kata awak dah sedia nak panjat dahan seterusnya hari ini. Jom kumpul Daun Emas!
+              </p>
             </div>
-            
-            <div className="space-y-3">
-              {dailyQuests.map((quest) => (
-                <div 
-                  key={quest.id} 
-                  className={`p-4 rounded-2xl border flex items-center justify-between gap-4 transition-all ${
-                    quest.done 
-                      ? isKid ? "bg-emerald-50/50 border-emerald-100 text-slate-500" : "bg-emerald-950/20 border-emerald-900/40 text-slate-400"
-                      : isKid ? "bg-slate-50 border-slate-100 text-slate-700" : "bg-slate-950 border-slate-800"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${quest.done ? "text-emerald-500" : "text-slate-300"}`}>
-                      <CheckCircle className="w-5 h-5 fill-current bg-white rounded-full shadow-xs" />
-                    </div>
-                    <span className={`text-xs font-bold tracking-tight ${quest.done && "line-through opacity-60"}`}>{quest.text}</span>
-                  </div>
-                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 ${quest.done ? "bg-emerald-100/60 text-emerald-700" : "bg-indigo-50 text-indigo-600 dark:bg-slate-800 dark:text-indigo-400"}`}>
-                    +{quest.xp} XP
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
+          </div>
 
+          <Button className="relative z-10 bg-white text-emerald-700 hover:bg-lime-50 font-extrabold text-base px-6 py-6 rounded-2xl shadow-md border border-emerald-100 group w-full md:w-auto">
+            <Sprout className="w-5 h-5 mr-2 text-emerald-600 group-hover:scale-110 transition-transform" />
+            Mula Memanjat
+          </Button>
         </div>
 
-        {/* ========================================================== */}
-        {/* GRID KANAN: NOTIFIKASI & KATA SEMANGAT TOKO OTAN           */}
-        {/* ========================================================== */}
-        <div className="space-y-6">
-          
-          {/* PAPAN SUARA OTAN (MOTIVATIONAL SPEECH BUBBLE) */}
-          {isKid && (
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="relative">
-              {/* Kepala Maskot Otan Menjenguk */}
-              <div className="text-5xl absolute -top-8 left-6 z-20 select-none animate-bounce">🦧</div>
-              <div className="bg-gradient-to-br from-[#70421A] to-[#4A2810] text-amber-100 p-5 rounded-[2.5rem] border-b-[6px] border-[#2c1809] shadow-md relative overflow-hidden pt-8">
-                <div className="absolute right-2 top-2 text-white/5"><MessageSquare className="w-24 h-24" /></div>
-                <p className="text-xs font-black leading-relaxed tracking-wide shadow-xs">
-                  "{quote}"
-                </p>
-                <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2.5">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-amber-300/80">Nasihat Toko Otan Sabah</span>
-                  <button onClick={() => setQuote(BORNEO_MOTIVATIONS[Math.floor(Math.random() * BORNEO_MOTIVATIONS.length)])} className="text-[9px] font-black bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded-md text-white transition-colors">Tukar Kata 🔄</button>
-                </div>
+        {/* 3. PENDING PARENT REQUEST (Wooden Signpost Alert) */}
+        <AnimatePresence>
+          {pendingRequests.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
+              className="bg-[#F3EFE6] rounded-[2rem] p-6 border border-[#E3D9C6] shadow-sm relative overflow-hidden"
+            >
+              {/* Subtle wood grain or warm background feel */}
+              <div className="flex items-center gap-2 text-amber-800 font-black text-sm uppercase tracking-wide mb-4">
+                <ShieldAlert className="w-5 h-5" /> Jemputan Keluarga
+              </div>
+              
+              <div className="space-y-3">
+                {pendingRequests.map(req => (
+                  <div key={req.id} className="bg-white rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 border border-[#E3D9C6] shadow-sm">
+                    <div className="text-center sm:text-left">
+                      <p className="text-base font-black text-stone-800">{req.parent_name}</p>
+                      <p className="text-xs font-medium text-stone-500 mt-0.5">{req.parent_email} • Ingin pautkan akaun</p>
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <Button 
+                        onClick={() => handleLinkAction(req.id, "approve")} 
+                        disabled={actionLoading} 
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-10">
+                        <UserCheck className="w-4 h-4 mr-2" /> Terima
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleLinkAction(req.id, "reject")} 
+                        disabled={actionLoading} 
+                        className="flex-1 border-[#E3D9C6] text-stone-500 font-bold rounded-xl h-10">
+                        <UserX className="w-4 h-4 mr-2" /> Tolak
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </motion.div>
           )}
+        </AnimatePresence>
 
-          {/* KOTAK SURAT / NOTIFIKASI (NOTIFICATION CENTER) */}
-          <Card className={`p-5 rounded-[2.5rem] border shadow-sm ${isKid ? "bg-white border-slate-100" : "bg-slate-900 border-slate-800"}`}>
-            <div className="flex items-center justify-between border-b pb-3 mb-3">
-              <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-amber-500 fill-amber-400" />
-                <h3 className={`text-xs font-black uppercase tracking-wider ${!isKid && "text-white"}`}>Surat Khabar Basecamp</h3>
-              </div>
-              {notifications.length > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+        {/* 4. PROGRESS BAR (Vine Growing Concept) */}
+        <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-emerald-100 shadow-sm relative">
+          <div className="flex justify-between items-end mb-4">
+            <div>
+              <h2 className="text-lg font-black text-stone-800 flex items-center gap-2">
+                <Target className="w-5 h-5 text-emerald-500" /> Ketinggian Pokok Anda
+              </h2>
+              <p className="text-sm font-medium text-stone-500 mt-1">{xp} / {nextLevelXp} Meter XP dipanjat</p>
             </div>
+            <div className="hidden sm:flex items-center text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl">
+              <Leaf className="w-3.5 h-3.5 mr-1" /> {Math.round(nextLevelXp - xp)}M lagi ke Dahan {level + 1}
+            </div>
+          </div>
 
-            <div className="space-y-2.5">
-              {notifications.length === 0 ? (
-                <div className="py-6 text-center text-xs text-slate-400 font-bold uppercase tracking-wide">
-                  📭 Tiada surat baru hari ini.
+          <div className="h-4 bg-[#F3EFE6] rounded-full overflow-hidden shadow-inner relative mt-2">
+            <motion.div
+              initial={{ width: 0 }} animate={{ width: `${xpPercentage}%` }} transition={{ duration: 1.5, ease: "easeOut" }}
+              className="h-full bg-gradient-to-r from-lime-400 to-emerald-500 rounded-full"
+            />
+          </div>
+        </div>
+
+        {/* 5. CONTENT CARDS (Minimalist with Subtle Green Touches) */}
+        <div className="grid md:grid-cols-2 gap-6">
+          
+          {/* Nota Terkini */}
+          <div className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-black text-stone-800 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-emerald-500" /> Jurnal Ilmu Otan
+              </h3>
+            </div>
+            
+            <div className="space-y-3 flex-1">
+              {sessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 opacity-60">
+                  <Leaf className="w-10 h-10 text-stone-300 mb-2" />
+                  <p className="text-center text-stone-400 font-medium text-sm">Belum ada nota dibaca hari ini.</p>
                 </div>
               ) : (
-                notifications.map((notif) => (
-                  <div key={notif.id} className={`p-3 rounded-xl border border-dashed text-left space-y-1 transition-all ${
-                    isKid ? "bg-slate-50/50 border-slate-200" : "bg-slate-950 border-slate-800"
-                  }`}>
-                    <p className={`text-xs font-black tracking-tight ${!isKid && "text-slate-200"}`}>{notif.title}</p>
-                    <p className="text-[11px] text-slate-400 font-medium leading-tight">{notif.message}</p>
+                sessions.slice(0, 3).map((s) => (
+                  <div key={s.id} className="group p-3 rounded-2xl hover:bg-emerald-50/50 transition-colors flex items-center justify-between">
+                    <div className="min-w-0 pr-4">
+                      <p className="font-bold text-stone-700 truncate">{s.topic_name || "Meneroka Hutan Ilmu"}</p>
+                      <p className="text-xs font-medium text-stone-400 mt-0.5">{moment(s.created_date).fromNow()}</p>
+                    </div>
+                    <div className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg shrink-0">
+                      {s.duration_minutes || 0} min
+                    </div>
                   </div>
                 ))
               )}
             </div>
-          </Card>
+          </div>
 
-          {/* LENCANA PENCAPAIAN (ACHIEVEMENTS PREVIEW) */}
-          <Card className={`p-5 rounded-[2.5rem] border shadow-sm ${isKid ? "bg-white border-slate-100" : "bg-slate-900 border-slate-800"}`}>
-            <div className="flex items-center gap-2 border-b pb-3 mb-3">
-              <Trophy className="w-4 h-4 text-yellow-500" />
-              <h3 className={`text-xs font-black uppercase tracking-wider ${!isKid && "text-white"}`}>Lencana Kehormatan</h3>
+          {/* Rekod Kuiz */}
+          <div className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-black text-stone-800 flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-500" /> Ujian Keberanian
+              </h3>
             </div>
             
-            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-              {[
-                { label: "Peneroka", icon: "🧗", unlocked: true },
-                { label: "Raja Sifir", icon: "👑", unlocked: true },
-                { label: "Wira Kinabalu", icon: "🌋", unlocked: false }
-              ].map((badge, i) => (
-                <div key={i} className={`flex flex-col items-center p-2.5 rounded-xl border text-center shrink-0 min-w-[75px] ${
-                  badge.unlocked 
-                    ? isKid ? "bg-amber-50/30 border-amber-200 text-slate-800" : "bg-slate-800/60 border-slate-700 text-white" 
-                    : "opacity-40 bg-slate-100 border-transparent text-slate-400 grayscale"
-                }`}>
-                  <span className="text-2xl">{badge.icon}</span>
-                  <span className="text-[9px] font-black tracking-tight mt-1 truncate w-full">{badge.label}</span>
+            <div className="space-y-3 flex-1">
+              {quizzes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 opacity-60">
+                  <ShieldAlert className="w-10 h-10 text-stone-300 mb-2" />
+                  <p className="text-center text-stone-400 font-medium text-sm">Berani uji minda anda?</p>
                 </div>
-              ))}
-            </div>
-          </Card>
+              ) : (
+                quizzes.slice(0, 3).map((q) => {
+                  const isHigh = q.score >= 80;
+                  const scoreTheme = isHigh 
+                    ? "text-emerald-600 bg-emerald-50" 
+                    : q.score >= 50 
+                      ? "text-amber-600 bg-amber-50" 
+                      : "text-rose-500 bg-rose-50";
 
+                  return (
+                    <div key={q.id} className="group p-3 rounded-2xl hover:bg-stone-50 transition-colors flex items-center justify-between">
+                      <div className="min-w-0 pr-4">
+                        <p className="font-bold text-stone-700 truncate">{q.topic_name || "Cabaran Minda"}</p>
+                        <p className="text-xs font-medium text-stone-400 mt-0.5">{moment(q.created_date).fromNow()}</p>
+                      </div>
+                      <div className={`${scoreTheme} text-xs font-black px-2.5 py-1 rounded-lg shrink-0`}>
+                        {q.score}%
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
 
       </div>
-
     </div>
   );
 }

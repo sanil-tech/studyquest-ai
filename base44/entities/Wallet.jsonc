@@ -14,47 +14,5 @@
   },
   "required": [
     "student_id"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "app_role": "super_admin"
-      }
-    },
-    "read": {
-      "$or": [
-        {
-          "data.student_id": "{{user.id}}"
-        },
-        {
-          "data.student_id": "{{user.data.student_id}}"
-        },
-        {
-          "data.student_id": {
-            "$in": "{{user.data.linked_student_ids}}"
-          }
-        },
-        {
-          "user_condition": {
-            "app_role": {
-              "$in": [
-                "super_admin",
-                "school_admin"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    "update": {
-      "user_condition": {
-        "app_role": "super_admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "app_role": "super_admin"
-      }
-    }
-  }
+  ]
 }

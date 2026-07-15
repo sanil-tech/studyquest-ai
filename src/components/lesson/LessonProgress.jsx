@@ -1,4 +1,3 @@
-// src/components/LessonProgress.jsx
 import React from "react";
 import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Lock, Play, Star, Leaf, Cloud, Tv, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,10 +10,9 @@ const STEPS = [
   { key: "quiz", label: "Kuiz Boss", icon: Gamepad2 },
 ];
 
-export default function LessonProgress({ steps = {}, onStepClick }) {
-  // ✅ Menggunakan optional chaining untuk mengelakkan ralat jika data 'steps' lambat dimuat turun
-  const completedCount = STEPS.filter((s) => steps?.[s.key]).length;
-  const percent = Math.round((completedCount / STEPS.length) * 100) || 0;
+export default function LessonProgress({ steps, onStepClick }) {
+  const completedCount = STEPS.filter((s) => steps[s.key]).length;
+  const percent = Math.round((completedCount / STEPS.length) * 100);
   const isAllComplete = percent === 100;
 
   return (
@@ -38,12 +36,12 @@ export default function LessonProgress({ steps = {}, onStepClick }) {
           
           {/* SVG Penapis Urat Kayu (Realistic Wood Grain) */}
           <svg className="absolute inset-0 w-full h-full opacity-30 mix-blend-overlay pointer-events-none" preserveAspectRatio="none">
-            <filter id="lesson-tree-wood-grain">
+            <filter id="wood-grain">
               {/* x-frequency tinggi, y-frequency rendah untuk garisan menegak */}
               <feTurbulence type="fractalNoise" baseFrequency="0.1 0.005" numOctaves="3" result="noise" />
               <feColorMatrix type="matrix" values="1 0 0 0 0  0.8 0 0 0 0  0.6 0 0 0 0  0 0 0 1 0" in="noise" result="coloredNoise" />
             </filter>
-            <rect width="100%" height="100%" filter="url(#lesson-tree-wood-grain)" fill="#4A2E19" />
+            <rect width="100%" height="100%" filter="url(#wood-grain)" fill="#4A2E19" />
           </svg>
 
           {/* Lorekan Silinder (Cylindrical Ambient Occlusion) */}
@@ -62,6 +60,7 @@ export default function LessonProgress({ steps = {}, onStepClick }) {
       <div className="absolute left-2 sm:left-6 bottom-0 w-24 sm:w-32 h-16 sm:h-20 text-[#2c1809] z-10 drop-shadow-2xl">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
           <path d="M 20,0 C 20,40 0,80 0,100 L 100,100 C 100,80 80,40 80,0 Z" fill="currentColor"/>
+          {/* Lorekan akar */}
           <path d="M 20,0 C 20,40 0,80 0,100 L 20,100 C 30,70 35,30 35,0 Z" fill="rgba(0,0,0,0.4)" />
           <path d="M 80,0 C 80,40 100,80 100,100 L 80,100 C 70,70 65,30 65,0 Z" fill="rgba(255,255,255,0.05)" />
         </svg>
@@ -71,6 +70,7 @@ export default function LessonProgress({ steps = {}, onStepClick }) {
       <div className="absolute left-0 bottom-[-20px] text-green-700/80 z-20 drop-shadow-lg">
         <Leaf className="w-24 h-24 fill-current rotate-45" />
       </div>
+
 
       {/* 3. PAPAN TANDA KEMAJUAN (Hanging Wooden Sign) */}
       <div className="relative z-20 flex flex-col items-center mb-10 w-full sm:w-3/4 mx-auto pl-16 sm:pl-24">
@@ -87,9 +87,7 @@ export default function LessonProgress({ steps = {}, onStepClick }) {
           </span>
           <div className="h-4 bg-black/50 rounded-full mt-3 overflow-hidden shadow-[inset_0_4px_6px_rgba(0,0,0,0.6)] p-0.5 border border-white/10">
             <motion.div
-              initial={{ width: 0 }} 
-              animate={{ width: `${percent}%` }} 
-              transition={{ duration: 1, ease: "easeOut" }}
+              initial={{ width: 0 }} animate={{ width: `${percent}%` }} transition={{ duration: 1, ease: "easeOut" }}
               className="h-full bg-gradient-to-r from-lime-400 via-emerald-400 to-green-500 rounded-full relative overflow-hidden"
             >
               <div className="absolute top-0 left-0 right-0 h-1/2 bg-white/30" />
@@ -102,8 +100,7 @@ export default function LessonProgress({ steps = {}, onStepClick }) {
       <AnimatePresence>
         {isAllComplete && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.5, y: 50 }} 
-            animate={{ opacity: 1, scale: 1, y: 0 }}
+            initial={{ opacity: 0, scale: 0.5, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }}
             className="absolute top-24 left-0 sm:left-4 z-40 flex flex-col items-center"
           >
             <div className="text-6xl animate-bounce filter drop-shadow-2xl transform -scale-x-100 relative">
@@ -120,24 +117,20 @@ export default function LessonProgress({ steps = {}, onStepClick }) {
       {/* 4. TANGGA MISI (Steps & Branches) */}
       <div className="relative z-30 flex flex-col-reverse gap-8 pb-4 w-full">
         {STEPS.map((step, index) => {
-          const isDone = steps?.[step.key] || false;
-          const isLocked = index > 0 && !steps?.[STEPS[index - 1].key];
+          const isDone = steps[step.key] || false;
+          const isLocked = index > 0 && !steps[STEPS[index - 1].key];
           const isCurrent = !isDone && !isLocked;
           const Icon = step.icon;
           
           return (
             <motion.div 
-              key={step.key} 
-              initial={{ opacity: 0, x: -20 }} 
-              animate={{ opacity: 1, x: 0 }} 
-              transition={{ delay: index * 0.1 }}
+              key={step.key} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.1 }}
               className="relative flex items-center w-full"
             >
               {/* OTAN MEMANJAT PADA TAHAP SEMASA */}
               {isCurrent && (
                 <motion.div 
-                  initial={{ scale: 0, rotate: -30 }} 
-                  animate={{ scale: 1, rotate: 0 }}
+                  initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }}
                   className="absolute left-1 sm:left-6 -top-12 text-5xl sm:text-6xl z-40 filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.4)] transform -scale-x-100 animate-pulse origin-bottom"
                 >
                   🦧
@@ -151,12 +144,9 @@ export default function LessonProgress({ steps = {}, onStepClick }) {
               <div className="absolute left-14 sm:left-[5rem] w-10 sm:w-14 h-6 bg-gradient-to-b from-[#70421A] to-[#3A2210] border-b-4 border-black/40 z-10 rounded-r-full shadow-[0_6px_6px_rgba(0,0,0,0.3)]" />
 
               {/* Papan Tangga Misi (Wooden Plank Step) */}
-              <motion.button
+              <button
                 disabled={isLocked}
                 onClick={() => !isLocked && onStepClick?.(step.key)}
-                // ✅ Menambah efek denyutan (pulse) secara infiniti pada butang yang aktif
-                animate={isCurrent ? { scale: [1, 1.02, 1] } : {}}
-                transition={isCurrent ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" } : {}}
                 className={`ml-20 sm:ml-28 flex-1 max-w-[280px] p-4 sm:p-5 rounded-2xl border-b-[8px] transition-all flex items-center justify-between group relative overflow-hidden ${
                   isDone 
                     ? "bg-gradient-to-r from-emerald-500 to-green-600 border-green-800 text-white shadow-[0_10px_20px_rgba(16,185,129,0.3)] hover:brightness-110 active:border-b-0 active:translate-y-2" 
@@ -199,7 +189,7 @@ export default function LessonProgress({ steps = {}, onStepClick }) {
                     <Play className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-200 fill-yellow-200 drop-shadow-md group-hover:scale-125 transition-transform" />
                   )}
                 </div>
-              </motion.button>
+              </button>
             </motion.div>
           );
         })}

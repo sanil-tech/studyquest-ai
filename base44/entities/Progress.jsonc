@@ -40,7 +40,7 @@
         },
         {
           "user_condition": {
-            "app_role": "super_admin"
+            "role": "admin"
           }
         }
       ]
@@ -51,34 +51,32 @@
           "data.student_id": "{{user.id}}"
         },
         {
-          "data.student_id": "{{user.data.student_id}}"
-        },
-        {
           "data.student_id": {
             "$in": "{{user.data.linked_student_ids}}"
           }
         },
         {
           "user_condition": {
-            "app_role": {
-              "$in": [
-                "super_admin",
-                "school_admin",
-                "teacher"
-              ]
-            }
+            "role": "admin"
           }
         }
       ]
     },
     "update": {
-      "user_condition": {
-        "app_role": "super_admin"
-      }
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     },
     "delete": {
       "user_condition": {
-        "app_role": "super_admin"
+        "role": "admin"
       }
     }
   }
