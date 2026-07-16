@@ -106,8 +106,12 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 text-xl shrink-0">
-          🦖
+        <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 text-xl shrink-0 overflow-hidden">
+          {child.selected_avatar && child.selected_avatar.startsWith("http") ? (
+            <img src={child.selected_avatar} alt={child.nickname} className="w-full h-full object-cover" />
+          ) : (
+            <span className="select-none">{child.selected_avatar || child.avatar_emoji || "🦧"}</span>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
@@ -124,7 +128,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
             ) : (
               <div className="flex items-center gap-1.5 min-w-0 group cursor-pointer" onClick={() => { setInputName(child.nickname); setIsEditingName(true); }}>
                 <h3 className="text-sm font-black text-slate-800 uppercase truncate">
-                  {child.nickname || "Tiada Nama"}
+                  {child.nickname || child.full_name || "Tiada Nama"}
                 </h3>
                 <Edit3 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </div>
@@ -134,6 +138,9 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
               Tahap {progressData.level || 1}
             </Badge>
           </div>
+          {child.full_name && child.full_name !== child.nickname && (
+            <p className="text-[9px] text-slate-400 truncate font-medium leading-none mt-1">{child.full_name}</p>
+          )}
           
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 mt-1">
             <p className="text-[10px] font-bold text-slate-400 truncate max-w-[125px] leading-none">Username: {child.username || "student"}</p>
@@ -365,6 +372,9 @@ export default function MyChildrenPage() {
             id, 
             email: childUser?.email || localCache.email || "Akses Portal Aktif",
             nickname: nicknameReal,
+            full_name: childUser?.full_name || localCache.full_name || "",
+            selected_avatar: childUser?.selected_avatar || localCache.selected_avatar || null,
+            avatar_emoji: childUser?.avatar_emoji || localCache.avatar_emoji || "🦧",
             username: usernameReal,
             child_login_pin: pinReal, 
             wallet: activeWallet,

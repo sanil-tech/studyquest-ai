@@ -45,6 +45,7 @@ const MyChildrenPage = React.lazy(() => import('@/pages/MyChildrenPage'));
 const ChildProfilePage = React.lazy(() => import('@/pages/ChildProfilePage'));
 const ParentRewards = React.lazy(() => import('@/pages/ParentRewards'));
 const ParentApprovals = React.lazy(() => import('@/pages/ParentApprovals'));
+const ChildSelectionPage = React.lazy(() => import('@/pages/ChildSelectionPage'));
 
 // Admin Pages
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
@@ -123,6 +124,7 @@ const AuthenticatedApp = () => {
             <Route element={<ProfileCompleteRoute />}>
               <Route element={<RoleRoute allowedRoles={["parent"]} />}>
                 <Route path="/parent" element={<ParentDashboard />} />
+                <Route path="/parent/select-child" element={<ChildSelectionPage />} />
                 <Route path="/parent/children" element={<MyChildrenPage />} />
                 <Route path="/parent/children/:childId" element={<ChildProfilePage />} />
                 <Route path="/parent/rewards" element={<ParentRewards />} />

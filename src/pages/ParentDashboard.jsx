@@ -1,25 +1,24 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link, useNavigate } from "react-router-dom";
 import moment from "moment";
-import { 
-  Users, Target, Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning, MapPin, Clock, ArrowRight, Settings, UserPlus
+import {
+  Users, Target, Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning,
+  MapPin, Clock, ArrowRight, Settings, UserPlus, Flame, Coins, Zap, Star,
+  BookOpen, RefreshCw, Loader2
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { motion } from "framer-motion";
 
-// Import komponen modal
-import AddChildModal from "@/components/parent/AddChildModal"; 
+import AddChildModal from "@/components/parent/AddChildModal";
+import {
+  loadChildrenWithStats, getChildDisplayName, getChildAvatar, isAvatarUrl,
+  getSelectedChildId, setSelectedChildId
+} from "@/lib/childUtils";
 
-// Pembantu: Mengutamakan nickname, kemudian e-mel
-const getDisplayName = (user) => {
-  if (!user) return "Pelajar";
-  return user.nickname || user.username || user.email || "Pelajar";
-};
-
-// Fungsi memetakan kod cuaca Open-Meteo kepada Icon & Teks Bahasa Melayu
 const getWeatherDetails = (code) => {
   if ([0, 1].includes(code)) return { label: "Cerah", icon: Sun, color: "text-amber-500" };
   if ([2, 3].includes(code)) return { label: "Berawan", icon: Cloud, color: "text-slate-400" };
@@ -28,11 +27,10 @@ const getWeatherDetails = (code) => {
   return { label: "Cerah", icon: Sun, color: "text-amber-500" };
 };
 
-// 1. Komponen Pintasan (Shortcut Card)
 function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
-    <button 
-      onClick={onClick} 
+    <button
+      onClick={onClick}
       className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 hover:opacity-95 transition-opacity active:scale-95`}
     >
       <div className="bg-white/20 p-2 rounded-lg shrink-0"><Icon className="w-4 h-4" /></div>
@@ -44,71 +42,129 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   );
 }
 
-// 2. Komponen Kad Anak Ringkas (Compact Child Card)
-function CompactChildCard({ child }) {
+function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
   const navigate = useNavigate();
-  
-  const currentXP = child.progress?.total_xp || 0;
-  const currentLevel = child.progress?.level || 1;
+  const displayName = getChildDisplayName(child);
+  const avatar = getChildAvatar(child);
+  const avatarIsUrl = isAvatarUrl(avatar);
+
+  const currentXP = child.realProgress?.total_xp || 0;
+  const currentLevel = child.realProgress?.level || 1;
   const xpForNext = currentLevel ? currentLevel * 200 : 200;
-  
-  // Logik peratusan yang lebih selamat bagi mengelakkan isu NaN
   const calculatedPercentage = Math.min(Math.round((currentXP / xpForNext) * 100), 100);
   const xpPercentage = isNaN(calculatedPercentage) ? 0 : calculatedPercentage;
-  
-  const displayName = getDisplayName(child); 
-  
-  const lastActiveTime = child.progress?.last_study_date 
-    ? `Belajar Terakhir: ${moment(child.progress.last_study_date).format("DD/MM/YYYY")}` 
+
+  const streakDays = child.realProgress?.streak_days || 0;
+  const coins = child.wallet?.balance || 0;
+  const currentTopic = child.latestSession?.topic_name || "Misi Belum Mula";
+  const totalStudyMinutes = child.latestSession?.duration_minutes || 0;
+
+  const lastActiveTime = child.realProgress?.last_study_date
+    ? moment(child.realProgress.last_study_date).format("DD/MM/YYYY")
     : "Tiada rekod aktif";
-    
-  const currentTopic = child.progress?.current_topic || "Misi Belum Mula";
 
   return (
-    <Card 
-      onClick={() => navigate(`/parent/children`)} 
-      className="p-4 bg-white border border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-md transition-all rounded-2xl cursor-pointer flex flex-col justify-between group"
-    >
-      <div className="space-y-3">
-        <div className="flex justify-between items-center text-[10px]">
-          <span className="flex items-center gap-1 text-slate-400 font-bold uppercase tracking-tight">
-            <Clock className="w-3 h-3 text-indigo-500" /> {lastActiveTime}
-          </span>
-          <span className="text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-            Lihat Detail <ArrowRight className="w-3 h-3" />
-          </span>
+    <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
+      {/* Child header with avatar + nickname + switch */}
+      <div className="flex items-center gap-3">
+        <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border-2 border-indigo-100 shrink-0 overflow-hidden">
+          {avatarIsUrl ? (
+            <img src={avatar} alt={displayName} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-2xl select-none">{avatar}</span>
+          )}
         </div>
-
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100 text-xl shrink-0">
-            🦖
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-black text-slate-800 uppercase truncate">{displayName}</h3>
-            <p className="text-[10px] text-slate-400 truncate leading-none">{child.email || "Tiada emel"}</p>
-            <p className="text-[11px] text-slate-500 font-bold truncate mt-1.5">
-              📚 {currentTopic}
-            </p>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-black text-slate-800 truncate">{displayName}</h2>
+          {child.full_name && child.full_name !== displayName && (
+            <p className="text-[10px] text-slate-400 font-medium truncate">{child.full_name}</p>
+          )}
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="flex items-center gap-0.5 text-[9px] text-slate-400 font-bold">
+              <Clock className="w-2.5 h-2.5 text-indigo-500" /> {lastActiveTime}
+            </span>
+            {child.education_level && (
+              <span className="text-[9px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded-full">{child.education_level}</span>
+            )}
           </div>
         </div>
+        {hasMultiple && (
+          <Button
+            onClick={onSwitch}
+            className="shrink-0 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl font-bold text-[10px] h-8 px-3 border-0"
+          >
+            <RefreshCw className="w-3 h-3 mr-1" /> Tukar
+          </Button>
+        )}
+      </div>
 
-        <div className="space-y-1 pt-1">
-          <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-            <span>TAHAP {currentLevel}</span>
-            <span className="text-slate-600">{xpPercentage}%</span>
-          </div>
-          <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
+      {/* XP progress bar */}
+      <div className="space-y-1 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+          <span className="flex items-center gap-0.5"><Zap className="w-3 h-3 text-purple-500" /> XP TERKUMPUL</span>
+          <span>{currentXP} XP ({xpPercentage}%)</span>
+        </div>
+        <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="bg-amber-50/60 border border-amber-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
+          <Star className="w-4 h-4 text-amber-500 mb-0.5" />
+          <span className="text-[8px] font-bold text-slate-400 uppercase">Tahap</span>
+          <span className="text-xs font-black text-slate-700 mt-0.5">{currentLevel}</span>
+        </div>
+        <div className="bg-purple-50/60 border border-purple-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
+          <Zap className="w-4 h-4 text-purple-500 mb-0.5" />
+          <span className="text-[8px] font-bold text-slate-400 uppercase">XP</span>
+          <span className="text-xs font-black text-slate-700 mt-0.5">{currentXP}</span>
+        </div>
+        <div className="bg-amber-50/60 border border-amber-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
+          <Coins className="w-4 h-4 text-amber-500 mb-0.5" />
+          <span className="text-[8px] font-bold text-slate-400 uppercase">Koin</span>
+          <span className="text-xs font-black text-slate-700 mt-0.5">{coins}</span>
+        </div>
+        <div className="bg-orange-50/60 border border-orange-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
+          <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
+          <span className="text-[8px] font-bold text-slate-400 uppercase">Streak</span>
+          <span className="text-xs font-black text-slate-700 mt-0.5">{streakDays}</span>
         </div>
       </div>
+
+      {/* Current mission + study time */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-indigo-50/50 border border-indigo-100/40 p-2.5 rounded-xl flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />
+          <div className="min-w-0">
+            <span className="block text-[8px] font-bold text-slate-400 uppercase">Topik Semasa</span>
+            <span className="text-[10px] font-black text-slate-700 truncate block">{currentTopic}</span>
+          </div>
+        </div>
+        <div className="bg-slate-900 p-2.5 rounded-xl flex items-center gap-2">
+          <Clock className="w-4 h-4 text-indigo-400 shrink-0" />
+          <div className="min-w-0">
+            <span className="block text-[8px] font-bold text-slate-400 uppercase">Sesi Terakhir</span>
+            <span className="text-[10px] font-black text-white">{totalStudyMinutes} minit</span>
+          </div>
+        </div>
+      </div>
+
+      {/* View full report link */}
+      <button
+        onClick={() => navigate("/parent/children")}
+        className="w-full flex items-center justify-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 py-2"
+      >
+        Lihat Laporan Penuh <ArrowRight className="w-3 h-3" />
+      </button>
     </Card>
   );
 }
 
-// 3. Komponen Utama Dashboard
 export default function ParentDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [children, setChildren] = useState([]);
+  const [selectedChild, setSelectedChild] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [currentWeather, setCurrentWeather] = useState({ temp: 31, code: 0, locationName: "Kota Kinabalu" });
@@ -122,15 +178,13 @@ export default function ParentDashboard() {
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,weathercode&timezone=auto`
       );
       const data = await res.json();
-      
       if (data?.current_weather) {
         setCurrentWeather({
           temp: Math.round(data.current_weather.temperature),
           code: data.current_weather.weathercode,
-          locationName: name
+          locationName: name,
         });
       }
-
       if (data?.hourly?.time) {
         const now = moment();
         const forecastList = [];
@@ -140,7 +194,7 @@ export default function ParentDashboard() {
             forecastList.push({
               time: forecastTime.format("h a"),
               temp: Math.round(data.hourly.temperature_2m[i]),
-              code: data.hourly.weathercode[i]
+              code: data.hourly.weathercode[i],
             });
           }
         }
@@ -159,9 +213,7 @@ export default function ParentDashboard() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        fetchWeatherAndForecast(position.coords.latitude, position.coords.longitude, "Lokasi Semasa");
-      },
+      (position) => fetchWeatherAndForecast(position.coords.latitude, position.coords.longitude, "Lokasi Semasa"),
       () => fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu")
     );
   }, [fetchWeatherAndForecast]);
@@ -169,67 +221,39 @@ export default function ParentDashboard() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const u = await base44.auth.me();
-      const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
-      
-      if (!rel || !rel.length) {
-        setChildren([]);
+      const kids = await loadChildrenWithStats();
+      setChildren(kids);
+
+      if (kids.length === 0) {
+        setSelectedChild(null);
         return;
       }
-      
-      // Fetch all children and their progress in parallel
-      const childIds = rel.map(r => r.child_id);
-      const kids = await Promise.all(childIds.map(async (id) => {
-        try {
-          let childUser = null;
-          try {
-            // Cuba dapatkan data secara direct terlebih dahulu
-            childUser = await base44.entities.User.get(id);
-          } catch (userErr) {
-            console.warn(`⚠️ [RLS Sekatan] Membaca dari memori local cache bagi ID anak: ${id}`);
-            
-            // 🎯 PENYELESAIAN AKHIR: Ekstrak profil tulen dari local cache pendaftaran
-            const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-            
-            childUser = cachedChildren[id] || {
-              id: id,
-              full_name: "Petualang Cilik",
-              nickname: "Anak Terdaftar",
-              email: "Akses Portal Dilindungi"
-            };
-          }
 
-          let progressArray = [];
-          try {
-            progressArray = await base44.entities.Progress.filter({ student_id: id });
-          } catch (progErr) {
-            console.warn(`⚠️ [RLS Sekatan] Gagal mengakses jadual Progress bagi ID: ${id}`);
-          }
+      if (kids.length === 1) {
+        setSelectedChildId(kids[0].id);
+        setSelectedChild(kids[0]);
+        return;
+      }
 
-          return { 
-            id, 
-            ...childUser, 
-            progress: progressArray?.[0] || {} 
-          };
-        } catch (err) {
-          console.error(`Error loading child ${id}:`, err);
-          return null;
-        }
-      }));
-      
-      setChildren(kids.filter(Boolean)); // Tapis keluar nilai kosong/null
+      const selectedId = getSelectedChildId();
+      const found = kids.find((k) => k.id === selectedId);
+      if (found) {
+        setSelectedChild(found);
+      } else {
+        navigate("/parent/select-child");
+        return;
+      }
     } catch (err) {
       console.error("Gagal memuatkan data dashboard:", err);
-    } finally { 
+    } finally {
       setLoading(false);
     }
-  }, []);
+  }, [navigate]);
 
-  useEffect(() => { 
-    loadData(); 
+  useEffect(() => {
+    loadData();
   }, [loadData]);
 
-  // Separate effect for weather (non-blocking)
   useEffect(() => {
     handleLocationDetection();
   }, [handleLocationDetection]);
@@ -237,32 +261,47 @@ export default function ParentDashboard() {
   const currentDetails = getWeatherDetails(currentWeather.code);
   const CurrentIcon = currentDetails.icon;
 
+  const handleSwitchChild = () => navigate("/parent/select-child");
+
   if (loading) {
     return (
-      <div className="p-6 text-center text-xs font-medium text-slate-400 min-h-screen flex items-center justify-center">
-        Memuatkan dashboard...
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <p className="text-xs text-slate-400 font-bold mt-2">Memuatkan dashboard...</p>
       </div>
     );
   }
 
+  const greetingName = selectedChild ? getChildDisplayName(selectedChild) : "";
+
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto bg-slate-50/40 min-h-screen">
-      {/* Header Utama */}
+      {/* Header with greeting */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Pusat Kawalan Ibu Bapa 🛡️</h1>
-          <p className="text-slate-500 text-xs">Pantau progres, urus ganjaran dan beri misi baru.</p>
+          {selectedChild ? (
+            <>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
+                Selamat datang kembali, {greetingName}! 🎒
+              </h1>
+              <p className="text-slate-500 text-xs">Pantau progres pembelajaran dan urus ganjaran.</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Pusat Kawalan Ibu Bapa 🛡️</h1>
+              <p className="text-slate-500 text-xs">Tambah profil anak untuk mula mengikuti progres mereka.</p>
+            </>
+          )}
         </div>
-        
+
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button 
+          <Button
             className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-sm transition-all active:scale-95"
             onClick={() => setIsAddModalOpen(true)}
           >
-            <UserPlus className="w-4 h-4 mr-2" /> Tambah Anak Baru
+            <UserPlus className="w-4 h-4 mr-2" /> Tambah Anak
           </Button>
-          
-          <Button 
+          <Button
             variant="outline"
             className="sm:flex-none border-slate-200 text-slate-600 rounded-xl font-bold text-xs h-10 px-4 hover:bg-slate-50"
             onClick={() => navigate("/parent/children")}
@@ -272,7 +311,7 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* Kad Pintasan */}
+      {/* Shortcut cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <ShortcutCard icon={Gift} title="Ganjaran" desc="Urus kedai hadiah" gradient="from-pink-500 to-rose-400" onClick={() => navigate("/parent/rewards")} />
         <ShortcutCard icon={BarChart2} title="Analitik" desc="Prestasi penuh anak" gradient="from-blue-500 to-cyan-500" onClick={() => navigate("/parent/children")} />
@@ -280,44 +319,35 @@ export default function ParentDashboard() {
         <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan", description: "Fungsi ini akan hadir segera!" })} />
       </div>
 
-      {/* Konten Utama */}
+      {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-8 space-y-4">
-          <div className="space-y-2.5">
-            <div className="flex justify-between items-center px-0.5">
-              <h2 className="font-bold text-sm text-slate-800 flex items-center gap-2">
-                <Users className="w-4 h-4 text-indigo-600" /> Ringkasan Aktiviti Anak
-              </h2>
-              <Link to="/parent/children" className="text-xs font-bold text-indigo-600 hover:underline">
-                Lihat Laporan Penuh &rarr;
-              </Link>
-            </div>
-            
-            {children.length === 0 ? (
-              <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white">
-                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                   <UserPlus className="w-6 h-6 text-slate-300" />
-                </div>
-                <p className="text-sm text-slate-500 font-medium mb-4">Tiada profil anak yang dihubungkan lagi.</p>
-                <Button 
-                  size="sm" 
-                  className="bg-indigo-600 text-white rounded-xl font-bold text-xs px-6"
-                  onClick={() => setIsAddModalOpen(true)}
-                >
-                  Hubungkan Akaun Anak Sekarang
-                </Button>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {children.map((child) => (
-                  <CompactChildCard key={child.id} child={child} />
-                ))}
+          {selectedChild ? (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <SelectedChildPanel
+                child={selectedChild}
+                onSwitch={handleSwitchChild}
+                hasMultiple={children.length > 1}
+              />
+            </motion.div>
+          ) : (
+            <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white">
+              <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <UserPlus className="w-6 h-6 text-slate-300" />
               </div>
-            )}
-          </div>
+              <p className="text-sm text-slate-500 font-medium mb-4">Tiada profil anak yang dihubungkan lagi.</p>
+              <Button
+                size="sm"
+                className="bg-indigo-600 text-white rounded-xl font-bold text-xs px-6"
+                onClick={() => setIsAddModalOpen(true)}
+              >
+                Hubungkan Akaun Anak Sekarang
+              </Button>
+            </Card>
+          )}
         </div>
 
-        {/* WIDGET CUACA */}
+        {/* Weather widget */}
         <div className="lg:col-span-4 space-y-3">
           <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100/60 flex flex-col justify-between space-y-4 shadow-xs">
             {loadingWeather ? (
@@ -332,17 +362,13 @@ export default function ParentDashboard() {
                       <MapPin className="w-3 h-3" /> {currentWeather.locationName}
                     </div>
                     <h3 className="text-2xl font-black text-slate-800 leading-tight">
-                      {currentWeather.temp}°C 
-                      <span className={`text-xs font-bold ml-1.5 ${currentDetails.color}`}>
-                        {currentDetails.label}
-                      </span>
+                      {currentWeather.temp}°C
+                      <span className={`text-xs font-bold ml-1.5 ${currentDetails.color}`}>{currentDetails.label}</span>
                     </h3>
                   </div>
                   <CurrentIcon className={`w-8 h-8 ${currentDetails.color}`} />
                 </div>
-
                 <div className="border-t border-sky-200/40 w-full" />
-
                 <div>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
                     <Clock className="w-3 h-3 text-sky-500" /> Ramalan 5 Jam Akan Datang
@@ -367,11 +393,11 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* KAWALAN MODAL */}
-      <AddChildModal 
-        open={isAddModalOpen} 
+      {/* Modal */}
+      <AddChildModal
+        open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
-        onChildAdded={() => loadData()} 
+        onChildAdded={() => loadData()}
       />
     </div>
   );

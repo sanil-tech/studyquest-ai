@@ -35,6 +35,10 @@
       "type": "string",
       "description": "URL to uploaded profile photo"
     },
+    "selected_avatar": {
+      "type": "string",
+      "description": "Selected avatar (emoji string or URL) chosen during child profile creation"
+    },
     "school_year": {
       "type": "string",
       "description": "Student's year level (e.g. Standard 1, Form 3)"
@@ -100,6 +104,14 @@
       "type": "string",
       "default": "ms",
       "description": "Preferred language for learning content"
+    },
+    "interests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Student's interests/topics they enjoy (e.g. Science, Art, Sports)",
+      "default": []
     },
     "phone_number": {
       "type": "string",
