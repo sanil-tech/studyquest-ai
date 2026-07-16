@@ -114,6 +114,8 @@ export const loadChildrenWithStats = async () => {
           selected_avatar: childUser?.selected_avatar || localCache.selected_avatar || null,
           profile_picture_url: childUser?.profile_picture_url || null,
           avatar_emoji: childUser?.avatar_emoji || localCache.avatar_emoji || "🦧",
+          pin_hash: childUser?.pin_hash || localCache.child_login_pin || null,
+          login_enabled: childUser?.login_enabled !== false,
           gender: childUser?.gender || localCache.gender || "",
           date_of_birth: childUser?.date_of_birth || localCache.date_of_birth || "",
           school_name: childUser?.school_name || localCache.school_name || "",

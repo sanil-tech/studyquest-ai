@@ -39,6 +39,48 @@
       "type": "string",
       "description": "Selected avatar (emoji string or URL) chosen during child profile creation"
     },
+    "avatar_stage": {
+      "type": "number",
+      "description": "Avatar evolution stage 1-7 (auto-calculated from XP)",
+      "default": 1
+    },
+    "avatar_id": {
+      "type": "string",
+      "description": "Unique identifier for the student's avatar instance"
+    },
+    "avatar_animation": {
+      "type": "string",
+      "description": "Current avatar animation type (bounce, wiggle, pulse, float, swing)"
+    },
+    "avatar_background": {
+      "type": "string",
+      "description": "Current avatar background gradient style"
+    },
+    "current_level": {
+      "type": "number",
+      "description": "Mirrored current level from Progress entity for quick display",
+      "default": 1
+    },
+    "current_xp": {
+      "type": "number",
+      "description": "Mirrored current XP from Progress entity for quick display",
+      "default": 0
+    },
+    "coins": {
+      "type": "number",
+      "description": "Mirrored coin balance from Wallet entity for quick display",
+      "default": 0
+    },
+    "streak": {
+      "type": "number",
+      "description": "Mirrored streak days from Progress entity for quick display",
+      "default": 0
+    },
+    "login_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether child can independently log in (parent can disable)"
+    },
     "school_year": {
       "type": "string",
       "description": "Student's year level (e.g. Standard 1, Form 3)"

@@ -25,8 +25,8 @@ export default function ChildLogin() {
       if (!inputVal) {
         throw new Error("Sila masukkan Username anda.");
       }
-      if (pin.length !== 4) {
-        throw new Error("PIN mestilah tepat 4 digit angka.");
+      if (pin.length < 4) {
+        throw new Error("PIN mestilah sekurang-kurangnya 4 aksara.");
       }
 
       console.log("🚀 Menghubungi sistem Edge Function auth pelayan...");
@@ -121,17 +121,17 @@ export default function ChildLogin() {
         {/* INPUT 2: PIN 4-DIGIT */}
         <div className="space-y-2">
           <Label htmlFor="pin" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            PIN Rahsia (4-Digit)
+            PIN atau Kata Laluan
           </Label>
           <div className="relative">
             <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               id="pin"
               type="password"
-              maxLength={4}
+              maxLength={6}
               placeholder="••••"
               value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} // Hanya nombor dibenarkan
+              onChange={(e) => setPin(e.target.value)}
               className="pl-10 h-12 rounded-xl border-slate-200 text-lg tracking-widest font-black"
               required
             />

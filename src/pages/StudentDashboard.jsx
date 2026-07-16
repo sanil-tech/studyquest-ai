@@ -3,16 +3,19 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   Trophy, BookOpen, Target, Award, Play, CheckCircle2, 
-  UserCheck, UserX, ShieldAlert, Sparkles, Leaf, TreePine, Sprout
+  UserCheck, UserX, ShieldAlert, Sparkles, Leaf, TreePine, Sprout, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
+import AvatarDisplay from "@/components/avatar/AvatarDisplay";
+import { getStageProgress } from "@/lib/avatarSystem";
 
 export default function StudentDashboard() {
   const [dashboardState, setDashboardState] = useState({
     user: null,
+    activeChildId: null,
     progress: { level: 1, total_xp: 0, streak_days: 0 },
     wallet: { balance: 0 },
     sessions: [],
@@ -28,13 +31,20 @@ export default function StudentDashboard() {
       setLoading(true);
       const currentUser = await base44.auth.me();
 
+      // Handle parent accessing child's dashboard (shared device flow)
+      const activeChildId = currentUser.app_role === "parent" ? localStorage.getItem("active_child_session") : null;
+      const studentId = activeChildId || currentUser.id;
+      const studentUser = activeChildId
+        ? await base44.entities.User.get(activeChildId).catch(() => currentUser)
+        : currentUser;
+
       // Gunakan Promise.allSettled untuk API yang lebih kebal (resilient)
       const results = await Promise.allSettled([
-        base44.entities.Progress.filter({ student_id: currentUser.id }),
-        base44.entities.Wallet.filter({ student_id: currentUser.id }),
-        base44.entities.StudySession.filter({ student_id: currentUser.id }, "-created_date", 10),
-        base44.entities.QuizAttempt.filter({ student_id: currentUser.id }, "-created_date", 10),
-        base44.entities.ParentChildRelationship.filter({ child_id: currentUser.id, status: "pending" }),
+        base44.entities.Progress.filter({ student_id: studentId }),
+        base44.entities.Wallet.filter({ student_id: studentId }),
+        base44.entities.StudySession.filter({ student_id: studentId }, "-created_date", 10),
+        base44.entities.QuizAttempt.filter({ student_id: studentId }, "-created_date", 10),
+        base44.entities.ParentChildRelationship.filter({ child_id: studentId, status: "pending" }),
       ]);
 
       const progress = results[0].status === "fulfilled" && results[0].value?.[0] 
@@ -68,7 +78,8 @@ export default function StudentDashboard() {
 
       // Batch update to avoid multiple re-renders
       setDashboardState({
-        user: currentUser,
+        user: studentUser,
+        activeChildId,
         progress,
         wallet,
         sessions,
@@ -134,7 +145,7 @@ export default function StudentDashboard() {
     );
   }
 
-  const { user, progress, wallet, sessions, quizzes, pendingRequests } = dashboardState;
+  const { user, progress, wallet, sessions, quizzes, pendingRequests, activeChildId } = dashboardState;
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700">
@@ -147,6 +158,14 @@ export default function StudentDashboard() {
             <TreePine className="w-5 h-5" />
             <span className="text-sm">Dahan {level}</span>
           </div>
+          {activeChildId && (
+            <button
+              onClick={() => { localStorage.removeItem("active_child_session"); window.location.href = "/parent"; }}
+              className="flex items-center gap-1.5 font-bold text-rose-600 bg-rose-50/80 px-3 py-1.5 rounded-2xl border border-rose-100 text-xs active:scale-95 transition-transform ml-2"
+            >
+              <LogOut className="w-4 h-4" /> Keluar Mod Anak
+            </button>
+          )}
         </div>
         
         <div className="flex items-center gap-2 sm:gap-4">
@@ -171,8 +190,8 @@ export default function StudentDashboard() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner flex items-center justify-center text-5xl shrink-0">
-              🦧 {/* Otan Mascot Emoji */}
+            <div className="shrink-0">
+              <AvatarDisplay xp={xp} size="lg" variant="plain" />
             </div>
 
             <div>
