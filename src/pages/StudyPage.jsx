@@ -137,6 +137,17 @@ export default function StudyPage() {
     });
   }, [topics, user]);
 
+  // Mengumpulkan buku teks mengikut nama subjek untuk paparan laci kabinet perpustakaan
+  const booksBySubject = useMemo(() => {
+    if (!textbooks) return {};
+    return textbooks.reduce((acc, book) => {
+      const name = book.subject_name || "Umum";
+      if (!acc[name]) acc[name] = [];
+      acc[name].push(book);
+      return acc;
+    }, {});
+  }, [textbooks]);
+
   // 🎯 PENAMBAHBAIKAN KUNCI: Mengekstrak teks nota secara kebal daripada pelbagai variasi lajur pelayan
   const kandunganTeksNota = useMemo(() => {
     if (!selectedTopic) return "";
