@@ -1,18 +1,21 @@
 // src/pages/StudentDashboard.jsx
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   Trophy, BookOpen, Target, Award, Play, CheckCircle2, 
-  UserCheck, UserX, ShieldAlert, Sparkles, Leaf, TreePine, Sprout, LogOut
+  UserCheck, UserX, ShieldAlert, Sparkles, Leaf, TreePine, Sprout, LogOut, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
-import { getStageProgress } from "@/lib/avatarSystem";
 
 export default function StudentDashboard() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
   const [dashboardState, setDashboardState] = useState({
     user: null,
     activeChildId: null,
@@ -24,8 +27,8 @@ export default function StudentDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const { toast } = useToast();
 
+  // Aggregates structural learning profiles and system states
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -34,11 +37,12 @@ export default function StudentDashboard() {
       // Handle parent accessing child's dashboard (shared device flow)
       const activeChildId = currentUser.app_role === "parent" ? localStorage.getItem("active_child_session") : null;
       const studentId = activeChildId || currentUser.id;
+      
       const studentUser = activeChildId
         ? await base44.entities.User.get(activeChildId).catch(() => currentUser)
         : currentUser;
 
-      // Gunakan Promise.allSettled untuk API yang lebih kebal (resilient)
+      // Promise.allSettled isolates endpoints to insulate against failure cascades
       const results = await Promise.allSettled([
         base44.entities.Progress.filter({ student_id: studentId }),
         base44.entities.Wallet.filter({ student_id: studentId }),
@@ -50,9 +54,11 @@ export default function StudentDashboard() {
       const progress = results[0].status === "fulfilled" && results[0].value?.[0] 
         ? results[0].value[0] 
         : { level: 1, total_xp: 0, streak_days: 0 };
+        
       const wallet = results[1].status === "fulfilled" && results[1].value?.[0] 
         ? results[1].value[0] 
         : { balance: 0 };
+        
       const sessions = results[2].status === "fulfilled" && results[2].value ? results[2].value : [];
       const quizzes = results[3].status === "fulfilled" && results[3].value ? results[3].value : [];
       const pendingRels = results[4].status === "fulfilled" ? results[4].value : [];
@@ -69,14 +75,18 @@ export default function StudentDashboard() {
                 parent_email: parentUser.email || "Tiada emel",
               };
             } catch {
-              return { id: rel.id, parent_name: "Akaun Penjaga Tidak Diketahui", parent_email: "Pengesahan sistem diperlukan" };
+              return { 
+                id: rel.id, 
+                parent_name: "Akaun Penjaga Tidak Diketahui", 
+                parent_email: "Pengesahan sistem diperlukan" 
+              };
             }
           })
         );
         pendingRequests = hydratedRequests;
       }
 
-      // Batch update to avoid multiple re-renders
+      // Unified batch state update
       setDashboardState({
         user: studentUser,
         activeChildId,
@@ -88,7 +98,11 @@ export default function StudentDashboard() {
       });
     } catch (err) {
       console.error("Ralat memuat turun data pelajar:", err);
-      toast({ title: "Alamak!", description: "Gagal memuat turun data pembelajaran anda.", variant: "destructive" });
+      toast({ 
+        title: "Alamak!", 
+        description: "Gagal memuat turun data pembelajaran anda.", 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }
@@ -98,25 +112,39 @@ export default function StudentDashboard() {
     loadDashboardData(); 
   }, [loadDashboardData]);
 
+  // Processes administrative connection invitations from parents
   const handleLinkAction = useCallback(async (relationshipId, actionType) => {
     setActionLoading(true);
     try {
       if (actionType === "approve") {
         await base44.entities.ParentChildRelationship.update(relationshipId, { status: "active" });
-        toast({ title: "Akaun Berjaya Disambung! 🎉", description: "Papan pemuka anda kini terhubung dengan ibu bapa." });
+        toast({ 
+          title: "Akaun Berjaya Disambung! 🎉", 
+          description: "Papan pemuka anda kini terhubung dengan ibu bapa." 
+        });
       } else {
         await base44.entities.ParentChildRelationship.delete(relationshipId);
-        toast({ title: "Permintaan Ditolak", description: "Sambungan dengan ibu bapa telah dibatalkan." });
+        toast({ 
+          title: "Permintaan Ditolak", 
+          description: "Sambungan dengan ibu bapa telah dibatalkan." 
+        });
       }
-      loadDashboardData();
+      await loadDashboardData();
     } catch (err) {
-      toast({ title: "Gagal memproses", description: err.message, variant: "destructive" });
+      const errorMessage = err instanceof Error ? err.message : "Ralat rangkaian sistem.";
+      toast({ title: "Gagal memproses", description: errorMessage, variant: "destructive" });
     } finally {
       setActionLoading(false);
     }
   }, [toast, loadDashboardData]);
 
-  // Memoize computed values
+  // Clears shared device storage tracking values to reset role context
+  const handleExitChildMode = () => {
+    localStorage.removeItem("active_child_session");
+    navigate("/parent");
+  };
+
+  // Computes active level brackets and graphical gauge splits
   const { level, xp, nextLevelXp, xpPercentage } = useMemo(() => {
     const lvl = dashboardState.progress?.level || 1;
     const xpVal = dashboardState.progress?.total_xp || 0;
@@ -125,14 +153,13 @@ export default function StudentDashboard() {
     return { level: lvl, xp: xpVal, nextLevelXp: nextLvlXp, xpPercentage: pct };
   }, [dashboardState.progress]);
 
-  // Memoize today's minutes calculation
-  const today = useMemo(() => moment(), []);
-  const todayMinutes = useMemo(() => 
-    dashboardState.sessions
-      .filter(s => s.created_date && moment(s.created_date).isSame(today, "day"))
-      .reduce((sum, s) => sum + (s.duration_minutes || 0), 0),
-    [dashboardState.sessions, today]
-  );
+  // Processes raw historical data into daily active time accumulations
+  const todayMinutes = useMemo(() => {
+    const todayStart = moment().startOf("day");
+    return dashboardState.sessions
+      .filter(s => s.created_date && moment(s.created_date).isSame(todayStart, "day"))
+      .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+  }, [dashboardState.sessions]);
 
   if (loading) {
     return (
@@ -150,17 +177,16 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700">
       
-      {/* 1. TOP BAR (Frosted Nature Style) */}
+      {/* 1. TOP BAR */}
       <div className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-stone-200/50 px-4 py-3 flex justify-between items-center max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
-          {/* Level / Dahan Pokok */}
           <div className="flex items-center gap-1.5 font-black text-emerald-600 bg-emerald-50/80 px-3 py-1.5 rounded-2xl border border-emerald-100">
             <TreePine className="w-5 h-5" />
             <span className="text-sm">Dahan {level}</span>
           </div>
           {activeChildId && (
             <button
-              onClick={() => { localStorage.removeItem("active_child_session"); window.location.href = "/parent"; }}
+              onClick={handleExitChildMode}
               className="flex items-center gap-1.5 font-bold text-rose-600 bg-rose-50/80 px-3 py-1.5 rounded-2xl border border-rose-100 text-xs active:scale-95 transition-transform ml-2"
             >
               <LogOut className="w-4 h-4" /> Keluar Mod Anak
@@ -169,12 +195,10 @@ export default function StudentDashboard() {
         </div>
         
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* Streak -> Kelip-kelip */}
           <div className="flex items-center gap-1.5 font-black text-amber-500 bg-amber-50/50 px-3 py-1.5 rounded-2xl">
             <Sparkles className="w-5 h-5 fill-amber-400" />
             <span className="text-sm">{progress?.streak_days || 0}</span>
           </div>
-          {/* Wallet -> Daun Emas */}
           <div className="flex items-center gap-1.5 font-black text-lime-600 bg-lime-50/50 px-3 py-1.5 rounded-2xl">
             <Leaf className="w-5 h-5 fill-lime-500" />
             <span className="text-sm">{wallet?.balance || 0}</span>
@@ -184,9 +208,8 @@ export default function StudentDashboard() {
 
       <div className="max-w-4xl mx-auto px-4 mt-6 space-y-8">
         
-        {/* 2. HERO BANNER (Canopy Theme) */}
-        <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg overflow-hidden flex flex-col md:flex-row items-center justify-between">
-          {/* Light rays through leaves */}
+        {/* 2. HERO BANNER */}
+        <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
@@ -209,20 +232,24 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <Button className="relative z-10 bg-white text-emerald-700 hover:bg-lime-50 font-extrabold text-base px-6 py-6 rounded-2xl shadow-md border border-emerald-100 group w-full md:w-auto">
+          <Button 
+            onClick={() => navigate("/lessons")}
+            className="relative z-10 bg-white text-emerald-700 hover:bg-lime-50 font-extrabold text-base px-6 py-6 rounded-2xl shadow-md border border-emerald-100 group w-full md:w-auto shrink-0"
+          >
             <Sprout className="w-5 h-5 mr-2 text-emerald-600 group-hover:scale-110 transition-transform" />
             Mula Memanjat
           </Button>
         </div>
 
-        {/* 3. PENDING PARENT REQUEST (Wooden Signpost Alert) */}
+        {/* 3. PENDING PARENT REQUEST */}
         <AnimatePresence>
           {pendingRequests.length > 0 && (
             <motion.div 
-              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, height: 0 }}
               className="bg-[#F3EFE6] rounded-[2rem] p-6 border border-[#E3D9C6] shadow-sm relative overflow-hidden"
             >
-              {/* Subtle wood grain or warm background feel */}
               <div className="flex items-center gap-2 text-amber-800 font-black text-sm uppercase tracking-wide mb-4">
                 <ShieldAlert className="w-5 h-5" /> Jemputan Keluarga
               </div>
@@ -238,14 +265,16 @@ export default function StudentDashboard() {
                       <Button 
                         onClick={() => handleLinkAction(req.id, "approve")} 
                         disabled={actionLoading} 
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-10">
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-10"
+                      >
                         <UserCheck className="w-4 h-4 mr-2" /> Terima
                       </Button>
                       <Button 
                         variant="outline" 
                         onClick={() => handleLinkAction(req.id, "reject")} 
                         disabled={actionLoading} 
-                        className="flex-1 border-[#E3D9C6] text-stone-500 font-bold rounded-xl h-10">
+                        className="flex-1 border-[#E3D9C6] text-stone-500 font-bold rounded-xl h-10"
+                      >
                         <UserX className="w-4 h-4 mr-2" /> Tolak
                       </Button>
                     </div>
@@ -256,7 +285,7 @@ export default function StudentDashboard() {
           )}
         </AnimatePresence>
 
-        {/* 4. PROGRESS BAR (Vine Growing Concept) */}
+        {/* 4. PROGRESS BAR */}
         <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-emerald-100 shadow-sm relative">
           <div className="flex justify-between items-end mb-4">
             <div>
@@ -272,16 +301,18 @@ export default function StudentDashboard() {
 
           <div className="h-4 bg-[#F3EFE6] rounded-full overflow-hidden shadow-inner relative mt-2">
             <motion.div
-              initial={{ width: 0 }} animate={{ width: `${xpPercentage}%` }} transition={{ duration: 1.5, ease: "easeOut" }}
+              initial={{ width: 0 }} 
+              animate={{ width: `${xpPercentage}%` }} 
+              transition={{ duration: 1.5, ease: "easeOut" }}
               className="h-full bg-gradient-to-r from-lime-400 to-emerald-500 rounded-full"
             />
           </div>
         </div>
 
-        {/* 5. CONTENT CARDS (Minimalist with Subtle Green Touches) */}
+        {/* 5. CONTENT CARDS */}
         <div className="grid md:grid-cols-2 gap-6">
           
-          {/* Nota Terkini */}
+          {/* Jurnal Ilmu Otan */}
           <div className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-black text-stone-800 flex items-center gap-2">
@@ -311,7 +342,7 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          {/* Rekod Kuiz */}
+          {/* Ujian Keberanian */}
           <div className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-black text-stone-800 flex items-center gap-2">
