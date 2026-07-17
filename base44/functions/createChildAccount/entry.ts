@@ -19,6 +19,7 @@ export async function handler(req: Request) {
     const nickname = body?.nickname?.trim();
     const pin = body?.pin?.trim();
     const parentId = body?.parentId?.trim();
+    const emailInput = body?.email?.trim(); // Menerima medan emel secara langsung jika dihantar dari frontend
 
     // Validasi mandatori input pendaftaran
     if (!fullName || !pin || !parentId) {
@@ -42,25 +43,42 @@ export async function handler(req: Request) {
       );
     }
 
-    // Pilih nama panggilan (gunakan perkataan pertama nama jika nama panggilan kosong)
-    const cleanNickname = (nickname || fullName.split(" ")[0]).trim();
-    
-    // PERLINDUNGAN UTAMA: Buang semua simbol dan ruang kosong agar e-mel 100% sah (alphanumeric sahaja)
-    let emailSafeNickname = cleanNickname.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-    
-    // Sandaran kecemasan jika nama panggilan hanya mengandungi simbol sahaja
-    if (!emailSafeNickname) {
-      emailSafeNickname = "pengembara";
-    }
+    let finalEmail = "";
 
-    // Bersihkan ID Ibu bapa daripada simbol berbahaya
-    const emailSafeParentId = parentId.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().substring(0, 6);
-    
-    // JAMINAN UNIK: Tambah suffix rawak 4 aksara untuk menghalang pertembungan e-mel di dalam DB
-    const randomSuffix = Math.random().toString(36).substring(2, 6);
-    
-    // Pembinaan e-mel virtual yang selamat dan mematuhi standard regex RFC 5322
-    const virtualEmail = `${emailSafeNickname}.${emailSafeParentId}.${randomSuffix}@studyquest.internal`;
+    // JIKA E-MEL DIHANTAR DARI FRONTEND: Guna e-mel tersebut & sahkan formatnya
+    if (emailInput) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailInput)) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: "Format e-mel yang dimasukkan tidak sah." 
+          }), 
+          { status: 400, headers: resHeaders }
+        );
+      }
+      finalEmail = emailInput.toLowerCase();
+    } else {
+      // JIKA TIADA E-MEL DIHANTAR: Bina e-mel virtual dengan TLD standard (.com)
+      const cleanNickname = (nickname || fullName.split(" ")[0]).trim();
+      
+      // PERLINDUNGAN UTAMA: Buang semua simbol dan ruang kosong agar e-mel 100% sah (alphanumeric sahaja)
+      let emailSafeNickname = cleanNickname.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+      
+      // Sandaran kecemasan jika nama panggilan hanya mengandungi simbol sahaja
+      if (!emailSafeNickname) {
+        emailSafeNickname = "pengembara";
+      }
+
+      // Bersihkan ID Ibu bapa daripada simbol berbahaya
+      const emailSafeParentId = parentId.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().substring(0, 6);
+      
+      // JAMINAN UNIK: Tambah suffix rawak 4 aksara untuk menghalang pertembungan e-mel di dalam DB
+      const randomSuffix = Math.random().toString(36).substring(2, 6);
+      
+      // Pembinaan e-mel virtual yang selamat menggunakan TLD standard (.com) bagi mengelak sekatan validation DB
+      finalEmail = `${emailSafeNickname}.${emailSafeParentId}.${randomSuffix}@studyquest.com`;
+    }
 
     // Gunakan akses Service Role bagi mengatasi sekatan polisi RLS
     const dbClient = base44.asServiceRole || base44;
@@ -68,8 +86,8 @@ export async function handler(req: Request) {
     // Cipta profil pelajar baru
     const newStudent = await dbClient.entities.User.create({
       full_name: fullName,
-      email: virtualEmail, 
-      nickname: cleanNickname,
+      email: finalEmail, 
+      nickname: (nickname || fullName.split(" ")[0]).trim(),
       app_role: "student",
       child_login_pin: pin,
       status: "active",
