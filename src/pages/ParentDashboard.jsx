@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Link, useNavigate } from "react-router-dom";
 import moment from "moment";
 import {
-  Users, Target, Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning,
+  Target, Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning,
   MapPin, Clock, ArrowRight, Settings, UserPlus, Flame, Coins, Zap, Star,
   BookOpen, RefreshCw, Loader2
 } from "lucide-react";
@@ -19,6 +19,7 @@ import {
   getSelectedChildId, setSelectedChildId
 } from "@/lib/childUtils";
 
+// Maps WMO Weather Interpretation Codes (WW) to icons and language text
 const getWeatherDetails = (code) => {
   if ([0, 1].includes(code)) return { label: "Cerah", icon: Sun, color: "text-amber-500" };
   if ([2, 3].includes(code)) return { label: "Berawan", icon: Cloud, color: "text-slate-400" };
@@ -31,9 +32,11 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-xs flex items-center gap-3 text-white text-left w-full border border-white/5 hover:opacity-95 transition-opacity active:scale-95`}
+      className={`bg-gradient-to-br ${gradient} p-3 rounded-xl shadow-sm flex items-center gap-3 text-white text-left w-full border border-white/5 hover:opacity-95 transition-opacity active:scale-95`}
     >
-      <div className="bg-white/20 p-2 rounded-lg shrink-0"><Icon className="w-4 h-4" /></div>
+      <div className="bg-white/20 p-2 rounded-lg shrink-0">
+        <Icon className="w-4 h-4" />
+      </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-bold truncate">{title}</p>
         <p className="text-[9px] text-white/80 truncate">{desc}</p>
@@ -65,7 +68,7 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
 
   return (
     <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-4">
-      {/* Child header with avatar + nickname + switch */}
+      {/* Profil Header */}
       <div className="flex items-center gap-3">
         <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border-2 border-indigo-100 shrink-0 overflow-hidden">
           {avatarIsUrl ? (
@@ -84,7 +87,9 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
               <Clock className="w-2.5 h-2.5 text-indigo-500" /> {lastActiveTime}
             </span>
             {child.education_level && (
-              <span className="text-[9px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded-full">{child.education_level}</span>
+              <span className="text-[9px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded-full">
+                {child.education_level}
+              </span>
             )}
           </div>
         </div>
@@ -98,7 +103,7 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
         )}
       </div>
 
-      {/* XP progress bar */}
+      {/* Progress Bar */}
       <div className="space-y-1 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
         <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
           <span className="flex items-center gap-0.5"><Zap className="w-3 h-3 text-purple-500" /> XP TERKUMPUL</span>
@@ -107,7 +112,7 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
         <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
       </div>
 
-      {/* Stats grid */}
+      {/* Stats Table Elements Alternative */}
       <div className="grid grid-cols-4 gap-2 text-center">
         <div className="bg-amber-50/60 border border-amber-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
           <Star className="w-4 h-4 text-amber-500 mb-0.5" />
@@ -131,7 +136,7 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
         </div>
       </div>
 
-      {/* Current mission + study time */}
+      {/* Mission Footer Info */}
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-indigo-50/50 border border-indigo-100/40 p-2.5 rounded-xl flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -149,7 +154,6 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
         </div>
       </div>
 
-      {/* View full report link */}
       <button
         onClick={() => navigate("/parent/children")}
         className="w-full flex items-center justify-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 py-2"
@@ -178,6 +182,7 @@ export default function ParentDashboard() {
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,weathercode&timezone=auto`
       );
       const data = await res.json();
+      
       if (data?.current_weather) {
         setCurrentWeather({
           temp: Math.round(data.current_weather.temperature),
@@ -185,16 +190,19 @@ export default function ParentDashboard() {
           locationName: name,
         });
       }
+      
       if (data?.hourly?.time) {
         const now = moment();
         const forecastList = [];
+        
         for (let i = 0; i < data.hourly.time.length; i++) {
           const forecastTime = moment(data.hourly.time[i]);
+          
           if (forecastTime.isSameOrAfter(now, "hour") && forecastList.length < 5) {
             forecastList.push({
               time: forecastTime.format("h a"),
-              temp: Math.round(data.hourly.temperature_2m[i]),
-              code: data.hourly.weathercode[i],
+              temp: Math.round(data.hourly.temperature_2m?.[i] ?? 0),
+              code: data.hourly.weathercode?.[i] ?? 0,
             });
           }
         }
@@ -241,7 +249,6 @@ export default function ParentDashboard() {
         setSelectedChild(found);
       } else {
         navigate("/parent/select-child");
-        return;
       }
     } catch (err) {
       console.error("Gagal memuatkan data dashboard:", err);
@@ -276,7 +283,7 @@ export default function ParentDashboard() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto bg-slate-50/40 min-h-screen">
-      {/* Header with greeting */}
+      {/* Title Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           {selectedChild ? (
@@ -311,7 +318,7 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* Shortcut cards */}
+      {/* Grid Links Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <ShortcutCard icon={Gift} title="Ganjaran" desc="Urus kedai hadiah" gradient="from-pink-500 to-rose-400" onClick={() => navigate("/parent/rewards")} />
         <ShortcutCard icon={BarChart2} title="Analitik" desc="Prestasi penuh anak" gradient="from-blue-500 to-cyan-500" onClick={() => navigate("/parent/children")} />
@@ -319,7 +326,7 @@ export default function ParentDashboard() {
         <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan", description: "Fungsi ini akan hadir segera!" })} />
       </div>
 
-      {/* Main content */}
+      {/* Main Core View Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-8 space-y-4">
           {selectedChild ? (
@@ -347,9 +354,9 @@ export default function ParentDashboard() {
           )}
         </div>
 
-        {/* Weather widget */}
+        {/* Forecast Sidebar Panel */}
         <div className="lg:col-span-4 space-y-3">
-          <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100/60 flex flex-col justify-between space-y-4 shadow-xs">
+          <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100/60 flex flex-col justify-between space-y-4 shadow-sm">
             {loadingWeather ? (
               <div className="text-[11px] font-medium text-slate-400 animate-pulse py-6 text-center w-full">
                 Menyinkronkan ramalan cuaca...
@@ -393,11 +400,10 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* Modal */}
       <AddChildModal
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
-        onChildAdded={() => loadData()}
+        onChildAdded={loadData}
       />
     </div>
   );
