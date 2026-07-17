@@ -43,7 +43,7 @@ export default function StudyPage() {
   const pemasaRef = useRef(null);
   const MASA_MINIMUM_SAAT = 60; // Had masa fokus membaca standard
 
-  // 🎯 KAWALAN PAPARAN 4: Keadaan untuk sesi kuiz minda dinamik
+  // Keadaan untuk Pandangan 4 (Sesi Kuiz Minda Dinamik)
   const [availableQuiz, setAvailableQuiz] = useState(null);
   const [isQuizMode, setIsQuizMode] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -166,6 +166,9 @@ export default function StudyPage() {
     setIsQuizMode(false);
     setQuizFinished(false);
     setCurrentQuestionIndex(0);
+    setQuizScore(0);
+    setSelectedOption(null);
+    setShowQuizExplanation(false);
     
     try {
       const [sessionsCheck, quizData] = await Promise.all([
@@ -278,7 +281,7 @@ export default function StudyPage() {
       // 3. Mengemas kini profil Progress agregat murid (+25 XP ganjaran tamat kuiz)
       if (userProgress && !isAlreadyCompleted) {
         await base44.entities.Progress.update(userProgress.id, {
-          total_xp: (userProgress.total_xp || 0) + 25,
+          total_xp: (userProgress.total_xp || 0) + 25, 
           total_study_time: (userProgress.total_study_time || 0) + minitBelajar,
           last_study_date: new Date().toISOString(),
         });
@@ -286,7 +289,6 @@ export default function StudyPage() {
 
       toast({ title: "Kuiz Selesai! 🏆", description: `Anda mendapat skor ${peratusanSkor}% dalam ujian ini!` });
       
-      // Set semula semua keadaan kuiz dan kembali ke senarai peta bab
       setIsQuizMode(false);
       setSelectedTopic(null);
     } catch (err) {
@@ -297,7 +299,7 @@ export default function StudyPage() {
     }
   };
 
-  // Pengelompokkan naskah buku teks digital mengikut subjek
+  // Mengelompokkan naskah buku teks digital mengikut subjek
   const booksBySubject = useMemo(() => {
     return textbooks.reduce((acc, book) => {
       if (!acc[book.subject_name]) acc[book.subject_name] = [];
@@ -306,9 +308,14 @@ export default function StudyPage() {
     }, {});
   }, [textbooks]);
 
+  // Mengira perkakas nilai matematik untuk pemasa visual
   const peratusanMasa = isAlreadyCompleted ? 100 : Math.min((secondsElapsed / MASA_MINIMUM_SAAT) * 100, 100);
   const bakiMasaSaat = isAlreadyCompleted ? 0 : Math.max(MASA_MINIMUM_SAAT - secondsElapsed, 0);
   const adakahMasaCukup = isAlreadyCompleted || secondsElapsed >= MASA_MINIMUM_SAAT;
+
+  // 🎯 PEMBETULAN STRUKTUR: Pengisytiharan diletakkan di luar struktur bersyarat 'if' 
+  // supaya nilainya sedia dibaca oleh semua View (View 1, 2, 3, dan 4) secara global.
+  const studentFirstName = user?.name ? user.name.split(" ")[0] : (user?.nickname || "Penjelajah");
 
   if (loading) {
     return (
@@ -326,6 +333,7 @@ export default function StudyPage() {
     return (
       <div className="min-h-screen bg-[#FAFAF7] font-sans pb-12 pt-6">
         <div className="space-y-8 max-w-5xl mx-auto px-4">
+          
           <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 border border-emerald-800/20 shadow-lg overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -367,7 +375,7 @@ export default function StudyPage() {
             </div>
           </div>
 
-          {/* PERPUSTAKAAN DIGITAL BUKU TEKS */}
+          {/* PERPUSTAKAAN DAUN TUALANG */}
           {textbooks.length > 0 && (
             <div className="bg-white rounded-[2rem] border border-stone-200/60 p-6 sm:p-8">
               <div className="flex items-center gap-3 mb-6">
@@ -424,7 +432,7 @@ export default function StudyPage() {
   }
 
   // =====================================================================
-  // 🧠 VIEW 4: BARU (SESI KUIZ MINDA INTERAKTIF DAN NOTA PENJELASAN)
+  // 🧠 VIEW 4: SESI KUIZ MINDA INTERAKTIF DAN NOTA PENJELASAN
   // =====================================================================
   if (selectedTopic && isQuizMode) {
     const soalanSemasa = quizQuestions[currentQuestionIndex];
@@ -433,7 +441,6 @@ export default function StudyPage() {
       <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700 pt-6">
         <div className="max-w-2xl mx-auto px-4 space-y-6">
           
-          {/* Bar Tajuk Atas Kuiz */}
           <div className="bg-white p-4 rounded-2xl border border-stone-200 flex justify-between items-center shadow-xs">
             <div className="flex items-center gap-2">
               <Award className="w-5 h-5 text-amber-500" />
@@ -446,12 +453,10 @@ export default function StudyPage() {
 
           {!quizFinished ? (
             <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-stone-200 shadow-sm space-y-6">
-              {/* Teks Pernyataan Soalan */}
               <h3 className="text-base sm:text-lg font-extrabold text-stone-800 leading-snug">
                 {soalanSemasa?.question}
               </h3>
 
-              {/* Senarai Butang Pilihan Jawapan */}
               <div className="grid grid-cols-1 gap-3">
                 {soalanSemasa?.options?.map((opsi, idx) => {
                   const adakahOpsiIniDipilih = selectedOption === opsi;
@@ -475,7 +480,6 @@ export default function StudyPage() {
                 })}
               </div>
 
-              {/* Panel Paparan Nota Penerangan Jawapan Kuiz */}
               {showQuizExplanation && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                   <p className="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
@@ -489,7 +493,6 @@ export default function StudyPage() {
               )}
             </div>
           ) : (
-            /* Skrin Paparan Ringkasan Tamat Kuiz */
             <div className="bg-white rounded-[2rem] p-8 border border-stone-200 shadow-md text-center space-y-6 max-w-md mx-auto">
               <span className="text-6xl block">🏆</span>
               <h3 className="text-xl font-black text-stone-800">Kuiz Selesai, Tahniah!</h3>
@@ -535,19 +538,16 @@ export default function StudyPage() {
             </div>
           </div>
 
-          {/* Kandungan Blok Nota Teks Pembelajaran */}
           <div className="bg-white rounded-[2rem] p-6 sm:p-10 border border-stone-200 shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 uppercase">
-              <BookOpen className="w-4 h-4" /> Nota Akademik Penjelajahan
+              <BookOpen className="w-4 h-4" /> Nota Modul Akademik
             </div>
             <h1 className="text-2xl font-black text-stone-800">{selectedTopic.name}</h1>
             <div className="border-b border-stone-100 my-4" />
             
-            {/* 🎯 PENAMBAHBAIKAN KUNCI VIDEO YOUTUBE: Melindung klik murid dengan Overlay telus */}
             {selectedTopic.video_url && (
               <div className="space-y-2 mb-6">
                 <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-stone-200 bg-black shadow-inner">
-                  {/* Lapisan telus menyekat klik tetikus murid */}
                   <div className="absolute inset-0 z-10 bg-transparent cursor-default select-none" />
                   <iframe
                     className="w-full h-full pointer-events-none select-none z-0"
@@ -563,14 +563,21 @@ export default function StudyPage() {
             </p>
           </div>
 
-          {/* Panel Sistem Keselamatan Anti-Langkau Sesi Belajar */}
           <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs space-y-4">
-            {!adakahMasaCukup ? (
+            {isAlreadyCompleted ? (
+              <div className="flex items-start gap-3 bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 text-emerald-950 text-xs font-semibold">
+                <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">Nota Sedia Terbuka</p>
+                  <p className="text-emerald-800 mt-0.5">Anda sudah menamatkan misi bab ini sebelum ini. Sila baca untuk mengulang kaji atau terus simpan log sesi.</p>
+                </div>
+              </div>
+            ) : !adakahMasaCukup ? (
               <div className="flex items-start gap-3 bg-amber-50/70 p-4 rounded-xl border border-amber-200 text-amber-950 text-xs font-semibold">
                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-bold">Sistem Keselamatan Anti-Langkau Misi</p>
-                  <p className="text-amber-700 mt-0.5">Sila baca dengan teliti selama <span className="font-black text-amber-900">{bakiMasaSaat} saat lagi</span> untuk membuka fasa cabaran ujian minda bab ini.</p>
+                  <p className="text-amber-700 mt-0.5">Sila baca dengan teliti selama <span className="font-black text-amber-900">{bakiMasaSaat} saat lagi</span> untuk mendapatkan mata insentif XP kemajuan anda.</p>
                 </div>
               </div>
             ) : (
@@ -583,7 +590,6 @@ export default function StudyPage() {
               </div>
             )}
 
-            {/* Graf Bar Kemajuan */}
             <div className="space-y-1">
               <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden shadow-inner">
                 <div 
@@ -644,6 +650,7 @@ export default function StudyPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            
             {subjectBooks.length > 0 && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
                 <div className="flex items-center gap-2">
