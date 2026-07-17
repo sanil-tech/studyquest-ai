@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Senarai ikon emoji pilihan untuk kad ganjaran
 const EMOJIS = ["🍦", "🎮", "🎬", "📱", "🛍️", "🎂", "🏀", "🎵", "📚", "✈️", "🎁", "⭐"];
 
-// Helper function to extract a user-friendly display name
+// Fungsi bantuan untuk mendapatkan nama paparan pelajar yang sah
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
@@ -28,23 +29,23 @@ export default function ParentRewards() {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  // 🎯 OPTIMIZATION: Wrapped in useCallback to guarantee structural stability across renders
+  // Memuatkan data profil ibu bapa, senarai ganjaran, dan hubungan akaun anak
   const loadData = useCallback(async () => {
     try {
       const u = await base44.auth.me();
       setUser(u);
       
-      // 1. Fetch rewards assigned to this parent
+      // 1. Mengambil data ganjaran yang telah dicipta oleh ibu bapa ini
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
       
-      // 2. Fetch structural active child relationships
+      // 2. Mengambil data hubungan anak yang berstatus aktif
       const relationships = await base44.entities.ParentChildRelationship.filter({
         parent_id: u.id,
         status: "active",
       });
 
-      // 3. Resolve actual child user profiles in parallel safely
+      // 3. Mengambil maklumat terperinci setiap profil anak secara selari
       const childDetails = await Promise.all(
         relationships.map(async (rel) => {
           try {
@@ -56,7 +57,7 @@ export default function ParentRewards() {
               username: child.username || ""
             };
           } catch (childErr) {
-            console.error(`Failed to load user info for child id ${rel.child_id}:`, childErr);
+            console.error(`Gagal memuatkan maklumat profil anak bagi ID ${rel.child_id}:`, childErr);
             return null;
           }
         })
@@ -66,10 +67,10 @@ export default function ParentRewards() {
       setChildren(activeChildren);
 
     } catch (err) {
-      console.error("Error loading parent reward data framework:", err);
+      console.error("Ralat memuatkan rangka kerja data ganjaran ibu bapa:", err);
       toast({ 
-        title: "Sync Failure", 
-        description: "Could not link active profiles.", 
+        title: "Penyinkronan Gagal", 
+        description: "Tidak dapat memautkan profil aktif anak.", 
         variant: "destructive" 
       });
     } finally {
@@ -77,11 +78,12 @@ export default function ParentRewards() {
     }
   }, [toast]);
 
-  // Hook run on component initialization
+  // Menjalankan fungsi memuatkan data sebaik sahaja halaman dibuka
   useEffect(() => { 
     loadData(); 
   }, [loadData]);
 
+  // Membuka borang dialog untuk mencipta ganjaran baharu
   const openCreate = () => {
     setEditingReward(null);
     setForm({ 
@@ -93,6 +95,7 @@ export default function ParentRewards() {
     setDialogOpen(true);
   };
 
+  // Membuka borang dialog untuk mengemas kini ganjaran sedia ada
   const openEdit = (reward) => {
     setEditingReward(reward);
     setForm({ 
@@ -104,9 +107,10 @@ export default function ParentRewards() {
     setDialogOpen(true);
   };
 
+  // Mengendalikan fungsi simpan (Cipta Baru atau Kemas Kini) data ganjaran
   const handleSave = async () => {
     if (!form.title || !form.coin_cost || !form.student_id) {
-      toast({ title: "Please fill out all fields", variant: "destructive" });
+      toast({ title: "Sila isi semua ruangan yang diperlukan", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -126,10 +130,10 @@ export default function ParentRewards() {
           status: editingReward.status || "active",
         };
         await base44.entities.Reward.update(editingReward.id, data);
-        toast({ title: "Reward updated! ✨" });
+        toast({ title: "Ganjaran berjaya dikemas kini! ✨" });
       } else {
+        // Logik jika ibu bapa memilih untuk menerbitkan kepada semua anak serentak
         if (form.student_id === "all") {
-          // Batch deployment across all registered profiles
           await Promise.all(
             children.map(child => 
               base44.entities.Reward.create({
@@ -145,7 +149,7 @@ export default function ParentRewards() {
               })
             )
           );
-          toast({ title: "Reward published to all children! 🎁" });
+          toast({ title: "Ganjaran diterbitkan untuk semua anak! 🎁" });
         } else {
           const selectedChild = children.find(c => c.id === form.student_id);
           await base44.entities.Reward.create({
@@ -159,95 +163,100 @@ export default function ParentRewards() {
             parent_email: user.email,
             status: "active",
           });
-          toast({ title: "Reward created for selected child! 🎁" });
+          toast({ title: "Ganjaran dicipta untuk anak yang dipilih! 🎁" });
         }
       }
       setDialogOpen(false);
       
-      // 🎯 UX REFINEMENT: Direct await for synchronous stability instead of an arbitrary timeout
+      // Segerakkan semula senarai ganjaran terkini dari pelayan
       await loadData();
     } catch (err) {
-      console.error(err);
-      toast({ title: "Error saving reward", variant: "destructive" });
+      console.error("Ralat semasa menyimpan ganjaran:", err);
+      toast({ title: "Ralat menyimpan ganjaran", variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
+  // Menukar status aktif atau tidak aktif sesuatu ganjaran di kedai anak
   const toggleStatus = async (reward) => {
     const newStatus = reward.status === "active" ? "inactive" : "active";
     try {
       await base44.entities.Reward.update(reward.id, { status: newStatus });
       await loadData();
     } catch (err) {
-      console.error("Failed to toggle status:", err);
+      console.error("Gagal menukar status ganjaran:", err);
     }
   };
 
+  // Memadam data ganjaran secara kekal daripada sistem
   const deleteReward = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this reward permanently?")) return;
+    if (!window.confirm("Adakah anda pasti mahu memadam ganjaran ini secara kekal?")) return;
     try {
       await base44.entities.Reward.delete(id);
       await loadData();
     } catch (err) {
-      console.error("Failed to delete item:", err);
+      console.error("Gagal memadam ganjaran:", err);
     }
   };
 
+  // Skrin pemuat halaman utama
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-        <p className="text-xs text-slate-400 font-bold mt-2">Loading Reward Profiles...</p>
+        <p className="text-xs text-slate-400 font-bold mt-2">Memuatkan Profil Ganjaran...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-8 pb-12 max-w-5xl mx-auto px-1">
-      {/* HEADER ROW */}
+      
+      {/* 1. KAD KEPALA HALAMAN */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-100 p-6 rounded-3xl shadow-sm">
         <div>
           <div className="flex items-center gap-1.5 mb-1 text-xs font-bold uppercase tracking-wider text-indigo-600">
             <Sparkles className="w-3.5 h-3.5 fill-indigo-100" />
-            Incentive System
+            Sistem Insentif Belajar
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-800">Reward Manager 🎁</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Design customized reward targets to fuel your child's learning motivation.</p>
+          <h1 className="text-2xl font-black tracking-tight text-slate-800">Pengurus Ganjaran 🎁</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Reka sasaran ganjaran khusus untuk menyemarakkan motivasi belajar anak anda.</p>
         </div>
         <Button 
           onClick={openCreate} 
           disabled={children.length === 0} 
           className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 shadow-sm px-5 py-5 shrink-0 border-0"
         >
-          <Plus className="w-4 h-4 mr-1.5 stroke-[3]" /> Create Reward
+          <Plus className="w-4 h-4 mr-1.5 stroke-[3]" /> Cipta Ganjaran
         </Button>
       </div>
 
-      {/* EMPTY STATES */}
+      {/* 2. PAPARAN PANDUAN JIKA TIADA AKAUN ANAK TERPAUT */}
       {children.length === 0 && (
         <div className="text-center py-12 bg-white rounded-3xl border border-slate-200 border-dashed max-w-md mx-auto">
           <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="font-bold text-slate-700">No Approved Linked Accounts</h3>
+          <h3 className="font-bold text-slate-700">Tiada Akaun Terpaut yang Sah</h3>
           <p className="text-slate-400 text-xs px-6 mt-1">
-            You must finish linking a child's account and ensure it is fully approved on your main dashboard before setting up custom incentives.
+            Anda mesti selesai memautkan akaun anak dan memastikan ia diluluskan sepenuhnya di papan pemuka utama sebelum menyediakan insentif khusus.
           </p>
         </div>
       )}
 
+      {/* 3. PAPARAN JIKA TIADA GANJARAN YANG DICIPTA LAGI */}
       {rewards.length === 0 && children.length > 0 ? (
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-100 shadow-sm max-w-lg mx-auto">
           <Gift className="w-14 h-14 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-700">No items created yet</h3>
+          <h3 className="text-lg font-bold text-slate-700">Tiada item ganjaran dicipta lagi</h3>
           <p className="text-slate-400 text-sm px-4 mt-1">
-            Set goals like "30 min Gaming" or "Ice Cream Trip" to encourage consistent study habits!
+            Tetapkan sasaran seperti "30 minit Main Permainan Video" atau "Lawatan Aiskrim" untuk menggalakkan tabiat belajar yang konsisten!
           </p>
           <Button onClick={openCreate} variant="outline" className="mt-4 rounded-xl border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold">
-            Add Your First Reward
+            Tambah Ganjaran Pertama Anda
           </Button>
         </div>
       ) : (
-        /* REWARDS LIST GRID */
+        /* 4. GRID SENARAI GANJARAN IBU BAPA */
         <div className="grid gap-3 sm:grid-cols-2">
           <AnimatePresence>
             {rewards.map((reward, i) => {
@@ -279,11 +288,11 @@ export default function ParentRewards() {
                       
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
                         <span className="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100/50">
-                          {reward.coin_cost} coins
+                          {reward.coin_cost} koin
                         </span>
                         
                         <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg max-w-[140px] truncate">
-                          👤 {assignedChild ? assignedChild.full_name : "Unknown Child"}
+                          👤 {assignedChild ? assignedChild.full_name : "Anak Tidak Dikenali"}
                         </span>
                       </div>
                     </div>
@@ -291,7 +300,7 @@ export default function ParentRewards() {
 
                   <div className="flex items-center justify-between border-t border-slate-100 mt-4 pt-3">
                     <span className={`text-[11px] font-bold tracking-wide uppercase ${isActive ? "text-emerald-600" : "text-slate-400"}`}>
-                      {isActive ? "● Live in shop" : "○ Disabled"}
+                      {isActive ? "● Aktif di kedai" : "○ Disembunyikan"}
                     </span>
                     
                     <div className="flex items-center gap-1 bg-slate-50 p-0.5 rounded-xl border border-slate-100">
@@ -328,7 +337,7 @@ export default function ParentRewards() {
         </div>
       )}
 
-      {/* CREATE / EDIT DIALOG OVERLAY */}
+      {/* 5. BORANG POP-UP DIALOG (CIPTA / KEMAS KINI GANJARAN) */}
       <Dialog open={dialogOpen} onOpenChange={(open) => {
         setDialogOpen(open);
         if (!open) {
@@ -339,17 +348,17 @@ export default function ParentRewards() {
         <DialogContent className="rounded-3xl max-w-md p-6 overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-xl font-black tracking-tight text-slate-800">
-              {editingReward ? "Modify Reward Vault" : "Design New Reward"}
+              {editingReward ? "Ubah Suai Simpanan Ganjaran" : "Reka Ganjaran Baharu"}
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
-              Fill out configuration metrics below to publish this prize token to your child's client catalog shop.
+              Isi butiran konfigurasi di bawah untuk menerbitkan token hadiah ini ke katalog kedai anak anda.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-5 pt-3">
-            {/* Emoji Selector */}
+            {/* Bahagian Pemilihan Emoji */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Select Card Icon</Label>
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pilih Ikon Kad Ganjaran</Label>
               <div className="grid grid-cols-6 gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 {EMOJIS.map(e => (
                   <button
@@ -368,42 +377,42 @@ export default function ParentRewards() {
               </div>
             </div>
 
-            {/* Reward Title */}
+            {/* Input Tajuk Ganjaran */}
             <div className="space-y-1.5">
-              <Label htmlFor="reward-title" className="text-xs font-bold text-slate-500 uppercase tracking-wide">Reward Title</Label>
+              <Label htmlFor="reward-title" className="text-xs font-bold text-slate-500 uppercase tracking-wide">Tajuk Ganjaran</Label>
               <Input
                 id="reward-title"
-                placeholder="e.g., Friday Late Night Gaming Session"
+                placeholder="Contoh: Sesi Main Permainan Video Malam Jumaat"
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 className="rounded-xl border-slate-200 focus-visible:ring-indigo-500 font-medium py-5 text-sm"
               />
             </div>
 
-            {/* Coin Cost */}
+            {/* Input Harga Koin */}
             <div className="space-y-1.5">
-              <Label htmlFor="coin-cost" className="text-xs font-bold text-slate-500 uppercase tracking-wide">Coin Purchase Price</Label>
+              <Label htmlFor="coin-cost" className="text-xs font-bold text-slate-500 uppercase tracking-wide">Harga Belian Koin</Label>
               <Input
                 id="coin-cost"
                 type="number"
-                placeholder="e.g., 350"
+                placeholder="Contoh: 350"
                 value={form.coin_cost}
                 onChange={e => setForm(f => ({ ...f, coin_cost: e.target.value }))}
                 className="rounded-xl border-slate-200 focus-visible:ring-indigo-500 font-bold py-5 text-sm"
               />
             </div>
 
-            {/* Target Assignment Dropdown */}
+            {/* Pilihan Penerima Sasaran */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Target Recipient</Label>
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Penerima Sasaran</Label>
               <Select value={form.student_id} onValueChange={v => setForm(f => ({ ...f, student_id: v }))}>
                 <SelectTrigger className="rounded-xl border-slate-200 py-5 font-semibold text-slate-700">
-                  <SelectValue placeholder="Choose a child profile" />
+                  <SelectValue placeholder="Pilih profil anak" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   {!editingReward && children.length > 1 && (
                     <SelectItem value="all" className="rounded-lg font-bold text-indigo-600 hover:text-indigo-700">
-                      ✨ All Children (Create Individual Copies)
+                      ✨ Semua Anak (Cipta Salinan Individu)
                     </SelectItem>
                   )}
                   {children.map(c => (
@@ -415,7 +424,7 @@ export default function ParentRewards() {
               </Select>
             </div>
 
-            {/* Action Safe Button */}
+            {/* Butang Tindakan Utama */}
             <Button 
               onClick={handleSave} 
               disabled={saving || !form.title || !form.coin_cost || !form.student_id} 
@@ -423,12 +432,12 @@ export default function ParentRewards() {
             >
               {saving ? (
                 <span className="flex items-center gap-2 justify-center">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Saving Changes...
+                  <Loader2 className="w-4 h-4 animate-spin" /> Menyimpan Perubahan...
                 </span>
               ) : editingReward ? (
-                "Update Target Reward"
+                "Kemas Kini Sasaran Ganjaran"
               ) : (
-                "Publish Reward Ticket"
+                "Terbitkan Tiket Ganjaran"
               )}
             </Button>
           </div>
