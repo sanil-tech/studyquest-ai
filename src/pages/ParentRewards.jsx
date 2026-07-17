@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Gift, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Loader2, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const EMOJIS = ["🍦", "🎮", "🎬", "📱", "🛍️", "🎂", "🏀", "🎵", "📚", "✈️", "🎁", "⭐"];
 
-// Helper function added here!
+// Helper function to extract a user-friendly display name
 const getDisplayName = (user) => {
   if (!user) return "Pelajar";
   return user.nickname || user.username || user.email || "Pelajar";
@@ -28,7 +28,8 @@ export default function ParentRewards() {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const loadData = async () => {
+  // 🎯 OPTIMIZATION: Wrapped in useCallback to guarantee structural stability across renders
+  const loadData = useCallback(async () => {
     try {
       const u = await base44.auth.me();
       setUser(u);
@@ -37,20 +38,19 @@ export default function ParentRewards() {
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
       
-      // 2. Fetch structural child relationships
+      // 2. Fetch structural active child relationships
       const relationships = await base44.entities.ParentChildRelationship.filter({
         parent_id: u.id,
         status: "active",
       });
 
-      // 3. Resolve actual child user profiles in parallel
+      // 3. Resolve actual child user profiles in parallel safely
       const childDetails = await Promise.all(
         relationships.map(async (rel) => {
           try {
             const child = await base44.entities.User.get(rel.child_id);
             return {
               id: child.id,
-              // Using your helper function here
               full_name: getDisplayName(child),
               email: child.email || "",
               username: child.username || ""
@@ -67,13 +67,20 @@ export default function ParentRewards() {
 
     } catch (err) {
       console.error("Error loading parent reward data framework:", err);
-      toast({ title: "Sync Failure", description: "Could not link active profiles.", variant: "destructive" });
+      toast({ 
+        title: "Sync Failure", 
+        description: "Could not link active profiles.", 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  useEffect(() => { loadData(); }, []);
+  // Hook run on component initialization
+  useEffect(() => { 
+    loadData(); 
+  }, [loadData]);
 
   const openCreate = () => {
     setEditingReward(null);
@@ -122,9 +129,10 @@ export default function ParentRewards() {
         toast({ title: "Reward updated! ✨" });
       } else {
         if (form.student_id === "all") {
+          // Batch deployment across all registered profiles
           await Promise.all(
-            children.map(child => {
-              return base44.entities.Reward.create({
+            children.map(child => 
+              base44.entities.Reward.create({
                 title: form.title,
                 coin_cost: Number(form.coin_cost),
                 icon: form.icon,
@@ -134,8 +142,8 @@ export default function ParentRewards() {
                 parent_id: user.id,
                 parent_email: user.email,
                 status: "active",
-              });
-            })
+              })
+            )
           );
           toast({ title: "Reward published to all children! 🎁" });
         } else {
@@ -156,8 +164,8 @@ export default function ParentRewards() {
       }
       setDialogOpen(false);
       
-      // Yield execution space for database write verification
-      setTimeout(() => { loadData(); }, 300);
+      // 🎯 UX REFINEMENT: Direct await for synchronous stability instead of an arbitrary timeout
+      await loadData();
     } catch (err) {
       console.error(err);
       toast({ title: "Error saving reward", variant: "destructive" });
@@ -170,33 +178,41 @@ export default function ParentRewards() {
     const newStatus = reward.status === "active" ? "inactive" : "active";
     try {
       await base44.entities.Reward.update(reward.id, { status: newStatus });
-      loadData();
+      await loadData();
     } catch (err) {
-      console.error(err);
+      console.error("Failed to toggle status:", err);
     }
   };
 
   const deleteReward = async (id) => {
-    if (!confirm("Are you sure you want to delete this reward permanently?")) return;
+    if (!window.confirm("Are you sure you want to delete this reward permanently?")) return;
     try {
       await base44.entities.Reward.delete(id);
-      loadData();
+      await loadData();
     } catch (err) {
-      console.error(err);
+      console.error("Failed to delete item:", err);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <p className="text-xs text-slate-400 font-bold mt-2">Loading Reward Profiles...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-12 max-w-5xl mx-auto px-1">
-      
       {/* HEADER ROW */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-100 p-6 rounded-3xl shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-100 p-6 rounded-3xl shadow-sm">
         <div>
           <div className="flex items-center gap-1.5 mb-1 text-xs font-bold uppercase tracking-wider text-indigo-600">
             <Sparkles className="w-3.5 h-3.5 fill-indigo-100" />
             Incentive System
           </div>
-          <h1 className="text-2xl font-black font-heading tracking-tight text-slate-800">Reward Manager 🎁</h1>
+          <h1 className="text-2xl font-black tracking-tight text-slate-800">Reward Manager 🎁</h1>
           <p className="text-slate-500 text-sm mt-0.5">Design customized reward targets to fuel your child's learning motivation.</p>
         </div>
         <Button 
@@ -243,13 +259,14 @@ export default function ParentRewards() {
                   key={reward.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: i * 0.04 }}
-                  className={`bg-white rounded-2xl p-4 border shadow-2xs transition-all flex flex-col justify-between group ${
-                    isActive ? "border-slate-100 hover:shadow-sm" : "border-slate-100 bg-slate-50/50 opacity-65"
+                  className={`bg-white rounded-2xl p-4 border transition-all flex flex-col justify-between group ${
+                    isActive ? "border-slate-100 shadow-sm hover:shadow-md" : "border-slate-100 bg-slate-50/50 opacity-65"
                   }`}
                 >
                   <div className="flex items-start gap-4">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-2xs border shrink-0 transition-transform ${
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl border shrink-0 transition-transform ${
                       isActive ? "bg-indigo-50/60 border-indigo-100/80" : "bg-slate-200 border-slate-300"
                     }`}>
                       {reward.icon || "🎁"}
@@ -265,7 +282,6 @@ export default function ParentRewards() {
                           {reward.coin_cost} coins
                         </span>
                         
-                        {/* Removed the .split(" ")[0] here so full nickname displays! */}
                         <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg max-w-[140px] truncate">
                           👤 {assignedChild ? assignedChild.full_name : "Unknown Child"}
                         </span>
@@ -281,7 +297,7 @@ export default function ParentRewards() {
                     <div className="flex items-center gap-1 bg-slate-50 p-0.5 rounded-xl border border-slate-100">
                       <button 
                         onClick={() => toggleStatus(reward)} 
-                        className="p-2 rounded-lg hover:bg-white hover:shadow-3xs transition-all text-slate-400 hover:text-indigo-600"
+                        className="p-2 rounded-lg hover:bg-white transition-all text-slate-400 hover:text-indigo-600"
                       >
                         {isActive ? (
                           <ToggleRight className="w-5 h-5 text-emerald-500 fill-emerald-50" />
@@ -292,14 +308,14 @@ export default function ParentRewards() {
 
                       <button 
                         onClick={() => openEdit(reward)} 
-                        className="p-2 rounded-lg hover:bg-white hover:shadow-3xs transition-all text-slate-400 hover:text-indigo-600"
+                        className="p-2 rounded-lg hover:bg-white transition-all text-slate-400 hover:text-indigo-600"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
 
                       <button 
                         onClick={() => deleteReward(reward.id)} 
-                        className="p-2 rounded-lg hover:bg-rose-50 hover:shadow-3xs transition-all text-slate-400 hover:text-rose-500"
+                        className="p-2 rounded-lg hover:bg-rose-50 transition-all text-slate-400 hover:text-rose-500"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -322,7 +338,7 @@ export default function ParentRewards() {
       }}>
         <DialogContent className="rounded-3xl max-w-md p-6 overflow-hidden">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black font-heading tracking-tight text-slate-800">
+            <DialogTitle className="text-xl font-black tracking-tight text-slate-800">
               {editingReward ? "Modify Reward Vault" : "Design New Reward"}
             </DialogTitle>
             <DialogDescription className="text-slate-400 text-xs">
@@ -340,7 +356,7 @@ export default function ParentRewards() {
                     key={e}
                     type="button"
                     onClick={() => setForm(f => ({ ...f, icon: e }))}
-                    className={`h-11 rounded-xl text-lg flex items-center justify-center border-2 transition-all shadow-3xs ${
+                    className={`h-11 rounded-xl text-lg flex items-center justify-center border-2 transition-all ${
                       form.icon === e 
                         ? "border-indigo-500 bg-white scale-105" 
                         : "border-transparent hover:bg-white/80"
