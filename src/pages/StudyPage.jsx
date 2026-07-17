@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, ChevronRight, BookOpen, FolderOpen, 
-  Map, Library, Leaf, TreePine, Sprout, Compass, Clock, ShieldCheck, AlertCircle, Loader2, CheckCircle, Award, HelpCircle
+  Map, Library, Leaf, TreePine, Sprout, Compass, Clock, ShieldCheck, AlertCircle, Loader2, CheckCircle, Award, HelpCircle, Play
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
@@ -41,7 +41,10 @@ export default function StudyPage() {
   const [isAlreadyCompleted, setIsAlreadyCompleted] = useState(false);
   const [saving, setSaving] = useState(false);
   const pemasaRef = useRef(null);
-  const MASA_MINIMUM_SAAT = 60; // Had masa fokus membaca standard
+  const MASA_MINIMUM_SAAT = 60; // Had masa fokus tontonan video awal
+
+  // Kawalan aliran menonton video dahulu sebelum nota ('video' | 'nota')
+  const [lessonSubStep, setLessonSubStep] = useState("video");
 
   // Keadaan untuk Pandangan 4 (Sesi Kuiz Minda Dinamik)
   const [availableQuiz, setAvailableQuiz] = useState(null);
@@ -134,6 +137,29 @@ export default function StudyPage() {
     });
   }, [topics, user]);
 
+  // 🎯 PENAMBAHBAIKAN KUNCI: Mengekstrak teks nota secara kebal daripada pelbagai variasi lajur pelayan
+  const kandunganTeksNota = useMemo(() => {
+    if (!selectedTopic) return "";
+    
+    // 1. Jika teks disimpan terus dalam ruangan .content
+    if (selectedTopic.content) return selectedTopic.content;
+    
+    // 2. Jika disimpan dalam ruangan .ai_explanation (Format fail CSV anda)
+    if (selectedTopic.ai_explanation) {
+      if (typeof selectedTopic.ai_explanation === "string") {
+        try {
+          const objekDiparser = JSON.parse(selectedTopic.ai_explanation);
+          return objekDiparser.lesson_markdown || objekDiparser.content || selectedTopic.ai_explanation;
+        } catch (e) {
+          return selectedTopic.ai_explanation;
+        }
+      }
+      return selectedTopic.ai_explanation.lesson_markdown || selectedTopic.ai_explanation.content || "";
+    }
+    
+    return selectedTopic.description || "Tiada kandungan teks nota sedia ada untuk bab ini.";
+  }, [selectedTopic]);
+
   // Menukarkan teks lajur questions_json kuiz kepada tatasusunan objek React
   const quizQuestions = useMemo(() => {
     if (!availableQuiz?.questions_json) return [];
@@ -157,7 +183,7 @@ export default function StudyPage() {
     setLoading(false);
   };
 
-  // Membuka Paparan 3 dan memuatkan data kaitan kuiz secara serentak
+  // Membuka Paparan 3 dan memuatkan data kaitan kuiz serta menetapkan fasa awal
   const handleSelectTopic = async (topicItem) => {
     setLoading(true);
     setSecondsElapsed(0);
@@ -176,7 +202,8 @@ export default function StudyPage() {
         base44.entities.Quiz.filter({ topic_name: topicItem.name })
       ]);
 
-      if (sessionsCheck && sessionsCheck.length > 0) {
+      const completedBefore = sessionsCheck && sessionsCheck.length > 0;
+      if (completedBefore) {
         setIsAlreadyCompleted(true);
       }
       
@@ -184,6 +211,13 @@ export default function StudyPage() {
         setAvailableQuiz(quizData[0]);
       } else {
         setAvailableQuiz(null);
+      }
+
+      // Jika mempunyai pautan video dan belum pernah selesai, paksa fasa 'video' dahulu
+      if (topicItem.video_url && !completedBefore) {
+        setLessonSubStep("video");
+      } else {
+        setLessonSubStep("nota");
       }
 
       setSelectedTopic(topicItem);
@@ -196,15 +230,11 @@ export default function StudyPage() {
 
   // Merekod log pembacaan nota modul akademik selesai
   const kendaliSelesaiMisiNota = async () => {
-    if (!adakahMasaCukup) return;
-    
-    // Jika topik mempunyai kuiz, alihkan murid terus ke Paparan 4 (Mod Kuiz)
     if (quizQuestions.length > 0 && !isAlreadyCompleted) {
       setIsQuizMode(true);
       return;
     }
 
-    // Jika tiada kuiz atau dalam mod ulang kaji, simpan rekod seperti biasa
     setSaving(true);
     try {
       const minitBelajar = isAlreadyCompleted ? 1 : Math.max(1, Math.round(secondsElapsed / 60));
@@ -219,7 +249,15 @@ export default function StudyPage() {
         created_date: new Date().toISOString(),
       });
 
-      toast({ title: "Misi Selesai! 🎉", description: "Sesi mengulas nota anda telah direkodkan." });
+      if (userProgress && !isAlreadyCompleted) {
+        await base44.entities.Progress.update(userProgress.id, {
+          total_xp: (userProgress.total_xp || 0) + 25, 
+          total_study_time: (userProgress.total_study_time || 0) + minitBelajar,
+          last_study_date: new Date().toISOString(),
+        });
+      }
+
+      toast({ title: "Misi Selesai! 🎉", description: "Sesi pembelajaran anda telah direkodkan." });
       setSelectedTopic(null);
     } catch (err) {
       console.error(err);
@@ -259,7 +297,6 @@ export default function StudyPage() {
       const peratusanSkor = Math.round((quizScore / quizQuestions.length) * 100);
       const minitBelajar = Math.max(1, Math.round(secondsElapsed / 60));
 
-      // 1. Mendaftar sesi ke StudySession
       await base44.entities.StudySession.create({
         student_id: user.id,
         subject_id: selectedSubject.id,
@@ -270,7 +307,6 @@ export default function StudyPage() {
         created_date: new Date().toISOString(),
       });
 
-      // 2. Mendaftar skor cubaan ke QuizAttempt
       await base44.entities.QuizAttempt.create({
         student_id: user.id,
         topic_name: selectedTopic.name,
@@ -278,7 +314,6 @@ export default function StudyPage() {
         created_date: new Date().toISOString(),
       });
 
-      // 3. Mengemas kini profil Progress agregat murid (+25 XP ganjaran tamat kuiz)
       if (userProgress && !isAlreadyCompleted) {
         await base44.entities.Progress.update(userProgress.id, {
           total_xp: (userProgress.total_xp || 0) + 25, 
@@ -288,33 +323,20 @@ export default function StudyPage() {
       }
 
       toast({ title: "Kuiz Selesai! 🏆", description: `Anda mendapat skor ${peratusanSkor}% dalam ujian ini!` });
-      
       setIsQuizMode(false);
       setSelectedTopic(null);
     } catch (err) {
-      console.error("Gagal menghantar rekod keputusan kuiz:", err);
-      toast({ title: "Ralat", description: "Gagal menyimpan data keputusan kuiz.", variant: "destructive" });
+      console.error(err);
     } finally {
       setSaving(false);
     }
   };
 
-  // Mengelompokkan naskah buku teks digital mengikut subjek
-  const booksBySubject = useMemo(() => {
-    return textbooks.reduce((acc, book) => {
-      if (!acc[book.subject_name]) acc[book.subject_name] = [];
-      acc[book.subject_name].push(book);
-      return acc;
-    }, {});
-  }, [textbooks]);
-
-  // Mengira perkakas nilai matematik untuk pemasa visual
+  const adakahMasaCukup = isAlreadyCompleted || secondsElapsed >= MASA_MINIMUM_SAAT;
   const peratusanMasa = isAlreadyCompleted ? 100 : Math.min((secondsElapsed / MASA_MINIMUM_SAAT) * 100, 100);
   const bakiMasaSaat = isAlreadyCompleted ? 0 : Math.max(MASA_MINIMUM_SAAT - secondsElapsed, 0);
-  const adakahMasaCukup = isAlreadyCompleted || secondsElapsed >= MASA_MINIMUM_SAAT;
-
-  // 🎯 PEMBETULAN STRUKTUR: Pengisytiharan diletakkan di luar struktur bersyarat 'if' 
-  // supaya nilainya sedia dibaca oleh semua View (View 1, 2, 3, dan 4) secara global.
+  
+  // Pengekalan nama panggilan pelajar pada posisi skop selamat global
   const studentFirstName = user?.name ? user.name.split(" ")[0] : (user?.nickname || "Penjelajah");
 
   if (loading) {
@@ -333,7 +355,6 @@ export default function StudyPage() {
     return (
       <div className="min-h-screen bg-[#FAFAF7] font-sans pb-12 pt-6">
         <div className="space-y-8 max-w-5xl mx-auto px-4">
-          
           <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 border border-emerald-800/20 shadow-lg overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -440,7 +461,6 @@ export default function StudyPage() {
     return (
       <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700 pt-6">
         <div className="max-w-2xl mx-auto px-4 space-y-6">
-          
           <div className="bg-white p-4 rounded-2xl border border-stone-200 flex justify-between items-center shadow-xs">
             <div className="flex items-center gap-2">
               <Award className="w-5 h-5 text-amber-500" />
@@ -453,21 +473,16 @@ export default function StudyPage() {
 
           {!quizFinished ? (
             <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-stone-200 shadow-sm space-y-6">
-              <h3 className="text-base sm:text-lg font-extrabold text-stone-800 leading-snug">
-                {soalanSemasa?.question}
-              </h3>
-
+              <h3 className="text-base sm:text-lg font-extrabold text-stone-800 leading-snug">{soalanSemasa?.question}</h3>
               <div className="grid grid-cols-1 gap-3">
                 {soalanSemasa?.options?.map((opsi, idx) => {
                   const adakahOpsiIniDipilih = selectedOption === opsi;
                   const adakahIniJawapanBetul = opsi === soalanSemasa.correct_answer;
-                  
                   let butangStyle = "border-stone-200 hover:border-indigo-400 bg-stone-50/50";
                   if (showQuizExplanation) {
                     if (adakahIniJawapanBetul) butangStyle = "border-emerald-500 bg-emerald-50 text-emerald-900";
                     else if (adakahOpsiIniDipilih) butangStyle = "border-rose-400 bg-rose-50 text-rose-900";
                   }
-
                   return (
                     <button
                       key={idx} disabled={showQuizExplanation} onClick={() => kendaliPilihanJawapanKuiz(opsi)}
@@ -499,7 +514,6 @@ export default function StudyPage() {
               <p className="text-sm font-medium text-stone-500 px-2">
                 Anda berjaya menjawab dengan betul sebanyak <span className="font-black text-indigo-600 text-base">{quizScore}</span> daripada <span className="font-bold text-stone-700">{quizQuestions.length}</span> soalan cabaran minda!
               </p>
-              
               <Button onClick={hantarKeputusanKuizKemasKini} disabled={saving} className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white font-black py-5 rounded-xl border-0 text-sm shadow-xs">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Hantar Keputusan & Tuntut Ganjaran ✨"}
               </Button>
@@ -511,7 +525,7 @@ export default function StudyPage() {
   }
 
   // =====================================================================
-  // 📖 VIEW 3: PAPARAN NOTA PEMBELAJARAN AKTIF (DENGAN KUNCI PEMASA & VIDEO)
+  // 📖 VIEW 3: PAPARAN NOTA PEMBELAJARAN AKTIF (ALIRAN UTAMAKAN VIDEO)
   // =====================================================================
   if (selectedTopic && !isQuizMode) {
     return (
@@ -533,85 +547,103 @@ export default function StudyPage() {
                 adakahMasaCukup ? "text-emerald-600 bg-emerald-50 border-emerald-200" : "text-amber-600 bg-amber-50 border-amber-200"
               }`}>
                 <Clock className="w-4 h-4" />
-                <span>{isAlreadyCompleted ? "Selesai Mengulang Kaji ✨" : `${secondsElapsed} / ${MASA_MINIMUM_SAAT} Saat Fokus`}</span>
+                <span>
+                  {isAlreadyCompleted 
+                    ? "Mod Ulang Kaji Terbuka ✨" 
+                    : lessonSubStep === "video" 
+                      ? `Menonton Video: ${secondsElapsed} / ${MASA_MINIMUM_SAAT}s` 
+                      : "Membaca Nota Ilmu 📖"}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-[2rem] p-6 sm:p-10 border border-stone-200 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 uppercase">
-              <BookOpen className="w-4 h-4" /> Nota Modul Akademik
-            </div>
-            <h1 className="text-2xl font-black text-stone-800">{selectedTopic.name}</h1>
-            <div className="border-b border-stone-100 my-4" />
-            
-            {selectedTopic.video_url && (
-              <div className="space-y-2 mb-6">
-                <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-stone-200 bg-black shadow-inner">
-                  <div className="absolute inset-0 z-10 bg-transparent cursor-default select-none" />
-                  <iframe
-                    className="w-full h-full pointer-events-none select-none z-0"
-                    src={`https://www.youtube.com/embed/${dapatkanIdVideo(selectedTopic.video_url)}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&disablekb=1&iv_load_policy=3&fs=0`}
-                    title="Pemain Video Fokus StudyQuest" frameBorder="0" allow="autoplay; encrypted-media"
-                  />
-                </div>
+          {/* FASA 1: TONTON VIDEO YOUTUBE DAHULU (Kunci & Sekat Interaksi Klik) */}
+          {lessonSubStep === "video" && selectedTopic.video_url && !isAlreadyCompleted ? (
+            <div className="bg-white rounded-[2rem] p-6 sm:p-10 border border-stone-200 shadow-sm space-y-6">
+              <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-wider">
+                <Play className="w-4 h-4 fill-indigo-100" /> Langkah 1: Tonton Video Pembelajaran
               </div>
-            )}
-
-            <p className="text-stone-600 text-sm sm:text-base leading-relaxed whitespace-pre-line font-medium">
-              {selectedTopic.content || "Tiada kandungan nota teks untuk bab ini. Sila rujuk rujukan buku teks digital."}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs space-y-4">
-            {isAlreadyCompleted ? (
-              <div className="flex items-start gap-3 bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 text-emerald-950 text-xs font-semibold">
-                <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold">Nota Sedia Terbuka</p>
-                  <p className="text-emerald-800 mt-0.5">Anda sudah menamatkan misi bab ini sebelum ini. Sila baca untuk mengulang kaji atau terus simpan log sesi.</p>
-                </div>
-              </div>
-            ) : !adakahMasaCukup ? (
-              <div className="flex items-start gap-3 bg-amber-50/70 p-4 rounded-xl border border-amber-200 text-amber-950 text-xs font-semibold">
-                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold">Sistem Keselamatan Anti-Langkau Misi</p>
-                  <p className="text-amber-700 mt-0.5">Sila baca dengan teliti selama <span className="font-black text-amber-900">{bakiMasaSaat} saat lagi</span> untuk mendapatkan mata insentif XP kemajuan anda.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start gap-3 bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 text-emerald-950 text-xs font-semibold">
-                <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold">Masa Pembacaan Mengulang Kaji Sah!</p>
-                  <p className="text-emerald-800 mt-0.5">{quizQuestions.length > 0 ? "Kriteria masa fokus dipenuhi. Sila bersedia untuk menduduki slot kuiz bab sekarang!" : "Kriteria masa dipenuhi. Sila tekan butang serah di bawah."}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <div className="h-2.5 bg-stone-100 rounded-full overflow-hidden shadow-inner">
-                <div 
-                  className={`h-full rounded-full transition-all duration-300 ${adakahMasaCukup ? "bg-gradient-to-r from-lime-400 to-emerald-500" : "bg-gradient-to-r from-amber-400 to-orange-400"}`}
-                  style={{ width: `${peratusanMasa}%` }}
+              <h1 className="text-xl sm:text-2xl font-black text-stone-800">Sila Tonton Tayangan Panduan Di Bawah</h1>
+              
+              <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-stone-200 bg-black shadow-inner">
+                {/* Pelindung telus untuk mengunci klik tetikus murid */}
+                <div className="absolute inset-0 z-10 bg-transparent cursor-default select-none" />
+                <iframe
+                  className="w-full h-full pointer-events-none select-none z-0"
+                  src={`https://www.youtube.com/embed/${dapatkanIdVideo(selectedTopic.video_url)}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&disablekb=1&iv_load_policy=3&fs=0`}
+                  title="Pemain Video Fokus StudyQuest" frameBorder="0" allow="autoplay; encrypted-media"
                 />
               </div>
-            </div>
 
-            <Button
-              onClick={kendaliSelesaiMisiNota} disabled={!adakahMasaCukup || saving}
-              className={`w-full py-6 font-black text-sm rounded-xl border-0 shadow-xs ${
-                adakahMasaCukup ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-stone-100 text-stone-400 cursor-not-allowed"
-              }`}
-            >
-              {quizQuestions.length > 0 && !isAlreadyCompleted ? (
-                <span>Mula Kuiz Cabaran 🧠</span>
-              ) : (
-                <span>Tandakan Selesai & Simpan 🚀</span>
-              )}
-            </Button>
-          </div>
+              <div className="bg-amber-50/70 p-4 rounded-xl border border-amber-200 text-amber-950 text-xs font-semibold space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    Sistem keselamatan mengesan fokus tontonan anda. Sila tonton selama <span className="font-black text-amber-900">{bakiMasaSaat} saat lagi</span> untuk membuka lembaran nota penulisan penuh dan slot ujian kuiz.
+                  </p>
+                </div>
+                <div className="h-2 bg-stone-200/60 rounded-full overflow-hidden shadow-inner">
+                  <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${peratusanMasa}%` }} />
+                </div>
+              </div>
+
+              <Button
+                onClick={() => { if(adakahMasaCukup) { setLessonSubStep("nota"); setSecondsElapsed(0); } }}
+                disabled={!adakahMasaCukup}
+                className={`w-full py-5 font-black text-xs sm:text-sm rounded-xl border-0 ${
+                  adakahMasaCukup ? "bg-indigo-600 text-white hover:bg-indigo-700" : "bg-stone-100 text-stone-400 cursor-not-allowed"
+                }`}
+              >
+                {adakahMasaCukup ? "Selesai Tonton & Buka Nota ➜" : `Sila Tonton Video Dahulu (${bakiMasaSaat}s)`}
+              </Button>
+            </div>
+          ) : (
+            
+            /* 🎯 FASA 2: BACA NOTA PENULISAN PENUH (Kini Teks Nota Muncul Dengan Selamat) */
+            <div className="space-y-6">
+              <div className="bg-white rounded-[2rem] p-6 sm:p-10 border border-stone-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 uppercase">
+                  <BookOpen className="w-4 h-4" /> Langkah 2: Nota Pembelajaran Akademik
+                </div>
+                <h1 className="text-2xl font-black text-stone-800">{selectedTopic.name}</h1>
+                <div className="border-b border-stone-100 my-4" />
+                
+                {/* Membaca teks rujukan kebal 'kandunganTeksNota' yang diparser dari lajur pelayan */}
+                <p className="text-stone-600 text-sm sm:text-base leading-relaxed whitespace-pre-line font-medium">
+                  {kandunganTeksNota}
+                </p>
+              </div>
+
+              {/* Panel Pengesahan Serah Misi Bab */}
+              <div className="bg-white rounded-2xl p-5 border border-stone-200 shadow-xs space-y-4">
+                <div className="flex items-start gap-3 bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 text-emerald-950 text-xs font-semibold">
+                  <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Misi Pembacaan Nota Diaktifkan</p>
+                    <p className="text-emerald-800 mt-0.5">
+                      {quizQuestions.length > 0 && !isAlreadyCompleted 
+                        ? "Anda telah selesai meneliti nota ilmu ini. Sila klik butang di bawah untuk menduduki slot ujian kuiz cabaran minda!" 
+                        : "Sila tekan butang selesai di bawah untuk merekodkan log kehadiran mengulang kaji anda."}
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={kendaliSelesaiMisiNota} disabled={saving}
+                  className="w-full py-6 font-black text-sm rounded-xl border-0 shadow-xs bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:opacity-95"
+                >
+                  {saving ? (
+                    <span className="flex items-center gap-2 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Merekod Kemajuan...</span>
+                  ) : quizQuestions.length > 0 && !isAlreadyCompleted ? (
+                    <span>Mula Kuiz Cabaran Minda 🧠</span>
+                  ) : (
+                    <span>Tandakan Selesai & Simpan Sesi 🚀</span>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -626,7 +658,6 @@ export default function StudyPage() {
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-sans pb-12 pt-6">
       <div className="space-y-6 max-w-3xl mx-auto px-4">
-        
         <div className="flex items-center gap-4 bg-white p-4 rounded-[1.5rem] border border-emerald-100 shadow-sm">
           <button onClick={() => setSelectedSubject(null)} className="p-3 rounded-xl bg-[#F3EFE6] text-stone-600 hover:bg-[#E3D9C6] transition-transform shrink-0">
             <ArrowLeft className="w-5 h-5" />
@@ -650,7 +681,6 @@ export default function StudyPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            
             {subjectBooks.length > 0 && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
                 <div className="flex items-center gap-2">
