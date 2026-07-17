@@ -16,6 +16,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  // Tetapan keadaan asal bagi data papan pemuka pelajar
   const [dashboardState, setDashboardState] = useState({
     user: null,
     activeChildId: null,
@@ -28,13 +29,13 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Aggregates structural learning profiles and system states
+  // Fungsi untuk memuatkan semua data pembelajaran dan status sistem dari pelayan
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const currentUser = await base44.auth.me();
 
-      // Handle parent accessing child's dashboard (shared device flow)
+      // Mengendalikan situasi jika ibu bapa mengakses papan pemuka anak (aliran peranti kongsi)
       const activeChildId = currentUser.app_role === "parent" ? localStorage.getItem("active_child_session") : null;
       const studentId = activeChildId || currentUser.id;
       
@@ -42,7 +43,7 @@ export default function StudentDashboard() {
         ? await base44.entities.User.get(activeChildId).catch(() => currentUser)
         : currentUser;
 
-      // Promise.allSettled isolates endpoints to insulate against failure cascades
+      // Menggunakan Promise.allSettled agar kegagalan satu API tidak merosakkan keseluruhan halaman
       const results = await Promise.allSettled([
         base44.entities.Progress.filter({ student_id: studentId }),
         base44.entities.Wallet.filter({ student_id: studentId }),
@@ -65,6 +66,7 @@ export default function StudentDashboard() {
 
       let pendingRequests = [];
       if (pendingRels && pendingRels.length > 0) {
+        // Mengambil profil maklumat ibu bapa secara selari bagi permintaan yang tertangguh
         const hydratedRequests = await Promise.all(
           pendingRels.map(async (rel) => {
             try {
@@ -77,7 +79,7 @@ export default function StudentDashboard() {
             } catch {
               return { 
                 id: rel.id, 
-                parent_name: "Akaun Penjaga Tidak Diketahui", 
+                parent_name: "Akaun Penjaga Tidak Dikenali", 
                 parent_email: "Pengesahan sistem diperlukan" 
               };
             }
@@ -86,7 +88,7 @@ export default function StudentDashboard() {
         pendingRequests = hydratedRequests;
       }
 
-      // Unified batch state update
+      // Mengemas kini keadaan secara kelompok untuk mengelakkan rerender berulang kali
       setDashboardState({
         user: studentUser,
         activeChildId,
@@ -108,11 +110,12 @@ export default function StudentDashboard() {
     }
   }, [toast]);
 
+  // Memanggil fungsi muat data apabila komponen mula dipaparkan
   useEffect(() => { 
     loadDashboardData(); 
   }, [loadDashboardData]);
 
-  // Processes administrative connection invitations from parents
+  // Mengendalikan tindakan kelulusan atau penolakan pautan akaun daripada ibu bapa
   const handleLinkAction = useCallback(async (relationshipId, actionType) => {
     setActionLoading(true);
     try {
@@ -138,13 +141,13 @@ export default function StudentDashboard() {
     }
   }, [toast, loadDashboardData]);
 
-  // Clears shared device storage tracking values to reset role context
+  // Memadam data sesi peranti kongsi untuk kembali ke halaman mod ibu bapa
   const handleExitChildMode = () => {
     localStorage.removeItem("active_child_session");
     navigate("/parent");
   };
 
-  // Computes active level brackets and graphical gauge splits
+  // Mengira tahap dahan semasa, jumlah mata pengalaman (XP), dan peratusan grafik bar
   const { level, xp, nextLevelXp, xpPercentage } = useMemo(() => {
     const lvl = dashboardState.progress?.level || 1;
     const xpVal = dashboardState.progress?.total_xp || 0;
@@ -153,7 +156,7 @@ export default function StudentDashboard() {
     return { level: lvl, xp: xpVal, nextLevelXp: nextLvlXp, xpPercentage: pct };
   }, [dashboardState.progress]);
 
-  // Processes raw historical data into daily active time accumulations
+  // Mengira jumlah minit pembelajaran murid bagi hari ini secara dinamik
   const todayMinutes = useMemo(() => {
     const todayStart = moment().startOf("day");
     return dashboardState.sessions
@@ -161,6 +164,7 @@ export default function StudentDashboard() {
       .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
   }, [dashboardState.sessions]);
 
+  // Paparan pemuat (loading screen) bertema alam semula jadi sementara menunggu data selesai dimuat
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]">
@@ -177,7 +181,7 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700">
       
-      {/* 1. TOP BAR */}
+      {/* 1. BAR ATAS (Menu Navigasi Ringkas) */}
       <div className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-stone-200/50 px-4 py-3 flex justify-between items-center max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 font-black text-emerald-600 bg-emerald-50/80 px-3 py-1.5 rounded-2xl border border-emerald-100">
@@ -197,18 +201,18 @@ export default function StudentDashboard() {
         <div className="flex items-center gap-2 sm:gap-4">
           <div className="flex items-center gap-1.5 font-black text-amber-500 bg-amber-50/50 px-3 py-1.5 rounded-2xl">
             <Sparkles className="w-5 h-5 fill-amber-400" />
-            <span className="text-sm">{progress?.streak_days || 0}</span>
+            <span className="text-sm">{progress?.streak_days || 0} Hari</span>
           </div>
           <div className="flex items-center gap-1.5 font-black text-lime-600 bg-lime-50/50 px-3 py-1.5 rounded-2xl">
             <Leaf className="w-5 h-5 fill-lime-500" />
-            <span className="text-sm">{wallet?.balance || 0}</span>
+            <span className="text-sm">{wallet?.balance || 0} Daun</span>
           </div>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 mt-6 space-y-8">
         
-        {/* 2. HERO BANNER */}
+        {/* 2. BANNER UTAMA (Selamat Datang Murid) */}
         <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           
@@ -241,7 +245,7 @@ export default function StudentDashboard() {
           </Button>
         </div>
 
-        {/* 3. PENDING PARENT REQUEST */}
+        {/* 3. PERMINTAAN PAUTAN IBU BAPA YANG TERTANGGUH */}
         <AnimatePresence>
           {pendingRequests.length > 0 && (
             <motion.div 
@@ -285,7 +289,7 @@ export default function StudentDashboard() {
           )}
         </AnimatePresence>
 
-        {/* 4. PROGRESS BAR */}
+        {/* 4. PETUNJUK KEMAJUAN (Bar Ketinggian Pokok) */}
         <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-emerald-100 shadow-sm relative">
           <div className="flex justify-between items-end mb-4">
             <div>
@@ -309,7 +313,7 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* 5. CONTENT CARDS */}
+        {/* 5. KAD KANDUNGAN AKTIVITI (Sesi & Kuiz) */}
         <div className="grid md:grid-cols-2 gap-6">
           
           {/* Jurnal Ilmu Otan */}
@@ -318,6 +322,9 @@ export default function StudentDashboard() {
               <h3 className="text-base font-black text-stone-800 flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-emerald-500" /> Jurnal Ilmu Otan
               </h3>
+              <span className="text-xs font-bold text-stone-400 bg-stone-100 px-2 py-1 rounded-lg">
+                Belajar Hari Ini: {todayMinutes} min
+              </span>
             </div>
             
             <div className="space-y-3 flex-1">
