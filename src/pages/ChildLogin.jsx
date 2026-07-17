@@ -22,6 +22,7 @@ export default function ChildLogin() {
     try {
       const inputVal = usernameInput.trim().toLowerCase();
       
+      // Validation Check
       if (!inputVal) {
         throw new Error("Sila masukkan Username anda.");
       }
@@ -31,25 +32,24 @@ export default function ChildLogin() {
 
       console.log("🚀 Menghubungi sistem Edge Function auth pelayan...");
 
-      // 🎯 KEMBALI KEPADA LOGIK ASAL ANDA: 
-      // Menggunakan format e-mel maya untuk memintas sekatan RLS
+      // Construct the virtual email format for backend authentication compatibility
       const fakeEmail = inputVal.includes("@") 
         ? inputVal 
         : `child-${inputVal}@studyquest.local`;
 
-      // 🎯 PENTING: Kita jadikan PIN 4-digit tersebut sebagai "password" untuk sistem auth pelayan
+      // Log in using the virtual email and PIN as the password
       await base44.auth.loginViaEmailPassword(fakeEmail, pin);
 
-      // Ambil data maklumat murid untuk mengesahkan sesi aktif
+      // Fetch student profile to verify active session
       const user = await base44.auth.me();
 
       if (user) {
-        // (Pilihan) Simpan nama untuk paparan dashboard anak jika perlu
+        // Save student metadata for dashboard use
         localStorage.setItem("active_student_id", user.id);
         localStorage.setItem("active_student_name", user.nickname || "Pelajar");
         
-        // Bawa terus ke dashboard anak!
-        window.location.href = "/dashboard";
+        // 🎯 OPTIMIZATION: SPA navigation instead of full page reload
+        navigate("/dashboard");
       } else {
         throw new Error("Gagal memuatkan profil murid dari pelayan.");
       }
@@ -57,21 +57,15 @@ export default function ChildLogin() {
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
       
-      // Mengekstrak teks ralat secara selamat
+      // Cleaned up safe error message extraction
       let safeErrorMessage = "Username atau PIN salah. Sila semak semula.";
       
-      if (err) {
-        if (typeof err === "string") {
-          safeErrorMessage = err;
-        } else if (err.message && typeof err.message === "string") {
-          safeErrorMessage = err.message;
-        } else {
-          try {
-            safeErrorMessage = err.message ? String(err.message) : JSON.stringify(err);
-          } catch (e) {
-            safeErrorMessage = "Ralat sistem semasa mendaftar masuk.";
-          }
-        }
+      if (err instanceof Error) {
+        safeErrorMessage = err.message;
+      } else if (typeof err === "string") {
+        safeErrorMessage = err;
+      } else if (err && typeof err === "object" && "message" in err) {
+        safeErrorMessage = String(err.message);
       }
       
       setError(safeErrorMessage);
@@ -128,6 +122,7 @@ export default function ChildLogin() {
             <Input
               id="pin"
               type="password"
+              inputMode="numeric"
               maxLength={6}
               placeholder="••••"
               value={pin}
