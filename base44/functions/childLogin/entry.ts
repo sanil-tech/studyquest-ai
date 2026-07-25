@@ -45,43 +45,58 @@ Deno.serve(async (req) => {
     const db = base44.asServiceRole || base44;
     let matchedUser = null;
 
-    // 🔍 SEARCH STAGE 1: Direct exact query by username
+    // 🔍 STAGE 1: Exact query by username
     const byUsername = await db.entities.User.filter({ username: cleanInput }).catch(() => []);
     if (byUsername.length > 0) matchedUser = byUsername[0];
 
-    // 🔍 SEARCH STAGE 2: Direct exact query by nickname
+    // 🔍 STAGE 2: Exact query by nickname
     if (!matchedUser) {
       const byNickname = await db.entities.User.filter({ nickname: rawInput }).catch(() => []);
       if (byNickname.length > 0) matchedUser = byNickname[0];
     }
 
-    // 🔍 SEARCH STAGE 3: Direct exact query by student_id (e.g. SQ-XXXXXX)
+    // 🔍 STAGE 3: Extract base prefix before underscore (e.g. "corry_1204" -> "corry")
+    const basePrefix = cleanInput.split("_")[0];
+    if (!matchedUser && basePrefix) {
+      const byBaseNickname = await db.entities.User.filter({ nickname: basePrefix }).catch(() => []);
+      if (byBaseNickname.length > 0) matchedUser = byBaseNickname[0];
+    }
+
+    // 🔍 STAGE 4: Student ID query (e.g. SQ-XXXXXX)
     if (!matchedUser) {
       const byStudentId = await db.entities.User.filter({ student_id: rawInput.toUpperCase() }).catch(() => []);
       if (byStudentId.length > 0) matchedUser = byStudentId[0];
     }
 
-    // 🔍 SEARCH STAGE 4: Case-insensitive fallback scan across student role records (expanded limit)
+    // 🔍 STAGE 5: Smart fallback scan across all student records
     if (!matchedUser) {
       const allStudents = await db.entities.User.filter({ app_role: "student" }, "-created_at", 1000).catch(() => []);
-      matchedUser = allStudents.find((u: any) =>
-        (u.username && u.username.toLowerCase() === cleanInput) ||
-        (u.nickname && u.nickname.toLowerCase() === cleanInput) ||
-        (u.full_name && u.full_name.toLowerCase() === cleanInput) ||
-        (u.student_id && u.student_id.toLowerCase() === cleanInput)
-      ) || null;
+      matchedUser = allStudents.find((u: any) => {
+        const uUsername = (u.username || "").toLowerCase();
+        const uNickname = (u.nickname || "").toLowerCase();
+        const uFullName = (u.full_name || "").toLowerCase();
+        const uStudentId = (u.student_id || "").toLowerCase();
+
+        return (
+          uUsername === cleanInput ||
+          uNickname === cleanInput ||
+          uFullName === cleanInput ||
+          uStudentId === cleanInput ||
+          (basePrefix && (uNickname === basePrefix || uUsername.startsWith(`${basePrefix}_`)))
+        );
+      }) || null;
     }
 
     if (!matchedUser) {
       return Response.json(
-        { success: false, error: `Akaun murid '${rawInput}' tidak ditemui.` },
+        { success: false, error: `Akaun murid '${rawInput}' tidak ditemui dalam sistem.` },
         { status: 200, headers: resHeaders }
       );
     }
 
     const user = matchedUser;
 
-    // Check account lockout
+    // Check account lockout status
     if (user.account_locked) {
       return Response.json(
         { success: false, error: "Akaun ini telah dikunci sementara. Sila minta ibu bapa anda untuk membuka semula kunci." },
@@ -120,7 +135,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Reset failed attempts on successful login
+    // Reset failed login attempts on successful authentication
     await db.entities.User.update(user.id, {
       failed_login_attempts: 0,
       account_locked: false,
