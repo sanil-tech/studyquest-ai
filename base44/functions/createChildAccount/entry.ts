@@ -1,11 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Helper to hash PIN matching StudyQuest salt specification
+// Salted PIN hash helper
 const hashPin = (pin: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 };
 
-// Helper to generate unique Student ID
+// Generate unique Student ID (SQ-XXXXXX)
 const generateStudentId = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = 'SQ-';
@@ -31,44 +31,44 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
 
-    // 1. Verify parent authentication
-    const authUser = await base44.auth.me();
-    if (!authUser) {
+    // 1. Verify parent session
+    const authUser = await base44.auth.me().catch(() => null);
+    if (!authUser || !authUser.id) {
       return Response.json(
-        { success: false, error: 'Akses dinafikan - Sesi log masuk ibu bapa tidak ditemui.' },
-        { status: 401, headers: resHeaders }
+        { success: false, error: 'Sesi log masuk ibu bapa tidak ditemui. Sila log masuk semula.' },
+        { status: 200, headers: resHeaders }
       );
     }
 
     const parent = await db.entities.User.get(authUser.id).catch(() => authUser);
 
     const body = await req.json().catch(() => ({}));
-    const nickname = (body.nickname || body.fullName || "").trim();
+    const nickname = (body.nickname || body.fullName || "Anak").trim();
     const fullName = (body.fullName || nickname).trim();
     const pin = (body.pin || "").trim();
 
     if (!nickname || !pin) {
       return Response.json(
         { success: false, error: 'Nama panggilan dan PIN 4-digit adalah wajib.' },
-        { status: 400, headers: resHeaders }
+        { status: 200, headers: resHeaders }
       );
     }
 
     if (!/^\d{4,6}$/.test(pin)) {
       return Response.json(
         { success: false, error: 'PIN mestilah 4 hingga 6 digit nombor.' },
-        { status: 400, headers: resHeaders }
+        { status: 200, headers: resHeaders }
       );
     }
 
-    // Generate unique credentials
-    const cleanNick = nickname.toLowerCase().replace(/[^a-z0-9]/g, "");
+    // 2. Generate unique student credentials
+    const cleanNick = nickname.toLowerCase().replace(/[^a-z0-9]/g, "") || "student";
     const randomDigits = Math.floor(1000 + Math.random() * 9000);
     const generatedUsername = `${cleanNick}_${randomDigits}`;
     const studentId = generateStudentId();
     const virtualEmail = `${cleanNick}.${parent.id.substring(0, 6)}.${randomDigits}@studyquest.com`;
 
-    // 2. Create Student User record in Database using Service Role
+    // 3. Create student User entity via Service Role
     const newStudent = await db.entities.User.create({
       app_role: "student",
       email: virtualEmail,
@@ -95,10 +95,13 @@ Deno.serve(async (req) => {
     });
 
     if (!newStudent || !newStudent.id) {
-      throw new Error("Pelayan gagal menjana rekod murid baharu di pangkalan data.");
+      return Response.json(
+        { success: false, error: "Pelayan gagal menjana rekod murid baharu di pangkalan data." },
+        { status: 200, headers: resHeaders }
+      );
     }
 
-    // 3. Create ParentChildRelationship record
+    // 4. Create active ParentChildRelationship
     await db.entities.ParentChildRelationship.create({
       parent_id: parent.id,
       child_id: newStudent.id,
@@ -107,10 +110,11 @@ Deno.serve(async (req) => {
       linked_at: new Date().toISOString()
     }).catch(() => null);
 
-    // 4. Create approved LinkRequest record
+    // 5. Create approved LinkRequest
     await db.entities.LinkRequest.create({
       student_id: newStudent.id,
       student_name: nickname,
+      student_username: generatedUsername,
       student_email: virtualEmail,
       parent_id: parent.id,
       parent_email: parent.email || "parent@studyquest.com",
@@ -119,7 +123,7 @@ Deno.serve(async (req) => {
       status: "approved"
     }).catch(() => null);
 
-    // 5. Update parent's linked_student_ids array
+    // 6. Update parent's linked_student_ids array
     const currentLinked = parent.linked_student_ids || [];
     if (!currentLinked.includes(newStudent.id)) {
       await db.entities.User.update(parent.id, {
@@ -127,7 +131,7 @@ Deno.serve(async (req) => {
       }).catch(() => null);
     }
 
-    // 6. Initialize Wallet and Progress
+    // 7. Initialize Wallet & Progress entities
     await db.entities.Wallet.create({ student_id: newStudent.id, balance: 0 }).catch(() => null);
     await db.entities.Progress.create({
       student_id: newStudent.id,
@@ -139,11 +143,11 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      message: "Profil anak berjaya dicipta di pangkalan data!",
+      message: "Profil anak berjaya dicipta!",
       student: {
         id: newStudent.id,
-        nickname: newStudent.nickname,
-        full_name: newStudent.full_name,
+        nickname: newStudent.nickname || nickname,
+        full_name: newStudent.full_name || fullName,
         username: generatedUsername,
         student_id: studentId,
         child_login_pin: pin,
@@ -154,7 +158,7 @@ Deno.serve(async (req) => {
     console.error("CreateChildAccount Error:", error);
     return Response.json(
       { success: false, error: error.message || "Gagal mendaftarkan profil anak." },
-      { status: 500, headers: resHeaders }
+      { status: 200, headers: resHeaders }
     );
   }
 });
