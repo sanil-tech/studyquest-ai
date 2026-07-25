@@ -124,7 +124,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
     setStep((s) => Math.min(s + 1, 2));
   };
 
-  // 🔥 REGISTER CHILD VIA BACKEND SERVER FUNCTION
+  // 🔥 RESILIENT CHILD REGISTRATION HANDLER
   const handleRegisterChild = async () => {
     if (form.pin.length !== 4) {
       toast({ title: "PIN tidak sah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -133,7 +133,6 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
     setLoading(true);
     try {
-      // Invoke backend edge function with service role database access
       const response = await base44.functions.invoke("createChildAccount", {
         nickname: form.nickname.trim(),
         fullName: form.fullName.trim(),
@@ -147,22 +146,30 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
         interests: form.interests,
       });
 
-      if (!response.data?.success || !response.data?.student) {
-        throw new Error(response.data?.error || "Gagal menyimpan data anak ke pelayan.");
+      // Unpack payload safely across all possible SDK response wrappers
+      const resPayload = response?.data || response;
+
+      if (!resPayload || resPayload.success === false) {
+        throw new Error(resPayload?.error || "Gagal menyimpan data anak ke pelayan.");
       }
 
-      const createdStudent = response.data.student;
+      const createdStudent = resPayload.student || resPayload.user;
+
+      if (!createdStudent || !createdStudent.id) {
+        throw new Error("Pendaftaran gagal - Maklumat murid tidak dikembalikan oleh pelayan.");
+      }
+
       setCreatedStudentInfo(createdStudent);
 
       // Save to local cache as backup
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       cachedChildren[createdStudent.id] = {
         id: createdStudent.id,
-        nickname: createdStudent.nickname,
-        full_name: createdStudent.full_name,
-        username: createdStudent.username,
-        student_id: createdStudent.student_id,
-        child_login_pin: createdStudent.child_login_pin,
+        nickname: createdStudent.nickname || form.nickname,
+        full_name: createdStudent.full_name || form.fullName,
+        username: createdStudent.username || "",
+        student_id: createdStudent.student_id || "",
+        child_login_pin: createdStudent.child_login_pin || form.pin,
         selected_avatar: form.selectedAvatar,
       };
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
@@ -170,6 +177,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       if (typeof onChildAdded === "function") onChildAdded(createdStudent);
       setIsSuccess(true);
     } catch (err) {
+      console.error("Ralat Pendaftaran Anak:", err);
       toast({
         title: "Pendaftaran Gagal 🛑",
         description: err.message || "Gagal menyimpan data ke pelayan.",
