@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
+import { loadChildrenWithStats, getChildDisplayName } from "@/lib/childUtils";
 
 export default function ParentApprovals() {
   const [requests, setRequests] = useState([]);
@@ -14,74 +15,58 @@ export default function ParentApprovals() {
   const [messages, setMessages] = useState({});
   const { toast } = useToast();
 
-  // Fungsi untuk memuatkan data permintaan ganjaran daripada akaun anak-anak yang terpaut
+  // Memuatkan data permintaan ganjaran daripada akaun anak-anak yang terpaut
   const loadData = useCallback(async () => {
     try {
-      const user = await base44.auth.me();
-      
-      const relationships = await base44.entities.ParentChildRelationship.filter({
-        parent_id: user.id,
-        status: "active",
-      });
+      // Load all linked children using the multi-strategy utility
+      const kids = await loadChildrenWithStats();
 
-      if (relationships.length > 0) {
+      if (kids.length > 0) {
         const requestsArrays = await Promise.all(
-          relationships.map(async (rel) => {
+          kids.map(async (child) => {
             try {
-              const studentProfile = await base44.entities.User.get(rel.child_id);
-              
-              // Mengutamakan nama panggilan mesra murid, jika tiada kembali kepada nama pengguna
-              const friendlyName = 
-                studentProfile.nickname || 
-                studentProfile.display_name || 
-                studentProfile.full_name || 
-                "Pelajar";
-              
-              const reqs = await base44.entities.RewardRequest.filter({ student_id: rel.child_id }, "-created_date", 20);
+              const friendlyName = getChildDisplayName(child);
+              const reqs = await base44.entities.RewardRequest.filter({ student_id: child.id }, "-created_date", 20);
               
               return reqs.map(r => ({
                 ...r,
                 _student_name: friendlyName
               }));
             } catch (err) {
-              console.error(`Mengabaikan blok muatan permintaan untuk ID pelajar ${rel.child_id}:`, err);
+              console.error(`Mengabaikan pemuatan permintaan bagi ID ${child.id}:`, err);
               return [];
             }
           })
         );
         
         const allReqs = requestsArrays.flat();
-        // Menyusun tuntutan mengikut tarikh cipta terkini di atas
         allReqs.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
         setRequests(allReqs);
       } else {
         setRequests([]);
       }
     } catch (err) {
-      console.error("Ralat memuatkan rangka kerja papan pemuka kelulusan:", err);
+      console.error("Ralat memuatkan log kelulusan:", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Memanggil muatan data semasa komponen mula dipaparkan
   useEffect(() => { 
     loadData(); 
   }, [loadData]);
 
-  // Mengendalikan keputusan ibu bapa sama ada meluluskan atau menolak tuntutan hadiah
+  // Mengendalikan keputusan ibu bapa (lulus atau tolak)
   const handleDecision = async (req, decision) => {
     setProcessing(req.id);
     try {
       if (decision === "approved") {
         const wallets = await base44.entities.Wallet.filter({ student_id: req.student_id });
         if (wallets.length > 0) {
-          // Menolak jumlah koin dan memastikan baki tidak negatif
           const newBalance = Math.max(0, wallets[0].balance - req.coin_cost);
           await base44.entities.Wallet.update(wallets[0].id, { balance: newBalance });
         }
         
-        // Mencipta rekod transaksi penolakan koin
         await base44.entities.Transaction.create({
           student_id: req.student_id,
           type: "spend",
@@ -91,13 +76,11 @@ export default function ParentApprovals() {
         });
       }
 
-      // Mengemas kini status permintaan ganjaran murid
       await base44.entities.RewardRequest.update(req.id, {
         status: decision,
         parent_response_message: messages[req.id] || "",
       });
 
-      // Mencipta notifikasi untuk dihantar ke profil anak
       await base44.entities.Notification.create({
         user_id: req.student_id,
         title: decision === "approved" ? "Ganjaran Diluluskan! 🎉" : "Ganjaran Ditolak 📋",
@@ -113,16 +96,13 @@ export default function ParentApprovals() {
         variant: decision === "approved" ? "default" : "destructive"
       });
       
-      // Membersihkan memori mesej teks bagi ID ganjaran yang telah diproses
       setMessages(prev => { const copy = { ...prev }; delete copy[req.id]; return copy; });
-      
-      // Memuatkan semula data terkini secara segerak
       await loadData();
     } catch (err) {
       console.error("Ralat pemprosesan transaksi:", err);
       toast({ 
         title: "Ralat Transaksi", 
-        description: "Gagal menyimpan butiran keputusan tuntutan.", 
+        description: "Gagal menyimpan keputusan tuntutan.", 
         variant: "destructive" 
       });
     } finally {
@@ -130,7 +110,6 @@ export default function ParentApprovals() {
     }
   };
 
-  // Skrin pemuat sementara menanti data siap dimuatkan
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
@@ -140,15 +119,12 @@ export default function ParentApprovals() {
     );
   }
 
-  // Menapis data permintaan berdasarkan status
   const pending = requests.filter(r => r.status === "pending");
   const approved = requests.filter(r => r.status === "approved");
   const rejected = requests.filter(r => r.status === "rejected" || r.status === "declined");
 
   return (
     <div className="space-y-8 pb-12 max-w-5xl mx-auto px-1">
-      
-      {/* 1. KEPALA BANNER UTAMA */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-100 p-6 rounded-3xl shadow-xs">
         <div>
           <div className="flex items-center gap-1.5 mb-1 text-xs font-bold uppercase tracking-wider text-indigo-600">
@@ -166,7 +142,6 @@ export default function ParentApprovals() {
         </div>
       </div>
 
-      {/* 2. BAHAGIAN PERMINTAAN TERTANGGUH (PENDING) */}
       <div className="space-y-4">
         <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
           <Clock className="w-4 h-4 text-amber-500" /> Menunggu Semakan
@@ -177,7 +152,7 @@ export default function ParentApprovals() {
             <Check className="w-10 h-10 text-emerald-500 bg-emerald-50 p-2 rounded-full mx-auto mb-3" />
             <h3 className="font-bold text-slate-700">Peti Masuk Kosong Sepenuhnya!</h3>
             <p className="text-slate-400 text-xs px-6 mt-1">
-              Tiada tuntutan tertangguh yang memerlukan pengesahan anda buat masa ini. Semua tugasan telah diselesaikan.
+              Tiada tuntutan tertangguh yang memerlukan pengesahan anda buat masa ini.
             </p>
           </div>
         ) : (
@@ -256,7 +231,6 @@ export default function ParentApprovals() {
         )}
       </div>
 
-      {/* 3. SEJARAH TUNTUTAN YANG DILULUSKAN */}
       {approved.length > 0 && (
         <div className="space-y-4 pt-2">
           <h2 className="text-md font-extrabold text-emerald-700 flex items-center gap-2">
@@ -304,7 +278,6 @@ export default function ParentApprovals() {
         </div>
       )}
 
-      {/* 4. SEJARAH TUNTUTAN YANG DITOLAK */}
       {rejected.length > 0 && (
         <div className="space-y-4 pt-2">
           <h2 className="text-md font-extrabold text-rose-700 flex items-center gap-2">
