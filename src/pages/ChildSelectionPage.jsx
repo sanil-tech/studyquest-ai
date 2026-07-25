@@ -253,7 +253,7 @@ export default function ChildSelectionPage() {
     setPinDialogOpen(false);
 
     // 3. Navigate directly to Student Dashboard
-    navigate("/student-dashboard"); // Note: You can change to "/student" if your route uses that exact path
+    navigate("/studentdashboard"); // Note: You can change to "/student" if your route uses that exact path
   };
 
   if (loading) {
