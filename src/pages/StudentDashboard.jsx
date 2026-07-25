@@ -16,7 +16,6 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Tetapan keadaan asal bagi data papan pemuka pelajar
   const [dashboardState, setDashboardState] = useState({
     user: null,
     activeChildId: null,
@@ -29,66 +28,129 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Fungsi untuk memuatkan semua data pembelajaran dan status sistem dari pelayan
+  // 🔥 LOAD DASHBOARD DATA (HANDLES BOTH DIRECT STUDENT & PARENT IN CHILD MODE)
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const currentUser = await base44.auth.me();
 
-      // Mengendalikan situasi jika ibu bapa mengakses papan pemuka anak (aliran peranti kongsi)
+      // Check if parent is viewing dashboard in child mode
       const activeChildId = currentUser.app_role === "parent" ? localStorage.getItem("active_child_session") : null;
-      const studentId = activeChildId || currentUser.id;
       
-      const studentUser = activeChildId
-        ? await base44.entities.User.get(activeChildId).catch(() => currentUser)
-        : currentUser;
-
-      // Menggunakan Promise.allSettled agar kegagalan satu API tidak merosakkan keseluruhan halaman
-      const results = await Promise.allSettled([
-        base44.entities.Progress.filter({ student_id: studentId }),
-        base44.entities.Wallet.filter({ student_id: studentId }),
-        base44.entities.StudySession.filter({ student_id: studentId }, "-created_date", 10),
-        base44.entities.QuizAttempt.filter({ student_id: studentId }, "-created_date", 10),
-        base44.entities.ParentChildRelationship.filter({ child_id: studentId, status: "pending" }),
-      ]);
-
-      const progress = results[0].status === "fulfilled" && results[0].value?.[0] 
-        ? results[0].value[0] 
-        : { level: 1, total_xp: 0, streak_days: 0 };
-        
-      const wallet = results[1].status === "fulfilled" && results[1].value?.[0] 
-        ? results[1].value[0] 
-        : { balance: 0 };
-        
-      const sessions = results[2].status === "fulfilled" && results[2].value ? results[2].value : [];
-      const quizzes = results[3].status === "fulfilled" && results[3].value ? results[3].value : [];
-      const pendingRels = results[4].status === "fulfilled" ? results[4].value : [];
-
+      let studentUser = currentUser;
+      let progress = { level: 1, total_xp: 0, streak_days: 0 };
+      let wallet = { balance: 0 };
+      let sessions = [];
+      let quizzes = [];
       let pendingRequests = [];
-      if (pendingRels && pendingRels.length > 0) {
-        // Mengambil profil maklumat ibu bapa secara selari bagi permintaan yang tertangguh
-        const hydratedRequests = await Promise.all(
-          pendingRels.map(async (rel) => {
+
+      if (activeChildId) {
+        // ==========================================
+        // PARENT VIEWING AS CHILD
+        // ==========================================
+        let matchedChild = null;
+
+        // 1. Fetch via Service Role Edge Function
+        try {
+          const res = await base44.functions.invoke("fetchParentChildren");
+          if (res.data?.success && Array.isArray(res.data?.children)) {
+            matchedChild = res.data.children.find((c) => c.id === activeChildId);
+          }
+        } catch (e) {
+          console.warn("Ralat memanggil fetchParentChildren:", e);
+        }
+
+        // 2. Fallback to localStorage cached child object
+        if (!matchedChild) {
+          const localChildStr = localStorage.getItem("active_child");
+          if (localChildStr) {
             try {
-              const parentUser = await base44.entities.User.get(rel.parent_id);
-              return {
-                id: rel.id,
-                parent_name: parentUser.full_name || parentUser.nickname || parentUser.username,
-                parent_email: parentUser.email || "Tiada emel",
-              };
-            } catch {
-              return { 
-                id: rel.id, 
-                parent_name: "Akaun Penjaga Tidak Dikenali", 
-                parent_email: "Pengesahan sistem diperlukan" 
-              };
-            }
-          })
-        );
-        pendingRequests = hydratedRequests;
+              matchedChild = JSON.parse(localChildStr);
+            } catch (e) {}
+          }
+        }
+
+        if (matchedChild) {
+          studentUser = {
+            id: matchedChild.id,
+            nickname: matchedChild.nickname || matchedChild.full_name || "Pelajar",
+            full_name: matchedChild.full_name || matchedChild.nickname,
+            username: matchedChild.username,
+            selected_avatar: matchedChild.selected_avatar || matchedChild.avatar_emoji || "🦧",
+            avatar_emoji: matchedChild.avatar_emoji || matchedChild.selected_avatar || "🦧",
+            app_role: "student"
+          };
+          progress = matchedChild.realProgress || progress;
+          wallet = matchedChild.wallet || wallet;
+          sessions = matchedChild.allSessions || [];
+          quizzes = matchedChild.allAttempts || [];
+        } else {
+          // Direct DB query fallback
+          const storedName = localStorage.getItem("active_student_name") || "Pelajar";
+          studentUser = {
+            id: activeChildId,
+            nickname: storedName,
+            full_name: storedName,
+            app_role: "student"
+          };
+
+          const results = await Promise.allSettled([
+            base44.entities.Progress.filter({ student_id: activeChildId }),
+            base44.entities.Wallet.filter({ student_id: activeChildId }),
+            base44.entities.StudySession.filter({ student_id: activeChildId }, "-created_date", 10),
+            base44.entities.QuizAttempt.filter({ student_id: activeChildId }, "-created_date", 10),
+          ]);
+
+          if (results[0].status === "fulfilled" && results[0].value?.[0]) progress = results[0].value[0];
+          if (results[1].status === "fulfilled" && results[1].value?.[0]) wallet = results[1].value[0];
+          if (results[2].status === "fulfilled" && results[2].value) sessions = results[2].value;
+          if (results[3].status === "fulfilled" && results[3].value) quizzes = results[3].value;
+        }
+
+      } else {
+        // ==========================================
+        // DIRECT STUDENT LOGGED IN
+        // ==========================================
+        const studentId = currentUser.id;
+        studentUser = currentUser;
+
+        const results = await Promise.allSettled([
+          base44.entities.Progress.filter({ student_id: studentId }),
+          base44.entities.Wallet.filter({ student_id: studentId }),
+          base44.entities.StudySession.filter({ student_id: studentId }, "-created_date", 10),
+          base44.entities.QuizAttempt.filter({ student_id: studentId }, "-created_date", 10),
+          base44.entities.ParentChildRelationship.filter({ child_id: studentId, status: "pending" }),
+        ]);
+
+        if (results[0].status === "fulfilled" && results[0].value?.[0]) progress = results[0].value[0];
+        if (results[1].status === "fulfilled" && results[1].value?.[0]) wallet = results[1].value[0];
+        if (results[2].status === "fulfilled" && results[2].value) sessions = results[2].value;
+        if (results[3].status === "fulfilled" && results[3].value) quizzes = results[3].value;
+        
+        const pendingRels = results[4].status === "fulfilled" ? results[4].value : [];
+
+        if (pendingRels && pendingRels.length > 0) {
+          pendingRequests = await Promise.all(
+            pendingRels.map(async (rel) => {
+              try {
+                const parentUser = await base44.entities.User.get(rel.parent_id);
+                return {
+                  id: rel.id,
+                  parent_name: parentUser.full_name || parentUser.nickname || parentUser.username,
+                  parent_email: parentUser.email || "Tiada emel",
+                };
+              } catch {
+                return { 
+                  id: rel.id, 
+                  parent_name: "Akaun Penjaga Tidak Dikenali", 
+                  parent_email: "Pengesahan sistem diperlukan" 
+                };
+              }
+            })
+          );
+        }
       }
 
-      // Mengemas kini keadaan secara kelompok untuk mengelakkan rerender berulang kali
       setDashboardState({
         user: studentUser,
         activeChildId,
@@ -98,6 +160,7 @@ export default function StudentDashboard() {
         quizzes,
         pendingRequests,
       });
+
     } catch (err) {
       console.error("Ralat memuat turun data pelajar:", err);
       toast({ 
@@ -110,12 +173,10 @@ export default function StudentDashboard() {
     }
   }, [toast]);
 
-  // Memanggil fungsi muat data apabila komponen mula dipaparkan
   useEffect(() => { 
     loadDashboardData(); 
   }, [loadDashboardData]);
 
-  // Mengendalikan tindakan kelulusan atau penolakan pautan akaun daripada ibu bapa
   const handleLinkAction = useCallback(async (relationshipId, actionType) => {
     setActionLoading(true);
     try {
@@ -141,13 +202,16 @@ export default function StudentDashboard() {
     }
   }, [toast, loadDashboardData]);
 
-  // Memadam data sesi peranti kongsi untuk kembali ke halaman mod ibu bapa
+  // Exit child mode and return to parent dashboard
   const handleExitChildMode = () => {
     localStorage.removeItem("active_child_session");
+    localStorage.removeItem("selected_child_id");
+    localStorage.removeItem("active_student_id");
+    localStorage.removeItem("active_student_name");
+    localStorage.removeItem("active_child");
     navigate("/parent");
   };
 
-  // Mengira tahap dahan semasa, jumlah mata pengalaman (XP), dan peratusan grafik bar
   const { level, xp, nextLevelXp, xpPercentage } = useMemo(() => {
     const lvl = dashboardState.progress?.level || 1;
     const xpVal = dashboardState.progress?.total_xp || 0;
@@ -156,7 +220,6 @@ export default function StudentDashboard() {
     return { level: lvl, xp: xpVal, nextLevelXp: nextLvlXp, xpPercentage: pct };
   }, [dashboardState.progress]);
 
-  // Mengira jumlah minit pembelajaran murid bagi hari ini secara dinamik
   const todayMinutes = useMemo(() => {
     const todayStart = moment().startOf("day");
     return dashboardState.sessions
@@ -164,7 +227,6 @@ export default function StudentDashboard() {
       .reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
   }, [dashboardState.sessions]);
 
-  // Paparan pemuat (loading screen) bertema alam semula jadi sementara menunggu data selesai dimuat
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]">
@@ -181,7 +243,7 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-[#FAFAF7] font-sans pb-24 text-stone-700">
       
-      {/* 1. BAR ATAS (Menu Navigasi Ringkas) */}
+      {/* 1. BAR ATAS */}
       <div className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-stone-200/50 px-4 py-3 flex justify-between items-center max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 font-black text-emerald-600 bg-emerald-50/80 px-3 py-1.5 rounded-2xl border border-emerald-100">
@@ -191,7 +253,7 @@ export default function StudentDashboard() {
           {activeChildId && (
             <button
               onClick={handleExitChildMode}
-              className="flex items-center gap-1.5 font-bold text-rose-600 bg-rose-50/80 px-3 py-1.5 rounded-2xl border border-rose-100 text-xs active:scale-95 transition-transform ml-2"
+              className="flex items-center gap-1.5 font-bold text-rose-600 bg-rose-50/80 px-3 py-1.5 rounded-2xl border border-rose-100 text-xs active:scale-95 transition-transform ml-2 shadow-xs"
             >
               <LogOut className="w-4 h-4" /> Keluar Mod Anak
             </button>
@@ -212,7 +274,7 @@ export default function StudentDashboard() {
 
       <div className="max-w-4xl mx-auto px-4 mt-6 space-y-8">
         
-        {/* 2. BANNER UTAMA (Selamat Datang Murid) */}
+        {/* 2. BANNER UTAMA */}
         <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 text-white shadow-lg overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           
@@ -245,7 +307,7 @@ export default function StudentDashboard() {
           </Button>
         </div>
 
-        {/* 3. PERMINTAAN PAUTAN IBU BAPA YANG TERTANGGUH */}
+        {/* 3. PERMINTAAN PAUTAN IBU BAPA */}
         <AnimatePresence>
           {pendingRequests.length > 0 && (
             <motion.div 
@@ -289,7 +351,7 @@ export default function StudentDashboard() {
           )}
         </AnimatePresence>
 
-        {/* 4. PETUNJUK KEMAJUAN (Bar Ketinggian Pokok) */}
+        {/* 4. PETUNJUK KEMAJUAN */}
         <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-emerald-100 shadow-sm relative">
           <div className="flex justify-between items-end mb-4">
             <div>
@@ -313,7 +375,7 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* 5. KAD KANDUNGAN AKTIVITI (Sesi & Kuiz) */}
+        {/* 5. KAD KANDUNGAN AKTIVITI */}
         <div className="grid md:grid-cols-2 gap-6">
           
           {/* Jurnal Ilmu Otan */}
