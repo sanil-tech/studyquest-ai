@@ -1,9 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// Salted PIN Hash Helper matching StudyQuest specification
 const hashPin = (pin: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 };
 
+// Salted Password Hash Helper matching StudyQuest specification
 const hashPassword = (password: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
 };
@@ -43,49 +45,47 @@ Deno.serve(async (req) => {
     }
 
     const db = base44.asServiceRole || base44;
-    let matchedUser: any = null;
 
-    // 1. Direct query by username
-    const byUsername = await db.entities.User.filter({ username: cleanInput }).catch(() => []);
-    if (byUsername && byUsername.length > 0) matchedUser = byUsername[0];
+    // 1. Parallel Broad Querying using Service Role Access
+    const [byRole, byChildFlag] = await Promise.all([
+      db.entities.User.filter({ app_role: "student" }).catch(() => []),
+      db.entities.User.filter({ is_child_account: true }).catch(() => [])
+    ]);
 
-    // 2. Direct query by nickname
-    if (!matchedUser) {
-      const byNickname = await db.entities.User.filter({ nickname: rawInput }).catch(() => []);
-      if (byNickname && byNickname.length > 0) matchedUser = byNickname[0];
-    }
+    // Deduplicate candidate student users
+    const candidateMap = new Map();
+    [...byRole, ...byChildFlag].forEach((u: any) => {
+      if (u && u.id) candidateMap.set(u.id, u);
+    });
+    const candidates = Array.from(candidateMap.values());
 
-    // 3. Scan student accounts
-    if (!matchedUser) {
-      const students = await db.entities.User.filter({ app_role: "student" }).catch(() => []);
-      const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
+    // Base nickname prefix extraction (e.g., "ivan_5267" -> "ivan")
+    const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
 
-      matchedUser = students.find((u: any) => {
-        const uUsername = (u.username || "").toLowerCase();
-        const uNickname = (u.nickname || "").toLowerCase();
-        const uFullName = (u.full_name || "").toLowerCase();
-        const uStudentId = (u.student_id || "").toLowerCase();
+    // 2. Smart Multi-Field Candidate Matcher
+    const matchedUser = candidates.find((u: any) => {
+      const uUsername = (u.username || "").toLowerCase();
+      const uNickname = (u.nickname || "").toLowerCase();
+      const uFullName = (u.full_name || "").toLowerCase();
+      const uStudentId = (u.student_id || "").toLowerCase();
+      const uId = (u.id || "").toLowerCase();
 
-        return (
-          uUsername === cleanInput ||
-          uNickname === cleanInput ||
-          uFullName === cleanInput ||
-          uStudentId === cleanInput ||
-          (basePrefix && (uNickname === basePrefix || uUsername.startsWith(`${basePrefix}_`)))
-        );
-      }) || null;
-    }
+      // Exact matches
+      if (uUsername === cleanInput) return true;
+      if (uNickname === cleanInput) return true;
+      if (uFullName === cleanInput) return true;
+      if (uStudentId === cleanInput) return true;
+      if (uId === cleanInput || uId.startsWith(cleanInput)) return true;
 
-    // 4. Scan child accounts
-    if (!matchedUser) {
-      const childAccounts = await db.entities.User.filter({ is_child_account: true }).catch(() => []);
-      matchedUser = childAccounts.find((u: any) => {
-        const uUsername = (u.username || "").toLowerCase();
-        const uNickname = (u.nickname || "").toLowerCase();
-        const uFullName = (u.full_name || "").toLowerCase();
-        return uUsername === cleanInput || uNickname === cleanInput || uFullName === cleanInput;
-      }) || null;
-    }
+      // Prefix & partial matches
+      if (basePrefix && basePrefix.length >= 2) {
+        if (uNickname === basePrefix) return true;
+        if (uUsername.startsWith(`${basePrefix}_`)) return true;
+        if (uFullName.startsWith(basePrefix)) return true;
+      }
+
+      return false;
+    });
 
     if (!matchedUser) {
       return Response.json(
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
 
     const user = matchedUser;
 
-    // Check account lockout
+    // 3. Account Lockout Check
     if (user.account_locked) {
       return Response.json(
         { success: false, error: "Akaun ini telah dikunci sementara. Sila minta ibu bapa anda untuk membuka semula kunci." },
@@ -104,11 +104,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify PIN or Password
+    // 4. Verify PIN or Password across all supported storage formats
     const hashedPin = hashPin(pinInput);
     const hashedPassword = hashPassword(pinInput);
 
     const isPinMatch = 
+      (user.child_login_pin && String(user.child_login_pin).trim() === pinInput) ||
       (user.pin_hash && user.pin_hash === hashedPin) ||
       (user.pin_hash && user.pin_hash === pinInput) ||
       (user.password_hash && user.password_hash === hashedPassword);
@@ -133,7 +134,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Reset failed login attempts on success
+    // 5. Reset failed login counter on successful authentication
     await db.entities.User.update(user.id, {
       failed_login_attempts: 0,
       account_locked: false,
