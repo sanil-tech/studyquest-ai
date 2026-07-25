@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     const studentId = generateStudentId();
     const virtualEmail = `${cleanNick}.${parent.id.substring(0, 6)}.${randomDigits}@studyquest.com`;
 
-    // Create Student User record via Service Role
+    // 1. Create Student User record in database via Service Role
     const newStudent = await db.entities.User.create({
       app_role: "student",
       email: virtualEmail,
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Link records creation
+    // 2. Create ParentChildRelationship record
     await db.entities.ParentChildRelationship.create({
       parent_id: parent.id,
       child_id: newStudent.id,
@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
       linked_at: new Date().toISOString()
     }).catch(() => null);
 
+    // 3. Create approved LinkRequest record
     await db.entities.LinkRequest.create({
       student_id: newStudent.id,
       student_name: nickname,
@@ -118,6 +119,7 @@ Deno.serve(async (req) => {
       status: "approved"
     }).catch(() => null);
 
+    // 4. Link child ID to parent record
     const currentLinked = parent.linked_student_ids || [];
     if (!currentLinked.includes(newStudent.id)) {
       await db.entities.User.update(parent.id, {
@@ -125,6 +127,7 @@ Deno.serve(async (req) => {
       }).catch(() => null);
     }
 
+    // 5. Initialize Wallet and Progress
     await db.entities.Wallet.create({ student_id: newStudent.id, balance: 0 }).catch(() => null);
     await db.entities.Progress.create({
       student_id: newStudent.id,
