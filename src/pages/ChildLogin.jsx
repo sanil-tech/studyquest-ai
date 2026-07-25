@@ -31,19 +31,19 @@ export default function ChildLogin() {
         throw new Error("PIN mestilah sekurang-kurangnya 4 digit.");
       }
 
-      // 1. Memanggil Edge Function backend childLogin
+      // Invoke childLogin backend function
       const response = await base44.functions.invoke("childLogin", {
         username: inputVal,
         pin: pin,
       });
 
       if (!response.data?.success || !response.data?.user) {
-        throw new Error(response.data?.error || "Username atau PIN salah. Sila semak semula.");
+        throw new Error(response.data?.error || "Username atau PIN tidak sah. Sila semak semula.");
       }
 
       const loggedStudent = response.data.user;
 
-      // 2. Menyimpan sesi pembelajaran murid ke localStorage
+      // Save student session to local storage
       const sessionData = {
         userId: loggedStudent.id,
         username: loggedStudent.username,
@@ -56,7 +56,7 @@ export default function ChildLogin() {
       localStorage.setItem("active_student_id", loggedStudent.id);
       localStorage.setItem("active_student_name", loggedStudent.nickname || loggedStudent.full_name || "Pelajar");
 
-      // 3. Kemaskini AuthContext dan terus navigasi ke Dashboard Murid
+      // Refresh Auth Context and navigate
       if (typeof checkUserAuth === "function") {
         await checkUserAuth();
       }
@@ -65,13 +65,14 @@ export default function ChildLogin() {
 
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
-      let safeErrorMessage = "Username atau PIN salah. Sila semak semula.";
-      if (err instanceof Error) {
-        safeErrorMessage = err.message;
-      } else if (typeof err === "string") {
-        safeErrorMessage = err;
-      }
-      setError(safeErrorMessage);
+      
+      // Safely extract human-readable error from server response or fallback
+      const serverMessage = 
+        err?.response?.data?.error || 
+        err?.data?.error || 
+        (err instanceof Error && !err.message.includes("status code") ? err.message : null);
+
+      setError(serverMessage || "Username atau PIN salah. Sila semak semula.");
     } finally {
       setLoading(false);
     }
@@ -105,7 +106,7 @@ export default function ChildLogin() {
             <Input
               id="username"
               type="text"
-              placeholder="Contoh: adam_4021 atau SQ-8F3K92"
+              placeholder="Contoh: corry_1234 atau SQ-8F3K92"
               value={usernameInput}
               onChange={(e) => setUsernameInput(e.target.value)}
               className="pl-10 h-12 rounded-xl border-slate-200 text-sm font-medium"
