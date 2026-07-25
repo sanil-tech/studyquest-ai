@@ -10,6 +10,7 @@ import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+import { getChildDisplayName } from "@/lib/childUtils";
 
 // ================= 1. KOMPONEN KAD DETEIL ANAK =================
 function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdated }) {
@@ -19,7 +20,9 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
   const [isSettingPin, setIsSettingPin] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
-  const [inputName, setInputName] = useState(child.nickname || "");
+  
+  const displayName = getChildDisplayName(child);
+  const [inputName, setInputName] = useState(child.nickname || displayName);
   const [updating, setUpdating] = useState(false);
 
   const sessionData = child.latestSession || {};
@@ -75,8 +78,9 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     try {
       await base44.entities.User.update(child.id, {
         pin_hash: inputPin,
+        child_login_pin: inputPin,
         pin_enabled: true,
-        login_method: "pin"
+        login_method: "both"
       });
 
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
@@ -108,7 +112,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 text-xl shrink-0 overflow-hidden">
           {child.selected_avatar && child.selected_avatar.startsWith("http") ? (
-            <img src={child.selected_avatar} alt={child.nickname} className="w-full h-full object-cover" />
+            <img src={child.selected_avatar} alt={displayName} className="w-full h-full object-cover" />
           ) : (
             <span className="select-none">{child.selected_avatar || child.avatar_emoji || "🦧"}</span>
           )}
@@ -126,9 +130,9 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
                 <button onClick={handleSaveName} disabled={updating} className="text-[10px] font-bold text-emerald-600 shrink-0">Set</button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 min-w-0 group cursor-pointer" onClick={() => { setInputName(child.nickname); setIsEditingName(true); }}>
+              <div className="flex items-center gap-1.5 min-w-0 group cursor-pointer" onClick={() => { setInputName(child.nickname || displayName); setIsEditingName(true); }}>
                 <h3 className="text-sm font-black text-slate-800 uppercase truncate">
-                  {child.nickname || child.full_name || "Tiada Nama"}
+                  {displayName}
                 </h3>
                 <Edit3 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </div>
@@ -138,7 +142,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
               Tahap {progressData.level || 1}
             </Badge>
           </div>
-          {child.full_name && child.full_name !== child.nickname && (
+          {child.full_name && child.full_name !== displayName && (
             <p className="text-[9px] text-slate-400 truncate font-medium leading-none mt-1">{child.full_name}</p>
           )}
           
@@ -297,12 +301,10 @@ export default function MyChildrenPage() {
 
       let childIds = [];
 
-      // Strategi A: Profil Tatasusunan Parent
       if (u.linked_student_ids && Array.isArray(u.linked_student_ids)) {
         childIds = [...u.linked_student_ids];
       }
 
-      // Strategi B: Jadual Perantara
       try {
         const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
         if (rel && rel.length > 0) {
@@ -313,7 +315,6 @@ export default function MyChildrenPage() {
         console.warn("RLS menyekat hubungan jadual.");
       }
 
-      // Strategi C: Memori Cache Peranti
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       if (childIds.length === 0 && Object.keys(cachedChildren).length > 0) {
         childIds = Object.keys(cachedChildren);
@@ -336,9 +337,9 @@ export default function MyChildrenPage() {
 
           const localCache = cachedChildren[id] || {};
 
-          const nicknameReal = childUser?.nickname || childUser?.full_name || localCache.nickname || localCache.full_name || "Petualang Cilik";
+          const nicknameReal = childUser?.nickname || localCache.nickname || childUser?.full_name || localCache.full_name || childUser?.username || "Pelajar";
           const usernameReal = childUser?.username || localCache.username || "student";
-          const pinReal = childUser?.pin_hash || localCache.child_login_pin || "----";
+          const pinReal = childUser?.pin_hash || childUser?.child_login_pin || localCache.child_login_pin || "----";
 
           let latestSession = {};
           let sortedSessions = [];
@@ -395,7 +396,7 @@ export default function MyChildrenPage() {
       setChildren(kids.filter(Boolean));
     } catch (err) {
       console.error("Ralat memuatkan data:", err);
-    } finally { // 🎯 TELAH DIBETULKAN DI SINI (Sebelum ini tertulis 'file')
+    } fontally {
       setLoading(false);
     }
   };
@@ -407,7 +408,7 @@ export default function MyChildrenPage() {
     setAiResult("");
 
     try {
-      const displayKidsName = child.nickname || "Pelajar";
+      const displayKidsName = getChildDisplayName(child);
       const totalXp = child.realProgress?.total_xp || 0;
       const level = child.realProgress?.level || 1;
       
@@ -467,7 +468,7 @@ export default function MyChildrenPage() {
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
           <DialogHeader className="border-b pb-3">
             <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
-              📊 Laporan Pembelajaran: {selectedChild ? selectedChild.nickname : "Memuatkan..."}
+              📊 Laporan Pembelajaran: {selectedChild ? getChildDisplayName(selectedChild) : "Memuatkan..."}
             </DialogTitle>
           </DialogHeader>
 
@@ -530,7 +531,7 @@ export default function MyChildrenPage() {
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-900 text-white p-6 border border-slate-800">
           <DialogHeader className="border-b border-slate-800 pb-3">
             <DialogTitle className="text-base font-black flex items-center gap-2 text-indigo-400">
-              <Brain className="w-5 h-5 text-indigo-400 animate-pulse" /> Diagnosis Pembelajaran AI: {aiChild ? aiChild.nickname : ""}
+              <Brain className="w-5 h-5 text-indigo-400 animate-pulse" /> Diagnosis Pembelajaran AI: {aiChild ? getChildDisplayName(aiChild) : ""}
             </DialogTitle>
           </DialogHeader>
 
