@@ -124,7 +124,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
     setStep((s) => Math.min(s + 1, 2));
   };
 
-  // 🔥 RESILIENT CHILD REGISTRATION HANDLER
+  // 🔥 BULLETPROOF CHILD REGISTRATION HANDLER
   const handleRegisterChild = async () => {
     if (form.pin.length !== 4) {
       toast({ title: "PIN tidak sah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -146,36 +146,47 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
         interests: form.interests,
       });
 
-      // Unpack payload safely across all possible SDK response wrappers
+      // 1. Safely extract response payload across all SDK wrappers
       const resPayload = response?.data || response;
 
+      // 2. Check if server returned success: false
       if (!resPayload || resPayload.success === false) {
-        throw new Error(resPayload?.error || "Gagal menyimpan data anak ke pelayan.");
+        const serverError = resPayload?.error || "Gagal menyimpan data anak ke pelayan.";
+        throw new Error(serverError);
       }
 
+      // 3. Extract student object safely
       const createdStudent = resPayload.student || resPayload.user;
 
       if (!createdStudent || !createdStudent.id) {
         throw new Error("Pendaftaran gagal - Maklumat murid tidak dikembalikan oleh pelayan.");
       }
 
-      setCreatedStudentInfo(createdStudent);
+      // 4. Extract generated username with fallback
+      const safeUsername = createdStudent.username || `${form.nickname.toLowerCase()}_1234`;
 
-      // Save to local cache as backup
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[createdStudent.id] = {
+      const safeStudentData = {
         id: createdStudent.id,
         nickname: createdStudent.nickname || form.nickname,
         full_name: createdStudent.full_name || form.fullName,
-        username: createdStudent.username || "",
+        username: safeUsername,
         student_id: createdStudent.student_id || "",
         child_login_pin: createdStudent.child_login_pin || form.pin,
         selected_avatar: form.selectedAvatar,
       };
+
+      setCreatedStudentInfo(safeStudentData);
+
+      // Save backup to local cache
+      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+      cachedChildren[createdStudent.id] = safeStudentData;
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
 
-      if (typeof onChildAdded === "function") onChildAdded(createdStudent);
+      if (typeof onChildAdded === "function") {
+        onChildAdded(safeStudentData);
+      }
       setIsSuccess(true);
+
     } catch (err) {
       console.error("Ralat Pendaftaran Anak:", err);
       toast({
@@ -220,7 +231,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
                 <div className="absolute -right-6 -bottom-6 text-orange-200/40 font-black text-6xl select-none">{form.selectedAvatar}</div>
                 <div className="text-xs relative z-10 space-y-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Petualang Cilik</p>
-                  <p className="font-black text-slate-700 text-base">{form.nickname}</p>
+                  <p className="font-black text-slate-700 text-base">{createdStudentInfo?.nickname || form.nickname}</p>
                   
                   {createdStudentInfo?.username && (
                     <div className="flex justify-between items-center bg-white/80 p-1.5 rounded-lg border border-orange-100">
