@@ -31,7 +31,7 @@ export default function ChildLogin() {
         throw new Error("PIN mestilah sekurang-kurangnya 4 digit.");
       }
 
-      // Invoke the childLogin edge function
+      // 1. Memanggil Edge Function backend childLogin
       const response = await base44.functions.invoke("childLogin", {
         username: inputVal,
         pin: pin,
@@ -43,7 +43,7 @@ export default function ChildLogin() {
 
       const loggedStudent = response.data.user;
 
-      // Persist student session locally
+      // 2. Menyimpan sesi pembelajaran murid ke localStorage
       const sessionData = {
         userId: loggedStudent.id,
         username: loggedStudent.username,
@@ -56,7 +56,7 @@ export default function ChildLogin() {
       localStorage.setItem("active_student_id", loggedStudent.id);
       localStorage.setItem("active_student_name", loggedStudent.nickname || loggedStudent.full_name || "Pelajar");
 
-      // Refresh Auth Context and navigate
+      // 3. Kemaskini AuthContext dan terus navigasi ke Dashboard Murid
       if (typeof checkUserAuth === "function") {
         await checkUserAuth();
       }
@@ -95,6 +95,7 @@ export default function ChildLogin() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* INPUT 1: USERNAME / ID MURID */}
         <div className="space-y-2">
           <Label htmlFor="username" className="text-xs font-bold uppercase tracking-wider text-slate-500">
             Username / ID Murid
@@ -114,6 +115,7 @@ export default function ChildLogin() {
           </div>
         </div>
 
+        {/* INPUT 2: PIN 4-DIGIT */}
         <div className="space-y-2">
           <Label htmlFor="pin" className="text-xs font-bold uppercase tracking-wider text-slate-500">
             PIN 4-Digit
