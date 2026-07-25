@@ -1,4 +1,3 @@
-
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const hashPin = (pin: string) => {
@@ -29,109 +28,90 @@ Deno.serve(async (req) => {
     const query = (body.query || "").trim();
     const testPin = (body.test_pin || "").trim();
 
-    const diagnosticLogs: string[] = [];
-    diagnosticLogs.push(`🔍 Mula ujian diagnostik untuk input: '${query}'`);
+    const logs: string[] = [];
+    logs.push(`🔍 Mula ujian diagnostik untuk: '${query}'`);
 
     if (!query) {
-      return Response.json(
-        { success: false, error: "Input carian (query) diperlukan." },
-        { status: 200, headers: resHeaders }
-      );
+      return Response.json({ success: false, error: "Input carian (query) diperlukan." }, { status: 200, headers: resHeaders });
     }
 
     const cleanQuery = query.toLowerCase();
 
-    // 1. Fetch potential user candidates
-    const candidates: any[] = [];
+    // 1. Fetch records
+    const [students, childAccounts] = await Promise.all([
+      db.entities.User.filter({ app_role: "student" }).catch(() => []),
+      db.entities.User.filter({ is_child_account: true }).catch(() => [])
+    ]);
 
-    // Search by student role
-    const studentUsers = await db.entities.User.filter({ app_role: "student" }).catch(() => []);
-    diagnosticLogs.push(`📊 Rekod murid ditemui dalam DB: ${studentUsers.length}`);
+    const userMap = new Map();
+    [...students, ...childAccounts].forEach((u: any) => { if (u?.id) userMap.set(u.id, u); });
+    const allCandidates = Array.from(userMap.values());
 
-    for (const u of studentUsers) {
+    logs.push(`📊 Jumlah rekod murid dijumpai dalam pangkalan data: ${allCandidates.length}`);
+
+    const basePrefix = cleanQuery.includes("_") ? cleanQuery.split("_")[0] : cleanQuery;
+
+    const matched = allCandidates.find((u: any) => {
       const uUsername = (u.username || "").toLowerCase();
       const uNickname = (u.nickname || "").toLowerCase();
       const uFullName = (u.full_name || "").toLowerCase();
       const uStudentId = (u.student_id || "").toLowerCase();
 
-      const basePrefix = cleanQuery.includes("_") ? cleanQuery.split("_")[0] : cleanQuery;
-
-      if (
+      return (
         uUsername === cleanQuery ||
         uNickname === cleanQuery ||
         uFullName === cleanQuery ||
         uStudentId === cleanQuery ||
         (basePrefix && (uNickname === basePrefix || uUsername.startsWith(`${basePrefix}_`)))
-      ) {
-        candidates.push(u);
-      }
+      );
+    });
+
+    if (!matched) {
+      logs.push(`❌ AKAUN TIDAK DITEMUI di dalam pangkalan data.`);
+      return Response.json({ success: false, found: false, logs, error: `Akaun '${query}' tidak wujud dalam DB.` }, { status: 200, headers: resHeaders });
     }
 
-    if (candidates.length === 0) {
-      diagnosticLogs.push(`❌ TIADA AKAUN DITEMUI untuk '${query}'`);
-      return Response.json({
-        success: false,
-        found: false,
-        logs: diagnosticLogs,
-        error: `Akaun '${query}' tidak ditemui di dalam pangkalan data.`
-      }, { status: 200, headers: resHeaders });
-    }
+    logs.push(`✅ Rekod Ditemui: ${matched.nickname} (Username: ${matched.username}, Student ID: ${matched.student_id})`);
 
-    diagnosticLogs.push(`✅ Akaun padanan ditemui: ${candidates.length} rekod.`);
-
-    // 2. Inspect candidate account status
-    const target = candidates[0];
-    const userAnalysis = {
-      id: target.id,
-      username: target.username || "TIADA USERNAME",
-      nickname: target.nickname || "TIADA NICKNAME",
-      full_name: target.full_name || "TIADA NAMA PENUH",
-      student_id: target.student_id || "TIADA ID",
-      app_role: target.app_role,
-      is_child_account: target.is_child_account,
-      pin_enabled: target.pin_enabled,
-      account_locked: !!target.account_locked,
-      failed_attempts: target.failed_login_attempts || 0,
-      has_pin_hash: !!target.pin_hash,
-      has_password_hash: !!target.password_hash,
-    };
-
-    diagnosticLogs.push(`👤 Profil: ${userAnalysis.nickname} (Username: ${userAnalysis.username})`);
-    diagnosticLogs.push(`🔒 Status Kunci: ${userAnalysis.account_locked ? "DIKUNCI" : "AKTIF"}`);
-
-    // 3. Test PIN verification if PIN was provided
-    let pinVerificationResult = null;
+    // 2. Test PIN Verification
+    let pinTestResult = null;
     if (testPin) {
-      const hashedInputPin = hashPin(testPin);
-      const hashedPasswordInput = hashPassword(testPin);
+      const hashedPin = hashPin(testPin);
+      const hashedPassword = hashPassword(testPin);
 
-      const matchSaltedHash = target.pin_hash === hashedInputPin;
-      const matchRawHash = target.pin_hash === testPin;
-      const matchPasswordHash = target.password_hash === hashedPasswordInput;
+      const isMatch = 
+        (matched.child_login_pin && String(matched.child_login_pin).trim() === testPin) ||
+        (matched.pin_hash === hashedPin) ||
+        (matched.pin_hash === testPin) ||
+        (matched.password_hash === hashedPassword);
 
-      const isPinValid = matchSaltedHash || matchRawHash || matchPasswordHash;
-
-      pinVerificationResult = {
+      pinTestResult = {
         test_pin: testPin,
-        is_valid: isPinValid,
-        match_type: matchSaltedHash ? "SALTED_PIN_HASH" : matchRawHash ? "RAW_PIN" : matchPasswordHash ? "PASSWORD_HASH" : "NONE"
+        is_valid: isMatch,
+        has_child_login_pin: !!matched.child_login_pin,
+        has_pin_hash: !!matched.pin_hash,
       };
 
-      diagnosticLogs.push(`🔑 Ujian PIN '${testPin}': ${isPinValid ? "BERJAYA (VALID)" : "GAGAL (INVALID)"}`);
+      logs.push(`🔑 Keputusan Ujian PIN '${testPin}': ${isMatch ? "SAH (VALID)" : "SALAH (INVALID)"}`);
     }
 
     return Response.json({
       success: true,
       found: true,
-      user: userAnalysis,
-      pin_verification: pinVerificationResult,
-      logs: diagnosticLogs
+      user: {
+        id: matched.id,
+        username: matched.username,
+        nickname: matched.nickname,
+        full_name: matched.full_name,
+        student_id: matched.student_id,
+        child_login_pin: matched.child_login_pin,
+        account_locked: !!matched.account_locked
+      },
+      pin_test: pinTestResult,
+      logs
     }, { status: 200, headers: resHeaders });
 
   } catch (error: any) {
-    return Response.json({
-      success: false,
-      error: error.message || "Ralat diagnostik pelayan."
-    }, { status: 200, headers: resHeaders });
+    return Response.json({ success: false, error: error.message }, { status: 200, headers: resHeaders });
   }
 });
