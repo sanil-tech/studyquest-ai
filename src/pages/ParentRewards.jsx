@@ -9,14 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Helper utilities for multi-strategy child account loading
+import { loadChildrenWithStats, getChildDisplayName } from "@/lib/childUtils";
+
 // Senarai ikon emoji pilihan untuk kad ganjaran
 const EMOJIS = ["🍦", "🎮", "🎬", "📱", "🛍️", "🎂", "🏀", "🎵", "📚", "✈️", "🎁", "⭐"];
-
-// Fungsi bantuan untuk mendapatkan nama paparan pelajar yang sah
-const getDisplayName = (user) => {
-  if (!user) return "Pelajar";
-  return user.nickname || user.username || user.email || "Pelajar";
-};
 
 export default function ParentRewards() {
   const [user, setUser] = useState(null);
@@ -39,31 +36,16 @@ export default function ParentRewards() {
       const rws = await base44.entities.Reward.filter({ parent_id: u.id });
       setRewards(rws);
       
-      // 2. Mengambil data hubungan anak yang berstatus aktif
-      const relationships = await base44.entities.ParentChildRelationship.filter({
-        parent_id: u.id,
-        status: "active",
-      });
+      // 2. Menggunakan fungsi loadChildrenWithStats() yang merangkumi semua strategi pautan (linked_student_ids, ParentChildRelationship & cached_children)
+      const kids = await loadChildrenWithStats();
 
-      // 3. Mengambil maklumat terperinci setiap profil anak secara selari
-      const childDetails = await Promise.all(
-        relationships.map(async (rel) => {
-          try {
-            const child = await base44.entities.User.get(rel.child_id);
-            return {
-              id: child.id,
-              full_name: getDisplayName(child),
-              email: child.email || "",
-              username: child.username || ""
-            };
-          } catch (childErr) {
-            console.error(`Gagal memuatkan maklumat profil anak bagi ID ${rel.child_id}:`, childErr);
-            return null;
-          }
-        })
-      );
+      const activeChildren = kids.map((child) => ({
+        id: child.id,
+        full_name: getChildDisplayName(child),
+        email: child.email || "",
+        username: child.username || ""
+      }));
 
-      const activeChildren = childDetails.filter(Boolean);
       setChildren(activeChildren);
 
     } catch (err) {
@@ -238,7 +220,7 @@ export default function ParentRewards() {
           <User className="w-10 h-10 text-slate-300 mx-auto mb-3" />
           <h3 className="font-bold text-slate-700">Tiada Akaun Terpaut yang Sah</h3>
           <p className="text-slate-400 text-xs px-6 mt-1">
-            Anda mesti selesai memautkan akaun anak dan memastikan ia diluluskan sepenuhnya di papan pemuka utama sebelum menyediakan insentif khusus.
+            Sila cipta atau pautkan akaun anak di papan pemuka utama sebelum menyediakan insentif khusus.
           </p>
         </div>
       )}
