@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GraduationCap, KeyRound, Loader2, ArrowLeft, User } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function ChildLogin() {
   const navigate = useNavigate();
+  const { checkUserAuth } = useAuth();
   const [usernameInput, setUsernameInput] = useState("");
   const [pin, setPin] = useState(""); 
   const [error, setError] = useState("");
@@ -20,54 +22,55 @@ export default function ChildLogin() {
     setLoading(true);
 
     try {
-      const inputVal = usernameInput.trim().toLowerCase();
+      const inputVal = usernameInput.trim();
       
-      // Validation Check
       if (!inputVal) {
-        throw new Error("Sila masukkan Username anda.");
+        throw new Error("Sila masukkan Username atau ID Murid anda.");
       }
-      if (pin.length < 4) {
-        throw new Error("PIN mestilah sekurang-kurangnya 4 aksara.");
+      if (!pin || pin.length < 4) {
+        throw new Error("PIN mestilah sekurang-kurangnya 4 digit.");
       }
 
-      console.log("🚀 Menghubungi sistem Edge Function auth pelayan...");
+      // Invoke the childLogin edge function
+      const response = await base44.functions.invoke("childLogin", {
+        username: inputVal,
+        pin: pin,
+      });
 
-      // Construct the virtual email format for backend authentication compatibility
-      const fakeEmail = inputVal.includes("@") 
-        ? inputVal 
-        : `child-${inputVal}@studyquest.local`;
-
-      // Log in using the virtual email and PIN as the password
-      await base44.auth.loginViaEmailPassword(fakeEmail, pin);
-
-      // Fetch student profile to verify active session
-      const user = await base44.auth.me();
-
-      if (user) {
-        // Save student metadata for dashboard use
-        localStorage.setItem("active_student_id", user.id);
-        localStorage.setItem("active_student_name", user.nickname || "Pelajar");
-        
-        // 🎯 OPTIMIZATION: SPA navigation instead of full page reload
-        navigate("/dashboard");
-      } else {
-        throw new Error("Gagal memuatkan profil murid dari pelayan.");
+      if (!response.data?.success || !response.data?.user) {
+        throw new Error(response.data?.error || "Username atau PIN salah. Sila semak semula.");
       }
+
+      const loggedStudent = response.data.user;
+
+      // Persist student session locally
+      const sessionData = {
+        userId: loggedStudent.id,
+        username: loggedStudent.username,
+        student_id: loggedStudent.student_id,
+        token: `child_session_${loggedStudent.id}_${Date.now()}`
+      };
+
+      localStorage.setItem("studyquest_session", JSON.stringify(sessionData));
+      localStorage.setItem("studyquest_user", JSON.stringify(loggedStudent));
+      localStorage.setItem("active_student_id", loggedStudent.id);
+      localStorage.setItem("active_student_name", loggedStudent.nickname || loggedStudent.full_name || "Pelajar");
+
+      // Refresh Auth Context and navigate
+      if (typeof checkUserAuth === "function") {
+        await checkUserAuth();
+      }
+
+      navigate("/dashboard");
 
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
-      
-      // Cleaned up safe error message extraction
       let safeErrorMessage = "Username atau PIN salah. Sila semak semula.";
-      
       if (err instanceof Error) {
         safeErrorMessage = err.message;
       } else if (typeof err === "string") {
         safeErrorMessage = err;
-      } else if (err && typeof err === "object" && "message" in err) {
-        safeErrorMessage = String(err.message);
       }
-      
       setError(safeErrorMessage);
     } finally {
       setLoading(false);
@@ -78,7 +81,7 @@ export default function ChildLogin() {
     <AuthLayout
       icon={GraduationCap}
       title="Portal Murid StudyQuest 🚀"
-      subtitle="Masukkan Username dan PIN anda untuk mula belajar"
+      subtitle="Masukkan Username/ID Murid dan PIN anda untuk mula belajar"
       footer={
         <Link to="/login" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" /> Kembali ke Log Masuk Ibu Bapa
@@ -92,17 +95,16 @@ export default function ChildLogin() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* INPUT 1: USERNAME */}
         <div className="space-y-2">
           <Label htmlFor="username" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Username / Nama Pengguna
+            Username / ID Murid
           </Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               id="username"
               type="text"
-              placeholder="Contoh: ali_4021"
+              placeholder="Contoh: adam_4021 atau SQ-8F3K92"
               value={usernameInput}
               onChange={(e) => setUsernameInput(e.target.value)}
               className="pl-10 h-12 rounded-xl border-slate-200 text-sm font-medium"
@@ -112,10 +114,9 @@ export default function ChildLogin() {
           </div>
         </div>
 
-        {/* INPUT 2: PIN 4-DIGIT */}
         <div className="space-y-2">
           <Label htmlFor="pin" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            PIN atau Kata Laluan
+            PIN 4-Digit
           </Label>
           <div className="relative">
             <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -126,7 +127,7 @@ export default function ChildLogin() {
               maxLength={6}
               placeholder="••••"
               value={pin}
-              onChange={(e) => setPin(e.target.value)}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
               className="pl-10 h-12 rounded-xl border-slate-200 text-lg tracking-widest font-black"
               required
             />
@@ -141,7 +142,7 @@ export default function ChildLogin() {
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Mengesahkan Kod...
+              Mengesahkan PIN...
             </>
           ) : (
             "Mula Belajar Sekarang ✨"
