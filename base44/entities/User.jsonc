@@ -4,131 +4,38 @@
   "properties": {
     "app_role": {
       "type": "string",
-      "enum": [
-        "student",
-        "parent",
-        "teacher"
-      ],
-      "description": "App-specific role selected during onboarding"
-    },
-    "student_id": {
-      "type": "string",
-      "description": "Unique StudyQuest Student ID (e.g., SQ-8F3K92) - auto-generated for students"
-    },
-    "linked_parent_id": {
-      "type": "string",
-      "description": "For students - their parent's user ID"
-    },
-    "linked_student_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "For parents - their children's user IDs",
-      "default": []
-    },
-    "avatar_emoji": {
-      "type": "string",
-      "default": "🎓"
-    },
-    "avatar_photo_url": {
-      "type": "string",
-      "description": "URL to uploaded profile photo"
-    },
-    "selected_avatar": {
-      "type": "string",
-      "description": "Selected avatar (emoji string or URL) chosen during child profile creation"
+      "enum": ["student", "parent", "teacher"]
     },
     "nickname": {
-      "type": "string",
-      "description": "Preferred name or nickname"
+      "type": "string"
     },
     "full_name": {
-      "type": "string",
-      "description": "Full display name of the user"
+      "type": "string"
     },
     "username": {
-      "type": "string",
-      "description": "Username for child login (e.g., ivan_5267)"
+      "type": "string"
     },
     "child_login_pin": {
-      "type": "string",
-      "description": "4-6 digit plain text PIN for child login"
-    },
-    "password_hash": {
-      "type": "string",
-      "description": "Hashed password for child account authentication"
+      "type": "string"
     },
     "pin_hash": {
-      "type": "string",
-      "description": "Hashed 4-6 digit PIN for child login"
+      "type": "string"
     },
-    "pin_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Whether PIN login is enabled for this child"
-    },
-    "login_method": {
-      "type": "string",
-      "enum": [
-        "password",
-        "pin",
-        "both"
-      ],
-      "default": "both",
-      "description": "Allowed login method(s) for this child"
-    },
-    "failed_login_attempts": {
-      "type": "number",
-      "default": 0,
-      "description": "Number of consecutive failed login attempts"
-    },
-    "account_locked": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether account is temporarily locked due to failed attempts"
-    },
-    "last_login_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Timestamp of last successful login"
+    "student_id": {
+      "type": "string"
     },
     "is_child_account": {
       "type": "boolean",
-      "default": false,
-      "description": "Whether this is a child account"
+      "default": false
+    },
+    "pin_enabled": {
+      "type": "boolean",
+      "default": true
     },
     "status": {
       "type": "string",
-      "default": "active",
-      "description": "Account status"
-    },
-    "school_name": {
-      "type": "string",
-      "description": "Name of school"
-    },
-    "education_level": {
-      "type": "string",
-      "description": "Education level"
-    },
-    "preferred_language": {
-      "type": "string",
-      "default": "ms",
-      "description": "Preferred learning language"
-    },
-    "interests": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "default": []
-    },
-    "profile_completed": {
-      "type": "boolean",
-      "default": true
+      "default": "active"
     }
   },
-  "required": [
-    "app_role"
-  ]
+  "required": ["app_role"]
 }
