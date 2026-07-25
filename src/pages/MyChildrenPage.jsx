@@ -396,7 +396,7 @@ export default function MyChildrenPage() {
       setChildren(kids.filter(Boolean));
     } catch (err) {
       console.error("Ralat memuatkan data:", err);
-    } fontally {
+    } finally {
       setLoading(false);
     }
   };
