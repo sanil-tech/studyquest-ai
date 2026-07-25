@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Flame, Target, Clock, Coins, CheckCircle2, Award, BookOpen, HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2, Eye, EyeOff, Edit3
+  Users, Flame, Target, Clock, Coins, CheckCircle2, Award, BookOpen, 
+  HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2, 
+  Eye, EyeOff, Edit3, Trash2
 } from "lucide-react";
 import moment from "moment";
 import { Card } from "@/components/ui/card";
@@ -9,6 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { getChildDisplayName } from "@/lib/childUtils";
 
@@ -20,6 +32,8 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
   const [isSettingPin, setIsSettingPin] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   
   const displayName = getChildDisplayName(child);
   const [inputName, setInputName] = useState(child.nickname || displayName);
@@ -97,8 +111,45 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
+  // 🔥 FUNGSI PEMADAMAN PROFIL ANAK
+  const handleDeleteChild = async () => {
+    setIsDeleting(true);
+    try {
+      // 1. Panggil fungsi backend untuk membuang pautan akaun anak
+      await base44.functions.invoke("removeChildLink", { child_id: child.id }).catch(() => null);
+
+      // 2. Padam rekod tempatan dalam cache peranti
+      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+      delete cachedChildren[child.id];
+      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
+
+      // 3. Bersihkan sesi aktif jika anak yang dipadam sedang dipilih
+      if (localStorage.getItem("selected_child_id") === child.id) {
+        localStorage.removeItem("selected_child_id");
+        localStorage.removeItem("active_child_session");
+        localStorage.removeItem("active_child");
+      }
+
+      toast({
+        title: "Profil Dipadam 🗑️",
+        description: `Profil ${displayName} telah berjaya dipadamkan daripada akaun anda.`,
+      });
+
+      if (onDataUpdated) onDataUpdated();
+    } catch (err) {
+      toast({
+        title: "Gagal Memadam Profil",
+        description: err.message || "Sila cuba sebentar lagi.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setConfirmDeleteOpen(false);
+    }
+  };
+
   return (
-    <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4">
+    <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4 relative">
       
       <div className="flex items-center justify-between border-b border-slate-50 pb-2 text-[10px] text-slate-400 font-bold">
         <span className="flex items-center gap-1 text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full uppercase text-[9px]">
@@ -268,14 +319,48 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </Button>
       </div>
 
+      {/* ACTION BUTTONS: TUKAR PIN & PADAM PROFIL */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
         <Button size="sm" variant="outline" onClick={() => setIsSettingPin(true)} className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
           ⚙️ Tukar PIN
         </Button>
-        <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl">
-          ⚙️ Sekat Akses
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={() => setConfirmDeleteOpen(true)}
+          className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl flex items-center justify-center gap-1"
+        >
+          <Trash2 className="w-3 h-3" /> Padam Profil
         </Button>
       </div>
+
+      {/* DIALOG PENGESAHAN MEMADAM PROFIL ANAK */}
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent className="rounded-2xl bg-white p-6 max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-black text-slate-800 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-rose-600" /> Padam Profil {displayName}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-500 mt-1">
+              Adakah anda pasti mahu memadam profil anak ini? Profil ini akan dibuang daripada akaun ibu bapa anda.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2">
+            <AlertDialogCancel disabled={isDeleting} className="rounded-xl text-xs font-bold h-9">
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteChild}
+              disabled={isDeleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold h-9"
+            >
+              {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+              Ya, Padam Profil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Card>
   );
 }
