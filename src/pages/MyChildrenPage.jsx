@@ -93,6 +93,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
+  // 🔥 FUNGSI PEMPROSESAN PIN SECARA SELAMAT MENGGUNAKAN SERVER FUNCTION
   const handleSaveNewPin = async () => {
     if (inputPin.length !== 4) {
       toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -100,35 +101,39 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
     setUpdating(true);
     try {
-      await base44.entities.User.update(child.id, {
-        pin_hash: inputPin,
-        child_login_pin: inputPin,
-        pin_enabled: true,
-        login_method: "both"
+      // Panggil fungsi server resetChildCredentials menggunakan Service Role
+      const response = await base44.functions.invoke("resetChildCredentials", {
+        child_id: child.id,
+        action: "reset_pin",
+        new_pin: inputPin,
       });
 
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || "Gagal menyimpan PIN di pelayan.");
+      }
+
+      // Kemaskini memori cache tempatan untuk ketampakan serta-merta
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       cachedChildren[child.id] = { ...cachedChildren[child.id], child_login_pin: inputPin };
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
 
       toast({ title: "PIN Dikunci Kekal! 🔑", description: "PIN baharu disimpan terus ke pelayan." });
       setIsSettingPin(false);
+      setInputPin("");
       if (onDataUpdated) onDataUpdated();
     } catch (err) {
-      toast({ title: "Gagal menyimpan PIN", description: err.message, variant: "destructive" });
+      toast({ title: "Gagal menyimpan PIN 🛑", description: err.message || "Sila cuba sebentar lagi.", variant: "destructive" });
     } finally {
       setUpdating(false);
     }
   };
 
-  // 🔥 RESILIENT DELETION HANDLER WITH CLIENT FALLBACK
+  // FUNGSI PEMADAMAN PROFIL ANAK
   const handleDeleteChild = async () => {
     setIsDeleting(true);
     try {
-      // 1. Invoke backend edge function
       await base44.functions.invoke("removeChildLink", { child_id: child.id }).catch(() => null);
 
-      // 2. Client-side database cleanup fallback
       const me = await base44.auth.me().catch(() => null);
       if (me?.id) {
         const currentLinked = me.linked_student_ids || [];
@@ -146,12 +151,10 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         }
       }
 
-      // 3. Clear local cache
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       delete cachedChildren[child.id];
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
 
-      // 4. Clear active selection
       if (localStorage.getItem("selected_child_id") === child.id) {
         localStorage.removeItem("selected_child_id");
         localStorage.removeItem("active_child_session");
@@ -239,7 +242,9 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
                   onChange={(e) => setInputPin(e.target.value.replace(/\D/g, ""))}
                   className="w-12 px-1.5 py-0.5 text-center text-xs border rounded-md text-slate-700 font-bold focus:outline-indigo-500"
                 />
-                <button onClick={handleSaveNewPin} disabled={updating} className="text-[9px] font-bold text-emerald-600">Set</button>
+                <button onClick={handleSaveNewPin} disabled={updating} className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
+                  {updating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "Set"}
+                </button>
                 <button onClick={() => setIsSettingPin(false)} className="text-[9px] font-bold text-slate-400">Batal</button>
               </div>
             ) : (
@@ -452,7 +457,7 @@ export default function MyChildrenPage() {
 
           const nicknameReal = childUser?.nickname || localCache.nickname || childUser?.full_name || localCache.full_name || childUser?.username || "Pelajar";
           const usernameReal = childUser?.username || localCache.username || "student";
-          const pinReal = childUser?.pin_hash || childUser?.child_login_pin || localCache.child_login_pin || "----";
+          const pinReal = childUser?.child_login_pin || localCache.child_login_pin || "----";
 
           let latestSession = {};
           let sortedSessions = [];
