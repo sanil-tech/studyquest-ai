@@ -1,14 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-const hashPassword = (password: string) => {
-  return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
-};
-
-const hashPin = (pin: string) => {
+// Helper function to hash PINs matching StudyQuest salt specification
+const hashPin = (pin: string): string => {
   return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 };
 
-const generatePassword = () => {
+// Helper function to hash passwords matching StudyQuest salt specification
+const hashPassword = (password: string): string => {
+  return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
+};
+
+// Helper function to generate a secure random password for password reset requests
+const generatePassword = (): string => {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghijkmnopqrstuvwxyz';
   const numbers = '23456789';
@@ -20,9 +23,9 @@ const generatePassword = () => {
   password += numbers.charAt(Math.floor(Math.random() * numbers.length));
   password += special.charAt(Math.floor(Math.random() * special.length));
   
+  const allChars = upper + lower + numbers + special;
   for (let i = 0; i < 6; i++) {
-    const all = upper + lower + numbers + special;
-    password += all.charAt(Math.floor(Math.random() * all.length));
+    password += allChars.charAt(Math.floor(Math.random() * allChars.length));
   }
   
   return password.split('').sort(() => Math.random() - 0.5).join('');
@@ -36,6 +39,7 @@ Deno.serve(async (req) => {
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
   };
 
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: resHeaders });
   }
@@ -44,20 +48,21 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
     
-    // Verify parent is authenticated
+    // 1. Verify Parent Authentication
     const authUser = await base44.auth.me();
     if (!authUser) {
       return Response.json(
-        { success: false, error: 'Unauthorized - Sesi tidak ditemui' }, 
+        { success: false, error: 'Akses dinafikan - Sesi log masuk tidak ditemui.' }, 
         { status: 401, headers: resHeaders }
       );
     }
 
+    // Fetch complete parent record from DB using Service Role
     const parent = await db.entities.User.get(authUser.id).catch(() => authUser);
 
     if (parent.app_role !== 'parent' && authUser.app_role !== 'parent') {
       return Response.json(
-        { success: false, error: 'Unauthorized - Hanya ibu bapa dibenarkan' }, 
+        { success: false, error: 'Akses dinafikan - Hanya akaun ibu bapa dibenarkan.' }, 
         { status: 403, headers: resHeaders }
       );
     }
@@ -67,38 +72,43 @@ Deno.serve(async (req) => {
 
     if (!child_id) {
       return Response.json(
-        { success: false, error: 'ID anak diperlukan' }, 
+        { success: false, error: 'ID Anak (child_id) diperlukan.' }, 
         { status: 400, headers: resHeaders }
       );
     }
 
-    // Flexible permission checks across all relationship structures
-    const currentLinked = parent.linked_student_ids || authUser.linked_student_ids || [];
-    const isLinkedInArray = currentLinked.includes(child_id);
+    // 2. Multi-Strategy Relationship Check (Flexible Authorization)
+    const currentLinkedArray = parent.linked_student_ids || authUser.linked_student_ids || [];
+    const isLinkedInArray = currentLinkedArray.includes(child_id);
 
-    const relationships = await db.entities.ParentChildRelationship.filter({
+    const activeRelationships = await db.entities.ParentChildRelationship.filter({
       parent_id: parent.id,
       child_id: child_id,
     }).catch(() => []);
 
     const targetChild = await db.entities.User.get(child_id).catch(() => null);
-    const isChildLinked = targetChild?.linked_parent_id === parent.id;
+    const isChildLinkedProperty = targetChild?.linked_parent_id === parent.id;
 
-    const isAuthorized = isLinkedInArray || relationships.length > 0 || isChildLinked || targetChild?.is_child_account;
+    const isAuthorized = 
+      isLinkedInArray || 
+      activeRelationships.length > 0 || 
+      isChildLinkedProperty || 
+      targetChild?.is_child_account;
 
     if (!isAuthorized || !targetChild) {
       return Response.json(
-        { success: false, error: 'Anda tidak mempunyai kebenaran untuk menguruskan anak ini.' }, 
+        { success: false, error: 'Anda tidak mempunyai kebenaran untuk menguruskan akaun anak ini.' }, 
         { status: 403, headers: resHeaders }
       );
     }
 
-    let result: any = {};
+    let resultPayload: Record<string, any> = {};
 
+    // 3. Process Requested Credential Management Action
     if (action === 'reset_pin' || action === 'enable_pin') {
       if (!new_pin || !/^\d{4,6}$/.test(new_pin)) {
         return Response.json(
-          { success: false, error: 'PIN mestilah 4 hingga 6 digit nombor' }, 
+          { success: false, error: 'PIN mestilah mengandungi 4 hingga 6 digit nombor sahaja.' }, 
           { status: 400, headers: resHeaders }
         );
       }
@@ -112,23 +122,27 @@ Deno.serve(async (req) => {
         account_locked: false,
       });
 
-      result = { 
+      resultPayload = { 
         success: true, 
         pin: new_pin,
-        message: 'PIN berjaya dikemaskini.' 
+        message: 'PIN murid berjaya dikemaskini dan akaun dibuka kunci.' 
       };
+
     } else if (action === 'reset_password') {
-      const newPassword = generatePassword();
+      const generatedPwd = generatePassword();
+
       await db.entities.User.update(child_id, {
-        password_hash: hashPassword(newPassword),
+        password_hash: hashPassword(generatedPwd),
         failed_login_attempts: 0,
         account_locked: false,
       });
-      result = { 
+
+      resultPayload = { 
         success: true, 
-        password: newPassword,
+        password: generatedPwd,
         message: 'Kata laluan baharu berjaya dijana.' 
       };
+
     } else if (action === 'disable_pin') {
       await db.entities.User.update(child_id, {
         pin_enabled: false,
@@ -136,26 +150,36 @@ Deno.serve(async (req) => {
         pin_hash: null,
         child_login_pin: null,
       });
-      result = { success: true, message: 'Log masuk PIN dinyahdayakan.' };
+
+      resultPayload = { 
+        success: true, 
+        message: 'Log masuk PIN telah dinyahdayakan.' 
+      };
+
     } else if (action === 'unlock_account') {
       await db.entities.User.update(child_id, {
         failed_login_attempts: 0,
         account_locked: false,
       });
-      result = { success: true, message: 'Akaun berjaya dibuka kunci.' };
+
+      resultPayload = { 
+        success: true, 
+        message: 'Akaun anak berjaya dibuka kunci.' 
+      };
+
     } else {
       return Response.json(
-        { success: false, error: 'Tindakan tidak sah.' }, 
+        { success: false, error: 'Tindakan (action) tidak sah.' }, 
         { status: 400, headers: resHeaders }
       );
     }
 
-    return Response.json(result, { status: 200, headers: resHeaders });
+    return Response.json(resultPayload, { status: 200, headers: resHeaders });
 
   } catch (error: any) {
-    console.error('ResetChildCredentials error:', error);
+    console.error('ResetChildCredentials Edge Function Error:', error);
     return Response.json(
-      { success: false, error: error.message || 'Gagal mengemaskini maklumat' }, 
+      { success: false, error: error.message || 'Ralat pelayan semasa mengemas kini kredential.' }, 
       { status: 500, headers: resHeaders }
     );
   }
