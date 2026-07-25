@@ -69,16 +69,13 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     try {
       const cleanName = inputName.trim();
 
-      // 1. Update User entity
       await base44.entities.User.update(child.id, { nickname: cleanName, full_name: cleanName }).catch(() => null);
       
-      // 2. Update LinkRequest table
       const linkReqs = await base44.entities.LinkRequest.filter({ student_id: child.id }).catch(() => []);
       for (const lr of linkReqs) {
         await base44.entities.LinkRequest.update(lr.id, { student_name: cleanName }).catch(() => null);
       }
 
-      // 3. Update local cache
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       cachedChildren[child.id] = { ...cachedChildren[child.id], nickname: cleanName, full_name: cleanName };
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
@@ -224,12 +221,12 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
             <p className="text-[9px] text-slate-400 truncate font-medium leading-none mt-1">{child.full_name}</p>
           )}
           
-          {/* 🔥 DYNAMIC USERNAME & PIN CONTAINER (FLEXIBLE WRinement) */}
+          {/* DYNAMIC USERNAME DISPLAY */}
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
             <div className="flex items-center gap-1 min-w-0">
               <span className="text-[9px] font-bold text-slate-400 uppercase">User:</span>
-              <span className="text-[10px] font-mono font-black text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60 truncate max-w-[150px]">
-                {child.username || child.student_id || "student"}
+              <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 truncate max-w-[150px]">
+                {child.username || child.nickname || "student"}
               </span>
             </div>
 
@@ -446,18 +443,32 @@ export default function MyChildrenPage() {
       
       const kids = await Promise.all(childIds.map(async (id) => {
         try {
-          const [studySessionRes, progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
+          const [studySessionRes, progressRes, walletRes, attemptsRes, childUser, linkReqRes] = await Promise.all([
             base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
             base44.entities.Progress.filter({ student_id: id }).catch(() => []),
             base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
             base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
             base44.entities.User.get(id).catch(() => null),
+            base44.entities.LinkRequest.filter({ student_id: id }).catch(() => []),
           ]);
 
           const localCache = cachedChildren[id] || {};
+          const matchedLinkReq = linkReqRes?.find((lr) => lr.student_id === id);
 
-          const nicknameReal = childUser?.nickname || localCache.nickname || childUser?.full_name || localCache.full_name || childUser?.username || "Pelajar";
-          const usernameReal = childUser?.username || localCache.username || "student";
+          const nicknameReal = 
+            childUser?.nickname || 
+            localCache.nickname || 
+            matchedLinkReq?.student_name || 
+            childUser?.full_name || 
+            localCache.full_name || 
+            "Pelajar";
+
+          const usernameReal = 
+            childUser?.username || 
+            localCache.username || 
+            matchedLinkReq?.student_username || 
+            (nicknameReal ? nicknameReal.toLowerCase() : "student");
+
           const pinReal = childUser?.child_login_pin || localCache.child_login_pin || "----";
 
           let latestSession = {};
@@ -492,7 +503,7 @@ export default function MyChildrenPage() {
             id, 
             email: childUser?.email || localCache.email || "Akses Portal Aktif",
             nickname: nicknameReal,
-            full_name: childUser?.full_name || localCache.full_name || "",
+            full_name: childUser?.full_name || localCache.full_name || matchedLinkReq?.student_name || "",
             selected_avatar: childUser?.selected_avatar || localCache.selected_avatar || null,
             avatar_emoji: childUser?.avatar_emoji || localCache.avatar_emoji || "🦧",
             username: usernameReal,
