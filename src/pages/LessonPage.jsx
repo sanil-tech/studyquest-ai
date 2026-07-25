@@ -692,15 +692,12 @@ Arahan:
       <AnimatePresence mode="wait">
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <LessonProgress
-              steps={["video", "lesson", "flashcard", "mindmap", "quiz"]}
-              progressState={progressState}
-              onStepClick={(key) => {
-                if (key === "video") setActiveTab("video");
-                if (key === "lesson") setActiveTab("lesson");
-                if (key === "flashcard") loadFlashcardsOnDemand();
-                if (key === "mindmap") loadMindMapOnDemand();
-                if (key === "quiz") setActiveTab("quiz");
+            <LessonProgress flashcard: lesson: mindmap: onStepClick="{(key)" progressState.flashcard_completed, progressState.lesson_completed, progressState.mindmap_completed, progressState.quiz_completed progressState.video_completed, quiz: steps="{{" video: }}> { 
+                if (key === "video") setActiveTab("video"); 
+                if (key === "lesson") setActiveTab("lesson"); 
+                if (key === "flashcard") loadFlashcardsOnDemand(); 
+                if (key === "mindmap") loadMindMapOnDemand(); 
+                if (key === "quiz") setActiveTab("quiz"); 
               }}
             />
           </motion.div>
@@ -709,9 +706,9 @@ Arahan:
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <h3 className="text-sm font-black text-stone-800">🎬 Langkah 1: Taklimat Video</h3>
-            <YouTubeLesson isCompleted={progressState.video_completed} onCompleted={handleVideoStageCompleted} videoUrl={videoUrl || topic?.video_url} />
+            <YouTubeLesson isCompleted="{progressState.video_completed}" onCompleted="{handleVideoStageCompleted}" topic?.video_url} videoUrl="{videoUrl" ||/>
             {progressState.video_completed && (
-              <Button onClick={() => setActiveTab("map")} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+              <Button onClick="{()"> setActiveTab("map")} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
                 Kembali ke Peta 🗺️
               </Button>
             )}
@@ -723,7 +720,7 @@ Arahan:
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-stone-800">📜 Langkah 2: Nota Khazanah</h3>
               {notesContent && (
-                <Button onClick={() => urusSuaraNota(notesContent)} className={`h-9 px-4 rounded-xl font-black text-xs ${isSpeaking ? "bg-red-500 text-white" : "bg-amber-400 text-stone-900"}`}>
+                <Button onClick="{()"> urusSuaraNota(notesContent)} className={`h-9 px-4 rounded-xl font-black text-xs ${isSpeaking ? "bg-red-500 text-white" : "bg-amber-400 text-stone-900"}`}>
                   {isSpeaking ? "🛑 Berhenti" : "🔊 Baca Nota"}
                 </Button>
               )}
@@ -732,7 +729,7 @@ Arahan:
               {notesImage && <img src={notesImage} className="w-full max-w-sm mx-auto rounded-xl mb-5 shadow-sm" alt="Nota" />}
               <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} />
             </div>
-            <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl" onClick={handleLessonStageCompleted}>
+            <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl" onClick="{handleLessonStageCompleted}">
               Selesai Hadam Nota! 🎒
             </Button>
           </motion.div>
@@ -741,8 +738,8 @@ Arahan:
         {activeTab === "flashcard" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <h3 className="text-sm font-black text-stone-800">⚡ Langkah 3: Kad Kilat</h3>
-            <Flashcards flashcards={flashcards || []} />
-            <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+            <Flashcards []} flashcards="{flashcards" ||/>
+            <Button onClick="{()"> updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
               Selesai Ulangkaji! 🚀
             </Button>
           </motion.div>
@@ -755,10 +752,10 @@ Arahan:
               {infographicUrl ? (
                 <img src={infographicUrl} alt="Mindmap" className="max-h-[50vh] object-contain rounded-lg" />
               ) : (
-                <MindMap central_topic={topic?.name || "Utama"} branches={mindMap || []} />
+                <MindMap "Utama", [] branches: central_topic: mindMap topic?.name || }}/>
               )}
             </div>
-            <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+            <Button onClick="{()"> updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
               Teruskan ke Kuiz! ⚔️
             </Button>
           </motion.div>
@@ -773,17 +770,17 @@ Arahan:
             {savedQuizProgress && (
               <div className="mb-6 p-4 bg-white/60 border-2 border-emerald-400 border-dashed rounded-xl">
                 <p className="text-xs font-black text-emerald-800 mb-3">Misi sebelumnya dikesan!</p>
-                <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, true)} className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl flex items-center justify-center gap-2">
+                <Button onClick="{()"> runQuizGeneration(savedQuizProgress.limit, true)} className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl flex items-center justify-center gap-2">
                   <Play className="w-4 h-4 fill-white"/> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
                 </Button>
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="h-14 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
+              <Button onClick="{()"> runQuizGeneration(10)} disabled={status.quiz} className="h-14 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
                 {status.quiz ? "Menyediakan..." : "⚡ Misi Kilat (10 Soalan)"}
               </Button>
-              <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="h-14 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
+              <Button onClick="{()"> runQuizGeneration(20)} disabled={status.quiz} className="h-14 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
                 {status.quiz ? "Menyediakan..." : "⚔️ Lawan Boss (20 Soalan)"}
               </Button>
             </div>
@@ -791,9 +788,7 @@ Arahan:
         )}
       </AnimatePresence>
 
-      {/* ========================================== */}
-      {/* FLOATING GEMINI AI TUTOR TRIGGER BUTTON    */}
-      {/* ========================================== */}
+      {/* FLOATING GEMINI AI TUTOR TRIGGER BUTTON */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -805,7 +800,7 @@ Arahan:
       </motion.button>
 
       {/* GEMINI AI LESSON HELPER DIALOG */}
-      <Dialog onOpenChange={setAiHelperOpen} open={aiHelperOpen}>
+      <Dialog onOpenChange="{setAiHelperOpen}" open="{aiHelperOpen}">
         <DialogContent className="sm:max-w-md rounded-3xl p-0 overflow-hidden bg-slate-900 border-slate-800 text-white">
           {/* Header */}
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex items-center justify-between">
@@ -885,7 +880,7 @@ Arahan:
               placeholder="Tanya soalan mengenai nota..."
               className="flex-1 bg-slate-800 text-white text-xs rounded-xl px-3 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
             />
-            <Button onClick={() => handleSendAiQuestion()}
+            <Button onClick="{()"> handleSendAiQuestion()}
               disabled={!chatInput.trim() || chatLoading}
               className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-10 px-3 disabled:opacity-40"
             >
