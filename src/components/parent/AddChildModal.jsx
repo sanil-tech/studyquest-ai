@@ -137,22 +137,23 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       if (!me?.id) throw new Error("Sesi log masuk ibu bapa tidak ditemui.");
 
       const cleanNickname = form.nickname.trim();
+      const studentFullName = form.fullName.trim() || cleanNickname;
       const usernameMaya = `${cleanNickname.toLowerCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
       const studentId = generateStudentId();
       const isEmoji = !form.selectedAvatar.startsWith("http");
 
-      // Build a unique virtual email address to satisfy DB schema requirements
+      // Generate clean virtual email
       const safeNick = cleanNickname.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "pengembara";
       const safeParentId = me.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().substring(0, 6);
       const randomSuffix = Math.random().toString(36).substring(2, 6);
       const virtualEmail = `${safeNick}.${safeParentId}.${randomSuffix}@studyquest.com`;
 
-      // Create student user with virtual email and hashed PIN
+      // 1. Create student User entity
       const newStudent = await base44.entities.User.create({
         app_role: "student",
         email: virtualEmail,
         nickname: cleanNickname,
-        full_name: form.fullName.trim() || cleanNickname,
+        full_name: studentFullName,
         username: usernameMaya,
         student_id: studentId,
         pin_hash: hashPin(form.pin),
@@ -174,17 +175,39 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
       if (!newStudent?.id) throw new Error("Pelayan gagal menjana ID Murid baharu.");
 
+      // 2. Create active ParentChildRelationship entry
+      await base44.entities.ParentChildRelationship.create({
+        parent_id: me.id,
+        child_id: newStudent.id,
+        relationship: "parent",
+        status: "active",
+        linked_at: new Date().toISOString(),
+      }).catch(() => null);
+
+      // 3. Create LinkRequest entry to store student_name permanently for client queries
+      await base44.entities.LinkRequest.create({
+        student_id: newStudent.id,
+        student_name: cleanNickname,
+        student_email: virtualEmail,
+        parent_id: me.id,
+        parent_email: me.email || "parent@studyquest.com",
+        parent_name: me.full_name || me.nickname || "Ibu Bapa",
+        initiated_by: "parent",
+        status: "approved",
+      }).catch(() => null);
+
+      // 4. Update parent's linked_student_ids array
       const currentLinkedIds = me.linked_student_ids || [];
       await base44.entities.User.update(me.id, {
         linked_student_ids: [...currentLinkedIds, newStudent.id],
       });
 
-      // Cache child profile locally
+      // 5. Cache child profile locally
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       cachedChildren[newStudent.id] = {
         id: newStudent.id,
         nickname: cleanNickname,
-        full_name: form.fullName.trim(),
+        full_name: studentFullName,
         email: virtualEmail,
         selected_avatar: form.selectedAvatar,
         avatar_emoji: isEmoji ? form.selectedAvatar : null,
@@ -303,7 +326,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
                       required
                       value={form.nickname}
                       onChange={(e) => updateForm("nickname", e.target.value)}
-                      placeholder="Contoh: Adam, Mia, Aiman"
+                      placeholder="Contoh: Adam, Mia, corry"
                       className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:border-indigo-500 font-bold text-slate-700"
                     />
                   </div>
