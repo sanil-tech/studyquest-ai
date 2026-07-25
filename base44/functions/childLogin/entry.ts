@@ -43,39 +43,51 @@ Deno.serve(async (req) => {
     }
 
     const db = base44.asServiceRole || base44;
+    let matchedUser: any = null;
 
-    // 1. Fetch all user entities via Service Role without restricted sort fields
-    const allUsers = await db.entities.User.filter({}).catch(() => []);
+    // 🔍 STAGE 1: Exact search by username
+    if (!matchedUser) {
+      const byUsername = await db.entities.User.filter({ username: cleanInput }).catch(() => []);
+      if (byUsername && byUsername.length > 0) matchedUser = byUsername[0];
+    }
 
-    // Extract prefix if user typed format like "corry_1204" -> "corry"
-    const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
+    // 🔍 STAGE 2: Exact search by nickname
+    if (!matchedUser) {
+      const byNickname = await db.entities.User.filter({ nickname: rawInput }).catch(() => []);
+      if (byNickname && byNickname.length > 0) matchedUser = byNickname[0];
+    }
 
-    // 2. Multi-field search across username, nickname, full_name, student_id, email, and ID
-    const matchedUser = allUsers.find((u: any) => {
-      const uUsername = (u.username || "").toLowerCase();
-      const uNickname = (u.nickname || "").toLowerCase();
-      const uFullName = (u.full_name || "").toLowerCase();
-      const uStudentId = (u.student_id || "").toLowerCase();
-      const uEmail = (u.email || "").toLowerCase();
-      const uId = (u.id || "").toLowerCase();
+    // 🔍 STAGE 3: Filter by role "student" (Valid, non-empty filter)
+    if (!matchedUser) {
+      const students = await db.entities.User.filter({ app_role: "student" }).catch(() => []);
+      const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
 
-      // Direct exact matches
-      if (uUsername === cleanInput) return true;
-      if (uNickname === cleanInput) return true;
-      if (uStudentId === cleanInput) return true;
-      if (uFullName === cleanInput) return true;
-      if (uEmail === cleanInput || uEmail.startsWith(`${cleanInput}@`)) return true;
-      if (uId === cleanInput || uId.startsWith(cleanInput)) return true;
+      matchedUser = students.find((u: any) => {
+        const uUsername = (u.username || "").toLowerCase();
+        const uNickname = (u.nickname || "").toLowerCase();
+        const uFullName = (u.full_name || "").toLowerCase();
+        const uStudentId = (u.student_id || "").toLowerCase();
 
-      // Prefix matches (e.g. "corry_1204" matching nickname "corry" or full name "Corry Aileene Saniyil")
-      if (basePrefix && basePrefix.length >= 2) {
-        if (uNickname === basePrefix) return true;
-        if (uUsername.startsWith(`${basePrefix}_`)) return true;
-        if (uFullName.toLowerCase().startsWith(basePrefix)) return true;
-      }
+        return (
+          uUsername === cleanInput ||
+          uNickname === cleanInput ||
+          uFullName === cleanInput ||
+          uStudentId === cleanInput ||
+          (basePrefix && (uNickname === basePrefix || uUsername.startsWith(`${basePrefix}_`)))
+        );
+      }) || null;
+    }
 
-      return false;
-    });
+    // 🔍 STAGE 4: Filter by is_child_account
+    if (!matchedUser) {
+      const childAccounts = await db.entities.User.filter({ is_child_account: true }).catch(() => []);
+      matchedUser = childAccounts.find((u: any) => {
+        const uUsername = (u.username || "").toLowerCase();
+        const uNickname = (u.nickname || "").toLowerCase();
+        const uFullName = (u.full_name || "").toLowerCase();
+        return uUsername === cleanInput || uNickname === cleanInput || uFullName === cleanInput;
+      }) || null;
+    }
 
     if (!matchedUser) {
       return Response.json(
@@ -86,7 +98,7 @@ Deno.serve(async (req) => {
 
     const user = matchedUser;
 
-    // 3. Check account lockout status
+    // Check account lockout status
     if (user.account_locked) {
       return Response.json(
         { success: false, error: "Akaun ini telah dikunci sementara. Sila minta ibu bapa anda untuk membuka semula kunci." },
@@ -94,7 +106,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Verify PIN or Password against multiple stored formats
+    // Verify PIN or Password
     const hashedPin = hashPin(pinInput);
     const hashedPassword = hashPassword(pinInput);
 
@@ -124,7 +136,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5. Reset failed login attempts on successful login
+    // Reset failed login attempts on successful authentication
     await db.entities.User.update(user.id, {
       failed_login_attempts: 0,
       account_locked: false,
