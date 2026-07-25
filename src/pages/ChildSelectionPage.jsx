@@ -11,6 +11,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { loadChildrenWithStats, getChildDisplayName, setSelectedChildId } from "@/lib/childUtils";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 import { getStageProgress } from "@/lib/avatarSystem";
+import { hashPin } from "@/lib/credentials";
 
 const CARD_GRADIENTS = [
   "from-violet-500 via-purple-500 to-fuchsia-500",
@@ -119,18 +120,26 @@ function PinEntryDialog({ child, open, onOpenChange, onSuccess }) {
 
   const handleVerify = () => {
     setError("");
-    const childPin = child?.pin_hash;
+    const storedPinHash = child?.pin_hash;
+    const rawLoginPin = child?.child_login_pin;
 
-    // If child doesn't have a PIN set yet, allow auto login
-    if (!childPin) {
+    // Auto-allow if no PIN is configured on the child account
+    if (!storedPinHash && !rawLoginPin) {
       onSuccess();
       return;
     }
 
-    if (pin === childPin) {
+    const hashedInput = hashPin(pin);
+
+    // Verify against hashed PIN or raw PIN
+    const isValid =
+      (storedPinHash && (hashedInput === storedPinHash || pin === storedPinHash)) ||
+      (rawLoginPin && pin === rawLoginPin);
+
+    if (isValid) {
       onSuccess();
     } else {
-      setError("PIN salah. Cuba lagi.");
+      setError("PIN salah. Sila cuba lagi.");
       setPin("");
     }
   };
@@ -187,7 +196,7 @@ function PinEntryDialog({ child, open, onOpenChange, onSuccess }) {
           <div className="space-y-2 pt-1">
             <Button
               onClick={handleVerify}
-              disabled={child?.pin_hash && pin.length < 4}
+              disabled={pin.length < 4}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs h-11 shadow-sm disabled:opacity-40"
             >
               Mula Belajar ✨
@@ -242,18 +251,20 @@ export default function ChildSelectionPage() {
   const handlePinSuccess = () => {
     if (!selectedChild) return;
 
-    // 1. Store Child ID via utility function
+    // 1. Store Child ID via childUtils helper
     setSelectedChildId(selectedChild.id);
 
-    // 2. Persist active child session keys in LocalStorage for StudentDashboard
+    // 2. Persist session variables for Student Dashboard access
     localStorage.setItem("active_child_session", selectedChild.id);
     localStorage.setItem("selected_child_id", selectedChild.id);
+    localStorage.setItem("active_student_id", selectedChild.id);
+    localStorage.setItem("active_student_name", selectedChild.nickname || selectedChild.full_name || "Pelajar");
     localStorage.setItem("active_child", JSON.stringify(selectedChild));
 
     setPinDialogOpen(false);
 
-    // 3. Navigate directly to Student Dashboard page
-    navigate("/StudentDashboard");
+    // 3. Navigate directly to student dashboard route
+    navigate("/dashboard");
   };
 
   if (loading) {
