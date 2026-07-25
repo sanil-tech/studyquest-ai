@@ -45,19 +45,17 @@ Deno.serve(async (req) => {
     const db = base44.asServiceRole || base44;
     let matchedUser: any = null;
 
-    // 🔍 STAGE 1: Exact search by username
-    if (!matchedUser) {
-      const byUsername = await db.entities.User.filter({ username: cleanInput }).catch(() => []);
-      if (byUsername && byUsername.length > 0) matchedUser = byUsername[0];
-    }
+    // 1. Direct query by username
+    const byUsername = await db.entities.User.filter({ username: cleanInput }).catch(() => []);
+    if (byUsername && byUsername.length > 0) matchedUser = byUsername[0];
 
-    // 🔍 STAGE 2: Exact search by nickname
+    // 2. Direct query by nickname
     if (!matchedUser) {
       const byNickname = await db.entities.User.filter({ nickname: rawInput }).catch(() => []);
       if (byNickname && byNickname.length > 0) matchedUser = byNickname[0];
     }
 
-    // 🔍 STAGE 3: Filter by role "student" (Valid, non-empty filter)
+    // 3. Scan student accounts
     if (!matchedUser) {
       const students = await db.entities.User.filter({ app_role: "student" }).catch(() => []);
       const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
@@ -78,7 +76,7 @@ Deno.serve(async (req) => {
       }) || null;
     }
 
-    // 🔍 STAGE 4: Filter by is_child_account
+    // 4. Scan child accounts
     if (!matchedUser) {
       const childAccounts = await db.entities.User.filter({ is_child_account: true }).catch(() => []);
       matchedUser = childAccounts.find((u: any) => {
@@ -98,7 +96,7 @@ Deno.serve(async (req) => {
 
     const user = matchedUser;
 
-    // Check account lockout status
+    // Check account lockout
     if (user.account_locked) {
       return Response.json(
         { success: false, error: "Akaun ini telah dikunci sementara. Sila minta ibu bapa anda untuk membuka semula kunci." },
@@ -113,7 +111,6 @@ Deno.serve(async (req) => {
     const isPinMatch = 
       (user.pin_hash && user.pin_hash === hashedPin) ||
       (user.pin_hash && user.pin_hash === pinInput) ||
-      (user.child_login_pin && user.child_login_pin === pinInput) ||
       (user.password_hash && user.password_hash === hashedPassword);
 
     if (!isPinMatch) {
@@ -136,7 +133,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Reset failed login attempts on successful authentication
+    // Reset failed login attempts on success
     await db.entities.User.update(user.id, {
       failed_login_attempts: 0,
       account_locked: false,
