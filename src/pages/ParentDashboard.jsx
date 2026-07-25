@@ -5,7 +5,7 @@ import moment from "moment";
 import {
   Target, Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning,
   MapPin, Clock, ArrowRight, Settings, UserPlus, Flame, Coins, Zap, Star,
-  BookOpen, RefreshCw, Loader2
+  BookOpen, RefreshCw, Loader2, ChevronRight
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
@@ -42,6 +42,80 @@ function ShortcutCard({ icon: Icon, title, desc, gradient, onClick }) {
         <p className="text-[9px] text-white/80 truncate">{desc}</p>
       </div>
     </button>
+  );
+}
+
+// Quick Child Switcher Bar
+function ChildSelectorBar({ childrenList, selectedChildId, onSelectChild }) {
+  if (!childrenList || childrenList.length <= 1) return null;
+
+  return (
+    <div className="space-y-1.5 mb-2">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+        Pilih Profil Anak:
+      </p>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {childrenList.map((child) => {
+          const isSelected = child.id === selectedChildId;
+          const displayName = getChildDisplayName(child);
+          const avatar = getChildAvatar(child);
+          const avatarIsUrl = isAvatarUrl(avatar);
+
+          return (
+            <button
+              key={child.id}
+              onClick={() => onSelectChild(child.id)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border shrink-0 ${
+                isSelected
+                  ? "bg-indigo-600 text-white border-indigo-600 shadow-md scale-105"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+              }`}
+            >
+              <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden text-sm shrink-0">
+                {avatarIsUrl ? (
+                  <img src={avatar} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="select-none">{avatar}</span>
+                )}
+              </div>
+              <span className="truncate max-w-[100px]">{displayName}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Pending Reward Approvals Banner
+function PendingApprovalsBanner({ pendingCount, onClick }) {
+  if (!pendingCount || pendingCount === 0) return null;
+
+  return (
+    <div 
+      onClick={onClick}
+      className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-2xl p-4 shadow-md flex items-center justify-between cursor-pointer hover:opacity-95 transition-all active:scale-[0.99]"
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-xl shrink-0">
+          <Gift className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h4 className="text-xs font-black tracking-tight">
+            {pendingCount} Permohonan Ganjaran Menunggu Kelulusan! 🎁
+          </h4>
+          <p className="text-[10px] text-white/80 font-medium mt-0.5">
+            Anak anda telah menebus ganjaran. Sila semak dan sahkan permohonan tersebut.
+          </p>
+        </div>
+      </div>
+      <Button 
+        size="sm" 
+        className="bg-white text-orange-600 hover:bg-orange-50 font-black text-[10px] h-8 px-3 rounded-xl shrink-0 shadow-xs"
+      >
+        Semak <ChevronRight className="w-3 h-3 ml-0.5" />
+      </Button>
+    </div>
   );
 }
 
@@ -112,7 +186,7 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
         <Progress value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
       </div>
 
-      {/* Stats Table Elements Alternative */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-4 gap-2 text-center">
         <div className="bg-amber-50/60 border border-amber-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
           <Star className="w-4 h-4 text-amber-500 mb-0.5" />
@@ -158,7 +232,7 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
         onClick={() => navigate("/parent/children")}
         className="w-full flex items-center justify-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 py-2"
       >
-        Lihat Laporan Penuh <ArrowRight className="w-3 h-3" />
+        Lihat Laporan Penuh Anak <ArrowRight className="w-3.5 h-3.5" />
       </button>
     </Card>
   );
@@ -167,243 +241,182 @@ function SelectedChildPanel({ child, onSwitch, hasMultiple }) {
 export default function ParentDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [children, setChildren] = useState([]);
+
+  const [childrenList, setChildrenList] = useState([]);
   const [selectedChild, setSelectedChild] = useState(null);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [currentWeather, setCurrentWeather] = useState({ temp: 31, code: 0, locationName: "Kota Kinabalu" });
-  const [hourlyForecast, setHourlyForecast] = useState([]);
-  const [loadingWeather, setLoadingWeather] = useState(true);
+  const [addChildModalOpen, setAddChildModalOpen] = useState(false);
 
-  const fetchWeatherAndForecast = useCallback(async (lat, lon, name) => {
-    try {
-      setLoadingWeather(true);
-      const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,weathercode&timezone=auto`
-      );
-      const data = await res.json();
-      
-      if (data?.current_weather) {
-        setCurrentWeather({
-          temp: Math.round(data.current_weather.temperature),
-          code: data.current_weather.weathercode,
-          locationName: name,
-        });
-      }
-      
-      if (data?.hourly?.time) {
-        const now = moment();
-        const forecastList = [];
-        
-        for (let i = 0; i < data.hourly.time.length; i++) {
-          const forecastTime = moment(data.hourly.time[i]);
-          
-          if (forecastTime.isSameOrAfter(now, "hour") && forecastList.length < 5) {
-            forecastList.push({
-              time: forecastTime.format("h a"),
-              temp: Math.round(data.hourly.temperature_2m?.[i] ?? 0),
-              code: data.hourly.weathercode?.[i] ?? 0,
-            });
-          }
-        }
-        setHourlyForecast(forecastList);
-      }
-    } catch (error) {
-      console.error("Gagal memuatkan ramalan cuaca:", error);
-    } finally {
-      setLoadingWeather(false);
-    }
-  }, []);
+  const [weather] = useState({ code: 0, temp: 28, city: "Kota Kinabalu" });
 
-  const handleLocationDetection = useCallback(() => {
-    if (!navigator.geolocation) {
-      fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => fetchWeatherAndForecast(position.coords.latitude, position.coords.longitude, "Lokasi Semasa"),
-      () => fetchWeatherAndForecast(5.9804, 116.0735, "Kota Kinabalu")
-    );
-  }, [fetchWeatherAndForecast]);
-
-  const loadData = useCallback(async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
+
+      // 1. Fetch children profiles with stats
       const kids = await loadChildrenWithStats();
-      setChildren(kids);
+      setChildrenList(kids);
 
-      if (kids.length === 0) {
-        setSelectedChild(null);
-        return;
+      // 2. Fetch pending reward requests across linked children
+      const me = await base44.auth.me();
+      if (me?.id) {
+        const pendingRequests = await base44.entities.RewardRequest.filter({
+          status: "pending"
+        }).catch(() => []);
+        
+        setPendingApprovalsCount(pendingRequests.length);
       }
 
-      if (kids.length === 1) {
-        setSelectedChildId(kids[0].id);
-        setSelectedChild(kids[0]);
-        return;
-      }
-
-      const selectedId = getSelectedChildId();
-      const found = kids.find((k) => k.id === selectedId);
-      if (found) {
-        setSelectedChild(found);
-      } else {
-        navigate("/parent/select-child");
+      // 3. Select active child persistence
+      if (kids.length > 0) {
+        const savedId = getSelectedChildId();
+        const initial = kids.find((k) => k.id === savedId) || kids[0];
+        setSelectedChild(initial);
       }
     } catch (err) {
-      console.error("Gagal memuatkan data dashboard:", err);
+      console.error("Ralat memuatkan dashboard:", err);
+      toast({
+        title: "Ralat Memuatkan Data",
+        description: "Gagal memuatkan maklumat anak-anak.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [toast]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    handleLocationDetection();
-  }, [handleLocationDetection]);
-
-  const currentDetails = getWeatherDetails(currentWeather.code);
-  const CurrentIcon = currentDetails.icon;
-
-  const handleSwitchChild = () => navigate("/parent/select-child");
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center py-32 min-h-screen">
         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-        <p className="text-xs text-slate-400 font-bold mt-2">Memuatkan dashboard...</p>
       </div>
     );
   }
 
-  const greetingName = selectedChild ? getChildDisplayName(selectedChild) : "";
+  const weatherInfo = getWeatherDetails(weather.code);
+  const WeatherIcon = weatherInfo.icon;
 
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto bg-slate-50/40 min-h-screen">
-      {/* Title Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto bg-slate-50/30 min-h-screen">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          {selectedChild ? (
-            <>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-                Selamat datang kembali, {greetingName}! 🎒
-              </h1>
-              <p className="text-slate-500 text-xs">Pantau progres pembelajaran dan urus ganjaran.</p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Pusat Kawalan Ibu Bapa 🛡️</h1>
-              <p className="text-slate-500 text-xs">Tambah profil anak untuk mula mengikuti progres mereka.</p>
-            </>
-          )}
+          <h1 className="text-xl font-black text-slate-800 tracking-tight">
+            Papan Pemuka Ibu Bapa 🏠
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Pantau perkembangan, ganjaran, dan aktiviti pembelajaran anak-anak anda.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2">
           <Button
-            className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-sm transition-all active:scale-95"
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => setAddChildModalOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-9 px-4 rounded-xl shadow-sm"
           >
-            <UserPlus className="w-4 h-4 mr-2" /> Tambah Anak
-          </Button>
-          <Button
-            variant="outline"
-            className="sm:flex-none border-slate-200 text-slate-600 rounded-xl font-bold text-xs h-10 px-4 hover:bg-slate-50"
-            onClick={() => navigate("/parent/children")}
-          >
-            <Settings className="w-3.5 h-3.5 mr-2" /> Urus
+            <UserPlus className="w-4 h-4 mr-1.5" /> Tambah Anak
           </Button>
         </div>
       </div>
 
-      {/* Grid Links Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <ShortcutCard icon={Gift} title="Ganjaran" desc="Urus kedai hadiah" gradient="from-pink-500 to-rose-400" onClick={() => navigate("/parent/rewards")} />
-        <ShortcutCard icon={BarChart2} title="Analitik" desc="Prestasi penuh anak" gradient="from-blue-500 to-cyan-500" onClick={() => navigate("/parent/children")} />
-        <ShortcutCard icon={Target} title="Misi Baru" desc="Beri tugasan khas" gradient="from-emerald-500 to-teal-400" onClick={() => navigate("/parent/children")} />
-        <ShortcutCard icon={Settings} title="Tetapan" desc="Kawalan akaun & had" gradient="from-slate-700 to-slate-500" onClick={() => toast({ title: "Modul Tetapan", description: "Fungsi ini akan hadir segera!" })} />
+      {/* Weather Widget */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-3.5 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <WeatherIcon className={`w-5 h-5 ${weatherInfo.color}`} />
+          <div>
+            <span className="text-xs font-black text-slate-700">{weatherInfo.label}, {weather.temp}°C</span>
+            <span className="text-[10px] text-slate-400 block flex items-center gap-0.5">
+              <MapPin className="w-2.5 h-2.5" /> {weather.city}
+            </span>
+          </div>
+        </div>
+        <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-2 py-1 rounded-lg">
+          {moment().format("dddd, D MMM YYYY")}
+        </span>
       </div>
 
-      {/* Main Core View Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        <div className="lg:col-span-8 space-y-4">
-          {selectedChild ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <SelectedChildPanel
-                child={selectedChild}
-                onSwitch={handleSwitchChild}
-                hasMultiple={children.length > 1}
-              />
-            </motion.div>
-          ) : (
-            <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white">
-              <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                <UserPlus className="w-6 h-6 text-slate-300" />
-              </div>
-              <p className="text-sm text-slate-500 font-medium mb-4">Tiada profil anak yang dihubungkan lagi.</p>
-              <Button
-                size="sm"
-                className="bg-indigo-600 text-white rounded-xl font-bold text-xs px-6"
-                onClick={() => setIsAddModalOpen(true)}
-              >
-                Hubungkan Akaun Anak Sekarang
-              </Button>
-            </Card>
-          )}
-        </div>
+      {/* Pending Approvals Notification */}
+      <PendingApprovalsBanner
+        pendingCount={pendingApprovalsCount}
+        onClick={() => navigate("/parent/approvals")}
+      />
 
-        {/* Forecast Sidebar Panel */}
-        <div className="lg:col-span-4 space-y-3">
-          <Card className="p-4 rounded-2xl border-sky-100 bg-gradient-to-br from-blue-50 to-sky-100/60 flex flex-col justify-between space-y-4 shadow-sm">
-            {loadingWeather ? (
-              <div className="text-[11px] font-medium text-slate-400 animate-pulse py-6 text-center w-full">
-                Menyinkronkan ramalan cuaca...
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between items-center w-full">
-                  <div>
-                    <div className="flex items-center gap-1 text-sky-600 text-[10px] font-bold uppercase tracking-wider mb-0.5">
-                      <MapPin className="w-3 h-3" /> {currentWeather.locationName}
-                    </div>
-                    <h3 className="text-2xl font-black text-slate-800 leading-tight">
-                      {currentWeather.temp}°C
-                      <span className={`text-xs font-bold ml-1.5 ${currentDetails.color}`}>{currentDetails.label}</span>
-                    </h3>
-                  </div>
-                  <CurrentIcon className={`w-8 h-8 ${currentDetails.color}`} />
-                </div>
-                <div className="border-t border-sky-200/40 w-full" />
-                <div>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-sky-500" /> Ramalan 5 Jam Akan Datang
-                  </p>
-                  <div className="grid grid-cols-5 gap-1 text-center w-full">
-                    {hourlyForecast.map((hourData, idx) => {
-                      const hourDetails = getWeatherDetails(hourData.code);
-                      const HourIcon = hourDetails.icon;
-                      return (
-                        <div key={idx} className="bg-white/40 p-1.5 rounded-xl border border-white/40 flex flex-col items-center justify-between min-w-0">
-                          <span className="text-[9px] text-slate-400 font-bold uppercase">{hourData.time}</span>
-                          <HourIcon className={`w-4 h-4 my-1 ${hourDetails.color}`} />
-                          <span className="text-xs font-black text-slate-700">{hourData.temp}°C</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-          </Card>
-        </div>
+      {/* Shortcuts Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <ShortcutCard
+          icon={Target}
+          title="Pengurusan Anak"
+          desc="Semak semua profil"
+          gradient="from-indigo-600 to-blue-600"
+          onClick={() => navigate("/parent/children")}
+        />
+        <ShortcutCard
+          icon={Gift}
+          title="Kedai Ganjaran"
+          desc="Tetapkan hadiah"
+          gradient="from-amber-500 to-orange-500"
+          onClick={() => navigate("/parent/rewards")}
+        />
+        <ShortcutCard
+          icon={BarChart2}
+          title="Kelulusan"
+          desc="Sahkan tugasan/ganjaran"
+          gradient="from-emerald-600 to-teal-600"
+          onClick={() => navigate("/parent/approvals")}
+        />
+        <ShortcutCard
+          icon={Settings}
+          title="Pilih Profil"
+          desc="Tukar modul anak"
+          gradient="from-purple-600 to-pink-600"
+          onClick={() => navigate("/parent/select-child")}
+        />
       </div>
 
+      {/* Quick Child Switcher Bar */}
+      <ChildSelectorBar
+        childrenList={childrenList}
+        selectedChildId={selectedChild?.id}
+        onSelectChild={(childId) => {
+          const matched = childrenList.find((c) => c.id === childId);
+          if (matched) {
+            setSelectedChild(matched);
+            setSelectedChildId(childId);
+          }
+        }}
+      />
+
+      {/* Active Child Stats Panel */}
+      {selectedChild ? (
+        <SelectedChildPanel
+          child={selectedChild}
+          onSwitch={() => navigate("/parent/select-child")}
+          hasMultiple={childrenList.length > 1}
+        />
+      ) : (
+        <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white">
+          <p className="text-sm text-slate-500 font-medium mb-3">
+            Tiada profil anak dijumpai. Tambah profil anak pertama anda untuk bermula!
+          </p>
+          <Button
+            onClick={() => setAddChildModalOpen(true)}
+            className="bg-indigo-600 text-white rounded-xl font-bold text-xs px-5 h-9"
+          >
+            <UserPlus className="w-4 h-4 mr-1.5" /> Tambah Profil Anak
+          </Button>
+        </Card>
+      )}
+
+      {/* Modal for adding a new child */}
       <AddChildModal
-        open={isAddModalOpen}
-        onOpenChange={setIsAddModalOpen}
-        onChildAdded={loadData}
+        open={addChildModalOpen}
+        onOpenChange={setAddChildModalOpen}
+        onChildAdded={loadDashboardData}
       />
     </div>
   );
