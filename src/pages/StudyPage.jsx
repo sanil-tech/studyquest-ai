@@ -21,7 +21,6 @@ export default function StudyPage() {
 
   useEffect(() => {
     const load = async () => {
-      // PEMERKASAAN: Gunakan Promise.allSettled untuk API yang kebal ralat
       const results = await Promise.allSettled([
         base44.entities.Subject.list(),
         base44.entities.Textbook.list("-created_date", 50),
@@ -30,11 +29,32 @@ export default function StudyPage() {
 
       const subs = results[0].status === "fulfilled" ? results[0].value : [];
       const books = results[1].status === "fulfilled" ? results[1].value : [];
-      const u = results[2].status === "fulfilled" ? results[2].value : null;
+      const currentUser = results[2].status === "fulfilled" ? results[2].value : null;
+
+      // 🔥 RESOLVE CHILD PROFILE IF IN CHILD MODE
+      let studentUser = currentUser;
+      if (currentUser?.app_role === "parent") {
+        const activeChildId = localStorage.getItem("active_child_session") || localStorage.getItem("selected_child_id");
+        if (activeChildId) {
+          const cachedChildStr = localStorage.getItem("active_child");
+          if (cachedChildStr) {
+            try { studentUser = JSON.parse(cachedChildStr); } catch (e) {}
+          }
+          if (!studentUser || studentUser.id !== activeChildId) {
+            try {
+              const res = await base44.functions.invoke("fetchParentChildren");
+              if (res.data?.success && Array.isArray(res.data?.children)) {
+                const child = res.data.children.find((c) => c.id === activeChildId);
+                if (child) studentUser = child;
+              }
+            } catch (e) {}
+          }
+        }
+      }
 
       setSubjects(subs);
       setTextbooks(books);
-      setUser(u);
+      setUser(studentUser);
 
       if (subjectId) {
         const sub = subs.find(s => s.id === subjectId);
@@ -51,17 +71,16 @@ export default function StudyPage() {
     load();
   }, [subjectId]);
 
-  // Memoize filtered topics to avoid recalculation
+  // Memoize filtered topics to match student's grade/education level
   const filteredTopics = useMemo(() => {
     if (!topics || !user) {
       return topics || [];
     }
-    const userLevel = user.education_level || user.school_year;
+    const userLevel = user.education_level || user.school_year || user.grade_year;
     if (!userLevel) {
       return topics;
     }
     
-    // PEMERKASAAN: Penapisan kebal ralat huruf besar/kecil dan ruang kosong
     const safeUserLevel = userLevel.trim().toLowerCase();
     return topics.filter(t => {
       if (!t.form_level) return true;
@@ -82,7 +101,6 @@ export default function StudyPage() {
     setLoading(false);
   };
 
-  // Memoize grouped books to avoid recalculation on every render
   const booksBySubject = useMemo(() => {
     return textbooks.reduce((acc, book) => {
       if (!acc[book.subject_name]) acc[book.subject_name] = [];
@@ -91,7 +109,7 @@ export default function StudyPage() {
     }, {});
   }, [textbooks]);
 
-  const studentFirstName = user?.name ? user.name.split(" ")[0] : (user?.nickname || "Penjelajah");
+  const studentFirstName = user?.nickname || (user?.full_name ? user.full_name.split(" ")[0] : "Penjelajah");
 
   if (loading) {
     return (
@@ -105,16 +123,14 @@ export default function StudyPage() {
   }
 
   // =====================================================================
-  // VIEW 1: MAIN DASHBOARD (PILIHAN SUBJEK & PERPUSTAKAAN)
+  // VIEW 1: MAIN DASHBOARD
   // =====================================================================
   if (!selectedSubject) {
     return (
       <div className="min-h-screen bg-[#FAFAF7] font-sans pb-12 pt-6">
         <div className="space-y-8 max-w-5xl mx-auto px-4">
           
-          {/* HEADER: Nature Explorer Theme */}
           <div className="relative bg-gradient-to-br from-emerald-600 to-green-700 rounded-[2rem] p-6 sm:p-10 border border-emerald-800/20 overflow-hidden shadow-lg">
-            {/* Pantulan Cahaya Hutan */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -131,12 +147,11 @@ export default function StudyPage() {
               </div>
               
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/20 shadow-inner flex items-center justify-center text-5xl shrink-0 self-start">
-                🦧 {/* Maskot Otan */}
+                {user?.selected_avatar || user?.avatar_emoji || "🦧"}
               </div>
             </div>
           </div>
 
-          {/* GRID SUBJEK */}
           <div>
             <h2 className="text-lg font-black text-stone-700 mb-4 flex items-center gap-2">
               <Compass className="w-5 h-5 text-emerald-600" />
@@ -144,7 +159,7 @@ export default function StudyPage() {
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {subjects.map((sub, i) => {
-                const themeColor = sub.color || "#10B981"; // Default Emerald
+                const themeColor = sub.color || "#10B981";
                 return (
                   <motion.button
                     key={sub.id}
@@ -172,7 +187,6 @@ export default function StudyPage() {
             </div>
           </div>
 
-          {/* PERPUSTAKAAN (Library Cabinets) */}
           {textbooks.length > 0 && (
             <div className="bg-[#F3EFE6] rounded-[2rem] border border-[#E3D9C6] p-6 sm:p-8">
               <div className="flex items-center gap-3 mb-6">
@@ -185,7 +199,6 @@ export default function StudyPage() {
                 </div>
               </div>
 
-              {/* Folder Susunan */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {Object.keys(booksBySubject).map((subjectName) => (
                   <button
@@ -209,7 +222,6 @@ export default function StudyPage() {
                 ))}
               </div>
 
-              {/* Kandungan Folder Beranimasi */}
               {activeLibrarySubject && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -242,7 +254,7 @@ export default function StudyPage() {
   }
 
   // =====================================================================
-  // VIEW 2: ROADMAP SELECTION (CHAPTERS)
+  // VIEW 2: ROADMAP SELECTION
   // =====================================================================
   const subjectThemeColor = selectedSubject.color || "#10B981";
   const subjectBooks = textbooks.filter(b => b.subject_id === selectedSubject.id);
@@ -251,7 +263,6 @@ export default function StudyPage() {
     <div className="min-h-screen bg-[#FAFAF7] font-sans pb-12 pt-6">
       <div className="space-y-6 max-w-3xl mx-auto px-4">
         
-        {/* Navigation Title Bar (Wooden Theme) */}
         <div className="flex items-center gap-4 bg-white p-4 rounded-[1.5rem] border border-emerald-100 shadow-sm">
           <button 
             onClick={() => setSelectedSubject(null)}
@@ -272,7 +283,7 @@ export default function StudyPage() {
 
         {filteredTopics.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-[2rem] border border-emerald-100 max-w-md mx-auto shadow-sm">
-            <span className="text-5xl block mb-4">🦧</span>
+            <span className="text-5xl block mb-4">{user?.selected_avatar || user?.avatar_emoji || "🦧"}</span>
             <h3 className="font-black text-stone-800 text-lg">Misi Dalam Pembinaan!</h3>
             <p className="text-stone-500 text-sm max-w-xs mx-auto mt-2 px-4">
               Otan sedang bertungkus-lumus membina laluan untuk bab ini. Nantikan kemunculannya, {studentFirstName}!
@@ -281,7 +292,6 @@ export default function StudyPage() {
         ) : (
           <div className="space-y-6">
             
-            {/* Shortcut Buku Teks */}
             {subjectBooks.length > 0 && (
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
                 <div className="flex items-center gap-2">
@@ -304,9 +314,7 @@ export default function StudyPage() {
               </div>
             )}
 
-            {/* Peta Laluan (Roadmap List) */}
             <div className="space-y-3 relative">
-              {/* Garis menjalar (Vine line) di belakang nombor */}
               <div className="absolute left-7 top-6 bottom-6 w-1 bg-emerald-200 rounded-full z-0 hidden sm:block" />
 
               <div className="flex items-center justify-between px-1 mb-2 relative z-10">
@@ -327,13 +335,11 @@ export default function StudyPage() {
                     to={`/study/${selectedSubject.id}/${topic.id}`}
                     className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-emerald-100 hover:border-emerald-400 transition-all group shadow-sm hover:shadow-md relative overflow-hidden"
                   >
-                    {/* Left color accent block */}
                     <div 
                       className="absolute left-0 top-0 bottom-0 w-2 opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ backgroundColor: subjectThemeColor }}
                     />
 
-                    {/* Circle Node (Tree mark) */}
                     <div 
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded-full font-black text-sm sm:text-base flex items-center justify-center shrink-0 border-4 bg-white relative"
                       style={{ 
