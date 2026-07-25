@@ -1,11 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Salted PIN Hash Helper matching StudyQuest specification
+// Salted PIN Hash Helper
 const hashPin = (pin: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 };
 
-// Salted Password Hash Helper matching StudyQuest specification
+// Salted Password Hash Helper
 const hashPassword = (password: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PWD_SALT_${password}_2026`)));
 };
@@ -45,47 +45,69 @@ Deno.serve(async (req) => {
     }
 
     const db = base44.asServiceRole || base44;
+    let matchedUser: any = null;
 
-    // 1. Parallel Broad Querying using Service Role Access
-    const [byRole, byChildFlag] = await Promise.all([
-      db.entities.User.filter({ app_role: "student" }).catch(() => []),
-      db.entities.User.filter({ is_child_account: true }).catch(() => [])
-    ]);
+    // 🔍 STAGE 1: Direct exact query on User entity (username, nickname, student_id, id)
+    if (!matchedUser) {
+      const byUsername = await db.entities.User.filter({ username: cleanInput }).catch(() => []);
+      if (byUsername && byUsername.length > 0) matchedUser = byUsername[0];
+    }
 
-    // Deduplicate candidate student users
-    const candidateMap = new Map();
-    [...byRole, ...byChildFlag].forEach((u: any) => {
-      if (u && u.id) candidateMap.set(u.id, u);
-    });
-    const candidates = Array.from(candidateMap.values());
+    if (!matchedUser) {
+      const byNickname = await db.entities.User.filter({ nickname: rawInput }).catch(() => []);
+      if (byNickname && byNickname.length > 0) matchedUser = byNickname[0];
+    }
 
-    // Base nickname prefix extraction (e.g., "ivan_5267" -> "ivan")
-    const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
+    if (!matchedUser) {
+      const byStudentId = await db.entities.User.filter({ student_id: rawInput.toUpperCase() }).catch(() => []);
+      if (byStudentId && byStudentId.length > 0) matchedUser = byStudentId[0];
+    }
 
-    // 2. Smart Multi-Field Candidate Matcher
-    const matchedUser = candidates.find((u: any) => {
-      const uUsername = (u.username || "").toLowerCase();
-      const uNickname = (u.nickname || "").toLowerCase();
-      const uFullName = (u.full_name || "").toLowerCase();
-      const uStudentId = (u.student_id || "").toLowerCase();
-      const uId = (u.id || "").toLowerCase();
+    // 🔍 STAGE 2: Cross-reference LinkRequest table (Where student_username is stored)
+    if (!matchedUser) {
+      const linkRequests = await db.entities.LinkRequest.filter({}).catch(() => []);
+      const matchedLink = linkRequests.find((lr: any) => {
+        const sUsername = (lr.student_username || "").toLowerCase();
+        const sName = (lr.student_name || "").toLowerCase();
+        return sUsername === cleanInput || sName === cleanInput || sName === cleanInput.split("_")[0];
+      });
 
-      // Exact matches
-      if (uUsername === cleanInput) return true;
-      if (uNickname === cleanInput) return true;
-      if (uFullName === cleanInput) return true;
-      if (uStudentId === cleanInput) return true;
-      if (uId === cleanInput || uId.startsWith(cleanInput)) return true;
-
-      // Prefix & partial matches
-      if (basePrefix && basePrefix.length >= 2) {
-        if (uNickname === basePrefix) return true;
-        if (uUsername.startsWith(`${basePrefix}_`)) return true;
-        if (uFullName.startsWith(basePrefix)) return true;
+      if (matchedLink && matchedLink.student_id) {
+        const childFromLink = await db.entities.User.get(matchedLink.student_id).catch(() => null);
+        if (childFromLink) matchedUser = childFromLink;
       }
+    }
 
-      return false;
-    });
+    // 🔍 STAGE 3: Broad candidate scan across student role records
+    if (!matchedUser) {
+      const [students, childAccounts] = await Promise.all([
+        db.entities.User.filter({ app_role: "student" }).catch(() => []),
+        db.entities.User.filter({ is_child_account: true }).catch(() => [])
+      ]);
+
+      const candidateMap = new Map();
+      [...students, ...childAccounts].forEach((u: any) => {
+        if (u && u.id) candidateMap.set(u.id, u);
+      });
+      const candidates = Array.from(candidateMap.values());
+
+      const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
+
+      matchedUser = candidates.find((u: any) => {
+        const uUsername = (u.username || "").toLowerCase();
+        const uNickname = (u.nickname || "").toLowerCase();
+        const uFullName = (u.full_name || "").toLowerCase();
+        const uStudentId = (u.student_id || "").toLowerCase();
+
+        return (
+          uUsername === cleanInput ||
+          uNickname === cleanInput ||
+          uFullName === cleanInput ||
+          uStudentId === cleanInput ||
+          (basePrefix && basePrefix.length >= 2 && (uNickname === basePrefix || uUsername.startsWith(`${basePrefix}_`)))
+        );
+      }) || null;
+    }
 
     if (!matchedUser) {
       return Response.json(
@@ -96,7 +118,12 @@ Deno.serve(async (req) => {
 
     const user = matchedUser;
 
-    // 3. Account Lockout Check
+    // 🔄 STAGE 4: Self-Healing DB Sync (Update missing username in User table for fast future lookups)
+    if (!user.username || user.username.toLowerCase() !== cleanInput) {
+      await db.entities.User.update(user.id, { username: cleanInput }).catch(() => null);
+    }
+
+    // Check account lockout status
     if (user.account_locked) {
       return Response.json(
         { success: false, error: "Akaun ini telah dikunci sementara. Sila minta ibu bapa anda untuk membuka semula kunci." },
@@ -104,7 +131,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Verify PIN or Password across all supported storage formats
+    // 🔑 STAGE 5: Multi-Format PIN Verification
     const hashedPin = hashPin(pinInput);
     const hashedPassword = hashPassword(pinInput);
 
@@ -134,7 +161,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5. Reset failed login counter on successful authentication
+    // Reset failed attempts counter on successful authentication
     await db.entities.User.update(user.id, {
       failed_login_attempts: 0,
       account_locked: false,
@@ -146,7 +173,7 @@ Deno.serve(async (req) => {
         success: true,
         user: {
           id: user.id,
-          username: user.username || user.nickname || "student",
+          username: user.username || cleanInput,
           student_id: user.student_id,
           nickname: user.nickname || user.full_name || "Pelajar",
           full_name: user.full_name,
