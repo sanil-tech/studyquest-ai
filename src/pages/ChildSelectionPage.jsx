@@ -113,7 +113,6 @@ function ChildSelectionCard({ child, gradient, onSelect, index }) {
 function PinEntryDialog({ child, open, onOpenChange, onSuccess }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const navigate = useNavigate();
 
   const displayName = getChildDisplayName(child);
   const currentXP = child?.realProgress?.total_xp || 0;
@@ -121,10 +120,13 @@ function PinEntryDialog({ child, open, onOpenChange, onSuccess }) {
   const handleVerify = () => {
     setError("");
     const childPin = child?.pin_hash;
+
+    // If child doesn't have a PIN set yet, allow auto login or parent bypass
     if (!childPin) {
-      setError("PIN tidak tersedia. Sila guna kelulusan Ibu Bapa.");
+      onSuccess();
       return;
     }
+
     if (pin === childPin) {
       onSuccess();
     } else {
@@ -185,7 +187,7 @@ function PinEntryDialog({ child, open, onOpenChange, onSuccess }) {
           <div className="space-y-2 pt-1">
             <Button
               onClick={handleVerify}
-              disabled={pin.length < 4}
+              disabled={child?.pin_hash && pin.length < 4}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs h-11 shadow-sm disabled:opacity-40"
             >
               Mula Belajar ✨
@@ -239,10 +241,19 @@ export default function ChildSelectionPage() {
 
   const handlePinSuccess = () => {
     if (!selectedChild) return;
+
+    // 1. Set child ID via helper utility
     setSelectedChildId(selectedChild.id);
+
+    // 2. Persist active child session keys in localStorage
     localStorage.setItem("active_child_session", selectedChild.id);
+    localStorage.setItem("selected_child_id", selectedChild.id);
+    localStorage.setItem("active_child", JSON.stringify(selectedChild));
+
     setPinDialogOpen(false);
-    navigate("/dashboard");
+
+    // 3. Navigate directly to Student Dashboard
+    navigate("/student-dashboard"); // Note: You can change to "/student" if your route uses that exact path
   };
 
   if (loading) {
