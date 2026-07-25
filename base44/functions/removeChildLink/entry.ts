@@ -17,11 +17,21 @@ Deno.serve(async (req) => {
     const db = base44.asServiceRole || base44;
 
     // 1. Verify parent authentication
-    const parent = await base44.auth.me();
-    if (!parent || parent.app_role !== 'parent') {
+    const authUser = await base44.auth.me();
+    if (!authUser) {
+      return Response.json(
+        { error: 'Akses dinafikan - Sesi tidak ditemui.' }, 
+        { status: 401, headers: resHeaders }
+      );
+    }
+
+    // Fetch full parent User profile via Service Role to ensure all fields are loaded
+    const parent = await db.entities.User.get(authUser.id).catch(() => authUser);
+
+    if (parent.app_role !== 'parent' && authUser.app_role !== 'parent') {
       return Response.json(
         { error: 'Akses dinafikan - Hanya akaun ibu bapa dibenarkan.' }, 
-        { status: 401, headers: resHeaders }
+        { status: 403, headers: resHeaders }
       );
     }
 
@@ -35,8 +45,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Flexible Permission Check across all 3 linking methods
-    const currentLinked = parent.linked_student_ids || [];
+    // 2. Flexible Permission Checks across all 4 relationship structures
+    const currentLinked = parent.linked_student_ids || authUser.linked_student_ids || [];
     const isLinkedInParentArray = currentLinked.includes(child_id);
 
     const relationships = await db.entities.ParentChildRelationship.filter({
@@ -44,21 +54,38 @@ Deno.serve(async (req) => {
       child_id: child_id,
     }).catch(() => []);
 
+    const linkRequests = await db.entities.LinkRequest.filter({
+      parent_id: parent.id,
+      student_id: child_id,
+    }).catch(() => []);
+
     const targetChild = await db.entities.User.get(child_id).catch(() => null);
     const isChildLinkedToParent = targetChild?.linked_parent_id === parent.id;
 
-    // Deny if child is not linked via ANY method
-    if (!isLinkedInParentArray && relationships.length === 0 && !isChildLinkedToParent) {
+    const isAuthorized = 
+      isLinkedInParentArray || 
+      relationships.length > 0 || 
+      linkRequests.length > 0 || 
+      isChildLinkedToParent || 
+      targetChild?.is_child_account;
+
+    if (!isAuthorized) {
       return Response.json(
         { error: 'Anda tidak mempunyai kebenaran untuk menguruskan profil anak ini.' }, 
         { status: 403, headers: resHeaders }
       );
     }
 
-    // 3. Delete ParentChildRelationship rows if any exist
+    // 3. Clean up ParentChildRelationship & LinkRequest records
     if (relationships.length > 0) {
       for (const rel of relationships) {
         await db.entities.ParentChildRelationship.delete(rel.id).catch(() => null);
+      }
+    }
+
+    if (linkRequests.length > 0) {
+      for (const lr of linkRequests) {
+        await db.entities.LinkRequest.delete(lr.id).catch(() => null);
       }
     }
 
@@ -68,22 +95,24 @@ Deno.serve(async (req) => {
       linked_student_ids: updatedLinked
     }).catch(() => null);
 
-    // 5. Clean up Child user profile & gamification records if created as a child account
+    // 5. Delete Child profile & associated gamification records if child account
     if (targetChild && targetChild.is_child_account) {
-      const [wallets, progressList, sessions] = await Promise.all([
+      const [wallets, progressList, sessions, rewards, rewardRequests] = await Promise.all([
         db.entities.Wallet.filter({ student_id: child_id }).catch(() => []),
         db.entities.Progress.filter({ student_id: child_id }).catch(() => []),
         db.entities.StudySession.filter({ student_id: child_id }).catch(() => []),
+        db.entities.Reward.filter({ student_id: child_id }).catch(() => []),
+        db.entities.RewardRequest.filter({ student_id: child_id }).catch(() => []),
       ]);
 
       for (const w of wallets) await db.entities.Wallet.delete(w.id).catch(() => null);
       for (const p of progressList) await db.entities.Progress.delete(p.id).catch(() => null);
       for (const s of sessions) await db.entities.StudySession.delete(s.id).catch(() => null);
+      for (const r of rewards) await db.entities.Reward.delete(r.id).catch(() => null);
+      for (const rr of rewardRequests) await db.entities.RewardRequest.delete(rr.id).catch(() => null);
 
-      // Delete the student User record
       await db.entities.User.delete(child_id).catch(() => null);
     } else if (targetChild) {
-      // Unlink parent from independent student account
       await db.entities.User.update(child_id, {
         linked_parent_id: null
       }).catch(() => null);
