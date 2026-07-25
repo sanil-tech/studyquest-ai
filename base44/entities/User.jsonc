@@ -29,7 +29,7 @@
     },
     "avatar_emoji": {
       "type": "string",
-      "default": "\ud83c\udf93"
+      "default": "🎓"
     },
     "avatar_photo_url": {
       "type": "string",
@@ -39,215 +39,21 @@
       "type": "string",
       "description": "Selected avatar (emoji string or URL) chosen during child profile creation"
     },
-    "avatar_stage": {
-      "type": "number",
-      "description": "Avatar evolution stage 1-7 (auto-calculated from XP)",
-      "default": 1
-    },
-    "avatar_id": {
-      "type": "string",
-      "description": "Unique identifier for the student's avatar instance"
-    },
-    "avatar_animation": {
-      "type": "string",
-      "description": "Current avatar animation type (bounce, wiggle, pulse, float, swing)"
-    },
-    "avatar_background": {
-      "type": "string",
-      "description": "Current avatar background gradient style"
-    },
-    "current_level": {
-      "type": "number",
-      "description": "Mirrored current level from Progress entity for quick display",
-      "default": 1
-    },
-    "current_xp": {
-      "type": "number",
-      "description": "Mirrored current XP from Progress entity for quick display",
-      "default": 0
-    },
-    "coins": {
-      "type": "number",
-      "description": "Mirrored coin balance from Wallet entity for quick display",
-      "default": 0
-    },
-    "streak": {
-      "type": "number",
-      "description": "Mirrored streak days from Progress entity for quick display",
-      "default": 0
-    },
-    "login_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Whether child can independently log in (parent can disable)"
-    },
-    "school_year": {
-      "type": "string",
-      "description": "Student's year level (e.g. Standard 1, Form 3)"
-    },
-    "school_name": {
-      "type": "string",
-      "description": "Name of the school"
-    },
-    "class_name": {
-      "type": "string",
-      "description": "Class or form name (e.g. 1A, 3B)"
-    },
     "nickname": {
       "type": "string",
       "description": "Preferred name or nickname"
     },
-    "gender": {
+    "full_name": {
       "type": "string",
-      "enum": [
-        "male",
-        "female",
-        "other",
-        "prefer_not_to_say"
-      ]
-    },
-    "date_of_birth": {
-      "type": "string",
-      "format": "date",
-      "description": "Date of birth"
-    },
-    "country": {
-      "type": "string",
-      "default": "Malaysia",
-      "description": "Country of residence"
-    },
-    "state": {
-      "type": "string",
-      "description": "State or region"
-    },
-    "education_level": {
-      "type": "string",
-      "enum": [
-        "Standard 1",
-        "Standard 2",
-        "Standard 3",
-        "Standard 4",
-        "Standard 5",
-        "Standard 6",
-        "Form 1",
-        "Form 2",
-        "Form 3",
-        "Form 4",
-        "Form 5",
-        "Other"
-      ],
-      "description": "Current education level"
-    },
-    "grade_year": {
-      "type": "string",
-      "description": "Grade or year level"
-    },
-    "preferred_language": {
-      "type": "string",
-      "default": "ms",
-      "description": "Preferred language for learning content"
-    },
-    "interests": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "Student's interests/topics they enjoy (e.g. Science, Art, Sports)",
-      "default": []
-    },
-    "phone_number": {
-      "type": "string",
-      "description": "Phone number for contact"
-    },
-    "profile_picture_url": {
-      "type": "string",
-      "description": "URL to profile picture (alternative to avatar_photo_url)"
-    },
-    "num_children": {
-      "type": "number",
-      "description": "Number of children (for parents)"
-    },
-    "children_names": {
-      "type": "string",
-      "description": "Children's names separated by commas (for parents)"
-    },
-    "teaching_subjects": {
-      "type": "string",
-      "description": "Subjects taught (for teachers)"
-    },
-    "teaching_level": {
-      "type": "string",
-      "description": "Teaching level - primary/secondary (for teachers)"
-    },
-    "profile_completed": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether user completed onboarding profile"
-    },
-    "notification_preferences": {
-      "type": "object",
-      "properties": {
-        "email_notifications": {
-          "type": "boolean",
-          "default": true
-        },
-        "push_notifications": {
-          "type": "boolean",
-          "default": true
-        },
-        "quiz_reminders": {
-          "type": "boolean",
-          "default": true
-        },
-        "daily_learning_reminder": {
-          "type": "boolean",
-          "default": true
-        },
-        "parent_progress_reports": {
-          "type": "boolean",
-          "default": true
-        },
-        "weekly_achievement_summary": {
-          "type": "boolean",
-          "default": true
-        }
-      },
-      "default": null
-    },
-    "learning_preferences": {
-      "type": "object",
-      "properties": {
-        "daily_goal_minutes": {
-          "type": "number",
-          "default": 20,
-          "enum": [
-            10,
-            20,
-            30,
-            60
-          ]
-        },
-        "favorite_subjects": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "difficulty_preference": {
-          "type": "string",
-          "enum": [
-            "easy",
-            "medium",
-            "hard"
-          ],
-          "default": "medium"
-        }
-      },
-      "default": null
+      "description": "Full display name"
     },
     "username": {
       "type": "string",
-      "description": "Optional username for child login (e.g., emma.tan)"
+      "description": "Username for child login (e.g., ivan_5267)"
+    },
+    "child_login_pin": {
+      "type": "string",
+      "description": "4-6 digit PIN for child login"
     },
     "password_hash": {
       "type": "string",
@@ -259,7 +65,7 @@
     },
     "pin_enabled": {
       "type": "boolean",
-      "default": false,
+      "default": true,
       "description": "Whether PIN login is enabled for this child"
     },
     "login_method": {
@@ -269,7 +75,7 @@
         "pin",
         "both"
       ],
-      "default": "password",
+      "default": "both",
       "description": "Allowed login method(s) for this child"
     },
     "failed_login_attempts": {
@@ -290,7 +96,7 @@
     "is_child_account": {
       "type": "boolean",
       "default": false,
-      "description": "Whether this is a child account (under 13, no email login)"
+      "description": "Whether this is a child account"
     }
   },
   "required": [
