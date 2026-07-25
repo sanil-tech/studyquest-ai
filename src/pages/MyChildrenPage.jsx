@@ -93,7 +93,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // 🔥 FUNGSI PEMPROSESAN PIN SECARA SELAMAT MENGGUNAKAN SERVER FUNCTION
   const handleSaveNewPin = async () => {
     if (inputPin.length !== 4) {
       toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -101,7 +100,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
     setUpdating(true);
     try {
-      // Panggil fungsi server resetChildCredentials menggunakan Service Role
       const response = await base44.functions.invoke("resetChildCredentials", {
         child_id: child.id,
         action: "reset_pin",
@@ -112,7 +110,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         throw new Error(response.data?.error || "Gagal menyimpan PIN di pelayan.");
       }
 
-      // Kemaskini memori cache tempatan untuk ketampakan serta-merta
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       cachedChildren[child.id] = { ...cachedChildren[child.id], child_login_pin: inputPin };
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
@@ -128,7 +125,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // FUNGSI PEMADAMAN PROFIL ANAK
   const handleDeleteChild = async () => {
     setIsDeleting(true);
     try {
@@ -228,19 +224,26 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
             <p className="text-[9px] text-slate-400 truncate font-medium leading-none mt-1">{child.full_name}</p>
           )}
           
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 mt-1">
-            <p className="text-[10px] font-bold text-slate-400 truncate max-w-[125px] leading-none">Username: {child.username || "student"}</p>
-            <span className="hidden sm:inline text-slate-200 text-[10px]">|</span>
-            
+          {/* 🔥 DYNAMIC USERNAME & PIN CONTAINER (FLEXIBLE WRinement) */}
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="text-[9px] font-bold text-slate-400 uppercase">User:</span>
+              <span className="text-[10px] font-mono font-black text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60 truncate max-w-[150px]">
+                {child.username || child.student_id || "student"}
+              </span>
+            </div>
+
+            <span className="text-slate-200 text-[10px]">•</span>
+
             {isSettingPin ? (
-              <div className="flex items-center gap-1 mt-0.5">
+              <div className="flex items-center gap-1">
                 <input 
                   type="password" 
                   maxLength={4}
                   placeholder="PIN"
                   value={inputPin}
                   onChange={(e) => setInputPin(e.target.value.replace(/\D/g, ""))}
-                  className="w-12 px-1.5 py-0.5 text-center text-xs border rounded-md text-slate-700 font-bold focus:outline-indigo-500"
+                  className="w-12 px-1.5 py-0.5 text-center text-xs border rounded-md text-slate-700 font-bold focus:outline-indigo-500 bg-white"
                 />
                 <button onClick={handleSaveNewPin} disabled={updating} className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
                   {updating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "Set"}
@@ -256,11 +259,11 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
                     setShowPin(!showPin);
                   }
                 }}
-                className="bg-amber-50 text-amber-700 hover:bg-amber-100/80 border border-amber-200 font-black text-[10px] px-2 py-0.5 rounded-md tracking-wider w-fit flex items-center gap-1 shrink-0 shadow-xs transition-all active:scale-95"
+                className="bg-amber-50 text-amber-700 hover:bg-amber-100/80 border border-amber-200 font-black text-[9px] px-1.5 py-0.5 rounded-md tracking-wider flex items-center gap-1 shrink-0 transition-all active:scale-95"
               >
-                <span>🔑 PIN: {!child.child_login_pin || child.child_login_pin === "----" ? "Set PIN" : (showPin ? child.child_login_pin : "••••")}</span>
+                <span>🔑 PIN: {!child.child_login_pin || child.child_login_pin === "----" ? "Set" : (showPin ? child.child_login_pin : "••••")}</span>
                 {child.child_login_pin && child.child_login_pin !== "----" ? (
-                  showPin ? <EyeOff className="w-3 h-3 text-amber-600" /> : <Eye className="w-3 h-3 text-amber-600" />
+                  showPin ? <EyeOff className="w-2.5 h-2.5 text-amber-600" /> : <Eye className="w-2.5 h-2.5 text-amber-600" />
                 ) : <Edit3 className="w-2.5 h-2.5 text-amber-500" />}
               </button>
             )}
@@ -352,7 +355,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </Button>
       </div>
 
-      {/* ACTION BUTTONS: TUKAR PIN & PADAM PROFIL */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
         <Button size="sm" variant="outline" onClick={() => setIsSettingPin(true)} className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
           ⚙️ Tukar PIN
@@ -367,7 +369,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </Button>
       </div>
 
-      {/* DIALOG PENGESAHAN MEMADAM PROFIL ANAK */}
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <AlertDialogContent className="rounded-2xl bg-white p-6 max-w-md">
           <AlertDialogHeader>
@@ -581,7 +582,6 @@ export default function MyChildrenPage() {
         )}
       </div>
 
-      {/* MODAL 1: LAPORAN MANUAL */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
           <DialogHeader className="border-b pb-3">
@@ -644,7 +644,6 @@ export default function MyChildrenPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: AI ANALYSIS */}
       <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-900 text-white p-6 border border-slate-800">
           <DialogHeader className="border-b border-slate-800 pb-3">
