@@ -44,10 +44,10 @@ Deno.serve(async (req) => {
 
     const db = base44.asServiceRole || base44;
 
-    // 1. Fetch user records using list() with Service Role privileges
+    // 1. Fetch user records using Service Role list query
     let allUsers: any[] = [];
     try {
-      allUsers = await db.entities.User.list("-created_date", 500);
+      allUsers = await db.entities.User.list("-created_date", 1000);
     } catch {
       allUsers = await db.entities.User.filter({}).catch(() => []);
     }
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     let matchedUser: any = null;
     const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
 
-    // 2. Multi-field candidate match in User entity list
+    // 2. Multi-field matching across User entity records
     matchedUser = allUsers.find((u: any) => {
       const uUsername = (u.username || "").toLowerCase();
       const uNickname = (u.nickname || "").toLowerCase();
@@ -73,9 +73,9 @@ Deno.serve(async (req) => {
       );
     });
 
-    // 3. Fallback check on LinkRequest table if not found in User list directly
+    // 3. Fallback search on LinkRequest table if not found in User list directly
     if (!matchedUser) {
-      const linkRequests = await db.entities.LinkRequest.list("-created_date", 200).catch(() => []);
+      const linkRequests = await db.entities.LinkRequest.list("-created_date", 500).catch(() => []);
       const matchedLink = linkRequests.find((lr: any) => {
         const sUsername = (lr.student_username || "").toLowerCase();
         const sName = (lr.student_name || "").toLowerCase();
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
 
     const user = matchedUser;
 
-    // Auto-heal missing username on User entity
+    // Auto-heal missing username/pin on User entity
     if (!user.username || user.username.toLowerCase() !== cleanInput) {
       await db.entities.User.update(user.id, { username: cleanInput, child_login_pin: pinInput }).catch(() => null);
     }
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Multi-format PIN Verification
+    // 4. Verify PIN or Password across all supported storage formats
     const hashedPin = hashPin(pinInput);
     const hashedPassword = hashPassword(pinInput);
 
