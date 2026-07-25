@@ -40,14 +40,27 @@ export default function AppLayout() {
 
   const isParent = user?.app_role === "parent";
   
-  // Check if parent has an active child session active
+  // Check if parent has selected an active child profile
   const hasActiveChildSession = Boolean(
     localStorage.getItem("active_child_session") || 
     localStorage.getItem("selected_child_id")
   );
 
-  // Switch navigation dynamically: show student navigation when in child mode
+  const activeChildName = localStorage.getItem("active_student_name");
+  let activeChildAvatar = null;
+  const storedChildStr = localStorage.getItem("active_child");
+  if (storedChildStr) {
+    try {
+      const parsedChild = JSON.parse(storedChildStr);
+      activeChildAvatar = parsedChild.selected_avatar || parsedChild.avatar_emoji;
+    } catch (e) {}
+  }
+
+  // Determine navigation menu and header profile details
   const nav = isParent && !hasActiveChildSession ? parentNav : studentNav;
+  const displayProfileName = (isParent && hasActiveChildSession)
+    ? (activeChildName || "Pelajar")
+    : (user?.full_name || (isParent ? "Ibu Bapa" : "Pelajar"));
 
   useEffect(() => {
     if (!user) return;
@@ -57,7 +70,6 @@ export default function AppLayout() {
     const onStudentPath = studentPaths.some(p => location.pathname.startsWith(p));
     const onParentPath = parentPaths.some(p => location.pathname.startsWith(p));
 
-    // Redirect parent away from student path ONLY if they DO NOT have an active child session
     if (isParent && onStudentPath && !hasActiveChildSession) {
       navigate("/parent", { replace: true });
     } else if (!isParent && onParentPath) {
@@ -65,7 +77,6 @@ export default function AppLayout() {
     }
   }, [user, isParent, hasActiveChildSession, location.pathname, navigate]);
 
-  // Bloop sound generator on click
   const playCuteBloop = () => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -101,7 +112,13 @@ export default function AppLayout() {
 
   const RenderAvatar = ({ className = "w-10 h-10" }) => (
     <div className={`${className} rounded-full overflow-hidden border-2 border-orange-400 bg-orange-100 flex items-center justify-center shadow-sm shrink-0`}>
-      {user?.profile_picture_url ? (
+      {isParent && hasActiveChildSession ? (
+        activeChildAvatar && activeChildAvatar.startsWith("http") ? (
+          <img src={activeChildAvatar} alt="Child Profile" className="w-full h-full object-cover bg-white" />
+        ) : (
+          <span className="text-xl select-none">{activeChildAvatar || "🦧"}</span>
+        )
+      ) : user?.profile_picture_url ? (
         <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover bg-white" />
       ) : user?.avatar_emoji ? (
         <span className="text-xl select-none">{user.avatar_emoji}</span>
@@ -214,10 +231,10 @@ export default function AppLayout() {
               
               <div className="hidden md:block text-left">
                 <p className="text-sm font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition-colors max-w-[140px] truncate">
-                  {user?.full_name || (isParent ? "Ibu Bapa" : "Pelajar")}
+                  {displayProfileName}
                 </p>
                 <p className="text-[10px] text-orange-600 font-bold uppercase tracking-wide">
-                  {hasActiveChildSession ? "Mod Anak" : (user?.app_role || "User")}
+                  {isParent && hasActiveChildSession ? "Mod Anak" : (user?.app_role || "User")}
                 </p>
               </div>
             </Link>
