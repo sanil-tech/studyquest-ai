@@ -10,9 +10,15 @@ import {
   Loader2,
   Sparkles,
   Trophy,
-  Play
+  Play,
+  Bot,
+  Send,
+  X,
+  MessageSquare,
+  HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 
@@ -279,6 +285,15 @@ export default function LessonPage() {
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [savedQuizProgress, setSavedQuizProgress] = useState(null);
+
+  // Gemini AI Tutor Helper State
+  const [aiHelperOpen, setAiHelperOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { role: "assistant", content: "Hai! Saya Aki Tutor AI 🤖. Ada bahagian topik ini yang anda kurang faham? Bolehkah saya bantu terangkan?" }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatScrollRef = useRef(null);
   
   const studyStartRef = useRef(null);
   const sessionRef = useRef(null);
@@ -286,6 +301,13 @@ export default function LessonPage() {
   useEffect(() => { 
     sessionRef.current = sessionId; 
   }, [sessionId]);
+
+  // Auto scroll AI chat
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, aiHelperOpen]);
 
   const isTopicUnlocked = useMemo(() => (
     progressState.quiz_completed || (
@@ -581,6 +603,53 @@ export default function LessonPage() {
     window.speechSynthesis.speak(sebutan);
   };
 
+  // ==========================================
+  // GEMINI AI LESSON HELPER FUNCTION
+  // ==========================================
+  const handleSendAiQuestion = async (queryText) => {
+    const textToSend = queryText || chatInput;
+    if (!textToSend.trim() || chatLoading) return;
+
+    const userMessage = { role: "user", content: textToSend };
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatInput("");
+    setChatLoading(true);
+
+    try {
+      const promptContext = `
+Aktiviti: Anda adalah Aki Tutor AI, tutor peribadi ramah untuk kanak-kanak sekolah dalam projek StudyQuest.
+Subjek: ${subject?.name || "Pelajaran"}
+Topik Misi: ${topic?.name || "Modul"}
+Ringkasan Nota Misi:
+${notesContent ? notesContent.substring(0, 1000) : "Tiada nota tambahan"}
+
+Soalan Pelajar: "${textToSend}"
+
+Arahan:
+1. Berikan jawapan ringkas, mesra, mudah difahami oleh murid sekolah rendah/menengah.
+2. Gunakan Bahasa Melayu yang sopan, berserta emoji yang menarik!
+3. Jika ditanya soalan berkaitan topik, beri penjelasan pendek berserta 1 contoh.
+      `;
+
+      const response = await base44.integrations.Core.InvokeLLM({
+        model: "gemini_3_flash",
+        prompt: promptContext,
+      });
+
+      const aiText = typeof response === "string" ? response : response?.text || "Maaf, Aki sedang fikir jawapan lain. Boleh tanya lagi sekali?";
+
+      setChatMessages((prev) => [...prev, { role: "assistant", content: aiText }]);
+    } catch (err) {
+      console.error("Gagal mendapatkan respon AI:", err);
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "⚠️ Maaf, talian Aki terganggu sekejap. Sila cuba hantar soalan sekali lagi!" }
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAF8F5]">
@@ -590,7 +659,7 @@ export default function LessonPage() {
   }
 
   return (
-    <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAF8F5] min-h-screen">
+    <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAF8F5] min-h-screen relative">
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border-2 border-emerald-600/30 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -623,7 +692,7 @@ export default function LessonPage() {
       <AnimatePresence mode="wait">
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <LessonProgress flashcard: lesson: mindmap: onStepClick="{(key)" progressState.flashcard_completed, progressState.lesson_completed, progressState.mindmap_completed, progressState.quiz_completed progressState.video_completed, quiz: steps="{{" video: }}> { 
+            <LessonProgress flashcard: lesson: mindmap: onStepClick="{(key)" progressState.flashcard_completed, progressState.lesson_completed, progressState.mindmap_completed, progressState.quiz_completed, progressState.video_completed, quiz: steps="{{" video: }}> { 
                 if (key === "video") setActiveTab("video"); 
                 if (key === "lesson") setActiveTab("lesson"); 
                 if (key === "flashcard") loadFlashcardsOnDemand(); 
@@ -718,6 +787,110 @@ export default function LessonPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ========================================== */}
+      {/* FLOATING GEMINI AI TUTOR TRIGGER BUTTON    */}
+      {/* ========================================== */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setAiHelperOpen(true)}
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 border-2 border-white z-40"
+      >
+        <Bot className="w-6 h-6 animate-pulse"/>
+        <span className="font-black text-xs hidden sm:inline">Tanya Aki AI 🤖</span>
+      </motion.button>
+
+      {/* GEMINI AI LESSON HELPER DIALOG */}
+      <Dialog onOpenChange="{setAiHelperOpen}" open="{aiHelperOpen}">
+        <DialogContent className="sm:max-w-md rounded-3xl p-0 overflow-hidden bg-slate-900 border-slate-800 text-white">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+                <Bot className="w-6 h-6 text-yellow-300"/>
+              </div>
+              <div>
+                <h3 className="font-black text-sm text-white flex items-center gap-1">
+                  Aki Tutor AI ✨
+                </h3>
+                <p className="text-[10px] text-white/80 font-medium truncate max-w-[200px]">
+                  Pembantu Topik: {topic?.name || "Modul Pelajaran"}
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setAiHelperOpen(false)} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
+              <X className="w-5 h-5 text-white/80"/>
+            </button>
+          </div>
+
+          {/* Chat Body */}
+          <div ref={chatScrollRef} className="p-4 space-y-3 h-80 overflow-y-auto bg-slate-950/60">
+            {chatMessages.map((msg, index) => (
+              <div
+                key={index}
+                className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {msg.role === "assistant" && (
+                  <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center shrink-0 mt-0.5 text-xs">
+                    🤖
+                  </div>
+                )}
+                <div
+                  className={`p-3 rounded-2xl text-xs max-w-[80%] font-medium leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-indigo-600 text-white rounded-br-none"
+                      : "bg-slate-800 text-slate-200 border border-slate-700/80 rounded-bl-none"
+                  }`}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+
+            {chatLoading && (
+              <div className="flex gap-2 justify-start items-center text-slate-400 text-xs italic">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-400"/>
+                <span>Aki sedang berfikir...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Prompt Suggestion Chips */}
+          <div className="px-3 py-2 bg-slate-900 border-t border-slate-800 flex gap-1.5 overflow-x-auto text-[10px]">
+            <button
+              onClick={() => handleSendAiQuestion("Boleh terangkan topik ini secara ringkas?")}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-700"
+            >
+              💡 Terangkan Ringkas
+            </button>
+            <button
+              onClick={() => handleSendAiQuestion("Beri saya 1 contoh mudah berkaitan nota ini.")}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-700"
+            >
+              📝 Beri Contoh
+            </button>
+          </div>
+
+          {/* Input Footer */}
+          <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSendAiQuestion()}
+              placeholder="Tanya soalan mengenai nota..."
+              className="flex-1 bg-slate-800 text-white text-xs rounded-xl px-3 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
+            />
+            <Button onClick="{()"> handleSendAiQuestion()}
+              disabled={!chatInput.trim() || chatLoading}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-10 px-3 disabled:opacity-40"
+            >
+              <Send className="w-4 h-4"/>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
