@@ -10,15 +10,9 @@ import {
   Loader2,
   Sparkles,
   Trophy,
-  Play,
-  Bot,
-  Send,
-  X,
-  MessageSquare,
-  HelpCircle
+  Play
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 
@@ -204,14 +198,17 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     return (
       <div className="p-8 text-center bg-amber-50/60 border-2 border-dashed border-amber-300 rounded-2xl shadow-sm">
         <p className="text-amber-900 font-black text-xs sm:text-sm">🎬 Pautan video YouTube belum disediakan untuk modul ini.</p>
-        <Button className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-4 shadow-[0_4px_0_#b45309] active:translate-y-1 active:shadow-none transition-all" onClick="{onCompleted}">
+        <Button 
+          onClick={onCompleted} 
+          className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-4 shadow-[0_4px_0_#b45309] active:translate-y-1 active:shadow-none transition-all"
+        >
           Teruskan Misi Kembara! 🚀
         </Button>
       </div>
     );
   }
 
-  const secureEmbedUrl = `[https://www.youtube.com/embed/$](https://www.youtube.com/embed/$){videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+  const secureEmbedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
 
   return (
     <div className="space-y-4 w-full">
@@ -227,7 +224,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
       {isCompleted ? (
         <div className="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0"/>
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <span className="font-black text-emerald-900 text-xs sm:text-sm">Anda telah menonton video taklimat ini! 🍃</span>
           </div>
           <div className="bg-lime-400 px-3 py-1.5 rounded-lg text-emerald-950 font-black text-xs shrink-0 border border-emerald-500">+10 XP Padu! 🔥</div>
@@ -235,10 +232,13 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
       ) : (
         <div className="bg-stone-900 border-2 border-stone-800 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
           <p className="text-xs text-stone-200 font-bold flex items-center gap-2">
-            <Tv className="w-5 h-5 text-emerald-400 animate-pulse shrink-0"/> 
+            <Tv className="w-5 h-5 text-emerald-400 animate-pulse shrink-0" /> 
             Klik butang untuk tuntut ganjaran setelah selesai menonton!
           </p>
-          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl px-5 h-11 shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none transition-all" onClick="{onCompleted}">
+          <Button 
+            onClick={onCompleted} 
+            className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl px-5 h-11 shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none transition-all"
+          >
             Selesai & Ambil +10 XP 🔥
           </Button>
         </div>
@@ -285,15 +285,6 @@ export default function LessonPage() {
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [savedQuizProgress, setSavedQuizProgress] = useState(null);
-
-  // Gemini AI Tutor Helper State
-  const [aiHelperOpen, setAiHelperOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    { role: "assistant", content: "Hai! Saya Aki Tutor AI 🤖. Ada bahagian topik ini yang anda kurang faham? Bolehkah saya bantu terangkan?" }
-  ]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const chatScrollRef = useRef(null);
   
   const studyStartRef = useRef(null);
   const sessionRef = useRef(null);
@@ -301,13 +292,6 @@ export default function LessonPage() {
   useEffect(() => { 
     sessionRef.current = sessionId; 
   }, [sessionId]);
-
-  // Auto scroll AI chat
-  useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-    }
-  }, [chatMessages, aiHelperOpen]);
 
   const isTopicUnlocked = useMemo(() => (
     progressState.quiz_completed || (
@@ -420,6 +404,7 @@ export default function LessonPage() {
 
   const triggerConfetti = () => confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
 
+  // FIXED: updateStageProgress now handles side-effects outside state reducer
   const updateStageProgress = useCallback(async (stageId, nextStage, xpAwarded) => {
     let currentSessionId = sessionRef.current;
     let nextState;
@@ -603,68 +588,21 @@ export default function LessonPage() {
     window.speechSynthesis.speak(sebutan);
   };
 
-  // ==========================================
-  // GEMINI AI LESSON HELPER FUNCTION
-  // ==========================================
-  const handleSendAiQuestion = async (queryText) => {
-    const textToSend = queryText || chatInput;
-    if (!textToSend.trim() || chatLoading) return;
-
-    const userMessage = { role: "user", content: textToSend };
-    setChatMessages((prev) => [...prev, userMessage]);
-    setChatInput("");
-    setChatLoading(true);
-
-    try {
-      const promptContext = `
-Aktiviti: Anda adalah Aki Tutor AI, tutor peribadi ramah untuk kanak-kanak sekolah dalam projek StudyQuest.
-Subjek: ${subject?.name || "Pelajaran"}
-Topik Misi: ${topic?.name || "Modul"}
-Ringkasan Nota Misi:
-${notesContent ? notesContent.substring(0, 1000) : "Tiada nota tambahan"}
-
-Soalan Pelajar: "${textToSend}"
-
-Arahan:
-1. Berikan jawapan ringkas, mesra, mudah difahami oleh murid sekolah rendah/menengah.
-2. Gunakan Bahasa Melayu yang sopan, berserta emoji yang menarik!
-3. Jika ditanya soalan berkaitan topik, beri penjelasan pendek berserta 1 contoh.
-      `;
-
-      const response = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_3_flash",
-        prompt: promptContext,
-      });
-
-      const aiText = typeof response === "string" ? response : response?.text || "Maaf, Aki sedang fikir jawapan lain. Boleh tanya lagi sekali?";
-
-      setChatMessages((prev) => [...prev, { role: "assistant", content: aiText }]);
-    } catch (err) {
-      console.error("Gagal mendapatkan respon AI:", err);
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "⚠️ Maaf, talian Aki terganggu sekejap. Sila cuba hantar soalan sekali lagi!" }
-      ]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAF8F5]">
-        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin"/>
+        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAF8F5] min-h-screen relative">
+    <div className="px-3 py-4 max-w-4xl mx-auto space-y-5 pb-24 font-sans bg-[#FAF8F5] min-h-screen">
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border-2 border-emerald-600/30 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-700 hover:bg-[#E3D9C6] transition-all" to="{`/study/${subjectId}`}">
-              <ArrowLeft className="w-4 h-4"/>
+            <Link to={`/study/${subjectId}`} className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-700 hover:bg-[#E3D9C6] transition-all">
+              <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
               <h2 className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">{subject?.name}</h2>
@@ -672,7 +610,7 @@ Arahan:
             </div>
           </div>
           <div className="bg-gradient-to-r from-amber-400 to-emerald-500 px-4 py-2 rounded-xl text-white font-black text-xs shadow-sm">
-            <Leaf className="w-4 h-4 inline mr-1"/> {progressState.xp_earned} XP
+            <Leaf className="w-4 h-4 inline mr-1" /> {progressState.xp_earned} XP
           </div>
         </div>
       ) : (
@@ -684,7 +622,7 @@ Arahan:
             🚪 Keluar Mod Fokus
           </button>
           <span className="text-[11px] font-black uppercase text-amber-400 flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5"/> Mod Fokus Aktif
+            <Sparkles className="w-3.5 h-3.5" /> Mod Fokus Aktif
           </span>
         </div>
       )}
@@ -692,7 +630,15 @@ Arahan:
       <AnimatePresence mode="wait">
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <LessonProgress flashcard: lesson: mindmap: onStepClick="{(key)" progressState.flashcard_completed, progressState.lesson_completed, progressState.mindmap_completed, progressState.quiz_completed progressState.video_completed, quiz: steps="{{" video: }}> { 
+            <LessonProgress 
+              steps={{ 
+                video: progressState.video_completed, 
+                lesson: progressState.lesson_completed, 
+                flashcard: progressState.flashcard_completed, 
+                mindmap: progressState.mindmap_completed, 
+                quiz: progressState.quiz_completed 
+              }} 
+              onStepClick={(key) => { 
                 if (key === "video") setActiveTab("video"); 
                 if (key === "lesson") setActiveTab("lesson"); 
                 if (key === "flashcard") loadFlashcardsOnDemand(); 
@@ -706,9 +652,9 @@ Arahan:
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <h3 className="text-sm font-black text-stone-800">🎬 Langkah 1: Taklimat Video</h3>
-            <YouTubeLesson isCompleted="{progressState.video_completed}" onCompleted="{handleVideoStageCompleted}" topic?.video_url} videoUrl="{videoUrl" ||/>
+            <YouTubeLesson videoUrl={videoUrl || topic?.video_url} isCompleted={progressState.video_completed} onCompleted={handleVideoStageCompleted} />
             {progressState.video_completed && (
-              <Button onClick="{()"> setActiveTab("map")} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+              <Button onClick={() => setActiveTab("map")} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
                 Kembali ke Peta 🗺️
               </Button>
             )}
@@ -720,7 +666,7 @@ Arahan:
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-stone-800">📜 Langkah 2: Nota Khazanah</h3>
               {notesContent && (
-                <Button onClick="{()"> urusSuaraNota(notesContent)} className={`h-9 px-4 rounded-xl font-black text-xs ${isSpeaking ? "bg-red-500 text-white" : "bg-amber-400 text-stone-900"}`}>
+                <Button onClick={() => urusSuaraNota(notesContent)} className={`h-9 px-4 rounded-xl font-black text-xs ${isSpeaking ? "bg-red-500 text-white" : "bg-amber-400 text-stone-900"}`}>
                   {isSpeaking ? "🛑 Berhenti" : "🔊 Baca Nota"}
                 </Button>
               )}
@@ -729,7 +675,7 @@ Arahan:
               {notesImage && <img src={notesImage} className="w-full max-w-sm mx-auto rounded-xl mb-5 shadow-sm" alt="Nota" />}
               <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} />
             </div>
-            <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl" onClick="{handleLessonStageCompleted}">
+            <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
               Selesai Hadam Nota! 🎒
             </Button>
           </motion.div>
@@ -738,8 +684,8 @@ Arahan:
         {activeTab === "flashcard" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <h3 className="text-sm font-black text-stone-800">⚡ Langkah 3: Kad Kilat</h3>
-            <Flashcards []} flashcards="{flashcards" ||/>
-            <Button onClick="{()"> updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+            <Flashcards flashcards={flashcards || []} />
+            <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
               Selesai Ulangkaji! 🚀
             </Button>
           </motion.div>
@@ -752,10 +698,10 @@ Arahan:
               {infographicUrl ? (
                 <img src={infographicUrl} alt="Mindmap" className="max-h-[50vh] object-contain rounded-lg" />
               ) : (
-                <MindMap "Utama", [] branches: central_topic: mindMap topic?.name || }}/>
+                <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} />
               )}
             </div>
-            <Button onClick="{()"> updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+            <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
               Teruskan ke Kuiz! ⚔️
             </Button>
           </motion.div>
@@ -763,132 +709,30 @@ Arahan:
 
         {activeTab === "quiz" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-2xl p-6 border-2 border-amber-300 shadow-md text-center">
-            <Trophy className="w-10 h-10 text-orange-500 mx-auto mb-4 animate-bounce"/>
+            <Trophy className="w-10 h-10 text-orange-500 mx-auto mb-4 animate-bounce" />
             <h3 className="text-lg font-black text-stone-900 mb-2">⚔️ Cabaran Boss Padu</h3>
             <p className="text-xs text-stone-700 font-bold mb-6">Sedia membuktikan ilmu anda? Pilih tahap cabaran anda!</p>
             
             {savedQuizProgress && (
               <div className="mb-6 p-4 bg-white/60 border-2 border-emerald-400 border-dashed rounded-xl">
                 <p className="text-xs font-black text-emerald-800 mb-3">Misi sebelumnya dikesan!</p>
-                <Button onClick="{()"> runQuizGeneration(savedQuizProgress.limit, true)} className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl flex items-center justify-center gap-2">
-                  <Play className="w-4 h-4 fill-white"/> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
+                <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, true)} className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl flex items-center justify-center gap-2">
+                  <Play className="w-4 h-4 fill-white" /> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
                 </Button>
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Button onClick="{()"> runQuizGeneration(10)} disabled={status.quiz} className="h-14 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
+              <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="h-14 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
                 {status.quiz ? "Menyediakan..." : "⚡ Misi Kilat (10 Soalan)"}
               </Button>
-              <Button onClick="{()"> runQuizGeneration(20)} disabled={status.quiz} className="h-14 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
+              <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="h-14 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
                 {status.quiz ? "Menyediakan..." : "⚔️ Lawan Boss (20 Soalan)"}
               </Button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* FLOATING GEMINI AI TUTOR TRIGGER BUTTON */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setAiHelperOpen(true)}
-        className="fixed bottom-6 right-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 border-2 border-white z-40"
-      >
-        <Bot className="w-6 h-6 animate-pulse"/>
-        <span className="font-black text-xs hidden sm:inline">Tanya Aki AI 🤖</span>
-      </motion.button>
-
-      {/* GEMINI AI LESSON HELPER DIALOG */}
-      <Dialog onOpenChange="{setAiHelperOpen}" open="{aiHelperOpen}">
-        <DialogContent className="sm:max-w-md rounded-3xl p-0 overflow-hidden bg-slate-900 border-slate-800 text-white">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                <Bot className="w-6 h-6 text-yellow-300"/>
-              </div>
-              <div>
-                <h3 className="font-black text-sm text-white flex items-center gap-1">
-                  Aki Tutor AI ✨
-                </h3>
-                <p className="text-[10px] text-white/80 font-medium truncate max-w-[200px]">
-                  Pembantu Topik: {topic?.name || "Modul Pelajaran"}
-                </p>
-              </div>
-            </div>
-            <button onClick={() => setAiHelperOpen(false)} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
-              <X className="w-5 h-5 text-white/80"/>
-            </button>
-          </div>
-
-          {/* Chat Body */}
-          <div ref={chatScrollRef} className="p-4 space-y-3 h-80 overflow-y-auto bg-slate-950/60">
-            {chatMessages.map((msg, index) => (
-              <div
-                key={index}
-                className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center shrink-0 mt-0.5 text-xs">
-                    🤖
-                  </div>
-                )}
-                <div
-                  className={`p-3 rounded-2xl text-xs max-w-[80%] font-medium leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-indigo-600 text-white rounded-br-none"
-                      : "bg-slate-800 text-slate-200 border border-slate-700/80 rounded-bl-none"
-                  }`}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-
-            {chatLoading && (
-              <div className="flex gap-2 justify-start items-center text-slate-400 text-xs italic">
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-400"/>
-                <span>Aki sedang berfikir...</span>
-              </div>
-            )}
-          </div>
-
-          {/* Prompt Suggestion Chips */}
-          <div className="px-3 py-2 bg-slate-900 border-t border-slate-800 flex gap-1.5 overflow-x-auto text-[10px]">
-            <button
-              onClick={() => handleSendAiQuestion("Boleh terangkan topik ini secara ringkas?")}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-700"
-            >
-              💡 Terangkan Ringkas
-            </button>
-            <button
-              onClick={() => handleSendAiQuestion("Beri saya 1 contoh mudah berkaitan nota ini.")}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2.5 py-1 rounded-full whitespace-nowrap border border-slate-700"
-            >
-              📝 Beri Contoh
-            </button>
-          </div>
-
-          {/* Input Footer */}
-          <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSendAiQuestion()}
-              placeholder="Tanya soalan mengenai nota..."
-              className="flex-1 bg-slate-800 text-white text-xs rounded-xl px-3 py-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500"
-            />
-            <Button onClick="{()"> handleSendAiQuestion()}
-              disabled={!chatInput.trim() || chatLoading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-10 px-3 disabled:opacity-40"
-            >
-              <Send className="w-4 h-4"/>
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
