@@ -198,17 +198,14 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     return (
       <div className="p-8 text-center bg-amber-50/60 border-2 border-dashed border-amber-300 rounded-2xl shadow-sm">
         <p className="text-amber-900 font-black text-xs sm:text-sm">🎬 Pautan video YouTube belum disediakan untuk modul ini.</p>
-        <Button 
-          onClick={onCompleted} 
-          className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-4 shadow-[0_4px_0_#b45309] active:translate-y-1 active:shadow-none transition-all"
-        >
+        <Button className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-xl px-5 py-2.5 text-xs mt-4 shadow-[0_4px_0_#b45309] active:translate-y-1 active:shadow-none transition-all" onClick="{onCompleted}">
           Teruskan Misi Kembara! 🚀
         </Button>
       </div>
     );
   }
 
-  const secureEmbedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+  const secureEmbedUrl = `[https://www.youtube.com/embed/$](https://www.youtube.com/embed/$){videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
 
   return (
     <div className="space-y-4 w-full">
@@ -224,7 +221,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
       {isCompleted ? (
         <div className="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0"/>
             <span className="font-black text-emerald-900 text-xs sm:text-sm">Anda telah menonton video taklimat ini! 🍃</span>
           </div>
           <div className="bg-lime-400 px-3 py-1.5 rounded-lg text-emerald-950 font-black text-xs shrink-0 border border-emerald-500">+10 XP Padu! 🔥</div>
@@ -232,13 +229,10 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
       ) : (
         <div className="bg-stone-900 border-2 border-stone-800 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
           <p className="text-xs text-stone-200 font-bold flex items-center gap-2">
-            <Tv className="w-5 h-5 text-emerald-400 animate-pulse shrink-0" /> 
+            <Tv className="w-5 h-5 text-emerald-400 animate-pulse shrink-0"/> 
             Klik butang untuk tuntut ganjaran setelah selesai menonton!
           </p>
-          <Button 
-            onClick={onCompleted} 
-            className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl px-5 h-11 shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none transition-all"
-          >
+          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-xl px-5 h-11 shadow-[0_4px_0_#047857] active:translate-y-1 active:shadow-none transition-all" onClick="{onCompleted}">
             Selesai & Ambil +10 XP 🔥
           </Button>
         </div>
@@ -404,7 +398,6 @@ export default function LessonPage() {
 
   const triggerConfetti = () => confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
 
-  // FIXED: updateStageProgress now handles side-effects outside state reducer
   const updateStageProgress = useCallback(async (stageId, nextStage, xpAwarded) => {
     let currentSessionId = sessionRef.current;
     let nextState;
@@ -591,7 +584,7 @@ export default function LessonPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] bg-[#FAF8F5]">
-        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin"/>
       </div>
     );
   }
@@ -601,8 +594,8 @@ export default function LessonPage() {
       {activeTab === "map" ? (
         <div className="bg-white rounded-2xl p-4 border-2 border-emerald-600/30 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to={`/study/${subjectId}`} className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-700 hover:bg-[#E3D9C6] transition-all">
-              <ArrowLeft className="w-4 h-4" />
+            <Link className="p-2.5 bg-[#F3EFE6] rounded-xl text-stone-700 hover:bg-[#E3D9C6] transition-all" to="{`/study/${subjectId}`}">
+              <ArrowLeft className="w-4 h-4"/>
             </Link>
             <div>
               <h2 className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">{subject?.name}</h2>
@@ -610,7 +603,7 @@ export default function LessonPage() {
             </div>
           </div>
           <div className="bg-gradient-to-r from-amber-400 to-emerald-500 px-4 py-2 rounded-xl text-white font-black text-xs shadow-sm">
-            <Leaf className="w-4 h-4 inline mr-1" /> {progressState.xp_earned} XP
+            <Leaf className="w-4 h-4 inline mr-1"/> {progressState.xp_earned} XP
           </div>
         </div>
       ) : (
@@ -622,7 +615,7 @@ export default function LessonPage() {
             🚪 Keluar Mod Fokus
           </button>
           <span className="text-[11px] font-black uppercase text-amber-400 flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5" /> Mod Fokus Aktif
+            <Sparkles className="w-3.5 h-3.5"/> Mod Fokus Aktif
           </span>
         </div>
       )}
@@ -630,15 +623,7 @@ export default function LessonPage() {
       <AnimatePresence mode="wait">
         {activeTab === "map" && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-            <LessonProgress 
-              steps={{ 
-                video: progressState.video_completed, 
-                lesson: progressState.lesson_completed, 
-                flashcard: progressState.flashcard_completed, 
-                mindmap: progressState.mindmap_completed, 
-                quiz: progressState.quiz_completed 
-              }} 
-              onStepClick={(key) => { 
+            <LessonProgress flashcard: lesson: mindmap: onStepClick="{(key)" progressState.flashcard_completed, progressState.lesson_completed, progressState.mindmap_completed, progressState.quiz_completed progressState.video_completed, quiz: steps="{{" video: }}> { 
                 if (key === "video") setActiveTab("video"); 
                 if (key === "lesson") setActiveTab("lesson"); 
                 if (key === "flashcard") loadFlashcardsOnDemand(); 
@@ -652,9 +637,9 @@ export default function LessonPage() {
         {activeTab === "video" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <h3 className="text-sm font-black text-stone-800">🎬 Langkah 1: Taklimat Video</h3>
-            <YouTubeLesson videoUrl={videoUrl || topic?.video_url} isCompleted={progressState.video_completed} onCompleted={handleVideoStageCompleted} />
+            <YouTubeLesson isCompleted="{progressState.video_completed}" onCompleted="{handleVideoStageCompleted}" topic?.video_url} videoUrl="{videoUrl" ||/>
             {progressState.video_completed && (
-              <Button onClick={() => setActiveTab("map")} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+              <Button onClick="{()"> setActiveTab("map")} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
                 Kembali ke Peta 🗺️
               </Button>
             )}
@@ -666,7 +651,7 @@ export default function LessonPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-stone-800">📜 Langkah 2: Nota Khazanah</h3>
               {notesContent && (
-                <Button onClick={() => urusSuaraNota(notesContent)} className={`h-9 px-4 rounded-xl font-black text-xs ${isSpeaking ? "bg-red-500 text-white" : "bg-amber-400 text-stone-900"}`}>
+                <Button onClick="{()"> urusSuaraNota(notesContent)} className={`h-9 px-4 rounded-xl font-black text-xs ${isSpeaking ? "bg-red-500 text-white" : "bg-amber-400 text-stone-900"}`}>
                   {isSpeaking ? "🛑 Berhenti" : "🔊 Baca Nota"}
                 </Button>
               )}
@@ -675,7 +660,7 @@ export default function LessonPage() {
               {notesImage && <img src={notesImage} className="w-full max-w-sm mx-auto rounded-xl mb-5 shadow-sm" alt="Nota" />}
               <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} />
             </div>
-            <Button onClick={handleLessonStageCompleted} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+            <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl" onClick="{handleLessonStageCompleted}">
               Selesai Hadam Nota! 🎒
             </Button>
           </motion.div>
@@ -684,8 +669,8 @@ export default function LessonPage() {
         {activeTab === "flashcard" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl p-5 border-2 border-stone-200 shadow-md space-y-4">
             <h3 className="text-sm font-black text-stone-800">⚡ Langkah 3: Kad Kilat</h3>
-            <Flashcards flashcards={flashcards || []} />
-            <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+            <Flashcards []} flashcards="{flashcards" ||/>
+            <Button onClick="{()"> updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
               Selesai Ulangkaji! 🚀
             </Button>
           </motion.div>
@@ -698,10 +683,10 @@ export default function LessonPage() {
               {infographicUrl ? (
                 <img src={infographicUrl} alt="Mindmap" className="max-h-[50vh] object-contain rounded-lg" />
               ) : (
-                <MindMap mindMap={{ central_topic: topic?.name || "Utama", branches: mindMap || [] }} />
+                <MindMap "Utama", [] branches: central_topic: mindMap topic?.name || }}/>
               )}
             </div>
-            <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
+            <Button onClick="{()"> updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl">
               Teruskan ke Kuiz! ⚔️
             </Button>
           </motion.div>
@@ -709,24 +694,24 @@ export default function LessonPage() {
 
         {activeTab === "quiz" && (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-2xl p-6 border-2 border-amber-300 shadow-md text-center">
-            <Trophy className="w-10 h-10 text-orange-500 mx-auto mb-4 animate-bounce" />
+            <Trophy className="w-10 h-10 text-orange-500 mx-auto mb-4 animate-bounce"/>
             <h3 className="text-lg font-black text-stone-900 mb-2">⚔️ Cabaran Boss Padu</h3>
             <p className="text-xs text-stone-700 font-bold mb-6">Sedia membuktikan ilmu anda? Pilih tahap cabaran anda!</p>
             
             {savedQuizProgress && (
               <div className="mb-6 p-4 bg-white/60 border-2 border-emerald-400 border-dashed rounded-xl">
                 <p className="text-xs font-black text-emerald-800 mb-3">Misi sebelumnya dikesan!</p>
-                <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, true)} className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl flex items-center justify-center gap-2">
-                  <Play className="w-4 h-4 fill-white" /> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
+                <Button onClick="{()"> runQuizGeneration(savedQuizProgress.limit, true)} className="w-full h-12 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-xl flex items-center justify-center gap-2">
+                  <Play className="w-4 h-4 fill-white"/> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
                 </Button>
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Button onClick={() => runQuizGeneration(10)} disabled={status.quiz} className="h-14 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
+              <Button onClick="{()"> runQuizGeneration(10)} disabled={status.quiz} className="h-14 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
                 {status.quiz ? "Menyediakan..." : "⚡ Misi Kilat (10 Soalan)"}
               </Button>
-              <Button onClick={() => runQuizGeneration(20)} disabled={status.quiz} className="h-14 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
+              <Button onClick="{()"> runQuizGeneration(20)} disabled={status.quiz} className="h-14 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl shadow-md transition-transform active:scale-95">
                 {status.quiz ? "Menyediakan..." : "⚔️ Lawan Boss (20 Soalan)"}
               </Button>
             </div>
