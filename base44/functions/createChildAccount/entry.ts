@@ -1,11 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Salted PIN hash helper
 const hashPin = (pin: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 };
 
-// Generate unique Student ID (SQ-XXXXXX)
 const generateStudentId = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = 'SQ-';
@@ -31,7 +29,6 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
 
-    // 1. Verify parent session
     const authUser = await base44.auth.me().catch(() => null);
     if (!authUser || !authUser.id) {
       return Response.json(
@@ -61,14 +58,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Generate unique student credentials
     const cleanNick = nickname.toLowerCase().replace(/[^a-z0-9]/g, "") || "student";
     const randomDigits = Math.floor(1000 + Math.random() * 9000);
     const generatedUsername = `${cleanNick}_${randomDigits}`;
     const studentId = generateStudentId();
     const virtualEmail = `${cleanNick}.${parent.id.substring(0, 6)}.${randomDigits}@studyquest.com`;
 
-    // 3. Create student User entity via Service Role
+    // Create Student User record via Service Role
     const newStudent = await db.entities.User.create({
       app_role: "student",
       email: virtualEmail,
@@ -101,7 +97,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Create active ParentChildRelationship
+    // Link records creation
     await db.entities.ParentChildRelationship.create({
       parent_id: parent.id,
       child_id: newStudent.id,
@@ -110,7 +106,6 @@ Deno.serve(async (req) => {
       linked_at: new Date().toISOString()
     }).catch(() => null);
 
-    // 5. Create approved LinkRequest
     await db.entities.LinkRequest.create({
       student_id: newStudent.id,
       student_name: nickname,
@@ -123,7 +118,6 @@ Deno.serve(async (req) => {
       status: "approved"
     }).catch(() => null);
 
-    // 6. Update parent's linked_student_ids array
     const currentLinked = parent.linked_student_ids || [];
     if (!currentLinked.includes(newStudent.id)) {
       await db.entities.User.update(parent.id, {
@@ -131,7 +125,6 @@ Deno.serve(async (req) => {
       }).catch(() => null);
     }
 
-    // 7. Initialize Wallet & Progress entities
     await db.entities.Wallet.create({ student_id: newStudent.id, balance: 0 }).catch(() => null);
     await db.entities.Progress.create({
       student_id: newStudent.id,
