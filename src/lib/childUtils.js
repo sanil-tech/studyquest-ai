@@ -1,15 +1,34 @@
 import { base44 } from "@/api/base44Client";
 
-// Returns the best display name for a child: nickname → full_name → username → email → fallback
+// Returns the best display name for a child: nickname → full_name → username → email prefix → fallback
 export const getChildDisplayName = (child) => {
   if (!child) return "Pelajar";
-  return child.nickname || child.full_name || child.username || child.email || "Pelajar";
+
+  const nickname = typeof child.nickname === "string" ? child.nickname.trim() : "";
+  const fullName = typeof child.full_name === "string" ? child.full_name.trim() : "";
+  const username = typeof child.username === "string" ? child.username.trim() : "";
+  const email = typeof child.email === "string" ? child.email.trim() : "";
+
+  // Prioritize actual user-defined names
+  if (nickname && nickname !== "Pelajar" && nickname !== "Petualang Cilik") {
+    return nickname;
+  }
+  if (fullName && fullName !== "Pelajar") {
+    return fullName;
+  }
+  if (nickname) return nickname;
+  if (fullName) return fullName;
+  if (username) return username;
+  if (email && !email.includes("studyquest.com")) {
+    return email.split("@")[0];
+  }
+
+  return "Pelajar";
 };
 
-// Returns the best greeting name (same as display name, trimmed)
+// Returns the best greeting name
 export const getChildGreetingName = (child) => {
-  const name = getChildDisplayName(child);
-  return name;
+  return getChildDisplayName(child);
 };
 
 // Returns avatar: URL string for image avatars, emoji string for emoji avatars
@@ -77,7 +96,7 @@ export const loadChildrenWithStats = async () => {
 
         const localCache = cachedChildren[id] || {};
 
-        const nickname = childUser?.nickname || childUser?.full_name || localCache.nickname || localCache.full_name || "Pelajar";
+        const nickname = childUser?.nickname || localCache.nickname || childUser?.full_name || localCache.full_name || "Pelajar";
         const fullName = childUser?.full_name || localCache.full_name || "";
 
         let allSessions = [];
@@ -115,6 +134,7 @@ export const loadChildrenWithStats = async () => {
           profile_picture_url: childUser?.profile_picture_url || null,
           avatar_emoji: childUser?.avatar_emoji || localCache.avatar_emoji || "🦧",
           pin_hash: childUser?.pin_hash || localCache.child_login_pin || null,
+          child_login_pin: childUser?.child_login_pin || localCache.child_login_pin || null,
           login_enabled: childUser?.login_enabled !== false,
           gender: childUser?.gender || localCache.gender || "",
           date_of_birth: childUser?.date_of_birth || localCache.date_of_birth || "",
