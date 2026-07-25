@@ -43,49 +43,39 @@ Deno.serve(async (req) => {
     }
 
     const db = base44.asServiceRole || base44;
-    let matchedUser = null;
 
-    // 🔍 STAGE 1: Exact query by username
-    const byUsername = await db.entities.User.filter({ username: cleanInput }).catch(() => []);
-    if (byUsername.length > 0) matchedUser = byUsername[0];
+    // 1. Fetch all user entities via Service Role without restricted sort fields
+    const allUsers = await db.entities.User.filter({}).catch(() => []);
 
-    // 🔍 STAGE 2: Exact query by nickname
-    if (!matchedUser) {
-      const byNickname = await db.entities.User.filter({ nickname: rawInput }).catch(() => []);
-      if (byNickname.length > 0) matchedUser = byNickname[0];
-    }
+    // Extract prefix if user typed format like "corry_1204" -> "corry"
+    const basePrefix = cleanInput.includes("_") ? cleanInput.split("_")[0] : cleanInput;
 
-    // 🔍 STAGE 3: Extract base prefix before underscore (e.g. "corry_1204" -> "corry")
-    const basePrefix = cleanInput.split("_")[0];
-    if (!matchedUser && basePrefix) {
-      const byBaseNickname = await db.entities.User.filter({ nickname: basePrefix }).catch(() => []);
-      if (byBaseNickname.length > 0) matchedUser = byBaseNickname[0];
-    }
+    // 2. Multi-field search across username, nickname, full_name, student_id, email, and ID
+    const matchedUser = allUsers.find((u: any) => {
+      const uUsername = (u.username || "").toLowerCase();
+      const uNickname = (u.nickname || "").toLowerCase();
+      const uFullName = (u.full_name || "").toLowerCase();
+      const uStudentId = (u.student_id || "").toLowerCase();
+      const uEmail = (u.email || "").toLowerCase();
+      const uId = (u.id || "").toLowerCase();
 
-    // 🔍 STAGE 4: Student ID query (e.g. SQ-XXXXXX)
-    if (!matchedUser) {
-      const byStudentId = await db.entities.User.filter({ student_id: rawInput.toUpperCase() }).catch(() => []);
-      if (byStudentId.length > 0) matchedUser = byStudentId[0];
-    }
+      // Direct exact matches
+      if (uUsername === cleanInput) return true;
+      if (uNickname === cleanInput) return true;
+      if (uStudentId === cleanInput) return true;
+      if (uFullName === cleanInput) return true;
+      if (uEmail === cleanInput || uEmail.startsWith(`${cleanInput}@`)) return true;
+      if (uId === cleanInput || uId.startsWith(cleanInput)) return true;
 
-    // 🔍 STAGE 5: Smart fallback scan across all student records
-    if (!matchedUser) {
-      const allStudents = await db.entities.User.filter({ app_role: "student" }, "-created_at", 1000).catch(() => []);
-      matchedUser = allStudents.find((u: any) => {
-        const uUsername = (u.username || "").toLowerCase();
-        const uNickname = (u.nickname || "").toLowerCase();
-        const uFullName = (u.full_name || "").toLowerCase();
-        const uStudentId = (u.student_id || "").toLowerCase();
+      // Prefix matches (e.g. "corry_1204" matching nickname "corry" or full name "Corry Aileene Saniyil")
+      if (basePrefix && basePrefix.length >= 2) {
+        if (uNickname === basePrefix) return true;
+        if (uUsername.startsWith(`${basePrefix}_`)) return true;
+        if (uFullName.toLowerCase().startsWith(basePrefix)) return true;
+      }
 
-        return (
-          uUsername === cleanInput ||
-          uNickname === cleanInput ||
-          uFullName === cleanInput ||
-          uStudentId === cleanInput ||
-          (basePrefix && (uNickname === basePrefix || uUsername.startsWith(`${basePrefix}_`)))
-        );
-      }) || null;
-    }
+      return false;
+    });
 
     if (!matchedUser) {
       return Response.json(
@@ -96,7 +86,7 @@ Deno.serve(async (req) => {
 
     const user = matchedUser;
 
-    // Check account lockout status
+    // 3. Check account lockout status
     if (user.account_locked) {
       return Response.json(
         { success: false, error: "Akaun ini telah dikunci sementara. Sila minta ibu bapa anda untuk membuka semula kunci." },
@@ -104,55 +94,54 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify PIN or Password
+    // 4. Verify PIN or Password against multiple stored formats
     const hashedPin = hashPin(pinInput);
     const hashedPassword = hashPassword(pinInput);
 
     const isPinMatch = 
       (user.pin_hash && user.pin_hash === hashedPin) ||
       (user.pin_hash && user.pin_hash === pinInput) ||
-      (user.child_login_pin && user.child_login_pin === pinInput);
+      (user.child_login_pin && user.child_login_pin === pinInput) ||
+      (user.password_hash && user.password_hash === hashedPassword);
 
-    const isPasswordMatch = user.password_hash && user.password_hash === hashedPassword;
-
-    if (!isPinMatch && !isPasswordMatch) {
+    if (!isPinMatch) {
       const newFailedAttempts = (user.failed_login_attempts || 0) + 1;
       const shouldLock = newFailedAttempts >= 5;
 
       await db.entities.User.update(user.id, {
         failed_login_attempts: newFailedAttempts,
         account_locked: shouldLock,
-      });
+      }).catch(() => null);
 
       return Response.json(
         { 
           success: false,
           error: shouldLock 
-            ? "PIN/Kata laluan salah. Akaun dikunci kerana terlalu banyak percubaan." 
-            : "PIN atau Kata Laluan tidak sah. Sila cuba lagi." 
+            ? "PIN salah. Akaun dikunci kerana terlalu banyak percubaan." 
+            : "PIN 4-digit tidak sah. Sila cuba lagi." 
         },
         { status: 200, headers: resHeaders }
       );
     }
 
-    // Reset failed login attempts on successful authentication
+    // 5. Reset failed login attempts on successful login
     await db.entities.User.update(user.id, {
       failed_login_attempts: 0,
       account_locked: false,
       last_login_at: new Date().toISOString(),
-    });
+    }).catch(() => null);
 
     return Response.json(
       {
         success: true,
         user: {
           id: user.id,
-          username: user.username,
+          username: user.username || user.nickname || "student",
           student_id: user.student_id,
-          nickname: user.nickname,
+          nickname: user.nickname || user.full_name || "Pelajar",
           full_name: user.full_name,
-          profile_completed: user.profile_completed,
-          app_role: user.app_role,
+          profile_completed: user.profile_completed !== false,
+          app_role: user.app_role || "student",
           selected_avatar: user.selected_avatar,
           avatar_emoji: user.avatar_emoji,
         }
