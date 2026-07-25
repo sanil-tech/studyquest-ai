@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { hashPin, generateStudentId } from "@/lib/credentials";
 
-// Fun, colorful avatar options for children
 const AVATAR_OPTIONS = [
   { type: "emoji", value: "🦖", label: "Dino" },
   { type: "emoji", value: "🦊", label: "Fox" },
@@ -87,6 +85,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [createdStudentInfo, setCreatedStudentInfo] = useState(null);
   const { toast } = useToast();
 
   const [form, setForm] = useState({
@@ -125,6 +124,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
     setStep((s) => Math.min(s + 1, 2));
   };
 
+  // 🔥 REGISTER CHILD VIA BACKEND SERVER FUNCTION
   const handleRegisterChild = async () => {
     if (form.pin.length !== 4) {
       toast({ title: "PIN tidak sah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -133,108 +133,41 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
 
     setLoading(true);
     try {
-      const me = await base44.auth.me();
-      if (!me?.id) throw new Error("Sesi log masuk ibu bapa tidak ditemui.");
-
-      const cleanNickname = form.nickname.trim();
-      const studentFullName = form.fullName.trim() || cleanNickname;
-      const usernameMaya = `${cleanNickname.toLowerCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
-      const studentId = generateStudentId();
-      const isEmoji = !form.selectedAvatar.startsWith("http");
-
-      // Generate clean virtual email
-      const safeNick = cleanNickname.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "pengembara";
-      const safeParentId = me.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().substring(0, 6);
-      const randomSuffix = Math.random().toString(36).substring(2, 6);
-      const virtualEmail = `${safeNick}.${safeParentId}.${randomSuffix}@studyquest.com`;
-
-      // 1. Create student User entity
-      const newStudent = await base44.entities.User.create({
-        app_role: "student",
-        email: virtualEmail,
-        nickname: cleanNickname,
-        full_name: studentFullName,
-        username: usernameMaya,
-        student_id: studentId,
-        pin_hash: hashPin(form.pin),
-        child_login_pin: form.pin,
-        pin_enabled: true,
-        login_method: "both",
-        is_child_account: true,
-        profile_completed: true,
-        linked_parent_id: me.id,
-        selected_avatar: form.selectedAvatar,
-        avatar_emoji: isEmoji ? form.selectedAvatar : null,
-        date_of_birth: form.dateOfBirth || undefined,
-        gender: form.gender || undefined,
-        school_name: form.school.trim() || undefined,
-        education_level: form.grade || undefined,
-        preferred_language: form.language,
-        interests: form.interests,
-      });
-
-      if (!newStudent?.id) throw new Error("Pelayan gagal menjana ID Murid baharu.");
-
-      // 2. Create active ParentChildRelationship entry
-      await base44.entities.ParentChildRelationship.create({
-        parent_id: me.id,
-        child_id: newStudent.id,
-        relationship: "parent",
-        status: "active",
-        linked_at: new Date().toISOString(),
-      }).catch(() => null);
-
-      // 3. Create LinkRequest entry to store student_name permanently for client queries
-      await base44.entities.LinkRequest.create({
-        student_id: newStudent.id,
-        student_name: cleanNickname,
-        student_email: virtualEmail,
-        parent_id: me.id,
-        parent_email: me.email || "parent@studyquest.com",
-        parent_name: me.full_name || me.nickname || "Ibu Bapa",
-        initiated_by: "parent",
-        status: "approved",
-      }).catch(() => null);
-
-      // 4. Update parent's linked_student_ids array
-      const currentLinkedIds = me.linked_student_ids || [];
-      await base44.entities.User.update(me.id, {
-        linked_student_ids: [...currentLinkedIds, newStudent.id],
-      });
-
-      // 5. Cache child profile locally
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[newStudent.id] = {
-        id: newStudent.id,
-        nickname: cleanNickname,
-        full_name: studentFullName,
-        email: virtualEmail,
-        selected_avatar: form.selectedAvatar,
-        avatar_emoji: isEmoji ? form.selectedAvatar : null,
+      // Invoke backend edge function with service role database access
+      const response = await base44.functions.invoke("createChildAccount", {
+        nickname: form.nickname.trim(),
+        fullName: form.fullName.trim(),
+        pin: form.pin.trim(),
+        selectedAvatar: form.selectedAvatar,
+        dateOfBirth: form.dateOfBirth,
         gender: form.gender,
-        date_of_birth: form.dateOfBirth,
-        school_name: form.school.trim(),
-        education_level: form.grade,
-        preferred_language: form.language,
+        school: form.school.trim(),
+        grade: form.grade,
+        language: form.language,
         interests: form.interests,
-        username: usernameMaya,
-        student_id: studentId,
-        child_login_pin: form.pin,
+      });
+
+      if (!response.data?.success || !response.data?.student) {
+        throw new Error(response.data?.error || "Gagal menyimpan data anak ke pelayan.");
+      }
+
+      const createdStudent = response.data.student;
+      setCreatedStudentInfo(createdStudent);
+
+      // Save to local cache as backup
+      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+      cachedChildren[createdStudent.id] = {
+        id: createdStudent.id,
+        nickname: createdStudent.nickname,
+        full_name: createdStudent.full_name,
+        username: createdStudent.username,
+        student_id: createdStudent.student_id,
+        child_login_pin: createdStudent.child_login_pin,
+        selected_avatar: form.selectedAvatar,
       };
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
 
-      try {
-        await base44.entities.Wallet.create({ student_id: newStudent.id, balance: 0 });
-        await base44.entities.Progress.create({
-          student_id: newStudent.id,
-          total_xp: 0,
-          level: 1,
-          streak_days: 0,
-          total_study_time: 0,
-        });
-      } catch {}
-
-      if (typeof onChildAdded === "function") onChildAdded(newStudent);
+      if (typeof onChildAdded === "function") onChildAdded(createdStudent);
       setIsSuccess(true);
     } catch (err) {
       toast({
@@ -254,6 +187,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       dateOfBirth: "", gender: "", school: "", grade: "",
       language: "ms", interests: [], pin: "",
     });
+    setCreatedStudentInfo(null);
     setIsSuccess(false);
     onOpenChange(false);
   };
@@ -271,16 +205,24 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
               </div>
               <div>
                 <h3 className="text-lg font-black text-slate-800 tracking-tight">Profil Anak Berjaya Dicipta! 🎉</h3>
-                <p className="text-xs text-slate-400 font-medium mt-1">Akaun pelajar telah didaftarkan dengan selamat.</p>
+                <p className="text-xs text-slate-400 font-medium mt-1">Akaun telah didaftarkan secara kekal di dalam pangkalan data.</p>
               </div>
+              
               <div className="bg-gradient-to-br from-amber-50 to-orange-50/60 border border-orange-100 p-4 rounded-2xl text-left space-y-2 relative overflow-hidden">
                 <div className="absolute -right-6 -bottom-6 text-orange-200/40 font-black text-6xl select-none">{form.selectedAvatar}</div>
-                <div className="text-xs relative z-10">
+                <div className="text-xs relative z-10 space-y-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Petualang Cilik</p>
-                  <p className="font-black text-slate-700 text-base mt-0.5">{form.nickname}</p>
-                  {form.fullName && <p className="text-[10px] text-slate-400 mt-0.5">{form.fullName}</p>}
+                  <p className="font-black text-slate-700 text-base">{form.nickname}</p>
+                  
+                  {createdStudentInfo?.username && (
+                    <div className="flex justify-between items-center bg-white/80 p-1.5 rounded-lg border border-orange-100">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Username Login:</span>
+                      <span className="font-mono font-black text-indigo-600 text-xs">{createdStudentInfo.username}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-orange-100/80 relative z-10">
+
+                <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-orange-100/80 relative z-10 mt-2">
                   <div>
                     <p className="text-[9px] font-bold text-orange-500 uppercase tracking-wider flex items-center gap-0.5">
                       <Sparkles className="w-3 h-3 text-amber-500" /> PIN Portal Rahsia
@@ -289,6 +231,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
                   </div>
                 </div>
               </div>
+
               <Button onClick={handleCloseModal} className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs h-10">
                 Selesai & Tutup
               </Button>
@@ -326,7 +269,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
                       required
                       value={form.nickname}
                       onChange={(e) => updateForm("nickname", e.target.value)}
-                      placeholder="Contoh: Adam, Mia, corry"
+                      placeholder="Contoh: Adam, Mia, Corry"
                       className="w-full px-3 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:border-indigo-500 font-bold text-slate-700"
                     />
                   </div>
@@ -341,7 +284,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
                       type="text"
                       value={form.fullName}
                       onChange={(e) => updateForm("fullName", e.target.value)}
-                      placeholder="Contoh: Muhammad Adam bin Ali"
+                      placeholder="Contoh: Corry Aileene Saniyil"
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium text-slate-700"
                     />
                   </div>
