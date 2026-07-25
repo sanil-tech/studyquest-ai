@@ -45,7 +45,7 @@
     },
     "full_name": {
       "type": "string",
-      "description": "Full display name"
+      "description": "Full display name of the user"
     },
     "username": {
       "type": "string",
@@ -53,7 +53,7 @@
     },
     "child_login_pin": {
       "type": "string",
-      "description": "4-6 digit PIN for child login"
+      "description": "4-6 digit plain text PIN for child login"
     },
     "password_hash": {
       "type": "string",
@@ -61,7 +61,7 @@
     },
     "pin_hash": {
       "type": "string",
-      "description": "Hashed 4-6 digit PIN for younger children login"
+      "description": "Hashed 4-6 digit PIN for child login"
     },
     "pin_enabled": {
       "type": "boolean",
@@ -97,6 +97,35 @@
       "type": "boolean",
       "default": false,
       "description": "Whether this is a child account"
+    },
+    "status": {
+      "type": "string",
+      "default": "active",
+      "description": "Account status"
+    },
+    "school_name": {
+      "type": "string",
+      "description": "Name of school"
+    },
+    "education_level": {
+      "type": "string",
+      "description": "Education level"
+    },
+    "preferred_language": {
+      "type": "string",
+      "default": "ms",
+      "description": "Preferred learning language"
+    },
+    "interests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "profile_completed": {
+      "type": "boolean",
+      "default": true
     }
   },
   "required": [
