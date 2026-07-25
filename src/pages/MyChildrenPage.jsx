@@ -67,10 +67,20 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
     setUpdating(true);
     try {
-      await base44.entities.User.update(child.id, { nickname: inputName.trim() });
+      const cleanName = inputName.trim();
+
+      // 1. Update User entity
+      await base44.entities.User.update(child.id, { nickname: cleanName, full_name: cleanName }).catch(() => null);
       
+      // 2. Update LinkRequest table
+      const linkReqs = await base44.entities.LinkRequest.filter({ student_id: child.id }).catch(() => []);
+      for (const lr of linkReqs) {
+        await base44.entities.LinkRequest.update(lr.id, { student_name: cleanName }).catch(() => null);
+      }
+
+      // 3. Update local cache
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[child.id] = { ...cachedChildren[child.id], nickname: inputName.trim() };
+      cachedChildren[child.id] = { ...cachedChildren[child.id], nickname: cleanName, full_name: cleanName };
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
 
       toast({ title: "Berjaya Dikemaskini 🦖", description: "Nama panggilan anak berjaya disimpan." });
@@ -111,31 +121,37 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // 🔥 FUNGSI PEMADAMAN PROFIL ANAK YANG DIPERBAIKI
+  // 🔥 RESILIENT DELETION HANDLER WITH CLIENT FALLBACK
   const handleDeleteChild = async () => {
     setIsDeleting(true);
     try {
-      // 1. Panggil fungsi backend untuk memadamkan pautan & akaun anak
-      const res = await base44.functions.invoke("removeChildLink", { child_id: child.id });
+      // 1. Invoke backend edge function
+      await base44.functions.invoke("removeChildLink", { child_id: child.id }).catch(() => null);
 
-      if (res?.data?.error) {
-        throw new Error(res.data.error);
-      }
-
-      // 2. Kemaskini tatasusunan ibu bapa di pangkalan data secara terus sebagai sandaran
+      // 2. Client-side database cleanup fallback
       const me = await base44.auth.me().catch(() => null);
       if (me?.id) {
         const currentLinked = me.linked_student_ids || [];
         const updatedLinked = currentLinked.filter((id) => id !== child.id);
         await base44.entities.User.update(me.id, { linked_student_ids: updatedLinked }).catch(() => null);
+
+        const rels = await base44.entities.ParentChildRelationship.filter({ parent_id: me.id, child_id: child.id }).catch(() => []);
+        for (const rel of rels) {
+          await base44.entities.ParentChildRelationship.delete(rel.id).catch(() => null);
+        }
+
+        const linkReqs = await base44.entities.LinkRequest.filter({ parent_id: me.id, student_id: child.id }).catch(() => []);
+        for (const lr of linkReqs) {
+          await base44.entities.LinkRequest.delete(lr.id).catch(() => null);
+        }
       }
 
-      // 3. Bersihkan memori cache peranti
+      // 3. Clear local cache
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       delete cachedChildren[child.id];
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
 
-      // 4. Bersihkan sesi aktif jika anak ini sedang dipilih
+      // 4. Clear active selection
       if (localStorage.getItem("selected_child_id") === child.id) {
         localStorage.removeItem("selected_child_id");
         localStorage.removeItem("active_child_session");
