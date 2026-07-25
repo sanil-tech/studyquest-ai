@@ -1,27 +1,21 @@
 import { base44 } from "@/api/base44Client";
 
-// Returns the best display name for a child: nickname → full_name → username → email prefix → fallback
+// Returns the best display name for a child
 export const getChildDisplayName = (child) => {
   if (!child) return "Pelajar";
 
   const nickname = typeof child.nickname === "string" ? child.nickname.trim() : "";
   const fullName = typeof child.full_name === "string" ? child.full_name.trim() : "";
+  const studentName = typeof child.student_name === "string" ? child.student_name.trim() : "";
   const username = typeof child.username === "string" ? child.username.trim() : "";
-  const email = typeof child.email === "string" ? child.email.trim() : "";
 
-  // Prioritize actual user-defined names
-  if (nickname && nickname !== "Pelajar" && nickname !== "Petualang Cilik") {
-    return nickname;
-  }
-  if (fullName && fullName !== "Pelajar") {
-    return fullName;
-  }
+  if (nickname && nickname !== "Pelajar" && nickname !== "Petualang Cilik") return nickname;
+  if (fullName && fullName !== "Pelajar" && fullName !== "Petualang Cilik") return fullName;
+  if (studentName && studentName !== "Pelajar" && studentName !== "Petualang Cilik") return studentName;
   if (nickname) return nickname;
   if (fullName) return fullName;
+  if (studentName) return studentName;
   if (username) return username;
-  if (email && !email.includes("studyquest.com")) {
-    return email.split("@")[0];
-  }
 
   return "Pelajar";
 };
@@ -65,10 +59,13 @@ export const loadChildrenWithStats = async () => {
   if (!u?.id) return [];
 
   let childIds = [];
+
+  // Strategy A: linked_student_ids array on parent
   if (u.linked_student_ids && Array.isArray(u.linked_student_ids)) {
     childIds = [...u.linked_student_ids];
   }
 
+  // Strategy B: ParentChildRelationship table
   try {
     const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
     if (rel && rel.length > 0) {
@@ -76,6 +73,15 @@ export const loadChildrenWithStats = async () => {
     }
   } catch {}
 
+  // Strategy C: LinkRequest table
+  try {
+    const linkReqs = await base44.entities.LinkRequest.filter({ parent_id: u.id, status: "approved" });
+    if (linkReqs && linkReqs.length > 0) {
+      childIds = [...new Set([...childIds, ...linkReqs.map((lr) => lr.student_id)])];
+    }
+  } catch {}
+
+  // Strategy D: Memory Cache
   const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
   if (childIds.length === 0 && Object.keys(cachedChildren).length > 0) {
     childIds = Object.keys(cachedChildren);
@@ -86,31 +92,58 @@ export const loadChildrenWithStats = async () => {
   const kids = await Promise.all(
     childIds.map(async (id) => {
       try {
-        const [studySessionRes, progressRes, walletRes, attemptsRes, childUser] = await Promise.all([
+        const [studySessionRes, progressRes, walletRes, attemptsRes, childUser, linkReqRes] = await Promise.all([
           base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
           base44.entities.Progress.filter({ student_id: id }).catch(() => []),
           base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
           base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
           base44.entities.User.get(id).catch(() => null),
+          base44.entities.LinkRequest.filter({ student_id: id }).catch(() => []),
         ]);
 
         const localCache = cachedChildren[id] || {};
+        const matchedLinkReq = linkReqRes?.find((lr) => lr.student_name && lr.student_name !== "Pelajar");
 
-        const nickname = childUser?.nickname || localCache.nickname || childUser?.full_name || localCache.full_name || "Pelajar";
-        const fullName = childUser?.full_name || localCache.full_name || "";
+        // Determine best nickname and full_name across database & link tables
+        const nickname =
+          childUser?.nickname ||
+          localCache.nickname ||
+          matchedLinkReq?.student_name ||
+          childUser?.full_name ||
+          localCache.full_name ||
+          childUser?.username ||
+          "Pelajar";
+
+        const fullName =
+          childUser?.full_name ||
+          localCache.full_name ||
+          matchedLinkReq?.student_name ||
+          nickname;
+
+        // Auto-heal local storage cache for fast offline access
+        cachedChildren[id] = {
+          ...localCache,
+          id,
+          nickname,
+          full_name: fullName,
+          selected_avatar: childUser?.selected_avatar || localCache.selected_avatar || null,
+          username: childUser?.username || localCache.username || "student",
+          email: childUser?.email || localCache.email || matchedLinkReq?.student_email || "",
+          child_login_pin: childUser?.child_login_pin || localCache.child_login_pin || "",
+        };
 
         let allSessions = [];
         let latestSession = {};
         if (studySessionRes && studySessionRes.length > 0) {
           allSessions = [...studySessionRes].sort(
-            (a, b) => new Date(b.updated_date || b.created_date || 0) - new Date(a.updated_date || a.created_date || 0)
+            (a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
           );
           latestSession = allSessions[0];
         }
 
         let realProgress = { total_xp: 0, streak_days: 0, level: 1 };
         if (progressRes && progressRes.length > 0) {
-          realProgress = [...progressRes].sort((a, b) => new Date(b.updated_date || 0) - new Date(a.updated_date || 0))[0];
+          realProgress = [...progressRes].sort((a, b) => new Date(b.updated_at || b.last_study_date || 0) - new Date(a.updated_at || a.last_study_date || 0))[0];
         }
 
         const wallet = walletRes && walletRes.length > 0 ? walletRes[0] : { balance: 0 };
@@ -119,21 +152,21 @@ export const loadChildrenWithStats = async () => {
         let allAttempts = [];
         if (attemptsRes && attemptsRes.length > 0) {
           allAttempts = [...attemptsRes].sort(
-            (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0)
+            (a, b) => new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
           );
           latestQuizScore = allAttempts[0]?.score ?? null;
         }
 
         return {
           id,
-          email: childUser?.email || localCache.email || "",
+          email: childUser?.email || localCache.email || matchedLinkReq?.student_email || "",
           nickname,
           full_name: fullName,
           username: childUser?.username || localCache.username || "student",
           selected_avatar: childUser?.selected_avatar || localCache.selected_avatar || null,
           profile_picture_url: childUser?.profile_picture_url || null,
           avatar_emoji: childUser?.avatar_emoji || localCache.avatar_emoji || "🦧",
-          pin_hash: childUser?.pin_hash || localCache.child_login_pin || null,
+          pin_hash: childUser?.pin_hash || childUser?.child_login_pin || localCache.child_login_pin || null,
           child_login_pin: childUser?.child_login_pin || localCache.child_login_pin || null,
           login_enabled: childUser?.login_enabled !== false,
           gender: childUser?.gender || localCache.gender || "",
@@ -154,6 +187,9 @@ export const loadChildrenWithStats = async () => {
       }
     })
   );
+
+  // Re-save repaired cache back to local storage
+  localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
 
   return kids.filter(Boolean);
 };
