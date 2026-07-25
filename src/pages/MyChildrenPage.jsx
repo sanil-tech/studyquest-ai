@@ -60,6 +60,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
 
   const quizScore = child.quiz?.quiz_score || null;
 
+  // 🔥 PERMANENT DB UPDATE FOR NAME
   const handleSaveName = async () => {
     if (!inputName.trim()) {
       toast({ title: "Medan Wajib", description: "Nama panggilan tidak boleh kosong.", variant: "destructive" });
@@ -69,18 +70,17 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     try {
       const cleanName = inputName.trim();
 
-      await base44.entities.User.update(child.id, { nickname: cleanName, full_name: cleanName }).catch(() => null);
-      
-      const linkReqs = await base44.entities.LinkRequest.filter({ student_id: child.id }).catch(() => []);
-      for (const lr of linkReqs) {
-        await base44.entities.LinkRequest.update(lr.id, { student_name: cleanName }).catch(() => null);
+      const response = await base44.functions.invoke("updateChildProfile", {
+        child_id: child.id,
+        nickname: cleanName,
+        full_name: cleanName
+      });
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || "Gagal mengemaskini nama di pangkalan data.");
       }
 
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[child.id] = { ...cachedChildren[child.id], nickname: cleanName, full_name: cleanName };
-      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
-
-      toast({ title: "Berjaya Dikemaskini 🦖", description: "Nama panggilan anak berjaya disimpan." });
+      toast({ title: "Berjaya Dikemaskini 🦖", description: "Nama panggilan anak disimpan kekal di pangkalan data." });
       setIsEditingName(false);
       if (onDataUpdated) onDataUpdated();
     } catch (err) {
@@ -90,6 +90,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
+  // 🔥 PERMANENT DB UPDATE FOR PIN
   const handleSaveNewPin = async () => {
     if (inputPin.length !== 4) {
       toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -104,14 +105,10 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
       });
 
       if (!response.data?.success) {
-        throw new Error(response.data?.error || "Gagal menyimpan PIN di pelayan.");
+        throw new Error(response.data?.error || "Gagal menyimpan PIN di pangkalan data.");
       }
 
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      cachedChildren[child.id] = { ...cachedChildren[child.id], child_login_pin: inputPin };
-      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
-
-      toast({ title: "PIN Dikunci Kekal! 🔑", description: "PIN baharu disimpan terus ke pelayan." });
+      toast({ title: "PIN Dikunci Kekal! 🔑", description: "PIN baharu disimpan terus ke pangkalan data server." });
       setIsSettingPin(false);
       setInputPin("");
       if (onDataUpdated) onDataUpdated();
@@ -126,33 +123,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     setIsDeleting(true);
     try {
       await base44.functions.invoke("removeChildLink", { child_id: child.id }).catch(() => null);
-
-      const me = await base44.auth.me().catch(() => null);
-      if (me?.id) {
-        const currentLinked = me.linked_student_ids || [];
-        const updatedLinked = currentLinked.filter((id) => id !== child.id);
-        await base44.entities.User.update(me.id, { linked_student_ids: updatedLinked }).catch(() => null);
-
-        const rels = await base44.entities.ParentChildRelationship.filter({ parent_id: me.id, child_id: child.id }).catch(() => []);
-        for (const rel of rels) {
-          await base44.entities.ParentChildRelationship.delete(rel.id).catch(() => null);
-        }
-
-        const linkReqs = await base44.entities.LinkRequest.filter({ parent_id: me.id, student_id: child.id }).catch(() => []);
-        for (const lr of linkReqs) {
-          await base44.entities.LinkRequest.delete(lr.id).catch(() => null);
-        }
-      }
-
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      delete cachedChildren[child.id];
-      localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
-
-      if (localStorage.getItem("selected_child_id") === child.id) {
-        localStorage.removeItem("selected_child_id");
-        localStorage.removeItem("active_child_session");
-        localStorage.removeItem("active_child");
-      }
 
       toast({
         title: "Profil Dipadam 🗑️",
@@ -202,7 +172,9 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
                   onChange={(e) => setInputName(e.target.value)}
                   className="px-2 py-0.5 text-xs border rounded-md font-bold text-slate-700 w-full focus:outline-indigo-500"
                 />
-                <button onClick={handleSaveName} disabled={updating} className="text-[10px] font-bold text-emerald-600 shrink-0">Set</button>
+                <button onClick={handleSaveName} disabled={updating} className="text-[10px] font-bold text-emerald-600 shrink-0">
+                  {updating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "Set"}
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 min-w-0 group cursor-pointer" onClick={() => { setInputName(child.nickname || displayName); setIsEditingName(true); }}>
@@ -221,7 +193,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
             <p className="text-[9px] text-slate-400 truncate font-medium leading-none mt-1">{child.full_name}</p>
           )}
           
-          {/* DYNAMIC USERNAME DISPLAY */}
+          {/* USERNAME & PIN DISPLAY */}
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
             <div className="flex items-center gap-1 min-w-0">
               <span className="text-[9px] font-bold text-slate-400 uppercase">User:</span>
@@ -409,123 +381,21 @@ export default function MyChildrenPage() {
   const [aiResult, setAiResult] = useState("");
   const [loadingAi, setLoadingAi] = useState(false);
 
+  // 🔥 FETCH DATA VIA SERVER EDGE FUNCTION (SERVICE ROLE ACCESS)
   const loadData = async () => {
     try {
       setLoading(true);
-      const u = await base44.auth.me();
-      if (!u?.id) return;
-
-      let childIds = [];
-
-      if (u.linked_student_ids && Array.isArray(u.linked_student_ids)) {
-        childIds = [...u.linked_student_ids];
-      }
-
-      try {
-        const rel = await base44.entities.ParentChildRelationship.filter({ parent_id: u.id, status: "active" });
-        if (rel && rel.length > 0) {
-          const fetchedIds = rel.map(r => r.child_id);
-          childIds = [...new Set([...childIds, ...fetchedIds])];
-        }
-      } catch (e) {
-        console.warn("RLS menyekat hubungan jadual.");
-      }
-
-      const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-      if (childIds.length === 0 && Object.keys(cachedChildren).length > 0) {
-        childIds = Object.keys(cachedChildren);
-      }
-
-      if (childIds.length === 0) {
-        setChildren([]);
-        return;
-      }
       
-      const kids = await Promise.all(childIds.map(async (id) => {
-        try {
-          const [studySessionRes, progressRes, walletRes, attemptsRes, childUser, linkReqRes] = await Promise.all([
-            base44.entities.StudySession.filter({ student_id: id }).catch(() => []),
-            base44.entities.Progress.filter({ student_id: id }).catch(() => []),
-            base44.entities.Wallet.filter({ student_id: id }).catch(() => []),
-            base44.entities.QuizAttempt.filter({ student_id: id }).catch(() => []),
-            base44.entities.User.get(id).catch(() => null),
-            base44.entities.LinkRequest.filter({ student_id: id }).catch(() => []),
-          ]);
-
-          const localCache = cachedChildren[id] || {};
-          const matchedLinkReq = linkReqRes?.find((lr) => lr.student_id === id);
-
-          const nicknameReal = 
-            childUser?.nickname || 
-            localCache.nickname || 
-            matchedLinkReq?.student_name || 
-            childUser?.full_name || 
-            localCache.full_name || 
-            "Pelajar";
-
-          const usernameReal = 
-            childUser?.username || 
-            localCache.username || 
-            matchedLinkReq?.student_username || 
-            (nicknameReal ? nicknameReal.toLowerCase() : "student");
-
-          const pinReal = childUser?.child_login_pin || localCache.child_login_pin || "----";
-
-          let latestSession = {};
-          let sortedSessions = [];
-          if (studySessionRes && studySessionRes?.length > 0) {
-            sortedSessions = [...studySessionRes].sort((a, b) => 
-              new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
-            );
-            latestSession = sortedSessions[0];
-          }
-
-          let realProgress = { total_xp: 0, streak_days: 0, level: 1 };
-          if (progressRes && progressRes?.length > 0) {
-            const sortedProgress = [...progressRes].sort((a, b) => 
-              new Date(b.updated_at || b.last_study_date || 0) - new Date(a.updated_at || a.last_study_date || 0)
-            );
-            realProgress = sortedProgress[0];
-          }
-
-          let latestQuizScore = null;
-          let allAttempts = [];
-          if (attemptsRes && attemptsRes?.length > 0) {
-            allAttempts = [...attemptsRes].sort((a, b) => 
-              new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
-            );
-            latestQuizScore = allAttempts[0].score;
-          }
-
-          const activeWallet = walletRes && walletRes?.length > 0 ? walletRes[0] : { balance: 0 };
-
-          return { 
-            id, 
-            email: childUser?.email || localCache.email || "Akses Portal Aktif",
-            nickname: nicknameReal,
-            full_name: childUser?.full_name || localCache.full_name || matchedLinkReq?.student_name || "",
-            selected_avatar: childUser?.selected_avatar || localCache.selected_avatar || null,
-            avatar_emoji: childUser?.avatar_emoji || localCache.avatar_emoji || "🦧",
-            username: usernameReal,
-            child_login_pin: pinReal, 
-            wallet: activeWallet,
-            allAttempts, 
-            allSessions: sortedSessions, 
-            latestSession,
-            realProgress, 
-            quiz: {
-              quiz_score: latestQuizScore
-            }
-          };
-        } catch (err) {
-          console.error(`Gagal memuatkan data ID anak ${id}:`, err);
-          return null;
-        }
-      }));
-
-      setChildren(kids.filter(Boolean));
+      const response = await base44.functions.invoke("fetchParentChildren");
+      
+      if (response.data?.success && Array.isArray(response.data?.children)) {
+        setChildren(response.data.children);
+      } else {
+        setChildren([]);
+      }
     } catch (err) {
-      console.error("Ralat memuatkan data:", err);
+      console.error("Ralat memuatkan data anak:", err);
+      setChildren([]);
     } finally {
       setLoading(false);
     }
