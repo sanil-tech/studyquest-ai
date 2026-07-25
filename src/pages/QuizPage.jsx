@@ -280,7 +280,7 @@ export default function QuizPage() {
   if (questions.length === 0) return (
     <div className="p-6 text-center bg-red-50 border border-red-200 rounded-3xl max-w-md mx-auto my-10 space-y-3">
       <p className="text-red-700 font-bold text-sm">❌ Tiada soalan kuiz ditemui.</p>
-      <Button onClick="{()"> navigate(-1)} className="bg-stone-600 text-white rounded-xl">Kembali</Button>
+      <Button onClick={() => navigate(-1)} className="bg-stone-600 text-white rounded-xl">Kembali</Button>
     </div>
   );
 
@@ -352,7 +352,7 @@ export default function QuizPage() {
           )}
 
           {inputMode === "draw" ? ( 
-            <DrawingCanvas expectedAnswer="{q?.correct_answer" isVerifying="{isVerifyingAI}" onVerify="{verifyHandwritingWithAI}" q?.correctAnswer} ||/> 
+            <DrawingCanvas expectedAnswer={q?.correct_answer || q?.correctAnswer} isVerifying={isVerifyingAI} onVerify={verifyHandwritingWithAI} />
           ) : (
             <div className="space-y-2.5">
               {q?.options?.map((option, i) => {
@@ -378,23 +378,30 @@ export default function QuizPage() {
 
       <div className="flex items-center gap-3">
         {currentQ > 0 && ( 
-          <Button onClick="{()" variant="outline"> { setCurrentQ(currentQ - 1); setInputMode("mcq"); }} 
+          <Button
+            onClick={() => { setCurrentQ(currentQ - 1); setInputMode("mcq"); }}
+            variant="outline"
             className="flex-1 rounded-xl h-12 text-xs font-bold border-stone-300 text-stone-600 hover:bg-stone-100"
           >
             Sebelumnya
-          </Button> 
+          </Button>
         )}
         {currentQ < questions.length - 1 ? ( 
-          <Button onClick="{()"> { setCurrentQ(currentQ + 1); setInputMode("mcq"); }} 
-            disabled={!selectedAnswer} 
+          <Button
+            onClick={() => { setCurrentQ(currentQ + 1); setInputMode("mcq"); }}
+            disabled={!selectedAnswer}
             className="flex-1 rounded-xl h-12 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           >
             Seterusnya
-          </Button> 
+          </Button>
         ) : ( 
-          <Button className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md" disabled="{!allAnswered" onClick="{handleSubmit}" submitted} ||>
-            {submitted ? ( 
-              <><Loader2 className="w-4 h-4 animate-spin mr-2"/> Memeriksa...</> 
+          <Button
+            className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md"
+            disabled={!allAnswered || submitted}
+            onClick={handleSubmit}
+          >
+            {submitted ? (
+              <><Loader2 className="w-4 h-4 animate-spin mr-2"/> Memeriksa...</>
             ) : (
               "Hantar Kuiz Boss! ⚔️"
             )}
