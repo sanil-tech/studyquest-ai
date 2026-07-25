@@ -141,9 +141,16 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
       const studentId = generateStudentId();
       const isEmoji = !form.selectedAvatar.startsWith("http");
 
-      // Store hashed PIN alongside plaintext child_login_pin for compatibility
+      // Build a unique virtual email address to satisfy DB schema requirements
+      const safeNick = cleanNickname.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "pengembara";
+      const safeParentId = me.id.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().substring(0, 6);
+      const randomSuffix = Math.random().toString(36).substring(2, 6);
+      const virtualEmail = `${safeNick}.${safeParentId}.${randomSuffix}@studyquest.com`;
+
+      // Create student user with virtual email and hashed PIN
       const newStudent = await base44.entities.User.create({
         app_role: "student",
+        email: virtualEmail,
         nickname: cleanNickname,
         full_name: form.fullName.trim() || cleanNickname,
         username: usernameMaya,
@@ -178,6 +185,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
         id: newStudent.id,
         nickname: cleanNickname,
         full_name: form.fullName.trim(),
+        email: virtualEmail,
         selected_avatar: form.selectedAvatar,
         avatar_emoji: isEmoji ? form.selectedAvatar : null,
         gender: form.gender,
