@@ -121,7 +121,7 @@ function PinEntryDialog({ child, open, onOpenChange, onSuccess }) {
     setError("");
     const childPin = child?.pin_hash;
 
-    // If child doesn't have a PIN set yet, allow auto login or parent bypass
+    // If child doesn't have a PIN set yet, allow auto login
     if (!childPin) {
       onSuccess();
       return;
@@ -242,18 +242,18 @@ export default function ChildSelectionPage() {
   const handlePinSuccess = () => {
     if (!selectedChild) return;
 
-    // 1. Set child ID via helper utility
+    // 1. Store Child ID via utility function
     setSelectedChildId(selectedChild.id);
 
-    // 2. Persist active child session keys in localStorage
+    // 2. Persist active child session keys in LocalStorage for StudentDashboard
     localStorage.setItem("active_child_session", selectedChild.id);
     localStorage.setItem("selected_child_id", selectedChild.id);
     localStorage.setItem("active_child", JSON.stringify(selectedChild));
 
     setPinDialogOpen(false);
 
-    // 3. Navigate directly to Student Dashboard
-    navigate("/studentdashboard"); // Note: You can change to "/student" if your route uses that exact path
+    // 3. Navigate directly to Student Dashboard page
+    navigate("/student-dashboard");
   };
 
   if (loading) {
