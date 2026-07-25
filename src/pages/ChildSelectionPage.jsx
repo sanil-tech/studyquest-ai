@@ -253,7 +253,7 @@ export default function ChildSelectionPage() {
     setPinDialogOpen(false);
 
     // 3. Navigate directly to Student Dashboard page
-    navigate("/student-dashboard");
+    navigate("/StudentDashboard");
   };
 
   if (loading) {
