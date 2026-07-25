@@ -111,19 +111,31 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // 🔥 FUNGSI PEMADAMAN PROFIL ANAK
+  // 🔥 FUNGSI PEMADAMAN PROFIL ANAK YANG DIPERBAIKI
   const handleDeleteChild = async () => {
     setIsDeleting(true);
     try {
-      // 1. Panggil fungsi backend untuk membuang pautan akaun anak
-      await base44.functions.invoke("removeChildLink", { child_id: child.id }).catch(() => null);
+      // 1. Panggil fungsi backend untuk memadamkan pautan & akaun anak
+      const res = await base44.functions.invoke("removeChildLink", { child_id: child.id });
 
-      // 2. Padam rekod tempatan dalam cache peranti
+      if (res?.data?.error) {
+        throw new Error(res.data.error);
+      }
+
+      // 2. Kemaskini tatasusunan ibu bapa di pangkalan data secara terus sebagai sandaran
+      const me = await base44.auth.me().catch(() => null);
+      if (me?.id) {
+        const currentLinked = me.linked_student_ids || [];
+        const updatedLinked = currentLinked.filter((id) => id !== child.id);
+        await base44.entities.User.update(me.id, { linked_student_ids: updatedLinked }).catch(() => null);
+      }
+
+      // 3. Bersihkan memori cache peranti
       const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
       delete cachedChildren[child.id];
       localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
 
-      // 3. Bersihkan sesi aktif jika anak yang dipadam sedang dipilih
+      // 4. Bersihkan sesi aktif jika anak ini sedang dipilih
       if (localStorage.getItem("selected_child_id") === child.id) {
         localStorage.removeItem("selected_child_id");
         localStorage.removeItem("active_child_session");
@@ -132,13 +144,13 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
 
       toast({
         title: "Profil Dipadam 🗑️",
-        description: `Profil ${displayName} telah berjaya dipadamkan daripada akaun anda.`,
+        description: `Profil ${displayName} telah berjaya dipadamkan.`,
       });
 
       if (onDataUpdated) onDataUpdated();
     } catch (err) {
       toast({
-        title: "Gagal Memadam Profil",
+        title: "Gagal Memadam Profil 🛑",
         description: err.message || "Sila cuba sebentar lagi.",
         variant: "destructive",
       });
@@ -342,7 +354,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
               <Trash2 className="w-5 h-5 text-rose-600" /> Padam Profil {displayName}?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-slate-500 mt-1">
-              Adakah anda pasti mahu memadam profil anak ini? Profil ini akan dibuang daripada akaun ibu bapa anda.
+              Adakah anda pasti mahu memadam profil anak ini? Akaun anak dan semua rekod pembelajarannya akan dibuang daripada akaun anda.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4 gap-2">
