@@ -110,6 +110,22 @@ const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
   );
 };
 
+const safeJsonParse = (str, fallback = []) => {
+  if (!str) return fallback;
+  if (typeof str === "object") return str;
+  try {
+    return JSON.parse(
+      String(str)
+        .replace(/^```json/i, "")
+        .replace(/^```/i, "")
+        .replace(/```$/i, "")
+        .trim()
+    );
+  } catch (e) {
+    return fallback;
+  }
+};
+
 export default function QuizPage() {
   const { quizId } = useParams();
   const navigate = useNavigate();
@@ -242,7 +258,7 @@ export default function QuizPage() {
   if (questions.length === 0) return (
     <div className="p-6 text-center bg-red-50 border border-red-200 rounded-2xl max-w-md mx-auto my-12">
       <p className="text-sm font-bold text-red-700">Soalan kuiz belum disediakan untuk topik ini.</p>
-      <Button onClick="{()"> navigate(-1)} className="mt-4 bg-red-600 text-white font-bold rounded-xl text-xs">
+      <Button onClick={() => navigate(-1)} className="mt-4 bg-red-600 text-white font-bold rounded-xl text-xs">
         Kembali
       </Button>
     </div>
@@ -274,12 +290,12 @@ export default function QuizPage() {
           </h2>
 
           <div className="flex items-center gap-2 border-b pb-3 border-stone-100">
-            <Button onClick="{()" type="button"> setInputMode("mcq")}
+            <Button onClick={() => setInputMode("mcq")} type="button"
               className={`h-9 px-3 text-xs font-black rounded-xl ${inputMode === "mcq" ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-600"}`}
             >
               Pilihan Butang
             </Button>
-            <Button onClick="{()" type="button"> setInputMode("draw")}
+            <Button onClick={() => setInputMode("draw")} type="button"
               className={`h-9 px-3 text-xs font-black rounded-xl ${inputMode === "draw" ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-600"}`}
             >
               <PenTool className="w-3.5 h-3.5 mr-1"/> Tulisan Tangan AI
@@ -287,7 +303,7 @@ export default function QuizPage() {
           </div>
 
           {inputMode === "draw" ? ( 
-            <DrawingCanvas expectedAnswer="{q?.correct_answer" isVerifying="{isVerifyingAI}" onVerify="{verifyHandwritingWithAI}" q?.correctAnswer} ||/>
+            <DrawingCanvas expectedAnswer={q?.correct_answer || q?.correctAnswer} isVerifying={isVerifyingAI} onVerify={verifyHandwritingWithAI} />
           ) : (
             <div className="space-y-2.5">
               {q?.options?.map((option, i) => {
@@ -313,7 +329,7 @@ export default function QuizPage() {
 
       <div className="flex items-center gap-3">
         {currentQ > 0 && ( 
-          <Button onClick="{()"> { setCurrentQ(currentQ - 1); setInputMode("mcq"); }}
+          <Button onClick={() => { setCurrentQ(currentQ - 1); setInputMode("mcq"); }}
             variant="outline"
             className="flex-1 rounded-xl h-12 text-xs font-bold border-stone-300 text-stone-600 hover:bg-stone-100"
           >
@@ -321,20 +337,20 @@ export default function QuizPage() {
           </Button>
         )}
         {currentQ < questions.length - 1 ? ( 
-          <Button onClick="{()"> { setCurrentQ(currentQ + 1); setInputMode("mcq"); }}
+          <Button onClick={() => { setCurrentQ(currentQ + 1); setInputMode("mcq"); }}
             disabled={!selectedAnswer}
             className="flex-1 rounded-xl h-12 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           >
             Seterusnya
           </Button>
         ) : ( 
-          <Button className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md" disabled="{!allAnswered" onClick="{handleSubmit}" submitted} ||>
+          <Button className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md" disabled={!allAnswered || submitted} onClick={handleSubmit}>
             {submitted ? (
               <><Loader2 className="w-4 h-4 animate-spin mr-2"/> Memeriksa...</>
             ) : (
               "Hantar Kuiz Boss! ⚔️"
             )}
-          </Button> 
+          </Button>
         )}
       </div>
 
