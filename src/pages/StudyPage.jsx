@@ -4,9 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { matchesEducationLevel, getStudentEducationLevel } from "@/lib/childUtils";
 import { 
-  ArrowLeft, ChevronRight, BookOpen, FolderOpen, 
-  Map, Library, Leaf, TreePine, Compass,
-  Sparkles, Play
+  ArrowLeft, Compass, TreePine, Sparkles, Play
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -79,7 +77,6 @@ export default function StudyPage() {
   const [subjects, setSubjects] = useState([]);
   const [topics, setTopics] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const [textbooks, setTextbooks] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,15 +86,13 @@ export default function StudyPage() {
         setLoading(true);
         const results = await Promise.allSettled([
           base44.entities.Subject.list(),
-          base44.entities.Textbook.list("-created_date", 50),
           base44.auth.me(),
         ]);
 
         const subs = results[0].status === "fulfilled" ? results[0].value : [];
-        const books = results[1].status === "fulfilled" ? results[1].value : [];
-        const currentUser = results[2].status === "fulfilled" ? results[2].value : null;
+        const currentUser = results[1].status === "fulfilled" ? results[1].value : null;
 
-        // 🔥 ACCURATELY RESOLVE CHILD PROFILE (EVEN WHEN LOGGED IN AS PARENT)
+        // Resolve active student profile
         let studentUser = currentUser;
         if (currentUser?.app_role === "parent") {
           const activeChildId = 
@@ -106,14 +101,12 @@ export default function StudyPage() {
             localStorage.getItem("active_student_id");
 
           if (activeChildId) {
-            // Step A: Try fetching active child record directly from database
             try {
               const fetchedChild = await base44.entities.User.get(activeChildId);
               if (fetchedChild) {
                 studentUser = fetchedChild;
               }
             } catch (e) {
-              // Step B: Fallback to localStorage cached child object
               const cachedChildStr = localStorage.getItem("active_child");
               if (cachedChildStr) {
                 try { studentUser = JSON.parse(cachedChildStr); } catch (err) {}
@@ -123,7 +116,6 @@ export default function StudyPage() {
         }
 
         setSubjects(subs);
-        setTextbooks(books);
         setUser(studentUser);
 
         const targetSubjectKey = subjectId || querySubject;
@@ -149,15 +141,15 @@ export default function StudyPage() {
     load();
   }, [subjectId, querySubject]);
 
-  // 🔥 FILTER TOPICS BASED ON IVAN'S SPECIFIC EDUCATION LEVEL
+  // 🔥 STRICT TOPIC FILTERING
   const filteredTopics = useMemo(() => {
     if (!topics || !user) return topics || [];
     
-    // Safely extract level using helper function
+    // Extract student level (e.g. "Standard 1", "Tahun 1", "Form 2")
     const studentLevel = getStudentEducationLevel(user);
     
     if (!studentLevel) {
-      return topics; // Show all if student profile has no level specified
+      return topics; // Show all topics as fallback if student profile has no level specified
     }
     
     return topics.filter(t => matchesEducationLevel(studentLevel, t.form_level));
@@ -321,9 +313,9 @@ export default function StudyPage() {
         {filteredTopics.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border-4 border-stone-200 max-w-md mx-auto shadow-sm p-6">
             <span className="text-5xl block mb-4">{user?.selected_avatar || user?.avatar_emoji || "🦧"}</span>
-            <h3 className="font-black text-stone-800 text-lg">Tiada Muka Misi untuk {studentLevelDisplay}</h3>
+            <h3 className="font-black text-stone-800 text-lg">Tiada Misi untuk {studentLevelDisplay}</h3>
             <p className="text-stone-500 text-xs sm:text-sm max-w-xs mx-auto mt-2 font-bold">
-              Belum ada bab khas disediakan untuk tahap {studentLevelDisplay} bagi subjek ini.
+              Belum ada bab disediakan untuk tahap {studentLevelDisplay} bagi subjek ini.
             </p>
           </div>
         ) : (
