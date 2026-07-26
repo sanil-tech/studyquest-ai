@@ -81,22 +81,26 @@ export const getStudentEducationLevel = (user) => {
     user.form_level ||
     user.grade ||
     user.year ||
+    user.standard ||
+    user.darjah ||
     null
   );
 };
 
 /**
- * Checks if a student's education level matches a topic's form/grade level.
+ * Strictly checks if a student's education level matches a topic's form/grade level.
+ * Example: "Standard 1" will match "Standard 1", "Tahun 1", "Year 1" or "All Levels",
+ * but will strictly BLOCK "Form 1", "Standard 2", "Form 2", etc.
  */
 export const matchesEducationLevel = (studentLevel, topicLevel) => {
-  // If topic has no level specified or is for all levels, allow it
+  // If topic is marked for all levels, allow it for everyone
   if (!topicLevel || topicLevel === "All Levels" || topicLevel === "Semua Tahap") {
     return true;
   }
 
-  // If student has no level specified, allow as fallback
+  // If student level is not set, do not show restricted topics
   if (!studentLevel) {
-    return true;
+    return false;
   }
 
   const normStudent = String(studentLevel).toLowerCase().trim();
@@ -107,40 +111,48 @@ export const matchesEducationLevel = (studentLevel, topicLevel) => {
     return true;
   }
 
-  // Extract digits (e.g., "Form 2" -> "2", "Tingkatan 2" -> "2")
+  // Extract numbers (e.g., "Standard 1" -> "1", "Form 1" -> "1")
   const studentNum = normStudent.match(/\d+/)?.[0];
   const topicNum = normTopic.match(/\d+/)?.[0];
 
-  if (studentNum && topicNum && studentNum === topicNum) {
-    const studentIsSecondary = 
-      normStudent.includes("form") || 
-      normStudent.includes("tingkatan") || 
-      normStudent.includes("f");
+  // If numbers don't match (e.g. Standard 1 vs Standard 2), reject immediately
+  if (!studentNum || !topicNum || studentNum !== topicNum) {
+    return false;
+  }
 
-    const topicIsSecondary = 
-      normTopic.includes("form") || 
-      normTopic.includes("tingkatan") || 
-      normTopic.includes("f");
+  // Categorize Primary vs Secondary keywords
+  const primaryKeywords = ["standard", "primary", "tahun", "year", "darjah", "sk", "sjk", "sck"];
+  const secondaryKeywords = ["form", "tingkatan", "secondary", "smk"];
 
-    const studentIsPrimary = 
-      normStudent.includes("year") || 
-      normStudent.includes("tahun") || 
-      normStudent.includes("darjah") || 
-      normStudent.includes("y");
+  const studentIsPrimary = primaryKeywords.some((k) => normStudent.includes(k));
+  const studentIsSecondary = secondaryKeywords.some((k) => normStudent.includes(k));
 
-    const topicIsPrimary = 
-      normTopic.includes("year") || 
-      normTopic.includes("tahun") || 
-      normTopic.includes("darjah") || 
-      normTopic.includes("y");
+  const topicIsPrimary = primaryKeywords.some((k) => normTopic.includes(k));
+  const topicIsSecondary = secondaryKeywords.some((k) => normTopic.includes(k));
 
-    if ((studentIsSecondary && topicIsSecondary) || (studentIsPrimary && topicIsPrimary)) {
-      return true;
-    }
+  // Block Primary student from viewing Secondary topic (e.g., Standard 1 != Form 1)
+  if (studentIsPrimary && topicIsSecondary) {
+    return false;
+  }
 
-    if (!studentIsSecondary && !topicIsSecondary && !studentIsPrimary && !topicIsPrimary) {
-      return true;
-    }
+  // Block Secondary student from viewing Primary topic
+  if (studentIsSecondary && topicIsPrimary) {
+    return false;
+  }
+
+  // Both are Primary with matching grade number (e.g., Standard 1 == Tahun 1 == Year 1)
+  if (studentIsPrimary && topicIsPrimary) {
+    return true;
+  }
+
+  // Both are Secondary with matching form number (e.g., Form 2 == Tingkatan 2)
+  if (studentIsSecondary && topicIsSecondary) {
+    return true;
+  }
+
+  // Fallback: If numbers match and neither specifies category, allow match
+  if (!studentIsPrimary && !studentIsSecondary && !topicIsPrimary && !topicIsSecondary) {
+    return true;
   }
 
   return false;
@@ -232,7 +244,9 @@ export const loadChildrenWithStats = async () => {
 
         let realProgress = { total_xp: 0, streak_days: 0, level: 1 };
         if (progressRes && progressRes.length > 0) {
-          realProgress = [...progressRes].sort((a, b) => new Date(b.updated_at || b.last_study_date || 0) - new Date(a.updated_at || a.last_study_date || 0))[0];
+          realProgress = [...progressRes].sort(
+            (a, b) => new Date(b.updated_at || b.last_study_date || 0) - new Date(a.updated_at || a.last_study_date || 0)
+          )[0];
         }
 
         const wallet = walletRes && walletRes.length > 0 ? walletRes[0] : { balance: 0 };
