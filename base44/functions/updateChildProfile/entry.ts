@@ -42,12 +42,12 @@ Deno.serve(async (req) => {
 
     let targetUser: any = null;
 
-    // LOOKUP TIER 1: Primary Key
+    // LOOKUP TIER 1: Primary Key ID
     if (requestedId) {
       targetUser = await db.entities.User.get(requestedId).catch(() => null);
     }
 
-    // LOOKUP TIER 2: student_id Code
+    // LOOKUP TIER 2: student_id Code (e.g. SQ-123456)
     if (!targetUser && requestedId) {
       const matchByCode = await db.entities.User.filter({ student_id: requestedId }).catch(() => []);
       if (matchByCode && matchByCode.length > 0) targetUser = matchByCode[0];
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Build update fields
+    // 3. Build sanitized update payload for User entity table
     const updateFields: Record<string, any> = {};
 
     if (body.nickname !== undefined && body.nickname !== null && String(body.nickname).trim() !== "") {
@@ -122,8 +122,8 @@ Deno.serve(async (req) => {
       updateFields.selected_avatar = avatarVal;
       updateFields.avatar_emoji = avatarVal;
     }
-    if (body.profile_picture_url !== undefined) {
-      updateFields.profile_picture_url = body.profile_picture_url;
+    if (body.profile_picture_url !== undefined && body.profile_picture_url !== null) {
+      updateFields.profile_picture_url = String(body.profile_picture_url);
     }
     if (body.gender !== undefined && body.gender !== null) {
       updateFields.gender = String(body.gender);
@@ -139,34 +139,50 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Update child User entity record
-    const updatedUser = await db.entities.User.update(actualChildId, updateFields);
-
-    // 5. Synchronize ParentChildRelationship embedded `profile` object
-    const matchingRels = await db.entities.ParentChildRelationship.filter({ child_id: actualChildId }).catch(() => []);
-    
-    for (const rel of matchingRels) {
-      const existingProfile = rel.profile || {};
-      const newProfile = {
-        full_name: updateFields.full_name || existingProfile.full_name || updatedUser.full_name || updatedUser.nickname,
-        nickname: updateFields.nickname || existingProfile.nickname || updatedUser.nickname,
-        education_level: updateFields.education_level || existingProfile.education_level || updatedUser.education_level || updatedUser.school_year,
-        selected_avatar: updateFields.selected_avatar || existingProfile.selected_avatar || updatedUser.selected_avatar || updatedUser.avatar_emoji,
-        username: updatedUser.username || existingProfile.username
-      };
-
-      await db.entities.ParentChildRelationship.update(rel.id, {
-        profile: newProfile
-      }).catch(() => null);
+    // 4. Primary Database Update: User entity table
+    let updatedUser: any = null;
+    try {
+      updatedUser = await db.entities.User.update(actualChildId, updateFields);
+    } catch (dbErr: any) {
+      console.error('User.update DB Error:', dbErr);
+      return Response.json(
+        { success: false, error: `Ralat Pangkalan Data: ${dbErr?.message || 'Gagal mengemaskini rekod User.'}` },
+        { status: 200, headers: resHeaders }
+      );
     }
 
-    // 6. Synchronize LinkRequest table display names
-    if (updateFields.nickname || updateFields.full_name) {
-      const newName = updateFields.nickname || updateFields.full_name;
-      const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
-      for (const lr of linkRequests) {
-        await db.entities.LinkRequest.update(lr.id, { student_name: newName }).catch(() => null);
+    // 5. Safe Secondary Sync: ParentChildRelationship table (isolated in try...catch)
+    try {
+      const matchingRels = await db.entities.ParentChildRelationship.filter({ child_id: actualChildId }).catch(() => []);
+      for (const rel of matchingRels) {
+        const existingProfile = rel.profile || {};
+        const newProfile = {
+          full_name: updateFields.full_name || existingProfile.full_name || updatedUser.full_name || updatedUser.nickname || "",
+          nickname: updateFields.nickname || existingProfile.nickname || updatedUser.nickname || "",
+          education_level: updateFields.education_level || existingProfile.education_level || updatedUser.education_level || updatedUser.school_year || "",
+          selected_avatar: updateFields.selected_avatar || existingProfile.selected_avatar || updatedUser.selected_avatar || updatedUser.avatar_emoji || "",
+          username: updatedUser.username || existingProfile.username || ""
+        };
+
+        await db.entities.ParentChildRelationship.update(rel.id, {
+          profile: newProfile
+        }).catch(() => null);
       }
+    } catch (relErr) {
+      console.warn('ParentChildRelationship profile sync skipped:', relErr);
+    }
+
+    // 6. Safe Secondary Sync: LinkRequest table
+    try {
+      if (updateFields.nickname || updateFields.full_name) {
+        const newName = updateFields.nickname || updateFields.full_name;
+        const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
+        for (const lr of linkRequests) {
+          await db.entities.LinkRequest.update(lr.id, { student_name: newName }).catch(() => null);
+        }
+      }
+    } catch (lrErr) {
+      console.warn('LinkRequest sync skipped:', lrErr);
     }
 
     return Response.json({
@@ -176,7 +192,7 @@ Deno.serve(async (req) => {
     }, { status: 200, headers: resHeaders });
 
   } catch (error: any) {
-    console.error('UpdateChildProfile Error:', error);
+    console.error('UpdateChildProfile Exception:', error);
     return Response.json(
       { success: false, error: error.message || 'Gagal mengemaskini profil anak di pangkalan data.' },
       { status: 200, headers: resHeaders }
