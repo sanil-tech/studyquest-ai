@@ -5,6 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Loader2, Eraser, PenTool, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { getActiveStudentId, awardCoinsAndXP } from "@/lib/rewardSystem";
 
 const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
   const canvasRef = useRef(null); 
@@ -74,27 +75,35 @@ const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
     <div className="bg-stone-50 p-4 rounded-2xl border-2 border-dashed border-emerald-200 flex flex-col items-center space-y-4">
       <div className="text-center w-full">
         <p className="text-sm font-bold text-emerald-800">Ruangan Menulis 🖍️</p>
-        <p className="text-xs text-stone-500 font-medium mb-2">Tuliskan jawapan anda (Cth: nombor atau abjad) di dalam kotak di bawah.</p>
+        <p className="text-xs text-stone-500">Tulis jawapan anda di bawah dan biarkan AI menyemaknya!</p>
       </div>
-      <canvas 
-        ref={canvasRef} 
-        width={300} 
-        height={250} 
-        className="bg-white rounded-xl shadow-inner border border-stone-200 touch-none cursor-crosshair" 
-        onMouseDown={startDrawing} 
-        onMouseMove={draw} 
-        onMouseUp={stopDrawing} 
-        onMouseLeave={stopDrawing} 
-        onTouchStart={startDrawing} 
-        onTouchMove={draw} 
-        onTouchEnd={stopDrawing} 
-      />
-      <div className="flex w-full gap-3 max-w-[300px]">
-        <Button className="flex-1 rounded-xl text-xs font-bold text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" disabled="{isVerifying}" onClick="{clearCanvas}" variant="outline">
+
+      <div className="relative border-4 border-emerald-500 rounded-2xl overflow-hidden shadow-inner bg-white">
+        <canvas
+          ref={canvasRef}
+          width={320}
+          height={200}
+          className="touch-none cursor-crosshair"
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+        />
+      </div>
+
+      <div className="flex items-center gap-3 w-full max-w-[320px]">
+        <Button className="flex-1 rounded-xl border-stone-300 text-stone-600 h-10 text-xs font-bold" disabled="{isVerifying}" onClick="{clearCanvas}" type="button" variant="outline">
           <Eraser className="w-4 h-4 mr-1"/> Padam
         </Button>
-        <Button className="flex-1 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white" disabled="{isVerifying}" onClick="{handleVerify}">
-          {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-1"/> : <ImageIcon className="w-4 h-4 mr-1"/>} Semak Tulisan
+        <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white h-10 text-xs font-black shadow-md" disabled="{isVerifying}" onClick="{handleVerify}" type="button">
+          {isVerifying ? (
+            <><Loader2 className="w-4 h-4 animate-spin mr-1"/> Semak...</>
+          ) : (
+            <><CheckCircle2 className="w-4 h-4 mr-1"/> Hantar Jawapan</>
+          )}
         </Button>
       </div>
     </div>
@@ -102,71 +111,65 @@ const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
 };
 
 export default function QuizPage() {
-  const { quizId } = useParams(); 
+  const { quizId } = useParams();
   const navigate = useNavigate();
-  const [quiz, setQuiz] = useState(null); 
-  const [questions, setQuestions] = useState([]); 
-  const [currentQ, setCurrentQ] = useState(0); 
-  const [answers, setAnswers] = useState({}); 
-  const [submitted, setSubmitted] = useState(false); 
+
+  const [quiz, setQuiz] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [currentQ, setCurrentQ] = useState(0);
+  const [answers, setAnswers] = useState({});
   const [loading, setLoading] = useState(true);
+  const [submitted, setSubmitted] = useState(false);
+
   const [inputMode, setInputMode] = useState("mcq"); 
   const [isVerifyingAI, setIsVerifyingAI] = useState(false);
 
   useEffect(() => {
-    const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
-    return () => {
-      if (document.fullscreenElement) { 
-        if (document.exitFullscreen) document.exitFullscreen().catch(() => {}); 
+    const loadQuiz = async () => {
+      try {
+        const q = await base44.entities.Quiz.get(quizId);
+        setQuiz(q);
+        
+        let parsed = safeJsonParse(q.questions_json, []);
+        if (parsed.length > 0) setQuestions(parsed);
+      } catch (e) {
+        console.error("Gagal memuat turun kuiz:", e);
+      } finally {
+        setLoading(false);
       }
     };
-  }, []);
-
-  useEffect(() => {
-    base44.entities.Quiz.get(quizId).then(q => {
-      if (q) { 
-        setQuiz(q); 
-        try { 
-          const rawQuestions = typeof q.questions_json === "string" ? JSON.parse(q.questions_json) : q.questions_json; 
-          setQuestions(Array.isArray(rawQuestions) ? rawQuestions : []); 
-        } catch (e) { 
-          setQuestions([]); 
-        } 
-      } 
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    loadQuiz();
   }, [quizId]);
 
-  const handleAnswer = (qIndex, answer) => { 
-    if (submitted) return; 
-    setAnswers(prev => ({ ...prev, [qIndex]: answer })); 
+  const handleAnswer = (index, answer) => {
+    setAnswers(prev => ({ ...prev, [index]: answer }));
   };
 
-  const verifyHandwritingWithAI = async (base64Image) => {
+  const verifyHandwritingWithAI = async (imageDataUrl) => {
     setIsVerifyingAI(true);
     try {
       const q = questions[currentQ];
+      const targetAns = q?.correct_answer || q?.correctAnswer || "";
+
+      const promptMsg = `Look at this handwritten image of a primary school student. Is the written text matching "${targetAns}"? Answer strictly YES or NO, followed by detected text.`;
+      
       const res = await base44.integrations.Core.InvokeLLM({
-        model: "gemini_1_5_flash", 
-        prompt: `Look at this handwritten image. The student is answering: "${q.question}". Expected likely "${q.correct_answer || q.correctAnswer}". Extract text only.`,
-        image_base64: base64Image, 
-        response_json_schema: { type: "object", properties: { extracted_text: { type: "string" } }, required: ["extracted_text"] }
+        prompt: promptMsg,
+        image_url: imageDataUrl
       });
-      let extractedAnswer = res?.extracted_text?.trim() || q.correct_answer || q.correctAnswer;
-      const matchedOption = q.options.find(opt => opt.toString().toLowerCase() === extractedAnswer.toLowerCase());
-      if (matchedOption) { 
-        handleAnswer(currentQ, matchedOption); 
-        alert(`AI berjaya membaca tulisan anda: "${matchedOption}" ✅`); 
-      } else { 
-        handleAnswer(currentQ, extractedAnswer); 
-        alert(`Otan membaca tulisan ini sebagai: "${extractedAnswer}". Tulis dengan jelas ya! 🦧`); 
+
+      const resStr = String(res).toLowerCase();
+      if (resStr.includes("yes")) {
+        handleAnswer(currentQ, targetAns);
+        alert("✨ AI mengesahkan jawapan tulisan tangan anda TEPAT!");
+      } else {
+        alert(`AI mengesahkan tulisan anda belum tepat. Jawapan dijangka: ${targetAns}`);
       }
-    } catch (err) { 
-      alert("Alamak! Mata Otan kabur. Sila guna mod pilihan butang buat masa ini."); 
-    } finally { 
-      setIsVerifyingAI(false); 
-      setInputMode("mcq"); 
+    } catch (e) {
+      alert("AI sibuk sebentar. Sila guna pilihan butang.");
+    } finally {
+      setIsVerifyingAI(false);
+      setInputMode("mcq");
     }
   };
 
@@ -176,19 +179,13 @@ export default function QuizPage() {
     setSubmitted(true);
 
     try {
-      const currentUser = await base44.auth.me(); 
-      if (!currentUser) throw new Error();
-
-      // Resolve learner student ID
-      const activeChildId = currentUser.app_role === "parent" 
-        ? (localStorage.getItem("active_child_session") || localStorage.getItem("selected_child_id"))
-        : null;
-      const studentId = activeChildId || currentUser.id;
+      const studentId = await getActiveStudentId();
+      if (!studentId) throw new Error("Pengguna tidak dikesan");
 
       let correct = 0; 
       questions.forEach((q, i) => { 
         const targetAns = q.correct_answer || q.correctAnswer || ""; 
-        if (String(answers[i]).trim().toLowerCase() === String(targetAns).trim().toLowerCase()) correct++; 
+        if (String(answers[i] || "").trim().toLowerCase() === String(targetAns).trim().toLowerCase()) correct++; 
       });
 
       const score = Math.round((correct / questions.length) * 100);
@@ -196,14 +193,14 @@ export default function QuizPage() {
       if (score === 100) coins += 50; 
       const xpEarned = correct * 5;
       
-      let feedbackResult = "Syabas!";
+      let feedbackResult = "Syabas atas usaha anda!";
       try { 
         feedbackResult = await base44.integrations.Core.InvokeLLM({ 
           prompt: `Student scored ${score}% on quiz "${quiz?.topic_name}". warm friendly teacher feedback.` 
         }); 
       } catch(e){}
 
-      // 1. Create QuizAttempt for student ID
+      // 1. Cipta Percubaan Kuiz
       const attempt = await base44.entities.QuizAttempt.create({ 
         student_id: studentId, 
         quiz_id: quizId, 
@@ -216,48 +213,13 @@ export default function QuizPage() {
       });
       const finalAttemptId = Array.isArray(attempt) ? attempt[0]?.id : attempt?.id;
 
-      // 2. Update Student Wallet
-      try { 
-        const wallets = await base44.entities.Wallet.filter({ student_id: studentId }); 
-        const targetWallet = Array.isArray(wallets) ? wallets[0] : wallets; 
-        if (targetWallet?.id) {
-          await base44.entities.Wallet.update(targetWallet.id, { balance: (targetWallet.balance || 0) + coins }); 
-        } else {
-          await base44.entities.Wallet.create({ student_id: studentId, balance: coins });
-        }
-      } catch(e){}
-
-      // 3. Create Transaction ledger record
-      try { 
-        await base44.entities.Transaction.create({ 
-          student_id: studentId, 
-          type: "earn", 
-          amount: coins, 
-          reason: `Quiz completed: ${quiz?.topic_name}`, 
-          reference_id: finalAttemptId 
-        }); 
-      } catch(e){}
-
-      // 4. Update Student XP & Level Progress
-      try { 
-        const progresses = await base44.entities.Progress.filter({ student_id: studentId }); 
-        const targetProgress = Array.isArray(progresses) ? progresses[0] : progresses; 
-        if (targetProgress?.id) {
-          await base44.entities.Progress.update(targetProgress.id, { 
-            total_xp: (targetProgress.total_xp || 0) + xpEarned, 
-            level: Math.floor(((targetProgress.total_xp || 0) + xpEarned) / 200) + 1,
-            last_study_date: new Date().toISOString().split("T")[0]
-          }); 
-        } else {
-          await base44.entities.Progress.create({
-            student_id: studentId,
-            total_xp: xpEarned,
-            level: Math.floor(xpEarned / 200) + 1,
-            streak_days: 1,
-            last_study_date: new Date().toISOString().split("T")[0]
-          });
-        }
-      } catch(e){}
+      // 2. Anugerah Daun & XP menggunakan Fail-Safe System
+      await awardCoinsAndXP(studentId, {
+        coins,
+        xp: xpEarned,
+        reason: `Kuiz Boss: ${quiz?.topic_name || "Cabaran"}`,
+        referenceId: finalAttemptId
+      });
 
       if (document.fullscreenElement) { 
         if (document.exitFullscreen) await document.exitFullscreen().catch(()=>{}); 
@@ -278,85 +240,58 @@ export default function QuizPage() {
   );
 
   if (questions.length === 0) return (
-    <div className="p-6 text-center bg-red-50 border border-red-200 rounded-3xl max-w-md mx-auto my-10 space-y-3">
-      <p className="text-red-700 font-bold text-sm">❌ Tiada soalan kuiz ditemui.</p>
-      <Button onClick={() => navigate(-1)} className="bg-stone-600 text-white rounded-xl">Kembali</Button>
+    <div className="p-6 text-center bg-red-50 border border-red-200 rounded-2xl max-w-md mx-auto my-12">
+      <p className="text-sm font-bold text-red-700">Soalan kuiz belum disediakan untuk topik ini.</p>
+      <Button onClick="{()"> navigate(-1)} className="mt-4 bg-red-600 text-white font-bold rounded-xl text-xs">
+        Kembali
+      </Button>
     </div>
   );
 
-  const q = questions[currentQ]; 
-  const selectedAnswer = answers[currentQ]; 
+  const q = questions[currentQ];
+  const selectedAnswer = answers[currentQ];
   const allAnswered = Object.keys(answers).length === questions.length;
-  const linkGambarSoalanSemasa = q?.question_image_url || q?.questionImageUrl || null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 font-sans bg-[#FAFAF7] min-h-screen">
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-stone-100 shadow-sm">
-        <div>
-          <h1 className="text-base sm:text-lg font-black text-stone-800">{quiz?.topic_name} Quiz</h1>
-          <p className="text-stone-400 text-xs font-bold uppercase tracking-wider">{quiz?.subject_name}</p>
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 bg-[#FAFAF7] min-h-screen font-sans">
+      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+        <button onClick={() => navigate(-1)} className="p-2 rounded-xl bg-stone-100 text-stone-600 hover:bg-stone-200">
+          <ArrowLeft className="w-4 h-4"/>
+        </button>
+        <div className="text-center">
+          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{quiz?.subject_name}</span>
+          <h1 className="text-xs sm:text-sm font-black text-stone-800">{quiz?.topic_name}</h1>
         </div>
-        <span className="text-xs font-black bg-emerald-50 border border-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full">
-          {currentQ + 1} / {questions.length} Soalan
+        <span className="text-xs font-black bg-amber-100 text-amber-800 px-3 py-1 rounded-full">
+          Soalan {currentQ + 1}/{questions.length}
         </span>
       </div>
 
-      <div className="h-3 bg-stone-200 rounded-full overflow-hidden border border-stone-300 shadow-inner">
-        <motion.div 
-          animate={{ width: `${((currentQ + 1) / questions.length) * 100}%` }} 
-          className="h-full bg-gradient-to-r from-lime-400 to-emerald-600 rounded-full" 
-          transition={{ duration: 0.3 }} 
-        />
-      </div>
-
-      <div className="flex justify-center bg-stone-200 p-1 rounded-2xl w-fit mx-auto shadow-inner">
-        <button 
-          onClick={() => setInputMode("mcq")} 
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${inputMode === "mcq" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
-        >
-          🔘 Tekan Butang
-        </button>
-        <button 
-          onClick={() => setInputMode("draw")} 
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center ${inputMode === "draw" ? "bg-emerald-500 text-white shadow-sm" : "text-stone-500 hover:text-stone-700"}`}
-        >
-          <PenTool className="w-3.5 h-3.5 mr-1"/> Lukis Jawapan
-        </button>
-      </div>
-
       <AnimatePresence mode="wait">
-        <motion.div 
-          key={currentQ + inputMode} 
-          initial={{ opacity: 0, scale: 0.98 }} 
-          animate={{ opacity: 1, scale: 1 }} 
-          exit={{ opacity: 0, scale: 0.98 }} 
-          className="bg-white rounded-[2rem] p-6 border border-emerald-100 shadow-md space-y-5"
-        >
-          <h2 className="text-sm sm:text-base font-bold text-stone-800 leading-relaxed bg-stone-50 p-4 rounded-xl border border-stone-100 shadow-inner">
-            {q?.question}
+        <motion.div key={currentQ} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="bg-white p-6 rounded-3xl border-2 border-stone-200 shadow-sm space-y-5">
+          <h2 className="text-sm sm:text-base font-black text-stone-900 leading-relaxed">
+            {currentQ + 1}. {q?.question}
           </h2>
 
-          {linkGambarSoalanSemasa && (
-            <div className="w-full rounded-2xl overflow-hidden border-2 border-stone-100 shadow-2xs bg-white flex items-center justify-center p-1.5 my-2">
-              <img 
-                src={linkGambarSoalanSemasa} 
-                alt={`Infografik Soalan No ${currentQ + 1}`} 
-                className="w-full h-auto object-contain max-h-60 sm:max-h-72 rounded-xl" 
-                loading="eager" 
-                onError={(e) => { 
-                  e.target.onerror = null; 
-                  e.target.parentNode.innerHTML = `<div class="p-4 text-center bg-amber-50 text-amber-800 rounded-xl text-xs font-bold w-full">⚠️ Gagal memanggil fail imej dari pautan luar.</div>`; 
-                }} 
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-2 border-b pb-3 border-stone-100">
+            <Button onClick="{()" type="button"> setInputMode("mcq")}
+              className={`h-9 px-3 text-xs font-black rounded-xl ${inputMode === "mcq" ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-600"}`}
+            >
+              Pilihan Butang
+            </Button>
+            <Button onClick="{()" type="button"> setInputMode("draw")}
+              className={`h-9 px-3 text-xs font-black rounded-xl ${inputMode === "draw" ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-600"}`}
+            >
+              <PenTool className="w-3.5 h-3.5 mr-1"/> Tulisan Tangan AI
+            </Button>
+          </div>
 
           {inputMode === "draw" ? ( 
-            <DrawingCanvas expectedAnswer={q?.correct_answer || q?.correctAnswer} isVerifying={isVerifyingAI} onVerify={verifyHandwritingWithAI} />
+            <DrawingCanvas expectedAnswer="{q?.correct_answer" isVerifying="{isVerifyingAI}" onVerify="{verifyHandwritingWithAI}" q?.correctAnswer} ||/>
           ) : (
             <div className="space-y-2.5">
               {q?.options?.map((option, i) => {
-                const isSelected = String(selectedAnswer).toLowerCase() === String(option).toLowerCase();
+                const isSelected = String(selectedAnswer || "").toLowerCase() === String(option).toLowerCase();
                 return (
                   <button 
                     key={i} 
@@ -378,8 +313,7 @@ export default function QuizPage() {
 
       <div className="flex items-center gap-3">
         {currentQ > 0 && ( 
-          <Button
-            onClick={() => { setCurrentQ(currentQ - 1); setInputMode("mcq"); }}
+          <Button onClick="{()"> { setCurrentQ(currentQ - 1); setInputMode("mcq"); }}
             variant="outline"
             className="flex-1 rounded-xl h-12 text-xs font-bold border-stone-300 text-stone-600 hover:bg-stone-100"
           >
@@ -387,19 +321,14 @@ export default function QuizPage() {
           </Button>
         )}
         {currentQ < questions.length - 1 ? ( 
-          <Button
-            onClick={() => { setCurrentQ(currentQ + 1); setInputMode("mcq"); }}
+          <Button onClick="{()"> { setCurrentQ(currentQ + 1); setInputMode("mcq"); }}
             disabled={!selectedAnswer}
             className="flex-1 rounded-xl h-12 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           >
             Seterusnya
           </Button>
         ) : ( 
-          <Button
-            className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md"
-            disabled={!allAnswered || submitted}
-            onClick={handleSubmit}
-          >
+          <Button className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md" disabled="{!allAnswered" onClick="{handleSubmit}" submitted} ||>
             {submitted ? (
               <><Loader2 className="w-4 h-4 animate-spin mr-2"/> Memeriksa...</>
             ) : (
