@@ -1,24 +1,127 @@
 {
   "name": "ParentChildRelationship",
+  "type": "object",
   "properties": {
     "parent_id": {
       "type": "string",
-      "required": true,
-      "description": "User ID of the parent account"
+      "description": "ID of the parent user"
     },
     "child_id": {
       "type": "string",
-      "required": true,
-      "description": "User ID of the student/child account"
+      "description": "ID of the child/student user"
+    },
+    "relationship": {
+      "type": "string",
+      "enum": [
+        "parent",
+        "guardian",
+        "other"
+      ],
+      "default": "parent",
+      "description": "Type of relationship"
+    },
+    "linked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the relationship was established"
     },
     "status": {
       "type": "string",
-      "enum": ["active", "pending"],
-      "default": "active"
+      "enum": [
+        "pending",
+        "active",
+        "inactive"
+      ],
+      "default": "active",
+      "description": "Status of the relationship"
     },
-    "created_date": {
-      "type": "string",
-      "format": "date-time"
+    "profile": {
+      "type": "object",
+      "description": "Snapshot of the child's profile details",
+      "properties": {
+        "full_name": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "education_level": {
+          "type": "string",
+          "description": "School grade e.g. Standard 1, Form 2"
+        },
+        "selected_avatar": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "parent_id",
+    "child_id"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.child_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.child_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.child_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.parent_id": "{{user.id}}"
+        },
+        {
+          "data.child_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
     }
   }
 }
