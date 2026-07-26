@@ -1,10 +1,12 @@
 // base44/functions/createChildAccount/entry.ts
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// Helper function to hash child 4-digit PIN
 const hashPin = (pin: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 };
 
+// Helper function to generate unique student code (e.g. SQ-A1B2C3)
 const generateStudentId = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = 'SQ-';
@@ -30,6 +32,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
 
+    // 1. Verify parent authentication
     const authUser = await base44.auth.me().catch(() => null);
     if (!authUser || !authUser.id) {
       return Response.json(
@@ -40,10 +43,13 @@ Deno.serve(async (req) => {
 
     const parent = await db.entities.User.get(authUser.id).catch(() => authUser);
 
+    // 2. Parse request body
     const body = await req.json().catch(() => ({}));
     const nickname = (body.nickname || body.fullName || "Anak").trim();
     const fullName = (body.fullName || nickname).trim();
     const pin = (body.pin || "").trim();
+    const educationLevel = (body.grade || body.education_level || "Standard 1").trim();
+    const selectedAvatar = body.selectedAvatar || body.selected_avatar || "🦖";
 
     if (!nickname || !pin) {
       return Response.json(
@@ -59,15 +65,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Generate virtual account credentials
     const cleanNick = nickname.toLowerCase().replace(/[^a-z0-9]/g, "") || "student";
     const randomDigits = Math.floor(1000 + Math.random() * 9000);
     const generatedUsername = `${cleanNick}_${randomDigits}`;
     const studentId = generateStudentId();
     const virtualEmail = `${cleanNick}.${parent.id.substring(0, 6)}.${randomDigits}@studyquest.com`;
-    const selectedAvatar = body.selectedAvatar || "🦖";
-    const educationLevel = body.grade || "Standard 1";
 
-    // 1. Create Student User record in database
+    // 3. Create Student User entity record
     const newStudent = await db.entities.User.create({
       app_role: "student",
       email: virtualEmail,
@@ -101,7 +106,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Create ParentChildRelationship record WITH embedded profile snapshot
+    // 4. Create ParentChildRelationship with embedded profile field
     await db.entities.ParentChildRelationship.create({
       parent_id: parent.id,
       child_id: newStudent.id,
@@ -113,11 +118,14 @@ Deno.serve(async (req) => {
         nickname: nickname,
         education_level: educationLevel,
         selected_avatar: selectedAvatar,
-        username: generatedUsername
+        username: generatedUsername,
+        student_id: studentId
       }
-    }).catch(() => null);
+    }).catch((err) => {
+      console.warn("ParentChildRelationship creation note:", err);
+    });
 
-    // 3. Create approved LinkRequest record
+    // 5. Create approved LinkRequest record
     await db.entities.LinkRequest.create({
       student_id: newStudent.id,
       student_name: nickname,
@@ -130,7 +138,7 @@ Deno.serve(async (req) => {
       status: "approved"
     }).catch(() => null);
 
-    // 4. Link child ID to parent user record
+    // 6. Link child ID to parent user array
     const currentLinked = parent.linked_student_ids || [];
     if (!currentLinked.includes(newStudent.id)) {
       await db.entities.User.update(parent.id, {
@@ -138,7 +146,7 @@ Deno.serve(async (req) => {
       }).catch(() => null);
     }
 
-    // 5. Initialize Wallet and Progress
+    // 7. Initialize Wallet and Progress
     await db.entities.Wallet.create({ student_id: newStudent.id, balance: 0 }).catch(() => null);
     await db.entities.Progress.create({
       student_id: newStudent.id,
@@ -150,7 +158,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      message: "Profil anak berjaya dicipta!",
+      message: "Profil anak berjaya dicipta dan disimpan!",
       student: {
         id: newStudent.id,
         nickname: newStudent.nickname || nickname,
@@ -158,6 +166,8 @@ Deno.serve(async (req) => {
         username: generatedUsername,
         student_id: studentId,
         child_login_pin: pin,
+        education_level: educationLevel,
+        selected_avatar: selectedAvatar
       }
     }, { status: 200, headers: resHeaders });
 
