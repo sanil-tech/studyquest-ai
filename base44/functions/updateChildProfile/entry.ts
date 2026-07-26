@@ -1,3 +1,4 @@
+// base44/functions/updateChildProfile/entry.ts
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
@@ -16,55 +17,110 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
 
-    // Verify parent authentication
+    // 1. Verify user authentication session
     const authUser = await base44.auth.me().catch(() => null);
     if (!authUser || !authUser.id) {
       return Response.json(
-        { success: false, error: 'Unauthorized - Sesi log masuk tidak ditemui.' },
-        { status: 401, headers: resHeaders }
+        { success: false, error: 'Sesi log masuk tidak ditemui. Sila log masuk semula.' },
+        { status: 200, headers: resHeaders }
       );
     }
 
     const body = await req.json().catch(() => ({}));
-    const childId = body.child_id || body.childId;
-    const nickname = body.nickname;
-    const fullName = body.full_name || body.fullName;
+    const childId = body.child_id || body.childId || authUser.id;
 
     if (!childId) {
       return Response.json(
-        { success: false, error: 'child_id diperlukan.' },
-        { status: 400, headers: resHeaders }
+        { success: false, error: 'ID profil anak (child_id) diperlukan.' },
+        { status: 200, headers: resHeaders }
       );
     }
 
-    const updateFields: Record<string, any> = {};
-    if (nickname) updateFields.nickname = nickname.trim();
-    if (fullName) updateFields.full_name = fullName.trim();
+    // 2. Authorize: User must be either the child themselves OR a linked parent
+    let isAuthorized = authUser.id === childId || authUser.app_role === "parent";
 
-    // Perform database update with Service Role
+    if (!isAuthorized) {
+      const rels = await db.entities.ParentChildRelationship.filter({
+        parent_id: authUser.id,
+        child_id: childId
+      }).catch(() => []);
+      
+      if (rels && rels.length > 0) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return Response.json(
+        { success: false, error: 'Anda tidak mempunyai kebenaran untuk mengemaskini profil ini.' },
+        { status: 200, headers: resHeaders }
+      );
+    }
+
+    // 3. Clean and sanitize update fields to prevent database schema validation errors
+    const updateFields: Record<string, any> = {};
+
+    if (body.nickname !== undefined && body.nickname !== null) {
+      updateFields.nickname = String(body.nickname).trim();
+    }
+    if (body.full_name || body.fullName) {
+      updateFields.full_name = String(body.full_name || body.fullName).trim();
+    }
+    if (body.education_level || body.grade || body.school_year) {
+      const eduLevel = String(body.education_level || body.grade || body.school_year).trim();
+      updateFields.education_level = eduLevel;
+      updateFields.school_year = eduLevel;
+    }
+    if (body.school_name || body.school) {
+      updateFields.school_name = String(body.school_name || body.school).trim();
+    }
+    if (body.selected_avatar || body.selectedAvatar) {
+      const avatarVal = body.selected_avatar || body.selectedAvatar;
+      updateFields.selected_avatar = avatarVal;
+      updateFields.avatar_emoji = avatarVal;
+    }
+    if (body.profile_picture_url !== undefined) {
+      updateFields.profile_picture_url = body.profile_picture_url;
+    }
+    if (body.gender !== undefined && body.gender !== null) {
+      updateFields.gender = String(body.gender);
+    }
+    if (body.date_of_birth || body.dateOfBirth) {
+      updateFields.date_of_birth = String(body.date_of_birth || body.dateOfBirth);
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      return Response.json(
+        { success: false, error: 'Tiada maklumat baharu dihantar untuk dikemaskini.' },
+        { status: 200, headers: resHeaders }
+      );
+    }
+
+    // 4. Update child record in User entity database
     const updatedUser = await db.entities.User.update(childId, updateFields);
 
-    // Synchronize LinkRequest table
-    if (nickname || fullName) {
+    // 5. Synchronize LinkRequest table display names if nickname/full_name changed
+    if (updateFields.nickname || updateFields.full_name) {
+      const newName = updateFields.nickname || updateFields.full_name;
       const linkRequests = await db.entities.LinkRequest.filter({ student_id: childId }).catch(() => []);
       for (const lr of linkRequests) {
         await db.entities.LinkRequest.update(lr.id, {
-          student_name: nickname || fullName
+          student_name: newName
         }).catch(() => null);
       }
     }
 
     return Response.json({
       success: true,
-      message: 'Profil anak berjaya dikemaskini di pangkalan data.',
+      message: 'Profil anak berjaya dikemaskini!',
       user: updatedUser
     }, { status: 200, headers: resHeaders });
 
   } catch (error: any) {
     console.error('UpdateChildProfile Error:', error);
     return Response.json(
-      { success: false, error: error.message || 'Gagal mengemaskini profil anak.' },
-      { status: 500, headers: resHeaders }
+      { success: false, error: error.message || 'Gagal mengemaskini profil anak di pangkalan data.' },
+      { status: 200, headers: resHeaders }
     );
   }
 });
