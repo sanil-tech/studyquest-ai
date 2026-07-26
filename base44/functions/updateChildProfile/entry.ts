@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
 
-    // 1. Verify user authentication session
+    // 1. Authenticate user session
     const authUser = await base44.auth.me().catch(() => null);
     if (!authUser || !authUser.id) {
       return Response.json(
@@ -28,65 +28,47 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
 
-    // Normalize requested child ID input (handle object or string payloads)
+    // Normalize requested child ID input
     let rawId = body.child_id || body.childId;
     if (typeof rawId === 'object' && rawId !== null) {
       rawId = rawId.id || rawId.student_id || rawId.username;
     }
 
-    const requestedId = rawId ? String(rawId).trim() : null;
+    let requestedId = rawId ? String(rawId).trim() : "";
+
+    if (!requestedId && authUser.app_role === "student") {
+      requestedId = authUser.id;
+    }
+
     let targetUser: any = null;
 
-    // --- TIER 1: IF AUTHENTICATED USER IS A STUDENT, TARGET THEIR OWN ACCOUNT ---
-    if (authUser.app_role === "student") {
-      targetUser = await db.entities.User.get(authUser.id).catch(() => authUser);
-    }
-
-    // --- TIER 2: LOOKUP BY SPECIFIC REQUESTED ID ---
-    if (!targetUser && requestedId) {
-      // A. Check Direct Primary Key ID
+    // LOOKUP TIER 1: Primary Key
+    if (requestedId) {
       targetUser = await db.entities.User.get(requestedId).catch(() => null);
-
-      // B. Check Student Code (e.g., SQ-123456)
-      if (!targetUser) {
-        const matchByCode = await db.entities.User.filter({ student_id: requestedId }).catch(() => []);
-        if (matchByCode && matchByCode.length > 0) targetUser = matchByCode[0];
-      }
-
-      // C. Check Username
-      if (!targetUser) {
-        const matchByUsername = await db.entities.User.filter({ username: requestedId }).catch(() => []);
-        if (matchByUsername && matchByUsername.length > 0) targetUser = matchByUsername[0];
-      }
     }
 
-    // --- TIER 3: FALLBACK FOR PARENT IN KIDS MODE (AUTO-RESOLVE LINKED CHILD) ---
+    // LOOKUP TIER 2: student_id Code
+    if (!targetUser && requestedId) {
+      const matchByCode = await db.entities.User.filter({ student_id: requestedId }).catch(() => []);
+      if (matchByCode && matchByCode.length > 0) targetUser = matchByCode[0];
+    }
+
+    // LOOKUP TIER 3: Username
+    if (!targetUser && requestedId) {
+      const matchByUsername = await db.entities.User.filter({ username: requestedId }).catch(() => []);
+      if (matchByUsername && matchByUsername.length > 0) targetUser = matchByUsername[0];
+    }
+
+    // LOOKUP TIER 4: Fallback for Parent Account Links
     if (!targetUser && authUser.app_role === "parent") {
-      // A. Check ParentChildRelationship entity table for active child link
-      const rels = await db.entities.ParentChildRelationship.filter({ 
-        parent_id: authUser.id, 
-        status: "active" 
+      const rels = await db.entities.ParentChildRelationship.filter({
+        parent_id: authUser.id,
+        status: "active"
       }).catch(() => []);
 
       if (rels && rels.length > 0) {
         const childPk = rels[0].child_id || rels[0].student_id;
-        if (childPk) {
-          targetUser = await db.entities.User.get(childPk).catch(() => null);
-        }
-      }
-
-      // B. Check linked_parent_id on User entity table
-      if (!targetUser) {
-        const linkedChildren = await db.entities.User.filter({ linked_parent_id: authUser.id }).catch(() => []);
-        if (linkedChildren && linkedChildren.length > 0) {
-          targetUser = linkedChildren[0];
-        }
-      }
-
-      // C. Check linked_student_ids array on parent record
-      if (!targetUser && Array.isArray(authUser.linked_student_ids) && authUser.linked_student_ids.length > 0) {
-        const firstChildId = authUser.linked_student_ids[0];
-        targetUser = await db.entities.User.get(firstChildId).catch(() => null);
+        if (childPk) targetUser = await db.entities.User.get(childPk).catch(() => null);
       }
     }
 
@@ -99,7 +81,7 @@ Deno.serve(async (req) => {
 
     const actualChildId = targetUser.id;
 
-    // 2. Authorize: Requesting user must be the child OR a linked parent
+    // 2. Authorize
     let isAuthorized = authUser.id === actualChildId || authUser.app_role === "parent";
 
     if (!isAuthorized) {
@@ -108,9 +90,7 @@ Deno.serve(async (req) => {
         child_id: actualChildId
       }).catch(() => []);
 
-      if (rels && rels.length > 0) {
-        isAuthorized = true;
-      }
+      if (rels && rels.length > 0) isAuthorized = true;
     }
 
     if (!isAuthorized) {
@@ -120,7 +100,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Build sanitized update payload
+    // 3. Build update fields
     const updateFields: Record<string, any> = {};
 
     if (body.nickname !== undefined && body.nickname !== null && String(body.nickname).trim() !== "") {
@@ -159,17 +139,33 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Update user entity record in database
+    // 4. Update child User entity record
     const updatedUser = await db.entities.User.update(actualChildId, updateFields);
 
-    // 5. Synchronize LinkRequest table display names
+    // 5. Synchronize ParentChildRelationship embedded `profile` object
+    const matchingRels = await db.entities.ParentChildRelationship.filter({ child_id: actualChildId }).catch(() => []);
+    
+    for (const rel of matchingRels) {
+      const existingProfile = rel.profile || {};
+      const newProfile = {
+        full_name: updateFields.full_name || existingProfile.full_name || updatedUser.full_name || updatedUser.nickname,
+        nickname: updateFields.nickname || existingProfile.nickname || updatedUser.nickname,
+        education_level: updateFields.education_level || existingProfile.education_level || updatedUser.education_level || updatedUser.school_year,
+        selected_avatar: updateFields.selected_avatar || existingProfile.selected_avatar || updatedUser.selected_avatar || updatedUser.avatar_emoji,
+        username: updatedUser.username || existingProfile.username
+      };
+
+      await db.entities.ParentChildRelationship.update(rel.id, {
+        profile: newProfile
+      }).catch(() => null);
+    }
+
+    // 6. Synchronize LinkRequest table display names
     if (updateFields.nickname || updateFields.full_name) {
       const newName = updateFields.nickname || updateFields.full_name;
       const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
       for (const lr of linkRequests) {
-        await db.entities.LinkRequest.update(lr.id, {
-          student_name: newName
-        }).catch(() => null);
+        await db.entities.LinkRequest.update(lr.id, { student_name: newName }).catch(() => null);
       }
     }
 
