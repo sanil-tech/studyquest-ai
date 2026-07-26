@@ -2,25 +2,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  LogOut, BookOpen, Trophy, Coins, BookMarked, 
-  ChevronRight, Pen, Check, X, ShieldAlert, Sparkles, Lock, Loader2 
+  LogOut, Trophy, Coins, Check, Sparkles, Lock, Loader2 
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
-import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
-import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
-import SecuritySection from "@/components/profile/SecuritySection";
 import StudentIdSection from "@/components/profile/StudentIdSection";
 
-// ==========================================
-// FREE AVATAR COLLECTION (DICEBEAR API)
-// ==========================================
 const FREE_AVATARS = [
   "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy&backgroundColor=ffdfbf",
   "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Wink&backgroundColor=b6e3f4",
@@ -32,9 +24,6 @@ const FREE_AVATARS = [
   "https://api.dicebear.com/7.x/notionists/svg?seed=Luna&backgroundColor=ffdfbf"
 ];
 
-// ==========================================
-// PREMIUM AVATAR COLLECTION
-// ==========================================
 const PREMIUM_AVATARS = [
   { id: "prem1", url: "https://api.dicebear.com/7.x/pixel-art/svg?seed=King&backgroundColor=ffd700", cost: 100, label: "Raja Pixel" },
   { id: "prem2", url: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Queen&backgroundColor=ff69b4", cost: 100, label: "Ratu Pixel" },
@@ -49,7 +38,7 @@ export default function ProfilePage() {
   const { toast } = useToast();
 
   const [user, setUser] = useState(null);
-  const [activeChildId, setActiveChildId] = useState(null);
+  const [targetStudentId, setTargetStudentId] = useState(null);
   const [progress, setProgress] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [totalQuizzes, setTotalQuizzes] = useState(0);
@@ -68,19 +57,6 @@ export default function ProfilePage() {
     date_of_birth: "", 
     country: "Malaysia", 
     state: "",
-    notification_preferences: {
-      email_notifications: true, 
-      push_notifications: true, 
-      quiz_reminders: true,
-      daily_learning_reminder: true, 
-      parent_progress_reports: true, 
-      weekly_achievement_summary: true,
-    },
-    learning_preferences: {
-      daily_goal_minutes: 20, 
-      difficulty_preference: "medium", 
-      favorite_subjects: [],
-    },
   });
 
   const [avatarMode, setAvatarMode] = useState("emoji");
@@ -97,24 +73,23 @@ export default function ProfilePage() {
         const currentUser = await base44.auth.me();
         if (!currentUser) return;
 
-        let targetUser = currentUser;
-        let selectedChildId = null;
+        let profileUser = currentUser;
+        let activeChildId = null;
 
-        // Check if parent is viewing in Child Mode
         if (currentUser.app_role === "parent") {
-          selectedChildId = 
+          activeChildId = 
             localStorage.getItem("active_child_session") || 
             localStorage.getItem("selected_child_id") || 
             localStorage.getItem("active_student_id");
 
-          if (selectedChildId) {
+          if (activeChildId) {
             try {
-              const fetchedChild = await base44.entities.User.get(selectedChildId);
-              if (fetchedChild) targetUser = fetchedChild;
+              const fetchedChild = await base44.entities.User.get(activeChildId);
+              if (fetchedChild) profileUser = fetchedChild;
             } catch (e) {
               const cachedChildStr = localStorage.getItem("active_child");
               if (cachedChildStr) {
-                try { targetUser = JSON.parse(cachedChildStr); } catch (err) {}
+                try { profileUser = JSON.parse(cachedChildStr); } catch (err) {}
               }
             }
           }
@@ -122,17 +97,16 @@ export default function ProfilePage() {
 
         if (!isMounted) return;
 
-        setUser(targetUser);
-        setActiveChildId(selectedChildId);
+        setUser(profileUser);
+        
+        const effectiveStudentId = activeChildId || (profileUser.app_role === "student" ? profileUser.id : null);
+        setTargetStudentId(effectiveStudentId);
 
-        // Fetch student statistics if profile belongs to a student
-        const isStudentProfile = targetUser.app_role === "student" || selectedChildId;
-
-        if (isStudentProfile && targetUser.id) {
+        if (effectiveStudentId) {
           const [progs, wallets, attempts] = await Promise.all([
-            base44.entities.Progress.filter({ student_id: targetUser.id }).catch(() => []),
-            base44.entities.Wallet.filter({ student_id: targetUser.id }).catch(() => []),
-            base44.entities.QuizAttempt.filter({ student_id: targetUser.id }).catch(() => []),
+            base44.entities.Progress.filter({ student_id: effectiveStudentId }).catch(() => []),
+            base44.entities.Wallet.filter({ student_id: effectiveStudentId }).catch(() => []),
+            base44.entities.QuizAttempt.filter({ student_id: effectiveStudentId }).catch(() => []),
           ]);
 
           if (isMounted) {
@@ -142,21 +116,19 @@ export default function ProfilePage() {
           }
         }
 
-        const eduLevel = targetUser.education_level || targetUser.school_year || "";
+        const eduLevel = profileUser.education_level || profileUser.school_year || "";
 
         setFormData({
-          full_name: targetUser.full_name || "",
-          nickname: targetUser.nickname || "",
+          full_name: profileUser.full_name || "",
+          nickname: profileUser.nickname || "",
           school_year: eduLevel,
           education_level: eduLevel,
-          school_name: targetUser.school_name || "",
-          class_name: targetUser.class_name || "",
-          gender: targetUser.gender || "",
-          date_of_birth: targetUser.date_of_birth || "",
-          country: targetUser.country || "Malaysia",
-          state: targetUser.state || "",
-          notification_preferences: targetUser.notification_preferences || formData.notification_preferences,
-          learning_preferences: targetUser.learning_preferences || formData.learning_preferences,
+          school_name: profileUser.school_name || "",
+          class_name: profileUser.class_name || "",
+          gender: profileUser.gender || "",
+          date_of_birth: profileUser.date_of_birth || "",
+          country: profileUser.country || "Malaysia",
+          state: profileUser.state || "",
         });
 
       } catch (err) {
@@ -168,9 +140,7 @@ export default function ProfilePage() {
 
     loadProfileData();
 
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const handleLogout = () => {
@@ -180,16 +150,17 @@ export default function ProfilePage() {
 
   const handleSaveAvatar = async (emoji) => {
     try {
-      if (activeChildId) {
+      const childId = targetStudentId || user?.id;
+      if (childId) {
         await base44.functions.invoke("updateChildProfile", {
-          child_id: activeChildId,
+          child_id: childId,
           selected_avatar: emoji,
         });
       } else {
         await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
       }
       setUser((prev) => ({ ...prev, avatar_emoji: emoji, selected_avatar: emoji, profile_picture_url: null }));
-      toast({ title: "Avatar Ditukar! 🎨", description: "Avatar baru anda telah disimpan." });
+      toast({ title: "Avatar Ditukar! 🎨", description: "Avatar baharu anda telah disimpan." });
     } catch (err) {
       toast({ title: "Gagal", description: "Sila cuba lagi.", variant: "destructive" });
     }
@@ -201,9 +172,10 @@ export default function ProfilePage() {
     setUploading(true);
     try {
       const result = await base44.integrations.Core.UploadFile({ file });
-      if (activeChildId) {
+      const childId = targetStudentId || user?.id;
+      if (childId) {
         await base44.functions.invoke("updateChildProfile", {
-          child_id: activeChildId,
+          child_id: childId,
           profile_picture_url: result.file_url,
         });
       } else {
@@ -221,9 +193,10 @@ export default function ProfilePage() {
 
   const handleRemovePhoto = async () => {
     try {
-      if (activeChildId) {
+      const childId = targetStudentId || user?.id;
+      if (childId) {
         await base44.functions.invoke("updateChildProfile", {
-          child_id: activeChildId,
+          child_id: childId,
           profile_picture_url: null,
         });
       } else {
@@ -239,9 +212,10 @@ export default function ProfilePage() {
   const handleSelectPresetAvatar = async (url) => {
     setUploading(true);
     try {
-      if (activeChildId) {
+      const childId = targetStudentId || user?.id;
+      if (childId) {
         await base44.functions.invoke("updateChildProfile", {
-          child_id: activeChildId,
+          child_id: childId,
           profile_picture_url: url,
         });
       } else {
@@ -249,10 +223,7 @@ export default function ProfilePage() {
       }
       setUser((prev) => ({ ...prev, profile_picture_url: url, avatar_emoji: null }));
       setAvatarMode("photo");
-      toast({
-        title: "Avatar Ditukar! 🌟",
-        description: "Avatar baru anda kelihatan sangat hebat!",
-      });
+      toast({ title: "Avatar Ditukar! 🌟", description: "Avatar baru anda kelihatan sangat hebat!" });
     } catch (err) {
       toast({ title: "Gagal", description: "Tidak dapat menukar avatar.", variant: "destructive" });
     } finally {
@@ -270,10 +241,11 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      if (activeChildId) {
-        // Update Child Profile in User Entity via edge function
-        await base44.functions.invoke("updateChildProfile", {
-          child_id: activeChildId,
+      const childId = targetStudentId || (user?.app_role === "student" ? user.id : null);
+
+      if (childId) {
+        const response = await base44.functions.invoke("updateChildProfile", {
+          child_id: childId,
           nickname: formData.nickname,
           full_name: formData.full_name,
           education_level: formData.education_level || formData.school_year,
@@ -281,18 +253,37 @@ export default function ProfilePage() {
           gender: formData.gender,
           date_of_birth: formData.date_of_birth,
         });
+
+        const resPayload = response?.data || response;
+        if (resPayload?.success === false) {
+          throw new Error(resPayload?.error || "Gagal mengemaskini profil anak.");
+        }
+
+        if (resPayload?.user) {
+          setUser(resPayload.user);
+          const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+          if (cachedChildren[childId]) {
+            cachedChildren[childId] = { ...cachedChildren[childId], ...resPayload.user };
+            localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
+          }
+        }
       } else {
-        // Update direct user profile
         await base44.auth.updateMe({
-          ...formData,
+          full_name: formData.full_name,
+          nickname: formData.nickname,
           education_level: formData.education_level || formData.school_year,
+          school_name: formData.school_name,
+          gender: formData.gender,
+          date_of_birth: formData.date_of_birth,
         });
+        const updatedMe = await base44.auth.me();
+        setUser(updatedMe);
       }
 
       setEditing(false);
       toast({ title: "Profil disimpan! ✓", description: "Maklumat profil telah dikemas kini." });
     } catch (err) {
-      toast({ title: "Gagal menyimpan", description: err.message, variant: "destructive" });
+      toast({ title: "Gagal menyimpan", description: err.message || "Ralat pelayan", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -307,11 +298,10 @@ export default function ProfilePage() {
     );
   }
 
-  const isStudent = user?.app_role === "student" || Boolean(activeChildId);
-  const isParent = user?.app_role === "parent" && !activeChildId;
+  const isStudent = user?.app_role === "student" || Boolean(targetStudentId);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-sans">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-sans text-stone-800">
       
       {/* HEADER KAD PROFIL */}
       <motion.div 
@@ -335,7 +325,7 @@ export default function ProfilePage() {
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
                   {user?.nickname || user?.full_name || "Pelajar"}
                 </h1>
-                {activeChildId && (
+                {targetStudentId && (
                   <span className="bg-amber-100 text-amber-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                     Mod Anak
                   </span>
@@ -375,7 +365,7 @@ export default function ProfilePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         
-        {/* SIDEBAR KIRI (Metrik & Identiti) */}
+        {/* SIDEBAR KIRI */}
         <div className="lg:col-span-1 space-y-6">
           {isStudent && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-3 gap-3">
@@ -415,7 +405,7 @@ export default function ProfilePage() {
           </Button>
         </div>
 
-        {/* BAHAGIAN KANAN (Tetapan Avatar & Borang) */}
+        {/* BAHAGIAN KANAN */}
         <div className="lg:col-span-2 space-y-6">
           
           <AnimatePresence>
@@ -426,8 +416,6 @@ export default function ProfilePage() {
                 exit={{ opacity: 0, height: 0 }} 
                 className="overflow-hidden bg-white rounded-2xl border border-orange-100 shadow-sm"
               >
-                
-                {/* 1. Komponen Upload Asal */}
                 <div className="p-1 border-b-2 border-orange-50">
                   <ProfilePhotoSection
                     user={user} 
@@ -444,7 +432,6 @@ export default function ProfilePage() {
                   />
                 </div>
 
-                {/* 2. Galeri Avatar Percuma */}
                 <div className="p-6 bg-slate-50/50">
                   <div className="flex items-center gap-2 mb-4">
                     <Sparkles className="w-5 h-5 text-blue-500" />
@@ -477,7 +464,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* 3. Galeri Avatar Premium */}
                 <div className="p-6 bg-amber-50/50 border-t border-amber-100">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
