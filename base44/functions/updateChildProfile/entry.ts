@@ -172,18 +172,31 @@ Deno.serve(async (req) => {
       console.warn('ParentChildRelationship profile sync skipped:', relErr);
     }
 
-    // 6. Safe Secondary Sync: LinkRequest table
-    try {
-      if (updateFields.nickname || updateFields.full_name) {
-        const newName = updateFields.nickname || updateFields.full_name;
-        const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
-        for (const lr of linkRequests) {
-          await db.entities.LinkRequest.update(lr.id, { student_name: newName }).catch(() => null);
-        }
-      }
-    } catch (lrErr) {
-      console.warn('LinkRequest sync skipped:', lrErr);
-    }
+    // Inside base44/functions/updateChildProfile/entry.ts
+
+// Step 6: Synchronize LinkRequest table student_profile snapshot
+try {
+  const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
+  
+  for (const lr of linkRequests) {
+    const existingProfile = lr.student_profile || {};
+    const updatedProfile = {
+      full_name: updateFields.full_name || existingProfile.full_name || updatedUser.full_name || updatedUser.nickname || "",
+      nickname: updateFields.nickname || existingProfile.nickname || updatedUser.nickname || "",
+      education_level: updateFields.education_level || existingProfile.education_level || updatedUser.education_level || updatedUser.school_year || "",
+      selected_avatar: updateFields.selected_avatar || existingProfile.selected_avatar || updatedUser.selected_avatar || updatedUser.avatar_emoji || "",
+      username: updatedUser.username || existingProfile.username || "",
+      student_id: updatedUser.student_id || existingProfile.student_id || ""
+    };
+
+    await db.entities.LinkRequest.update(lr.id, {
+      student_name: updateFields.nickname || updateFields.full_name || lr.student_name,
+      student_profile: updatedProfile
+    }).catch(() => null);
+  }
+} catch (lrErr) {
+  console.warn('LinkRequest profile sync skipped:', lrErr);
+}
 
     return Response.json({
       success: true,
