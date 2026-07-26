@@ -1,12 +1,12 @@
 // base44/functions/createChildAccount/entry.ts
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// Helper function to hash child 4-digit PIN
+// Helper function to hash 4-digit PINs
 const hashPin = (pin: string) => {
   return btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${pin}_2026`)));
 };
 
-// Helper function to generate unique student code (e.g. SQ-A1B2C3)
+// Helper function to generate student codes (e.g. SQ-A1B2C3)
 const generateStudentId = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = 'SQ-';
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
 
-    // 1. Verify parent authentication
+    // 1. Verify parent authentication session
     const authUser = await base44.auth.me().catch(() => null);
     if (!authUser || !authUser.id) {
       return Response.json(
@@ -41,9 +41,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const parent = await db.entities.User.get(authUser.id).catch(() => authUser);
+    // Safely retrieve parent record from User entity
+    const parentDbRecord = await db.entities.User.get(authUser.id).catch(() => null);
+    const parent = parentDbRecord || authUser || {};
 
-    // 2. Parse request body
+    const parentId = parent.id || authUser.id;
+    const parentEmail = parent.email || authUser.email || "parent@studyquest.com";
+    const parentName = parent.full_name || parent.nickname || authUser.full_name || "Ibu Bapa";
+
+    // 2. Parse request payload
     const body = await req.json().catch(() => ({}));
     const nickname = (body.nickname || body.fullName || "Anak").trim();
     const fullName = (body.fullName || nickname).trim();
@@ -65,14 +71,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate virtual account credentials
+    // 3. Generate child account credentials safely
     const cleanNick = nickname.toLowerCase().replace(/[^a-z0-9]/g, "") || "student";
     const randomDigits = Math.floor(1000 + Math.random() * 9000);
     const generatedUsername = `${cleanNick}_${randomDigits}`;
     const studentId = generateStudentId();
-    const virtualEmail = `${cleanNick}.${parent.id.substring(0, 6)}.${randomDigits}@studyquest.com`;
+    const virtualEmail = `${cleanNick}.${parentId.substring(0, 6)}.${randomDigits}@studyquest.com`;
 
-    // 3. Create Student User entity record
+    // 4. Create Student User record in database
     const newStudent = await db.entities.User.create({
       app_role: "student",
       email: virtualEmail,
@@ -86,7 +92,7 @@ Deno.serve(async (req) => {
       login_method: "both",
       is_child_account: true,
       profile_completed: true,
-      linked_parent_id: parent.id,
+      linked_parent_id: parentId,
       selected_avatar: selectedAvatar,
       avatar_emoji: selectedAvatar,
       date_of_birth: body.dateOfBirth || undefined,
@@ -97,6 +103,9 @@ Deno.serve(async (req) => {
       preferred_language: body.language || "ms",
       interests: body.interests || [],
       status: "active"
+    }).catch((err: any) => {
+      console.error("User.create Error:", err);
+      return null;
     });
 
     if (!newStudent || !newStudent.id) {
@@ -106,10 +115,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Create ParentChildRelationship with embedded profile field
+    const newStudentId = newStudent.id;
+
+    // 5. Create ParentChildRelationship with embedded profile
     await db.entities.ParentChildRelationship.create({
-      parent_id: parent.id,
-      child_id: newStudent.id,
+      parent_id: parentId,
+      child_id: newStudentId,
       relationship: "parent",
       status: "active",
       linked_at: new Date().toISOString(),
@@ -121,35 +132,35 @@ Deno.serve(async (req) => {
         username: generatedUsername,
         student_id: studentId
       }
-    }).catch((err) => {
-      console.warn("ParentChildRelationship creation note:", err);
+    }).catch((err: any) => {
+      console.warn("ParentChildRelationship create note:", err);
     });
 
-    // 5. Create approved LinkRequest record
+    // 6. Create approved LinkRequest record
     await db.entities.LinkRequest.create({
-      student_id: newStudent.id,
+      student_id: newStudentId,
       student_name: nickname,
       student_username: generatedUsername,
       student_email: virtualEmail,
-      parent_id: parent.id,
-      parent_email: parent.email || "parent@studyquest.com",
-      parent_name: parent.full_name || parent.nickname || "Ibu Bapa",
+      parent_id: parentId,
+      parent_email: parentEmail,
+      parent_name: parentName,
       initiated_by: "parent",
       status: "approved"
     }).catch(() => null);
 
-    // 6. Link child ID to parent user array
-    const currentLinked = parent.linked_student_ids || [];
-    if (!currentLinked.includes(newStudent.id)) {
-      await db.entities.User.update(parent.id, {
-        linked_student_ids: [...currentLinked, newStudent.id]
+    // 7. Link child ID to parent user record
+    const currentLinked = Array.isArray(parent.linked_student_ids) ? parent.linked_student_ids : [];
+    if (!currentLinked.includes(newStudentId)) {
+      await db.entities.User.update(parentId, {
+        linked_student_ids: [...currentLinked, newStudentId]
       }).catch(() => null);
     }
 
-    // 7. Initialize Wallet and Progress
-    await db.entities.Wallet.create({ student_id: newStudent.id, balance: 0 }).catch(() => null);
+    // 8. Initialize Wallet and Progress
+    await db.entities.Wallet.create({ student_id: newStudentId, balance: 0 }).catch(() => null);
     await db.entities.Progress.create({
-      student_id: newStudent.id,
+      student_id: newStudentId,
       total_xp: 0,
       level: 1,
       streak_days: 0,
@@ -158,11 +169,11 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      message: "Profil anak berjaya dicipta dan disimpan!",
+      message: "Profil anak berjaya dicipta!",
       student: {
-        id: newStudent.id,
-        nickname: newStudent.nickname || nickname,
-        full_name: newStudent.full_name || fullName,
+        id: newStudentId,
+        nickname: nickname,
+        full_name: fullName,
         username: generatedUsername,
         student_id: studentId,
         child_login_pin: pin,
