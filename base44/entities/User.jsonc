@@ -4,7 +4,7 @@
   "properties": {
     "app_role": {
       "type": "string",
-      "enum": ["student", "parent", "teacher"]
+      "enum": ["student", "parent", "teacher", "admin"]
     },
     "nickname": {
       "type": "string"
@@ -13,6 +13,9 @@
       "type": "string"
     },
     "username": {
+      "type": "string"
+    },
+    "email": {
       "type": "string"
     },
     "child_login_pin": {
@@ -24,13 +27,66 @@
     "student_id": {
       "type": "string"
     },
+    "education_level": {
+      "type": "string",
+      "description": "Student school level e.g. Standard 1, Standard 2, Form 1, Form 2"
+    },
+    "school_year": {
+      "type": "string"
+    },
+    "school_name": {
+      "type": "string"
+    },
+    "gender": {
+      "type": "string"
+    },
+    "date_of_birth": {
+      "type": "string"
+    },
+    "selected_avatar": {
+      "type": "string"
+    },
+    "avatar_emoji": {
+      "type": "string"
+    },
+    "profile_picture_url": {
+      "type": "string"
+    },
+    "preferred_language": {
+      "type": "string",
+      "default": "ms"
+    },
+    "interests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "linked_student_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of child user IDs linked to a parent"
+    },
+    "linked_parent_id": {
+      "type": "string",
+      "description": "User ID of the parent account"
+    },
     "is_child_account": {
       "type": "boolean",
       "default": false
     },
+    "profile_completed": {
+      "type": "boolean",
+      "default": true
+    },
     "pin_enabled": {
       "type": "boolean",
       "default": true
+    },
+    "login_method": {
+      "type": "string"
     },
     "status": {
       "type": "string",
