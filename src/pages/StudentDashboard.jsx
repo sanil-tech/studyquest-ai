@@ -1,11 +1,11 @@
 // src/pages/StudentDashboard.jsx
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   Trophy, BookOpen, Target, Award, Play, CheckCircle2, 
   UserCheck, UserX, ShieldAlert, Sparkles, Leaf, TreePine, 
-  Sprout, LogOut, Loader2, Compass, Flame, Rocket, Star, MapPin
+  Sprout, LogOut, Compass, Flame, Rocket
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 
-// StudyQuest Universe Subject Worlds Configuration
+// Subject Worlds Data
 const SUBJECT_WORLDS = [
   {
     id: "science",
@@ -22,7 +22,6 @@ const SUBJECT_WORLDS = [
     mascot: "Bimo Orangutan",
     emoji: "🦧",
     color: "from-emerald-400 to-green-600",
-    borderColor: "border-emerald-300",
     badgeBg: "bg-emerald-100 text-emerald-800",
     path: "/lessons?subject=science",
   },
@@ -33,7 +32,6 @@ const SUBJECT_WORLDS = [
     mascot: "Suku Penyu",
     emoji: "🐢",
     color: "from-blue-400 to-indigo-600",
-    borderColor: "border-blue-300",
     badgeBg: "bg-blue-100 text-blue-800",
     path: "/lessons?subject=math",
   },
@@ -44,7 +42,6 @@ const SUBJECT_WORLDS = [
     mascot: "Lila Enggang",
     emoji: "🦜",
     color: "from-amber-400 to-orange-600",
-    borderColor: "border-amber-300",
     badgeBg: "bg-amber-100 text-amber-800",
     path: "/lessons?subject=bm",
   },
@@ -55,7 +52,6 @@ const SUBJECT_WORLDS = [
     mascot: "Ollie Memerang",
     emoji: "🦦",
     color: "from-cyan-400 to-teal-600",
-    borderColor: "border-cyan-300",
     badgeBg: "bg-cyan-100 text-cyan-800",
     path: "/lessons?subject=english",
   },
@@ -66,7 +62,6 @@ const SUBJECT_WORLDS = [
     mascot: "Gajah",
     emoji: "🐘",
     color: "from-stone-400 to-amber-700",
-    borderColor: "border-amber-400",
     badgeBg: "bg-amber-100 text-amber-900",
     path: "/lessons?subject=history",
   },
@@ -77,7 +72,6 @@ const SUBJECT_WORLDS = [
     mascot: "Lumi Rama-Rama",
     emoji: "🦋",
     color: "from-pink-400 to-rose-600",
-    borderColor: "border-pink-300",
     badgeBg: "bg-pink-100 text-pink-800",
     path: "/lessons?subject=art",
   },
@@ -88,7 +82,6 @@ const SUBJECT_WORLDS = [
     mascot: "Byte Robot",
     emoji: "🤖",
     color: "from-purple-400 to-violet-600",
-    borderColor: "border-purple-300",
     badgeBg: "bg-purple-100 text-purple-800",
     path: "/lessons?subject=ict",
   }
@@ -110,7 +103,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Load student dashboard data
+  // Load Dashboard Data
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
@@ -128,7 +121,6 @@ export default function StudentDashboard() {
       let pendingRequests = [];
 
       if (activeChildId) {
-        // Parent viewing as child
         let matchedChild = null;
 
         try {
@@ -137,7 +129,7 @@ export default function StudentDashboard() {
             matchedChild = res.data.children.find((c) => c.id === activeChildId);
           }
         } catch (e) {
-          console.warn("Ralat memanggil fetchParentChildren:", e);
+          console.warn("Error calling fetchParentChildren:", e);
         }
 
         if (!matchedChild) {
@@ -178,7 +170,6 @@ export default function StudentDashboard() {
         }
 
       } else {
-        // Direct Student Login
         const studentId = currentUser.id;
         studentUser = currentUser;
 
@@ -226,7 +217,7 @@ export default function StudentDashboard() {
       });
 
     } catch (err) {
-      console.error("Ralat memuat turun data pelajar:", err);
+      console.error("Ralat memuat turun data:", err);
       toast({ 
         title: "Alamak!", 
         description: "Gagal memuat turun data pengembaraan anda.", 
@@ -268,13 +259,23 @@ export default function StudentDashboard() {
     navigate("/parent");
   };
 
-  const { level, xp, nextLevelXp, xpPercentage } = useMemo(() => {
-    const lvl = dashboardState.progress?.level || 1;
-    const xpVal = dashboardState.progress?.total_xp || 0;
-    const nextLvlXp = lvl * 200;
-    const pct = Math.min((xpVal / nextLvlXp) * 100, 100);
-    return { level: lvl, xp: xpVal, nextLevelXp, xpPercentage: pct };
+  // ✅ FIX: Clean, isolated calculation object avoids Temporal Dead Zone (TDZ)
+  const progressCalculations = useMemo(() => {
+    const currentLevel = dashboardState.progress?.level || 1;
+    const currentXp = dashboardState.progress?.total_xp || 0;
+    const requiredXp = currentLevel * 200;
+    const percentage = Math.min((currentXp / requiredXp) * 100, 100);
+
+    return {
+      level: currentLevel,
+      xp: currentXp,
+      nextLevelXp: requiredXp,
+      xpPercentage: percentage,
+    };
   }, [dashboardState.progress]);
+
+  // Safely destructure after calculation finishes
+  const { level, xp, nextLevelXp, xpPercentage } = progressCalculations;
 
   const todayMinutes = useMemo(() => {
     const todayStart = moment().startOf("day");
@@ -334,7 +335,7 @@ export default function StudentDashboard() {
 
       <div className="max-w-5xl mx-auto px-4 mt-6 space-y-8">
         
-        {/* 2. HERO HERO BANNER */}
+        {/* 2. HERO BANNER */}
         <motion.div 
           initial={{ scale: 0.96, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
