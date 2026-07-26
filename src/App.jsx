@@ -32,7 +32,7 @@ const Home = React.lazy(() => import('@/pages/Home'));
 const NotificationsPage = React.lazy(() => import('@/pages/NotificationsPage'));
 const ProfilePage = React.lazy(() => import('@/pages/ProfilePage'));
 
-// Lazy-loaded Student Pages
+// Lazy-loaded Student & Learning Pages
 const StudentDashboard = React.lazy(() => import('@/pages/StudentDashboard'));
 const StudyPage = React.lazy(() => import('@/pages/StudyPage'));
 const LessonPage = React.lazy(() => import('@/pages/LessonPage'));
@@ -108,9 +108,9 @@ const AuthenticatedApp = () => {
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
 
-            {/* Student-only routes */}
+            {/* Student & Learning Routes (Allows parents in Child Mode too) */}
             <Route element={<ProfileCompleteRoute />}>
-              <Route element={<RoleRoute allowedRoles={["student"]} />}>
+              <Route element={<RoleRoute allowedRoles={["student", "parent"]} />}>
                 <Route path="/dashboard" element={<StudentDashboard />} />
                 
                 {/* Standard Study Routes */}
@@ -118,7 +118,7 @@ const AuthenticatedApp = () => {
                 <Route path="/study/:subjectId" element={<StudyPage />} />
                 <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
 
-                {/* ✅ Added Lesson Route Aliases */}
+                {/* Lesson Route Aliases */}
                 <Route path="/lessons" element={<StudyPage />} />
                 <Route path="/lessons/:subjectId" element={<StudyPage />} />
                 <Route path="/lesson/:subjectId/:topicId" element={<LessonPage />} />
@@ -130,13 +130,17 @@ const AuthenticatedApp = () => {
               </Route>
             </Route>
 
-            {/* Parent-only routes */}
+            {/* Parent Portal Routes */}
             <Route element={<ProfileCompleteRoute />}>
               <Route element={<RoleRoute allowedRoles={["parent"]} />}>
                 <Route path="/parent" element={<ParentDashboard />} />
                 <Route path="/parent/select-child" element={<ChildSelectionPage />} />
                 <Route path="/parent/children" element={<MyChildrenPage />} />
+                
+                {/* Child Profile Management Routes (Both Plural & Singular Aliases) */}
                 <Route path="/parent/children/:childId" element={<ChildProfilePage />} />
+                <Route path="/parent/child/:childId" element={<ChildProfilePage />} />
+                
                 <Route path="/parent/rewards" element={<ParentRewards />} />
                 <Route path="/parent/approvals" element={<ParentApprovals />} />
               </Route>
