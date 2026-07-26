@@ -1,11 +1,13 @@
+// src/pages/MyChildrenPage.jsx
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
   Users, Flame, Target, Clock, Coins, CheckCircle2, Award, BookOpen, 
   HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2, 
-  Eye, EyeOff, Edit3, Trash2
+  Eye, EyeOff, Edit3, Trash2, Key, GraduationCap, UserCheck, ChevronRight
 } from "lucide-react";
 import moment from "moment";
+import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress as ProgressBar } from "@/components/ui/progress";
@@ -22,21 +24,32 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { getChildDisplayName } from "@/lib/childUtils";
+import { getChildDisplayName, getStudentEducationLevel, loadChildrenWithStats } from "@/lib/childUtils";
+import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
 
-// ================= 1. KOMPONEN KAD DETEIL ANAK =================
+const GRADE_OPTIONS = [
+  "Standard 1", "Standard 2", "Standard 3", "Standard 4", "Standard 5", "Standard 6",
+  "Form 1", "Form 2", "Form 3", "Form 4", "Form 5"
+];
+
+// ================= 1. KAD DETEIL ANAK (DETAILED CHILD CARD) =================
 function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdated }) {
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [showPin, setShowPin] = useState(false);
   
+  const [showPin, setShowPin] = useState(false);
   const [isSettingPin, setIsSettingPin] = useState(false);
   const [inputPin, setInputPin] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isChangingGrade, setIsChangingGrade] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [openCredentialsModal, setOpenCredentialsModal] = useState(false);
   
   const displayName = getChildDisplayName(child);
+  const currentGrade = getStudentEducationLevel(child) || "Standard 1";
+
   const [inputName, setInputName] = useState(child.nickname || displayName);
+  const [selectedGrade, setSelectedGrade] = useState(currentGrade);
   const [updating, setUpdating] = useState(false);
 
   const sessionData = child.latestSession || {};
@@ -51,16 +64,11 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
   const streakDays = progressData.streak_days || 0;
   const currentCoins = child.wallet?.balance || 0;
   
-  const currentTopic = sessionData.topic_name || "Misi Belum Mula"; 
-  const totalStudyMinutes = sessionData.duration_minutes || 0; 
-  
   const lastActiveTime = sessionData.updated_at 
     ? `Belajar Terakhir: ${moment(sessionData.updated_at).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
 
-  const quizScore = child.quiz?.quiz_score || null;
-
-  // 🔥 PERMANENT DB UPDATE FOR NAME
+  // 🔥 UPDATE NAME IN DATABASE
   const handleSaveName = async () => {
     if (!inputName.trim()) {
       toast({ title: "Medan Wajib", description: "Nama panggilan tidak boleh kosong.", variant: "destructive" });
@@ -76,11 +84,12 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         full_name: cleanName
       });
 
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || "Gagal mengemaskini nama di pangkalan data.");
+      const resPayload = response?.data || response;
+      if (resPayload?.success === false) {
+        throw new Error(resPayload?.error || "Gagal mengemaskini nama.");
       }
 
-      toast({ title: "Berjaya Dikemaskini 🦖", description: "Nama panggilan anak disimpan kekal di pangkalan data." });
+      toast({ title: "Berjaya Dikemaskini 🦖", description: "Nama panggilan anak berjaya disimpan." });
       setIsEditingName(false);
       if (onDataUpdated) onDataUpdated();
     } catch (err) {
@@ -90,7 +99,33 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // 🔥 PERMANENT DB UPDATE FOR PIN
+  // 🔥 UPDATE EDUCATION LEVEL / GRADE IN DATABASE
+  const handleSaveGrade = async (newGrade) => {
+    setUpdating(true);
+    try {
+      const response = await base44.functions.invoke("updateChildProfile", {
+        child_id: child.id,
+        education_level: newGrade,
+        school_year: newGrade
+      });
+
+      const resPayload = response?.data || response;
+      if (resPayload?.success === false) {
+        throw new Error(resPayload?.error || "Gagal mengemaskini tahap persekolahan.");
+      }
+
+      setSelectedGrade(newGrade);
+      setIsChangingGrade(false);
+      toast({ title: "Tahap Dikemaskini 🎓", description: `Tahap persekolahan ${displayName} telah ditukar ke ${newGrade}.` });
+      if (onDataUpdated) onDataUpdated();
+    } catch (err) {
+      toast({ title: "Gagal menukar tahap", description: err.message, variant: "destructive" });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // 🔥 UPDATE PIN IN DATABASE
   const handleSaveNewPin = async () => {
     if (inputPin.length !== 4) {
       toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -104,65 +139,59 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         new_pin: inputPin,
       });
 
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || "Gagal menyimpan PIN di pangkalan data.");
+      const resPayload = response?.data || response;
+      if (resPayload?.success === false) {
+        throw new Error(resPayload?.error || "Gagal menyimpan PIN.");
       }
 
-      toast({ title: "PIN Dikunci Kekal! 🔑", description: "PIN baharu disimpan terus ke pangkalan data server." });
+      toast({ title: "PIN Dikunci Kekal! 🔑", description: "PIN baharu disimpan ke pangkalan data." });
       setIsSettingPin(false);
       setInputPin("");
       if (onDataUpdated) onDataUpdated();
     } catch (err) {
-      toast({ title: "Gagal menyimpan PIN 🛑", description: err.message || "Sila cuba sebentar lagi.", variant: "destructive" });
+      toast({ title: "Gagal menyimpan PIN 🛑", description: err.message, variant: "destructive" });
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleDeleteChild = async () => {
-    setIsDeleting(true);
-    try {
-      await base44.functions.invoke("removeChildLink", { child_id: child.id }).catch(() => null);
+  // 🔥 SWITCH TO CHILD MODE
+  const handleSwitchToChildMode = () => {
+    localStorage.setItem("active_child_session", child.id);
+    localStorage.setItem("selected_child_id", child.id);
+    localStorage.setItem("active_student_id", child.id);
+    localStorage.setItem("active_student_name", displayName);
+    localStorage.setItem("active_child", JSON.stringify(child));
 
-      toast({
-        title: "Profil Dipadam 🗑️",
-        description: `Profil ${displayName} telah berjaya dipadamkan.`,
-      });
-
-      if (onDataUpdated) onDataUpdated();
-    } catch (err) {
-      toast({
-        title: "Gagal Memadam Profil 🛑",
-        description: err.message || "Sila cuba sebentar lagi.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-      setConfirmDeleteOpen(false);
-    }
+    toast({ title: "Mod Anak Diaktifkan 🚀", description: `Anda kini melihat portal sebagai ${displayName}.` });
+    navigate("/study");
   };
 
   return (
-    <Card className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col justify-between space-y-4 relative">
+    <Card className="p-5 bg-white border border-slate-100 rounded-3xl shadow-sm flex flex-col justify-between space-y-4 relative">
       
-      <div className="flex items-center justify-between border-b border-slate-50 pb-2 text-[10px] text-slate-400 font-bold">
-        <span className="flex items-center gap-1 text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full uppercase text-[9px]">
+      {/* CARD TOP STATUS BAR */}
+      <div className="flex items-center justify-between border-b border-slate-50 pb-2.5 text-[10px] text-slate-400 font-bold">
+        <span className="flex items-center gap-1 text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full uppercase text-[9px]">
           <Clock className="w-3 h-3" /> {lastActiveTime}
         </span>
-        <Badge className="bg-slate-100 text-slate-700 font-bold text-[9px] border-0">
-          ID: {child.id ? child.id.substring(0, 6) : "------"}...
+        <Badge className="bg-slate-100 text-slate-700 font-mono font-bold text-[9px] border-0">
+          ID: {child.student_id || child.id?.substring(0, 8) || "------"}
         </Badge>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center border border-pink-200 text-xl shrink-0 overflow-hidden">
-          {child.selected_avatar && child.selected_avatar.startsWith("http") ? (
-            <img src={child.selected_avatar} alt={displayName} className="w-full h-full object-cover" />
+      {/* CHILD PROFILE HEADER & QUICK EDITS */}
+      <div className="flex items-start gap-3">
+        <div className="w-14 h-14 rounded-2xl bg-pink-100 flex items-center justify-center border-2 border-pink-200 text-2xl shrink-0 overflow-hidden shadow-xs">
+          {child.profile_picture_url ? (
+            <img src={child.profile_picture_url} alt={displayName} className="w-full h-full object-cover" />
           ) : (
             <span className="select-none">{child.selected_avatar || child.avatar_emoji || "🦧"}</span>
           )}
         </div>
-        <div className="flex-1 min-w-0">
+
+        <div className="flex-1 min-w-0 space-y-1.5">
+          {/* NAME INLINE EDIT */}
           <div className="flex items-center justify-between gap-1">
             {isEditingName ? (
               <div className="flex items-center gap-1 w-full">
@@ -172,35 +201,55 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
                   onChange={(e) => setInputName(e.target.value)}
                   className="px-2 py-0.5 text-xs border rounded-md font-bold text-slate-700 w-full focus:outline-indigo-500"
                 />
-                <button onClick={handleSaveName} disabled={updating} className="text-[10px] font-bold text-emerald-600 shrink-0">
-                  {updating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "Set"}
+                <button onClick={handleSaveName} disabled={updating} className="text-[10px] font-bold text-emerald-600 shrink-0 px-2 py-1 bg-emerald-50 rounded">
+                  {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : "Simpan"}
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 min-w-0 group cursor-pointer" onClick={() => { setInputName(child.nickname || displayName); setIsEditingName(true); }}>
-                <h3 className="text-sm font-black text-slate-800 uppercase truncate">
+                <h3 className="text-base font-black text-slate-800 tracking-tight truncate">
                   {displayName}
                 </h3>
-                <Edit3 className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                <Edit3 className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
               </div>
             )}
             
-            <Badge className="bg-blue-50 text-blue-600 border-0 text-[10px] font-black px-1.5 py-0 h-4 rounded shrink-0">
-              Tahap {progressData.level || 1}
+            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] font-black px-2 py-0.5 rounded-lg shrink-0">
+              Lv {progressData.level || 1}
             </Badge>
           </div>
-          {child.full_name && child.full_name !== displayName && (
-            <p className="text-[9px] text-slate-400 truncate font-medium leading-none mt-1">{child.full_name}</p>
-          )}
-          
-          {/* USERNAME & PIN DISPLAY */}
-          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-            <div className="flex items-center gap-1 min-w-0">
-              <span className="text-[9px] font-bold text-slate-400 uppercase">User:</span>
-              <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 truncate max-w-[150px]">
-                {child.username || child.nickname || "student"}
-              </span>
-            </div>
+
+          {/* EDUCATION LEVEL DROPDOWN SELECTOR */}
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            {isChangingGrade ? (
+              <select
+                disabled={updating}
+                value={selectedGrade}
+                onChange={(e) => handleSaveGrade(e.target.value)}
+                className="text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200 rounded-lg px-2 py-0.5 focus:outline-none"
+              >
+                {GRADE_OPTIONS.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            ) : (
+              <button 
+                onClick={() => setIsChangingGrade(true)}
+                className="inline-flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-black px-2 py-0.5 rounded-md border border-amber-200/80 transition-all"
+              >
+                <span>{currentGrade}</span>
+                <Edit3 className="w-2.5 h-2.5 text-amber-600" />
+              </button>
+            )}
+          </div>
+
+          {/* USERNAME & LOGIN PIN DISPLAY */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[9px] font-bold text-slate-400 uppercase">User:</span>
+            <span className="text-[10px] font-mono font-black text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 truncate max-w-[130px]">
+              {child.username || child.nickname || "student"}
+            </span>
 
             <span className="text-slate-200 text-[10px]">•</span>
 
@@ -214,25 +263,24 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
                   onChange={(e) => setInputPin(e.target.value.replace(/\D/g, ""))}
                   className="w-12 px-1.5 py-0.5 text-center text-xs border rounded-md text-slate-700 font-bold focus:outline-indigo-500 bg-white"
                 />
-                <button onClick={handleSaveNewPin} disabled={updating} className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
+                <button onClick={handleSaveNewPin} disabled={updating} className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                   {updating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : "Set"}
                 </button>
-                <button onClick={() => setIsSettingPin(false)} className="text-[9px] font-bold text-slate-400">Batal</button>
               </div>
             ) : (
               <button 
                 onClick={() => {
-                  if (!child.child_login_pin || child.child_login_pin === "----") {
+                  if (!child.child_login_pin) {
                     setIsSettingPin(true);
                   } else {
                     setShowPin(!showPin);
                   }
                 }}
-                className="bg-amber-50 text-amber-700 hover:bg-amber-100/80 border border-amber-200 font-black text-[9px] px-1.5 py-0.5 rounded-md tracking-wider flex items-center gap-1 shrink-0 transition-all active:scale-95"
+                className="bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 font-mono font-black text-[9px] px-1.5 py-0.5 rounded-md tracking-wider flex items-center gap-1 shrink-0"
               >
-                <span>🔑 PIN: {!child.child_login_pin || child.child_login_pin === "----" ? "Set" : (showPin ? child.child_login_pin : "••••")}</span>
-                {child.child_login_pin && child.child_login_pin !== "----" ? (
-                  showPin ? <EyeOff className="w-2.5 h-2.5 text-amber-600" /> : <Eye className="w-2.5 h-2.5 text-amber-600" />
+                <span>🔑 PIN: {!child.child_login_pin ? "Set" : (showPin ? child.child_login_pin : "••••")}</span>
+                {child.child_login_pin ? (
+                  showPin ? <EyeOff className="w-2.5 h-2.5 text-slate-400" /> : <Eye className="w-2.5 h-2.5 text-slate-400" />
                 ) : <Edit3 className="w-2.5 h-2.5 text-amber-500" />}
               </button>
             )}
@@ -240,318 +288,139 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         </div>
       </div>
 
-      <div className="space-y-1 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+      {/* XP & PROGRESS BAR */}
+      <div className="space-y-1 bg-slate-50 p-3 rounded-2xl border border-slate-100">
         <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-          <span className="flex items-center gap-0.5"><Zap className="w-3 h-3 text-purple-500" /> XP TERKUMPUL</span>
+          <span className="flex items-center gap-1 text-purple-600"><Zap className="w-3 h-3 fill-purple-600" /> XP TERKUMPUL</span>
           <span>{currentXP} XP ({xpPercentage}%)</span>
         </div>
-        <ProgressBar value={xpPercentage} className="h-1.5 bg-slate-100 rounded-full" />
+        <ProgressBar value={xpPercentage} className="h-2 bg-slate-200 rounded-full" />
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-orange-50/60 border border-orange-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
-          <Flame className="w-4 h-4 text-orange-500 mb-0.5" />
-          <span className="text-[8px] font-bold text-slate-400 uppercase">Hari Streak</span>
-          <span className="text-xs font-black text-slate-700 mt-0.5">{streakDays}</span>
+      {/* STATS QUICK METRICS */}
+      <div className="grid grid-cols-2 gap-2 text-center">
+        <div className="p-2 bg-emerald-50/60 border border-emerald-100 rounded-xl">
+          <p className="text-[9px] font-bold text-emerald-700 uppercase">Syiling Daun</p>
+          <p className="text-sm font-black text-emerald-900 flex items-center justify-center gap-1 mt-0.5">
+            <Coins className="w-3.5 h-3.5 text-amber-500" /> {currentCoins}
+          </p>
         </div>
 
-        <div className="bg-amber-50/60 border border-amber-100/50 p-2 rounded-xl flex flex-col items-center justify-center">
-          <Coins className="w-4 h-4 text-amber-500 mb-0.5" />
-          <span className="text-[8px] font-bold text-slate-400 uppercase">Baki Koin</span>
-          <span className="text-xs font-black text-slate-700 mt-0.5">{currentCoins}</span>
-        </div>
-
-        <div className="bg-indigo-50/50 border border-indigo-100/40 p-2 rounded-xl flex flex-col items-center justify-center min-w-0">
-          <Target className="w-4 h-4 text-indigo-500 mb-0.5" />
-          <span className="text-[8px] font-bold text-slate-400 uppercase truncate w-full">Topik Semasa</span>
-          <span className="text-[10px] font-black text-slate-700 mt-0.5 truncate w-full px-0.5">{currentTopic}</span>
+        <div className="p-2 bg-orange-50/60 border border-orange-100 rounded-xl">
+          <p className="text-[9px] font-bold text-orange-700 uppercase">Streak Hari</p>
+          <p className="text-sm font-black text-orange-900 flex items-center justify-center gap-1 mt-0.5">
+            <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" /> {streakDays} Hari
+          </p>
         </div>
       </div>
 
-      <div className="bg-slate-900 text-white rounded-xl p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-indigo-400" />
-          <div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">Masa Sesi Terakhir</p>
-            <p className="text-sm font-black mt-1 leading-none">{totalStudyMinutes} <span className="text-[11px] font-normal text-slate-400">Minit</span></p>
-          </div>
+      {/* CARD ACTION BUTTONS */}
+      <div className="pt-2 border-t border-slate-100 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            onClick={handleSwitchToChildMode}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold h-9 shadow-xs flex items-center justify-center gap-1"
+          >
+            <UserCheck className="w-3.5 h-3.5" /> Mod Anak
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/parent/child/${child.id}`)}
+            className="border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold h-9 flex items-center justify-center gap-1"
+          >
+            <Edit3 className="w-3.5 h-3.5 text-indigo-600" /> Sunting Profil
+          </Button>
         </div>
-        <Badge className="bg-emerald-500/20 text-emerald-400 font-bold border-0 text-[9px]">Sesi Aktif</Badge>
-      </div>
 
-      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2.5 text-xs">
-        <div className="flex items-center gap-1.5 font-bold text-slate-700 border-b border-slate-200/60 pb-1.5">
-          <Award className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Prestasi Aktiviti Bab</span>
-        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => setOpenCredentialsModal(true)}
+            className="flex-1 text-[11px] font-bold text-slate-600 hover:bg-slate-100 h-8 rounded-lg"
+          >
+            <Key className="w-3 h-3 mr-1 text-indigo-600" /> Kredensial & PIN
+          </Button>
 
-        <div className="space-y-1.5">
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="text-slate-500 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Status Nota Bacaan</span>
-            {child.allSessions?.length > 0 ? ( 
-              <span className="text-emerald-600 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Selesai</span>
-            ) : (
-              <span className="text-slate-400 font-medium">Belum Dibaca</span>
-            )}
-          </div>
-
-          <div className="flex justify-between items-center text-[11px]">
-            <span className="text-slate-500 flex items-center gap-1"><HelpCircle className="w-3 h-3" /> Markah Kuiz Terkini</span>
-            {quizScore !== null ? (
-              <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black px-1.5 py-0">
-                {quizScore}% Betul
-              </Badge>
-            ) : (
-              <span className="text-amber-600 font-bold bg-amber-50 px-1.5 py-0 rounded text-[10px]">Belum Ambil</span>
-            )}
-          </div>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenReport && onOpenReport(child)}
+            className="flex-1 text-[11px] font-bold text-slate-600 hover:bg-slate-100 h-8 rounded-lg"
+          >
+            <BarChart3 className="w-3 h-3 mr-1 text-emerald-600" /> Laporan
+          </Button>
         </div>
       </div>
 
-      <div className="space-y-2 pt-1">
-        <Button 
-          onClick={() => onOpenReport(child)}
-          className="w-full h-9 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl flex items-center justify-center gap-1.5 border border-slate-200/50 shadow-none transition-all"
-        >
-          <BarChart3 className="w-4 h-4 text-slate-500" /> Laporan Manual Topik
-        </Button>
-
-        <Button 
-          onClick={() => onOpenAiAnalysis(child)}
-          className="w-full h-9 text-xs font-bold bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 hover:opacity-95 text-white rounded-xl shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" /> Analisis Pembelajaran AI
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-        <Button size="sm" variant="outline" onClick={() => setIsSettingPin(true)} className="h-8 text-[10px] font-bold text-slate-600 rounded-xl">
-          ⚙️ Tukar PIN
-        </Button>
-        <Button 
-          size="sm" 
-          variant="outline" 
-          onClick={() => setConfirmDeleteOpen(true)}
-          className="h-8 text-[10px] font-bold text-rose-600 border-rose-100 hover:bg-rose-50 rounded-xl flex items-center justify-center gap-1"
-        >
-          <Trash2 className="w-3 h-3" /> Padam Profil
-        </Button>
-      </div>
-
-      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-        <AlertDialogContent className="rounded-2xl bg-white p-6 max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-black text-slate-800 flex items-center gap-2">
-              <Trash2 className="w-5 h-5 text-rose-600" /> Padam Profil {displayName}?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-500 mt-1">
-              Adakah anda pasti mahu memadam profil anak ini? Akaun anak dan semua rekod pembelajarannya akan dibuang daripada akaun anda.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4 gap-2">
-            <AlertDialogCancel disabled={isDeleting} className="rounded-xl text-xs font-bold h-9">
-              Batal
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteChild}
-              disabled={isDeleting}
-              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold h-9"
-            >
-              {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-              Ya, Padam Profil
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+      {/* CREDENTIAL MANAGER MODAL */}
+      <ChildCredentialManager
+        open={openCredentialsModal}
+        onOpenChange={setOpenCredentialsModal}
+        child={child}
+        onCredentialsUpdated={onDataUpdated}
+      />
     </Card>
   );
 }
 
-// ================= 2. KOMPONEN UTAMA HALAMAN =================
+// ================= 2. MAIN MY CHILDREN PAGE =================
 export default function MyChildrenPage() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  const [selectedChild, setSelectedChild] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [aiModalOpen, setAiModalOpen] = useState(false);
-  const [aiChild, setAiChild] = useState(null);
-  const [aiResult, setAiResult] = useState("");
-  const [loadingAi, setLoadingAi] = useState(false);
-
-  // 🔥 FETCH DATA VIA SERVER EDGE FUNCTION (SERVICE ROLE ACCESS)
-  const loadData = async () => {
+  const loadChildren = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      const response = await base44.functions.invoke("fetchParentChildren");
-      
-      if (response.data?.success && Array.isArray(response.data?.children)) {
-        setChildren(response.data.children);
-      } else {
-        setChildren([]);
-      }
+      const data = await loadChildrenWithStats();
+      setChildren(data);
     } catch (err) {
-      console.error("Ralat memuatkan data anak:", err);
-      setChildren([]);
+      console.error("Gagal memuat turun senarai anak:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenAiAnalysis = async (child) => {
-    setAiChild(child);
-    setAiModalOpen(true);
-    setLoadingAi(true);
-    setAiResult("");
-
-    try {
-      const displayKidsName = getChildDisplayName(child);
-      const totalXp = child.realProgress?.total_xp || 0;
-      const level = child.realProgress?.level || 1;
-      
-      const systemPrompt = `Anda adalah sistem AI Penasihat Akademik Pintar. Sila berikan analisis maklumbalas ringkas untuk murid bernama ${displayKidsName} Tahap ${level} dengan XP ${totalXp}.`;
-
-      const response = await base44.integrations.Core.Chat({ message: systemPrompt });
-      setAiResult(response?.text || response?.message || "Analisis AI berjaya dijana.");
-    } catch (err) {
-      console.error("Gagal menjana analisis AI:", err);
-      setAiResult("⚠️ Sistem gagal menghubungi enjin AI.");
-    } finally {
-      setLoadingAi(false);
-    }
-  };
-
-  useEffect(() => { 
-    loadData(); 
+  useEffect(() => {
+    loadChildren();
   }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32 min-h-screen">
-        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+        <p className="mt-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Memuat turun data anak-anak...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-4 max-w-7xl mx-auto bg-slate-50/30 min-h-screen">
-      <div>
-        <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
-          <Users className="w-5 h-5 text-indigo-600" /> Profil Pengurusan Anak-Anak
-        </h1>
-        <p className="text-xs text-slate-500 mt-0.5">Analisis kemajuan penuh, baki koin, kuiz, dan masa pembelajaran nyata daripada database.</p>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 font-sans text-slate-800">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Users className="w-6 h-6 text-indigo-600" /> Senarai Anak
+          </h1>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Urus profil, tukar tahap persekolahan, dan pantau kemajuan pembelajaran.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {children.length === 0 ? (
-          <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-2xl bg-white col-span-full">
-            <p className="text-sm text-slate-500 font-medium">Tiada akaun anak yang dihubungkan di bawah kawalan anda buat masa ini.</p>
-          </Card>
-        ) : (
-          children.map((child) => (
-            <DetailedChildCard 
-              key={child.id} 
-              child={child} 
-              onDataUpdated={loadData}
-              onOpenReport={(c) => { setSelectedChild(c); setIsModalOpen(true); }} 
-              onOpenAiAnalysis={handleOpenAiAnalysis}
+      {children.length === 0 ? (
+        <Card className="p-12 text-center rounded-3xl border-dashed border-2 border-slate-200">
+          <p className="text-sm font-bold text-slate-500">Tiada profil anak dijumpai.</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {children.map((child) => (
+            <DetailedChildCard
+              key={child.id}
+              child={child}
+              onDataUpdated={loadChildren}
             />
-          ))
-        )}
-      </div>
-
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-6">
-          <DialogHeader className="border-b pb-3">
-            <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
-              📊 Laporan Pembelajaran: {selectedChild ? getChildDisplayName(selectedChild) : "Memuatkan..."}
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedChild && (
-            <div className="space-y-6 mt-4">
-              <div>
-                <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
-                  <BookOpen className="w-4 h-4 text-indigo-600" /> Status Topik & Nota Dibaca
-                </h4>
-                {!selectedChild.allSessions || selectedChild.allSessions?.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum ada topik pelajaran dimulakan.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedChild.allSessions.map((session, idx) => (
-                      <div key={idx} className="bg-slate-50 border border-slate-100 p-3 rounded-xl flex items-center justify-between">
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-700 truncate">{session.topic_name || "Topik Tanpa Nama"}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {session.duration_minutes || 0} Minit Diluangkan
-                          </p>
-                        </div>
-                        <Badge className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-bold">Nota Selesai</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h4 className="text-sm font-black text-slate-700 flex items-center gap-1.5 mb-3">
-                  <Award className="w-4 h-4 text-amber-500" /> Sejarah Penuh Markah Kuiz
-                </h4>
-                {!selectedChild.allAttempts || selectedChild.allAttempts?.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-xl text-center">Belum menduduki sebarang kuiz.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedChild.allAttempts.map((attempt, idx) => (
-                      <div key={idx} className="border border-slate-100 bg-white p-3 rounded-xl flex items-center justify-between shadow-sm">
-                        <div>
-                          <p className="text-xs font-black text-slate-800">{attempt.topic_name || "Kuiz Tanpa Nama"}</p>
-                          <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium mt-0.5">
-                            <span><Calendar className="w-3 h-3 inline mr-0.5" /> {moment(attempt.created_at).format("DD MMM YYYY, h:mm a")}</span>
-                          </div>
-                        </div>
-                        <Badge className="text-xs font-black px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {attempt.score}% Markah
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-900 text-white p-6 border border-slate-800">
-          <DialogHeader className="border-b border-slate-800 pb-3">
-            <DialogTitle className="text-base font-black flex items-center gap-2 text-indigo-400">
-              <Brain className="w-5 h-5 text-indigo-400 animate-pulse" /> Diagnosis Pembelajaran AI: {aiChild ? getChildDisplayName(aiChild) : ""}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="mt-4 space-y-4">
-            {loadingAi ? (
-              <div className="flex flex-col items-center justify-center py-16 space-y-3 text-center">
-                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-                <p className="text-xs font-bold text-slate-400 tracking-wide">AI sedang menganalisis...</p>
-              </div>
-            ) : (
-              <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80 text-sm leading-relaxed whitespace-pre-line text-slate-200 font-medium">
-                {aiResult}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex justify-end border-t border-slate-800 pt-4">
-            <Button onClick={() => setAiModalOpen(false)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs h-9 px-5">Tutup</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+          ))}
+        </div>
+      )}
     </div>
   );
 }
