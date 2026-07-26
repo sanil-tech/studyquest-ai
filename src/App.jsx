@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -5,7 +6,7 @@ import { queryClientInstance } from '@/lib/query-client';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 
-// Core structural elements loaded instantly
+// Core structural elements
 import PageNotFound from './lib/PageNotFound';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -14,11 +15,12 @@ import ProfileCompleteRoute from '@/components/ProfileCompleteRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AppLayout from '@/components/layout/AppLayout';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-// 1. Import komponen dari laluan terbaharu anda
+
+// Admin Page Imports
 import LessonResources from "@/pages/LessonResources";
 import EditLessonResources from "@/pages/EditLessonResources";
 
-// Lazy-loaded pages for better bundle size and performance
+// Lazy-loaded public & auth pages
 const Login = React.lazy(() => import('@/pages/Login'));
 const Register = React.lazy(() => import('@/pages/Register'));
 const ForgotPassword = React.lazy(() => import('@/pages/ForgotPassword'));
@@ -30,7 +32,7 @@ const Home = React.lazy(() => import('@/pages/Home'));
 const NotificationsPage = React.lazy(() => import('@/pages/NotificationsPage'));
 const ProfilePage = React.lazy(() => import('@/pages/ProfilePage'));
 
-// Student Pages
+// Lazy-loaded Student Pages
 const StudentDashboard = React.lazy(() => import('@/pages/StudentDashboard'));
 const StudyPage = React.lazy(() => import('@/pages/StudyPage'));
 const LessonPage = React.lazy(() => import('@/pages/LessonPage'));
@@ -39,7 +41,7 @@ const QuizResult = React.lazy(() => import('@/pages/QuizResult'));
 const WalletPage = React.lazy(() => import('@/pages/WalletPage'));
 const RewardsPage = React.lazy(() => import('@/pages/RewardsPage'));
 
-// Parent Pages
+// Lazy-loaded Parent Pages
 const ParentDashboard = React.lazy(() => import('@/pages/ParentDashboard'));
 const MyChildrenPage = React.lazy(() => import('@/pages/MyChildrenPage'));
 const ChildProfilePage = React.lazy(() => import('@/pages/ChildProfilePage'));
@@ -47,14 +49,14 @@ const ParentRewards = React.lazy(() => import('@/pages/ParentRewards'));
 const ParentApprovals = React.lazy(() => import('@/pages/ParentApprovals'));
 const ChildSelectionPage = React.lazy(() => import('@/pages/ChildSelectionPage'));
 
-// Admin Pages
+// Lazy-loaded Admin Pages
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
 
 // ============================================================================
-// LOADING SPINNER BERTERASKAN TEMA ALAM & OTAN 🦧
+// LOADING SPINNER
 // ============================================================================
-const LoadingSpinner = ({ message = "Otan sedang bersiap...", "data-collection-item-id": __dataCollectionItemId }) => (
-  <div data-collection-item-id={__dataCollectionItemId} className="fixed inset-0 flex items-center justify-center bg-[#FAFAF7] z-50">
+const LoadingSpinner = ({ message = "Otan sedang bersiap..." }) => (
+  <div className="fixed inset-0 flex items-center justify-center bg-[#FAFAF7] z-50">
     <div className="text-center flex flex-col items-center">
       <div className="text-5xl animate-bounce mb-3 shadow-sm rounded-full bg-white/50 w-20 h-20 flex items-center justify-center border border-emerald-100">
         🦧
@@ -89,12 +91,12 @@ const AuthenticatedApp = () => {
 
         {/* Authenticated routes */}
         <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-          {/* Role setup & Profile completion (No shared layout here) */}
+          {/* Role setup & Profile completion */}
           <Route path="/role-setup" element={<RoleSetup />} />
           <Route path="/complete-profile" element={<CompleteProfile />} />
 
           {/* Admin-only routes */}
-          <Route element={<AdminRoute />} >
+          <Route element={<AdminRoute />}>
             <Route path="/admin/textbooks" element={<TextbookUpload />} />
             <Route path="/admin/lesson-resources" element={<LessonResources />} />
             <Route path="/admin/edit-lesson" element={<EditLessonResources />} />
@@ -110,9 +112,17 @@ const AuthenticatedApp = () => {
             <Route element={<ProfileCompleteRoute />}>
               <Route element={<RoleRoute allowedRoles={["student"]} />}>
                 <Route path="/dashboard" element={<StudentDashboard />} />
+                
+                {/* Standard Study Routes */}
                 <Route path="/study" element={<StudyPage />} />
                 <Route path="/study/:subjectId" element={<StudyPage />} />
                 <Route path="/study/:subjectId/:topicId" element={<LessonPage />} />
+
+                {/* ✅ Added Lesson Route Aliases */}
+                <Route path="/lessons" element={<StudyPage />} />
+                <Route path="/lessons/:subjectId" element={<StudyPage />} />
+                <Route path="/lesson/:subjectId/:topicId" element={<LessonPage />} />
+
                 <Route path="/quiz/:quizId" element={<QuizPage />} />
                 <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
                 <Route path="/wallet" element={<WalletPage />} />
