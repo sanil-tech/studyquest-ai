@@ -28,23 +28,49 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
 
-    // Resolve target child ID with fallbacks
-    const childId = body.child_id || body.childId || authUser.id;
+    // Extract requested identifier
+    const requestedId = body.child_id || body.childId || authUser.id;
 
-    if (!childId) {
+    if (!requestedId) {
       return Response.json(
-        { success: false, error: 'Sila pilih profil anak yang sah.' },
+        { success: false, error: 'ID profil anak tidak sah.' },
         { status: 200, headers: resHeaders }
       );
     }
 
-    // 2. Authorize: Requesting user must be the child OR a linked parent
-    let isAuthorized = authUser.id === childId || authUser.app_role === "parent";
+    // 2. Safe User Lookup: Primary Key ID -> student_id code -> username
+    let targetUser = await db.entities.User.get(requestedId).catch(() => null);
+
+    if (!targetUser) {
+      const matchedByStudentId = await db.entities.User.filter({ student_id: requestedId }).catch(() => []);
+      if (matchedByStudentId && matchedByStudentId.length > 0) {
+        targetUser = matchedByStudentId[0];
+      }
+    }
+
+    if (!targetUser) {
+      const matchedByUsername = await db.entities.User.filter({ username: requestedId }).catch(() => []);
+      if (matchedByUsername && matchedByUsername.length > 0) {
+        targetUser = matchedByUsername[0];
+      }
+    }
+
+    if (!targetUser || !targetUser.id) {
+      return Response.json(
+        { success: false, error: 'Profil murid tidak ditemui di pangkalan data.' },
+        { status: 200, headers: resHeaders }
+      );
+    }
+
+    const actualChildId = targetUser.id;
+
+    // 3. Authorize: Requesting user must be the child themselves OR a linked parent
+    let isAuthorized = authUser.id === actualChildId || authUser.app_role === "parent";
 
     if (!isAuthorized) {
       const rels = await db.entities.ParentChildRelationship.filter({
         parent_id: authUser.id,
-        child_id: childId
+        child_id: actualChildId
       }).catch(() => []);
 
       if (rels && rels.length > 0) {
@@ -59,7 +85,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Build sanitized update payload
+    // 4. Build sanitized update payload
     const updateFields: Record<string, any> = {};
 
     if (body.nickname !== undefined && body.nickname !== null && String(body.nickname).trim() !== "") {
@@ -98,13 +124,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Update child record in User entity database
-    const updatedUser = await db.entities.User.update(childId, updateFields);
+    // 5. Perform database update with verified primary key ID
+    const updatedUser = await db.entities.User.update(actualChildId, updateFields);
 
-    // 5. Synchronize LinkRequest table display names
+    // 6. Synchronize LinkRequest table display names
     if (updateFields.nickname || updateFields.full_name) {
       const newName = updateFields.nickname || updateFields.full_name;
-      const linkRequests = await db.entities.LinkRequest.filter({ student_id: childId }).catch(() => []);
+      const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
       for (const lr of linkRequests) {
         await db.entities.LinkRequest.update(lr.id, {
           student_name: newName
