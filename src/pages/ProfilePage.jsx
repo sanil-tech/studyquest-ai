@@ -241,28 +241,30 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const childId = targetStudentId || (user?.app_role === "student" ? user.id : null);
+      const childId = targetStudentId || (user?.app_role === "student" ? user?.id : null);
 
-      if (childId) {
-        const response = await base44.functions.invoke("updateChildProfile", {
-          child_id: childId,
-          nickname: formData.nickname,
-          full_name: formData.full_name,
-          education_level: formData.education_level || formData.school_year,
-          school_name: formData.school_name,
-          gender: formData.gender,
-          date_of_birth: formData.date_of_birth,
-        });
+      const payload = {
+        child_id: childId || user?.id,
+        nickname: formData.nickname || user?.nickname || "",
+        full_name: formData.full_name || user?.full_name || "",
+        education_level: formData.education_level || formData.school_year || "",
+        school_name: formData.school_name || "",
+        gender: formData.gender || "",
+        date_of_birth: formData.date_of_birth || "",
+      };
 
+      if (childId || user?.app_role === "student") {
+        const response = await base44.functions.invoke("updateChildProfile", payload);
         const resPayload = response?.data || response;
+
         if (resPayload?.success === false) {
           throw new Error(resPayload?.error || "Gagal mengemaskini profil anak.");
         }
 
         if (resPayload?.user) {
           setUser(resPayload.user);
-          const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-          if (cachedChildren[childId]) {
+          if (childId) {
+            const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
             cachedChildren[childId] = { ...cachedChildren[childId], ...resPayload.user };
             localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
           }
