@@ -27,16 +27,18 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+
+    // Resolve target child ID with fallbacks
     const childId = body.child_id || body.childId || authUser.id;
 
     if (!childId) {
       return Response.json(
-        { success: false, error: 'ID profil anak (child_id) diperlukan.' },
+        { success: false, error: 'Sila pilih profil anak yang sah.' },
         { status: 200, headers: resHeaders }
       );
     }
 
-    // 2. Authorize: User must be either the child themselves OR a linked parent
+    // 2. Authorize: Requesting user must be the child OR a linked parent
     let isAuthorized = authUser.id === childId || authUser.app_role === "parent";
 
     if (!isAuthorized) {
@@ -44,7 +46,7 @@ Deno.serve(async (req) => {
         parent_id: authUser.id,
         child_id: childId
       }).catch(() => []);
-      
+
       if (rels && rels.length > 0) {
         isAuthorized = true;
       }
@@ -57,10 +59,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Clean and sanitize update fields to prevent database schema validation errors
+    // 3. Build sanitized update payload
     const updateFields: Record<string, any> = {};
 
-    if (body.nickname !== undefined && body.nickname !== null) {
+    if (body.nickname !== undefined && body.nickname !== null && String(body.nickname).trim() !== "") {
       updateFields.nickname = String(body.nickname).trim();
     }
     if (body.full_name || body.fullName) {
@@ -99,7 +101,7 @@ Deno.serve(async (req) => {
     // 4. Update child record in User entity database
     const updatedUser = await db.entities.User.update(childId, updateFields);
 
-    // 5. Synchronize LinkRequest table display names if nickname/full_name changed
+    // 5. Synchronize LinkRequest table display names
     if (updateFields.nickname || updateFields.full_name) {
       const newName = updateFields.nickname || updateFields.full_name;
       const linkRequests = await db.entities.LinkRequest.filter({ student_id: childId }).catch(() => []);
