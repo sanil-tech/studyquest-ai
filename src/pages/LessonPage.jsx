@@ -16,9 +16,7 @@ import {
   Compass,
   BookOpen,
   Brain,
-  Zap,
-  MapPin,
-  Flame
+  Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -151,7 +149,7 @@ const parseMarkdownToHTML = (text) => {
     if (trimmed.startsWith(">")) {
       let content = trimmed.substring(1).trim();
       htmlOutput.push(
-        `<blockquote class="border-l-4 border-amber-400 pl-4 italic text-amber-950 my-4 bg-amber-50 p-3.5 rounded-r-2xl text-xs sm:text-sm font-black">🎶 Note: ${content}</blockquote>`
+        `<blockquote class="border-l-4 border-amber-400 pl-4 italic text-amber-950 my-4 bg-amber-50 p-3.5 rounded-r-2xl text-xs sm:text-sm font-black">🎶 Nota: ${content}</blockquote>`
       );
       return;
     }
@@ -220,7 +218,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     );
   }
 
-  const secureEmbedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+  const secureEmbedUrl = `[https://www.youtube.com/embed/$](https://www.youtube.com/embed/$){videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
 
   return (
     <div className="space-y-4 w-full">
