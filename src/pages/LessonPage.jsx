@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { getActiveStudentId, awardCoinsAndXP } from "@/lib/rewardSystem";
 import {
-  ArrowLeft,
   Tv,
   CheckCircle2,
   Leaf,
@@ -17,8 +17,6 @@ import {
   BookOpen,
   Brain,
   Zap,
-  MapPin,
-  Flame,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -107,9 +105,6 @@ const WORLD_THEMES = {
   }
 };
 
-// ==========================================
-// UTILITY HELPERS
-// ==========================================
 const safeJsonParse = (str, fallback = []) => {
   if (!str) return fallback;
   if (typeof str === "object") return str;
@@ -263,9 +258,6 @@ const parseMarkdownToHTML = (text) => {
   return finalHtml;
 };
 
-// ==========================================
-// YOUTUBE VIDEO COMPONENT
-// ==========================================
 function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   const videoId = useMemo(() => {
     if (!videoUrl) return null;
@@ -278,14 +270,14 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     return (
       <div className="p-8 text-center bg-stone-900/80 border-4 border-dashed border-amber-500/40 rounded-3xl">
         <p className="text-amber-200 font-black text-sm">🎬 Video taklimat belum disediakan untuk topik ini.</p>
-        <Button className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-2xl px-6 py-3 text-sm mt-4 border-b-4 border-amber-700 active:translate-y-1 transition-all" onClick={onCompleted}>
+        <Button className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-2xl px-6 py-3 text-sm mt-4 border-b-4 border-amber-700 active:translate-y-1 transition-all" onClick="{onCompleted}">
           Teruskan Misi! 🚀
         </Button>
       </div>
     );
   }
 
-  const secureEmbedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+  const secureEmbedUrl = `[https://www.youtube.com/embed/$](https://www.youtube.com/embed/$){videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
 
   return (
     <div className="space-y-4 w-full">
@@ -304,15 +296,15 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
             <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0"/>
             <span className="font-black text-emerald-200 text-sm">Taklimat video selesai! 🍃</span>
           </div>
-          <div className="bg-lime-400 px-3 py-1.5 rounded-xl text-stone-950 font-black text-xs border-b-2 border-emerald-600">+10 XP</div>
+          <div className="bg-lime-400 px-3 py-1.5 rounded-xl text-stone-950 font-black text-xs border-b-2 border-emerald-600">+10 XP & Daun</div>
         </div>
       ) : (
         <div className="bg-stone-900 border-2 border-stone-800 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
           <p className="text-xs text-stone-300 font-bold flex items-center gap-2">
             <Tv className="w-5 h-5 text-emerald-400 animate-pulse shrink-0"/> 
-            Tonton video dan tekan butang untuk mengutip +10 XP!
+            Tonton video dan tekan butang untuk mengutip +10 XP & Daun!
           </p>
-          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-emerald-700 active:translate-y-1 transition-all" onClick={onCompleted}>
+          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-emerald-700 active:translate-y-1 transition-all" onClick="{onCompleted}">
             Selesai & Ambil +10 XP 🔥
           </Button>
         </div>
@@ -321,9 +313,6 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
   );
 }
 
-// ==========================================
-// MAIN LESSON PAGE COMPONENT
-// ==========================================
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
   const navigate = useNavigate();
@@ -366,7 +355,6 @@ export default function LessonPage() {
     sessionRef.current = sessionId; 
   }, [sessionId]);
 
-  // Identify world theme & mascot info
   const worldTheme = useMemo(() => {
     if (!subjectId && !subject?.name) return WORLD_THEMES.default;
     const key = (subjectId || subject?.name || "").toLowerCase();
@@ -376,19 +364,6 @@ export default function LessonPage() {
     return WORLD_THEMES.default;
   }, [subjectId, subject]);
 
-  // Resolve student ID
-  const getActiveStudentId = useCallback(async () => {
-    const currentUser = await base44.auth.me().catch(() => null);
-    if (!currentUser) return null;
-
-    const activeChildId = currentUser.app_role === "parent"
-      ? (localStorage.getItem("active_child_session") || localStorage.getItem("selected_child_id"))
-      : null;
-
-    return activeChildId || currentUser.id;
-  }, []);
-
-  // Fetch initial topic & lesson data
   useEffect(() => {
     let isMounted = true;
     const initializeLesson = async () => {
@@ -434,7 +409,6 @@ export default function LessonPage() {
           setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
         }
 
-        // Fetch user study session
         const cachedSessions = await base44.entities.StudySession.filter(
           { student_id: studentId, topic_id: topicId }, 
           "-created_date", 
@@ -468,7 +442,7 @@ export default function LessonPage() {
 
     initializeLesson();
     return () => { isMounted = false; };
-  }, [subjectId, topicId, getActiveStudentId]);
+  }, [subjectId, topicId]);
 
   const recordStudyTime = async () => { 
     const sId = sessionRef.current; 
@@ -479,18 +453,31 @@ export default function LessonPage() {
 
   const triggerConfetti = () => confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
 
-  const updateStageProgress = useCallback(async (stageId, nextStage, xpAwarded) => {
+  // 🔥 MENGEMAS KINI KEMAJUAN STAJ + MEMBERI DAUN & XP TERUS KEPADA ANAK
+  const updateStageProgress = useCallback(async (stageId, nextStage, rewardAmount) => {
     let currentSessionId = sessionRef.current;
     let nextState;
+    const studentId = await getActiveStudentId();
 
     setProgressState(prev => {
       const isCompletedBefore = prev[`${stageId}_completed`];
+      const addedReward = isCompletedBefore ? 0 : rewardAmount;
+
       nextState = { 
         ...prev, 
         [`${stageId}_completed`]: true, 
         current_stage: prev[`${nextStage}_completed`] ? prev.current_stage : nextStage, 
-        xp_earned: prev.xp_earned + (isCompletedBefore ? 0 : xpAwarded) 
+        xp_earned: prev.xp_earned + addedReward 
       };
+
+      if (addedReward > 0 && studentId) {
+        awardCoinsAndXP(studentId, {
+          coins: addedReward,
+          xp: addedReward,
+          reason: `Selesai ${stageId.toUpperCase()}: ${topic?.name || "Misi"}`
+        });
+      }
+
       return nextState;
     });
 
@@ -503,7 +490,7 @@ export default function LessonPage() {
         console.error("Gagal mengemaskini pangkalan data:", error);
       }
     }
-  }, []);
+  }, [topic]);
 
   const handleVideoStageCompleted = useCallback(async () => {
     if (progressState.video_completed) { 
@@ -511,10 +498,11 @@ export default function LessonPage() {
       return; 
     }
     
+    const studentId = await getActiveStudentId();
     let currentId = sessionRef.current;
+
     if (!currentId) {
       try {
-        const studentId = await getActiveStudentId();
         const payload = {
           student_id: studentId, 
           subject_id: subjectId, 
@@ -531,6 +519,9 @@ export default function LessonPage() {
         const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id; 
         setSessionId(validId); 
         setProgressState(p => ({ ...p, video_completed: true, current_stage: "lesson", xp_earned: 10 })); 
+        
+        await awardCoinsAndXP(studentId, { coins: 10, xp: 10, reason: `Taklimat Video: ${topic?.name || "Selesai"}` });
+        
         triggerConfetti(); 
         setActiveTab("map"); 
         return;
@@ -538,21 +529,25 @@ export default function LessonPage() {
     }
     await updateStageProgress("video", "lesson", 10); 
     setActiveTab("map");
-  }, [progressState, subjectId, topicId, topic, subject, updateStageProgress, getActiveStudentId]);
+  }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
 
   const handleLessonStageCompleted = async () => {
     setStatus(p => ({ ...p, lesson: true }));
     try {
       let currentSessionId = sessionRef.current;
+      const studentId = await getActiveStudentId();
+
+      const isFirstTime = !progressState.lesson_completed;
+      const rewardVal = isFirstTime ? 15 : 0;
+
       const nextStatePayload = { 
         ...progressState, 
         lesson_completed: true, 
         current_stage: progressState.flashcard_completed ? progressState.current_stage : "flashcard", 
-        xp_earned: progressState.xp_earned + (progressState.lesson_completed ? 0 : 15) 
+        xp_earned: progressState.xp_earned + rewardVal 
       };
       
       if (!currentSessionId) {
-        const studentId = await getActiveStudentId();
         const newSession = await base44.entities.StudySession.create({ 
           student_id: studentId, 
           subject_id: subjectId, 
@@ -567,6 +562,11 @@ export default function LessonPage() {
       } else { 
         await base44.entities.StudySession.update(currentSessionId, nextStatePayload); 
       }
+
+      if (rewardVal > 0 && studentId) {
+        await awardCoinsAndXP(studentId, { coins: rewardVal, xp: rewardVal, reason: `Hadam Nota: ${topic?.name || "Selesai"}` });
+      }
+
       setProgressState(nextStatePayload); 
       triggerConfetti(); 
       setActiveTab("map");
@@ -726,15 +726,7 @@ export default function LessonPage() {
           {activeTab === "map" && (
             <motion.div key="map" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
               <div className="bg-stone-900/80 rounded-3xl p-6 border-2 border-stone-800 shadow-xl">
-                <LessonProgress
-                  steps={{
-                    video: progressState.video_completed,
-                    lesson: progressState.lesson_completed,
-                    flashcard: progressState.flashcard_completed,
-                    mindmap: progressState.mindmap_completed,
-                    quiz: progressState.quiz_completed
-                  }}
-                  onStepClick={(key) => {
+                <LessonProgress flashcard: lesson: mindmap: onStepClick="{(key)" progressState.flashcard_completed, progressState.lesson_completed, progressState.mindmap_completed, progressState.quiz_completed, progressState.video_completed, quiz: steps="{{" video: }}> {
                     if (key === "video") setActiveTab("video");
                     if (key === "lesson") setActiveTab("lesson");
                     if (key === "flashcard") loadFlashcardsOnDemand();
@@ -753,12 +745,12 @@ export default function LessonPage() {
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
                   <Tv className="w-5 h-5 text-emerald-400"/> Langkah 1: Taklimat Video
                 </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Kembali ke Peta 🗺️
                 </Button>
               </div>
 
-              <YouTubeLesson videoUrl={videoUrl || topic?.video_url} onCompleted={handleVideoStageCompleted} isCompleted={progressState.video_completed} />
+              <YouTubeLesson isCompleted="{progressState.video_completed}" onCompleted="{handleVideoStageCompleted}" topic?.video_url} videoUrl="{videoUrl" ||/>
             </motion.div>
           )}
 
@@ -772,7 +764,7 @@ export default function LessonPage() {
                 
                 <div className="flex items-center gap-2">
                   {notesContent && (
-                    <Button onClick={() => urusSuaraNota(notesContent)} 
+                    <Button onClick="{()"> urusSuaraNota(notesContent)} 
                       className={`h-10 px-4 rounded-xl font-black text-xs ${
                         isSpeaking ? "bg-rose-500 hover:bg-rose-600 text-white" : "bg-amber-400 hover:bg-amber-300 text-stone-950"
                       }`}
@@ -781,7 +773,7 @@ export default function LessonPage() {
                       {isSpeaking ? "Berhenti" : "Baca Nota"}
                     </Button>
                   )}
-                  <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                  <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                     Peta 🗺️
                   </Button>
                 </div>
@@ -792,7 +784,7 @@ export default function LessonPage() {
                 <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} />
               </div>
 
-              <Button onClick={handleLessonStageCompleted} className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}>
+              <Button ${worldTheme.accentColor} active:translate-y-1 border-b-4 border-black/40 className="{`w-full" font-black h-14 onClick="{handleLessonStageCompleted}" rounded-2xl text-base transition-all`}>
                 Selesai Hadam Nota! 🎒
               </Button>
             </motion.div>
@@ -805,14 +797,14 @@ export default function LessonPage() {
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
                   <Zap className="w-5 h-5 text-amber-400"/> Langkah 3: Kad Kilat Ingatan
                 </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Peta 🗺️
                 </Button>
               </div>
 
-              <Flashcards flashcards={flashcards || []} />
+              <Flashcards []} flashcards="{flashcards" ||/>
 
-              <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} 
+              <Button onClick="{()"> updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))} 
                 className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
               >
                 Selesai Ulangkaji Kad Kilat! 🚀
@@ -827,7 +819,7 @@ export default function LessonPage() {
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
                   <Brain className="w-5 h-5 text-purple-400"/> Langkah 4: Peta Minda
                 </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Peta 🗺️
                 </Button>
               </div>
@@ -836,11 +828,11 @@ export default function LessonPage() {
                 {infographicUrl ? (
                   <img src={infographicUrl} alt="Mindmap" className="max-h-[50vh] object-contain rounded-xl shadow-md" />
                 ) : (
-                  <MindMap central_topic={topic?.name || "Topik Utama"} branches={mindMap || []} />
+                  <MindMap "Topik Utama", [] branches: central_topic: mindMap topic?.name || }}/>
                 )}
               </div>
 
-              <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} 
+              <Button onClick="{()"> updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))} 
                 className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
               >
                 Teruskan ke Cabaran Boss! ⚔️
@@ -858,7 +850,7 @@ export default function LessonPage() {
               {savedQuizProgress && (
                 <div className="mb-6 p-4 bg-stone-900/80 border-2 border-emerald-400/40 border-dashed rounded-2xl">
                   <p className="text-xs font-black text-emerald-300 mb-2">Misi cabaran terdahulu dikesan!</p>
-                  <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, true)} 
+                  <Button onClick="{()"> runQuizGeneration(savedQuizProgress.limit, true)} 
                     className="w-full h-12 bg-teal-500 hover:bg-teal-400 text-stone-950 font-black rounded-xl flex items-center justify-center gap-2 border-b-4 border-teal-700"
                   >
                     <Play className="w-4 h-4 fill-stone-950"/> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
@@ -867,13 +859,13 @@ export default function LessonPage() {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
-                <Button onClick={() => runQuizGeneration(10)} 
+                <Button onClick="{()"> runQuizGeneration(10)} 
                   disabled={status.quiz} 
                   className="h-16 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-base rounded-2xl shadow-lg border-b-4 border-amber-700 active:translate-y-1 transition-all"
                 >
                   {status.quiz ? "Menyediakan..." : "⚡ Misi Kilat (10 Soalan)"}
                 </Button>
-                <Button onClick={() => runQuizGeneration(20)} 
+                <Button onClick="{()"> runQuizGeneration(20)} 
                   disabled={status.quiz} 
                   className="h-16 bg-orange-500 hover:bg-orange-400 text-stone-950 font-black text-base rounded-2xl shadow-lg border-b-4 border-orange-700 active:translate-y-1 transition-all"
                 >
