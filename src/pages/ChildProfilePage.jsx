@@ -156,7 +156,7 @@ export default function ChildProfilePage() {
     } catch (err) {
       console.error("Error loading child profile:", err);
       toast({ title: "Ralat System", description: "Gagal memuat turun profil murid.", variant: "destructive" });
-    } font-sans finally {
+    } finally {
       setLoading(false);
     }
   };
