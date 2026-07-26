@@ -1,9 +1,9 @@
 // src/pages/ChildProfilePage.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { 
-  ArrowLeft, Key, Trophy, Coins, Sparkles, Check, Lock, Loader2, Edit3 
+  ArrowLeft, Key, Trophy, Coins, Sparkles, Check, Loader2 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +26,9 @@ const FREE_AVATARS = [
 ];
 
 export default function ChildProfilePage() {
-  const { childId: routeChildId } = useParams();
+  const params = useParams();
+  const routeChildId = params.childId || params.id;
+  
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -60,7 +62,7 @@ export default function ChildProfilePage() {
     try {
       setLoading(true);
 
-      // Resolve child ID from route or local storage fallback
+      // Resolve child ID parameter from route or session fallback
       const targetId = 
         routeChildId || 
         localStorage.getItem("selected_child_id") || 
@@ -73,30 +75,65 @@ export default function ChildProfilePage() {
         return;
       }
 
-      setActiveChildId(targetId);
+      let fetchedUser = null;
 
-      // Fetch Child User Record
-      let fetchedUser = await base44.entities.User.get(targetId).catch(() => null);
+      // ── TIER 1: Direct Primary Key Query ──────────────────────────────
+      fetchedUser = await base44.entities.User.get(targetId).catch(() => null);
 
+      // ── TIER 2: Query by student_id Code (e.g. SQ-XXXXXX) ──────────────
       if (!fetchedUser) {
-        const cachedStr = localStorage.getItem("active_child");
-        if (cachedStr) {
-          try { fetchedUser = JSON.parse(cachedStr); } catch (e) {}
+        const matches = await base44.entities.User.filter({ student_id: targetId }).catch(() => []);
+        if (matches && matches.length > 0) {
+          fetchedUser = matches[0];
+        }
+      }
+
+      // ── TIER 3: Backend Edge Function Fetch (Uses Service Role) ────────
+      if (!fetchedUser) {
+        try {
+          const res = await base44.functions.invoke("fetchParentChildren");
+          const children = res?.data?.children || [];
+          fetchedUser = children.find((c) => c.id === targetId || c.student_id === targetId);
+        } catch (e) {
+          console.warn("Edge function child fetch fallback skipped:", e);
+        }
+      }
+
+      // ── TIER 4: Local Storage Cache Fallback ───────────────────────────
+      if (!fetchedUser) {
+        try {
+          const cachedMap = JSON.parse(localStorage.getItem("cached_children") || "{}");
+          fetchedUser = cachedMap[targetId] || null;
+        } catch (e) {}
+
+        if (!fetchedUser) {
+          try {
+            const activeChildStr = localStorage.getItem("active_child");
+            if (activeChildStr) {
+              fetchedUser = JSON.parse(activeChildStr);
+            }
+          } catch (e) {}
         }
       }
 
       if (!fetchedUser) {
-        toast({ title: "Profil Tidak Ditemui", description: "Data murid tidak dapat dimuat turun.", variant: "destructive" });
+        toast({ 
+          title: "Profil Tidak Ditemui", 
+          description: "Data murid tidak dapat dimuat turun dari pangkalan data.", 
+          variant: "destructive" 
+        });
         return;
       }
 
+      const confirmedPkId = fetchedUser.id || targetId;
+      setActiveChildId(confirmedPkId);
       setChildUser(fetchedUser);
 
-      // Fetch Child Statistics
+      // Fetch Child Stats using resolved student ID
       const [progs, wallets, attempts] = await Promise.all([
-        base44.entities.Progress.filter({ student_id: fetchedUser.id }).catch(() => []),
-        base44.entities.Wallet.filter({ student_id: fetchedUser.id }).catch(() => []),
-        base44.entities.QuizAttempt.filter({ student_id: fetchedUser.id }).catch(() => []),
+        base44.entities.Progress.filter({ student_id: confirmedPkId }).catch(() => []),
+        base44.entities.Wallet.filter({ student_id: confirmedPkId }).catch(() => []),
+        base44.entities.QuizAttempt.filter({ student_id: confirmedPkId }).catch(() => []),
       ]);
 
       setProgress(progs?.[0] || { level: 1, total_xp: 0 });
@@ -118,7 +155,8 @@ export default function ChildProfilePage() {
 
     } catch (err) {
       console.error("Error loading child profile:", err);
-    } finally {
+      toast({ title: "Ralat System", description: "Gagal memuat turun profil murid.", variant: "destructive" });
+    } font-sans finally {
       setLoading(false);
     }
   };
@@ -128,12 +166,12 @@ export default function ChildProfilePage() {
   }, [routeChildId]);
 
   const handleSaveProfile = async () => {
-    if (!activeChildId && !childUser?.id) return;
+    const targetId = activeChildId || childUser?.id || routeChildId;
+    if (!targetId) return;
+
     setSaving(true);
 
     try {
-      const targetId = activeChildId || childUser.id;
-
       const response = await base44.functions.invoke("updateChildProfile", {
         child_id: targetId,
         nickname: formData.nickname,
@@ -153,7 +191,7 @@ export default function ChildProfilePage() {
       if (resPayload?.user) {
         setChildUser(resPayload.user);
         
-        // Synchronize local storage cache
+        // Sync local storage cache
         const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
         cachedChildren[targetId] = { ...cachedChildren[targetId], ...resPayload.user };
         localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
@@ -285,7 +323,7 @@ export default function ChildProfilePage() {
       {/* MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         
-        {/* LEFT COLUMN: METRICS & STUDENT CARD */}
+        {/* LEFT COLUMN: METRICS & STUDENT ID */}
         <div className="lg:col-span-1 space-y-6">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-3 gap-3">
             <Card className="border-indigo-100 shadow-sm">
@@ -313,7 +351,7 @@ export default function ChildProfilePage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: AVATAR SELECTOR & PROFILE FORM */}
+        {/* RIGHT COLUMN: PROFILE FORM & AVATAR SELECTOR */}
         <div className="lg:col-span-2 space-y-6">
           
           <AnimatePresence>
