@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
 
-    // Normalize requested child ID input
+    // Normalize child ID input
     let rawId = body.child_id || body.childId;
     if (typeof rawId === 'object' && rawId !== null) {
       rawId = rawId.id || rawId.student_id || rawId.username;
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       targetUser = await db.entities.User.get(requestedId).catch(() => null);
     }
 
-    // LOOKUP TIER 2: student_id Code (e.g. SQ-123456)
+    // LOOKUP TIER 2: student_id Code (e.g., SQ-123456)
     if (!targetUser && requestedId) {
       const matchByCode = await db.entities.User.filter({ student_id: requestedId }).catch(() => []);
       if (matchByCode && matchByCode.length > 0) targetUser = matchByCode[0];
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Build sanitized update payload for User entity table
+    // 3. Build sanitized update payload
     const updateFields: Record<string, any> = {};
 
     if (body.nickname !== undefined && body.nickname !== null && String(body.nickname).trim() !== "") {
@@ -139,19 +139,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Primary Database Update: User entity table
-    let updatedUser: any = null;
-    try {
-      updatedUser = await db.entities.User.update(actualChildId, updateFields);
-    } catch (dbErr: any) {
-      console.error('User.update DB Error:', dbErr);
-      return Response.json(
-        { success: false, error: `Ralat Pangkalan Data: ${dbErr?.message || 'Gagal mengemaskini rekod User.'}` },
-        { status: 200, headers: resHeaders }
-      );
-    }
+    // 4. Update User record
+    const updatedUser = await db.entities.User.update(actualChildId, updateFields);
 
-    // 5. Safe Secondary Sync: ParentChildRelationship table (isolated in try...catch)
+    // 5. Isolated Sync: ParentChildRelationship
     try {
       const matchingRels = await db.entities.ParentChildRelationship.filter({ child_id: actualChildId }).catch(() => []);
       for (const rel of matchingRels) {
@@ -172,31 +163,28 @@ Deno.serve(async (req) => {
       console.warn('ParentChildRelationship profile sync skipped:', relErr);
     }
 
-    // Inside base44/functions/updateChildProfile/entry.ts
+    // 6. Isolated Sync: LinkRequest
+    try {
+      const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
+      for (const lr of linkRequests) {
+        const existingProfile = lr.student_profile || {};
+        const updatedProfile = {
+          full_name: updateFields.full_name || existingProfile.full_name || updatedUser.full_name || updatedUser.nickname || "",
+          nickname: updateFields.nickname || existingProfile.nickname || updatedUser.nickname || "",
+          education_level: updateFields.education_level || existingProfile.education_level || updatedUser.education_level || updatedUser.school_year || "",
+          selected_avatar: updateFields.selected_avatar || existingProfile.selected_avatar || updatedUser.selected_avatar || updatedUser.avatar_emoji || "",
+          username: updatedUser.username || existingProfile.username || "",
+          student_id: updatedUser.student_id || existingProfile.student_id || ""
+        };
 
-// Step 6: Synchronize LinkRequest table student_profile snapshot
-try {
-  const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
-  
-  for (const lr of linkRequests) {
-    const existingProfile = lr.student_profile || {};
-    const updatedProfile = {
-      full_name: updateFields.full_name || existingProfile.full_name || updatedUser.full_name || updatedUser.nickname || "",
-      nickname: updateFields.nickname || existingProfile.nickname || updatedUser.nickname || "",
-      education_level: updateFields.education_level || existingProfile.education_level || updatedUser.education_level || updatedUser.school_year || "",
-      selected_avatar: updateFields.selected_avatar || existingProfile.selected_avatar || updatedUser.selected_avatar || updatedUser.avatar_emoji || "",
-      username: updatedUser.username || existingProfile.username || "",
-      student_id: updatedUser.student_id || existingProfile.student_id || ""
-    };
-
-    await db.entities.LinkRequest.update(lr.id, {
-      student_name: updateFields.nickname || updateFields.full_name || lr.student_name,
-      student_profile: updatedProfile
-    }).catch(() => null);
-  }
-} catch (lrErr) {
-  console.warn('LinkRequest profile sync skipped:', lrErr);
-}
+        await db.entities.LinkRequest.update(lr.id, {
+          student_name: updateFields.nickname || updateFields.full_name || lr.student_name,
+          student_profile: updatedProfile
+        }).catch(() => null);
+      }
+    } catch (lrErr) {
+      console.warn('LinkRequest profile sync skipped:', lrErr);
+    }
 
     return Response.json({
       success: true,
