@@ -1,3 +1,4 @@
+// base44/functions/createChildAccount/entry.ts
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const hashPin = (pin: string) => {
@@ -63,8 +64,10 @@ Deno.serve(async (req) => {
     const generatedUsername = `${cleanNick}_${randomDigits}`;
     const studentId = generateStudentId();
     const virtualEmail = `${cleanNick}.${parent.id.substring(0, 6)}.${randomDigits}@studyquest.com`;
+    const selectedAvatar = body.selectedAvatar || "🦖";
+    const educationLevel = body.grade || "Standard 1";
 
-    // 1. Create Student User record in database via Service Role
+    // 1. Create Student User record in database
     const newStudent = await db.entities.User.create({
       app_role: "student",
       email: virtualEmail,
@@ -79,12 +82,13 @@ Deno.serve(async (req) => {
       is_child_account: true,
       profile_completed: true,
       linked_parent_id: parent.id,
-      selected_avatar: body.selectedAvatar || "🦖",
-      avatar_emoji: body.selectedAvatar || "🦖",
+      selected_avatar: selectedAvatar,
+      avatar_emoji: selectedAvatar,
       date_of_birth: body.dateOfBirth || undefined,
       gender: body.gender || undefined,
       school_name: body.school || undefined,
-      education_level: body.grade || undefined,
+      education_level: educationLevel,
+      school_year: educationLevel,
       preferred_language: body.language || "ms",
       interests: body.interests || [],
       status: "active"
@@ -97,13 +101,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Create ParentChildRelationship record
+    // 2. Create ParentChildRelationship record WITH embedded profile snapshot
     await db.entities.ParentChildRelationship.create({
       parent_id: parent.id,
       child_id: newStudent.id,
       relationship: "parent",
       status: "active",
-      linked_at: new Date().toISOString()
+      linked_at: new Date().toISOString(),
+      profile: {
+        full_name: fullName,
+        nickname: nickname,
+        education_level: educationLevel,
+        selected_avatar: selectedAvatar,
+        username: generatedUsername
+      }
     }).catch(() => null);
 
     // 3. Create approved LinkRequest record
@@ -119,7 +130,7 @@ Deno.serve(async (req) => {
       status: "approved"
     }).catch(() => null);
 
-    // 4. Link child ID to parent record
+    // 4. Link child ID to parent user record
     const currentLinked = parent.linked_student_ids || [];
     if (!currentLinked.includes(newStudent.id)) {
       await db.entities.User.update(parent.id, {
