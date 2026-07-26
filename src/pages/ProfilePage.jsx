@@ -1,223 +1,298 @@
+// src/pages/ProfilePage.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { LogOut, BookOpen, Trophy, Coins, BookMarked, ChevronRight, Pen, Check, X, Sparkles, User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { 
+  LogOut, BookOpen, Trophy, Coins, BookMarked, 
+  ChevronRight, Pen, Check, X, ShieldAlert, Sparkles, Lock, Loader2 
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import ParentConnections from "@/components/student/ParentConnections";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
+import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
 import NotificationPreferencesSection from "@/components/profile/NotificationPreferencesSection";
 import LearningPreferencesSection from "@/components/profile/LearningPreferencesSection";
 import SecuritySection from "@/components/profile/SecuritySection";
 import StudentIdSection from "@/components/profile/StudentIdSection";
-import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 
-// Gaya animasi CSS sebaris untuk kesan watak "Bernafas / Hidup"
-const livelyAvatarGlobalStyle = `
-  @keyframes breathePulse {
-    0% { transform: scale(1); filter: drop-shadow(0 4px 6px rgba(99, 102, 241, 0.15)); }
-    50% { transform: scale(1.04); filter: drop-shadow(0 10px 15px rgba(99, 102, 241, 0.35)); }
-    100% { transform: scale(1); filter: drop-shadow(0 4px 6px rgba(99, 102, 241, 0.15)); }
-  }
-  .lively-avatar {
-    animation: breathePulse 3.5s ease-in-out infinite;
-  }
-`;
+// ==========================================
+// FREE AVATAR COLLECTION (DICEBEAR API)
+// ==========================================
+const FREE_AVATARS = [
+  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Wink&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Robot1&backgroundColor=c0aede",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Cody&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/adventurer/svg?seed=Mia&backgroundColor=b6e3f4",
+  "https://api.dicebear.com/7.x/micah/svg?seed=Alex&backgroundColor=ffdfbf",
+  "https://api.dicebear.com/7.x/notionists/svg?seed=Luna&backgroundColor=ffdfbf"
+];
+
+// ==========================================
+// PREMIUM AVATAR COLLECTION
+// ==========================================
+const PREMIUM_AVATARS = [
+  { id: "prem1", url: "https://api.dicebear.com/7.x/pixel-art/svg?seed=King&backgroundColor=ffd700", cost: 100, label: "Raja Pixel" },
+  { id: "prem2", url: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Queen&backgroundColor=ff69b4", cost: 100, label: "Ratu Pixel" },
+  { id: "prem3", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Magic&backgroundColor=87ceeb", cost: 250, label: "Magik Ais" },
+  { id: "prem4", url: "https://api.dicebear.com/7.x/lorelei/svg?seed=Fire&backgroundColor=ff7f50", cost: 250, label: "Wira Api" },
+  { id: "prem5", url: "https://api.dicebear.com/7.x/shapes/svg?seed=Pro&backgroundColor=98fb98", cost: 500, label: "Pro Master" },
+  { id: "prem6", url: "https://api.dicebear.com/7.x/rings/svg?seed=Legend&backgroundColor=dda0dd", cost: 1000, label: "Legend" },
+];
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [user, setUser] = useState(null);
+  const [activeChildId, setActiveChildId] = useState(null);
   const [progress, setProgress] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [totalQuizzes, setTotalQuizzes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showAvatar, setShowAvatar] = useState(false);
-  const [avatarMode, setAvatarMode] = useState("emoji"); // "emoji" merujuk kepada mod Avatar Dinamik 2D
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   
   const [formData, setFormData] = useState({
-    full_name: "",
-    nickname: "",
-    school_year: "",
+    full_name: "", 
+    nickname: "", 
+    school_year: "", 
+    education_level: "",
     school_name: "",
-    class_name: "",
-    gender: "",
-    date_of_birth: "",
-    country: "Malaysia",
+    class_name: "", 
+    gender: "", 
+    date_of_birth: "", 
+    country: "Malaysia", 
     state: "",
     notification_preferences: {
-      email_notifications: true,
-      push_notifications: true,
+      email_notifications: true, 
+      push_notifications: true, 
       quiz_reminders: true,
-      daily_learning_reminder: true,
-      parent_progress_reports: true,
+      daily_learning_reminder: true, 
+      parent_progress_reports: true, 
       weekly_achievement_summary: true,
     },
     learning_preferences: {
-      daily_goal_minutes: 20,
-      difficulty_preference: "medium",
+      daily_goal_minutes: 20, 
+      difficulty_preference: "medium", 
       favorite_subjects: [],
     },
   });
 
+  const [avatarMode, setAvatarMode] = useState("emoji");
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
-  const { toast } = useToast();
-
-  const syncFormData = (userData) => {
-    setFormData({
-      full_name: userData.full_name || "",
-      nickname: userData.nickname || "",
-      school_year: userData.school_year || "",
-      school_name: userData.school_name || "",
-      class_name: userData.class_name || "",
-      gender: userData.gender || "",
-      date_of_birth: userData.date_of_birth || "",
-      country: userData.country || "Malaysia",
-      state: userData.state || "",
-      notification_preferences: userData.notification_preferences || {
-        email_notifications: true,
-        push_notifications: true,
-        quiz_reminders: true,
-        daily_learning_reminder: true,
-        parent_progress_reports: true,
-        weekly_achievement_summary: true,
-      },
-      learning_preferences: userData.learning_preferences || {
-        daily_goal_minutes: 20,
-        difficulty_preference: "medium",
-        favorite_subjects: [],
-      },
-    });
-  };
 
   useEffect(() => {
-    // Suntik animasi hidup ke dalam dokumen HTML
-    const styleSheet = document.createElement("style");
-    styleSheet.type = "text/css";
-    styleSheet.innerText = livelyAvatarGlobalStyle;
-    document.head.appendChild(styleSheet);
+    let isMounted = true;
 
-    const load = async () => {
+    const loadProfileData = async () => {
       try {
-        const u = await base44.auth.me();
-        setUser(u);
-        syncFormData(u);
-        
-        if (u.app_role === "student") {
-          const [progs, wallets, attempts] = await Promise.all([
-            base44.entities.Progress.filter({ student_id: u.id }),
-            base44.entities.Wallet.filter({ student_id: u.id }),
-            base44.entities.QuizAttempt.filter({ student_id: u.id }),
-          ]);
-          
-          if (progs?.[0]) setProgress(progs[0]);
-          if (wallets?.[0]) setWallet(wallets[0]);
-          if (attempts) setTotalQuizzes(attempts.length);
+        setLoading(true);
+        const currentUser = await base44.auth.me();
+        if (!currentUser) return;
+
+        let targetUser = currentUser;
+        let selectedChildId = null;
+
+        // Check if parent is viewing in Child Mode
+        if (currentUser.app_role === "parent") {
+          selectedChildId = 
+            localStorage.getItem("active_child_session") || 
+            localStorage.getItem("selected_child_id") || 
+            localStorage.getItem("active_student_id");
+
+          if (selectedChildId) {
+            try {
+              const fetchedChild = await base44.entities.User.get(selectedChildId);
+              if (fetchedChild) targetUser = fetchedChild;
+            } catch (e) {
+              const cachedChildStr = localStorage.getItem("active_child");
+              if (cachedChildStr) {
+                try { targetUser = JSON.parse(cachedChildStr); } catch (err) {}
+              }
+            }
+          }
         }
+
+        if (!isMounted) return;
+
+        setUser(targetUser);
+        setActiveChildId(selectedChildId);
+
+        // Fetch student statistics if profile belongs to a student
+        const isStudentProfile = targetUser.app_role === "student" || selectedChildId;
+
+        if (isStudentProfile && targetUser.id) {
+          const [progs, wallets, attempts] = await Promise.all([
+            base44.entities.Progress.filter({ student_id: targetUser.id }).catch(() => []),
+            base44.entities.Wallet.filter({ student_id: targetUser.id }).catch(() => []),
+            base44.entities.QuizAttempt.filter({ student_id: targetUser.id }).catch(() => []),
+          ]);
+
+          if (isMounted) {
+            setProgress(progs?.[0] || { level: 1, total_xp: 0 });
+            setWallet(wallets?.[0] || { balance: 0 });
+            setTotalQuizzes(attempts?.length || 0);
+          }
+        }
+
+        const eduLevel = targetUser.education_level || targetUser.school_year || "";
+
+        setFormData({
+          full_name: targetUser.full_name || "",
+          nickname: targetUser.nickname || "",
+          school_year: eduLevel,
+          education_level: eduLevel,
+          school_name: targetUser.school_name || "",
+          class_name: targetUser.class_name || "",
+          gender: targetUser.gender || "",
+          date_of_birth: targetUser.date_of_birth || "",
+          country: targetUser.country || "Malaysia",
+          state: targetUser.state || "",
+          notification_preferences: targetUser.notification_preferences || formData.notification_preferences,
+          learning_preferences: targetUser.learning_preferences || formData.learning_preferences,
+        });
+
       } catch (err) {
-        console.error("Failed to load profile:", err);
+        console.error("Gagal memuat turun profil:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
-    load();
+
+    loadProfileData();
 
     return () => {
-      document.head.removeChild(styleSheet);
+      isMounted = false;
     };
   }, []);
 
   const handleLogout = () => {
+    localStorage.clear();
     base44.auth.logout("/login");
   };
 
-  const handleSaveAvatar = async (avatarUrl) => {
+  const handleSaveAvatar = async (emoji) => {
     try {
-      await base44.auth.updateMe({ profile_picture_url: avatarUrl, avatar_emoji: null });
-      setUser((prev) => ({ ...prev, profile_picture_url: avatarUrl, avatar_emoji: null }));
-      toast({
-        title: "Avatar Dinamik Diaktifkan! ⚡",
-        description: "Penampilan karakter baharu anda berjaya disimpan.",
-      });
+      if (activeChildId) {
+        await base44.functions.invoke("updateChildProfile", {
+          child_id: activeChildId,
+          selected_avatar: emoji,
+        });
+      } else {
+        await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
+      }
+      setUser((prev) => ({ ...prev, avatar_emoji: emoji, selected_avatar: emoji, profile_picture_url: null }));
+      toast({ title: "Avatar Ditukar! 🎨", description: "Avatar baru anda telah disimpan." });
     } catch (err) {
-      console.error("Failed to save avatar:", err);
-      toast({
-        title: "Gagal menukar avatar",
-        description: "Sila cuba sebentar lagi.",
-        variant: "destructive",
-      });
+      toast({ title: "Gagal", description: "Sila cuba lagi.", variant: "destructive" });
     }
   };
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
     setUploading(true);
     try {
       const result = await base44.integrations.Core.UploadFile({ file });
-      await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
+      if (activeChildId) {
+        await base44.functions.invoke("updateChildProfile", {
+          child_id: activeChildId,
+          profile_picture_url: result.file_url,
+        });
+      } else {
+        await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
+      }
       setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
       setAvatarMode("photo");
-      toast({
-        title: "Gambar berjaya dimuat naik!",
-        description: "Foto profil manual anda telah dikemas kini.",
-      });
+      toast({ title: "Gambar dimuat naik!", description: "Profil anda telah dikemas kini." });
     } catch (err) {
-      console.error("Photo upload failed:", err);
-      toast({
-        title: "Gagal muat naik",
-        description: "Sila pastikan format fail adalah imej yang sah.",
-        variant: "destructive",
-      });
+      toast({ title: "Gagal", description: "Sila cuba lagi.", variant: "destructive" });
     } finally {
       setUploading(false);
     }
   };
 
   const handleRemovePhoto = async () => {
-    await base44.auth.updateMe({ profile_picture_url: null, avatar_emoji: "🎓" });
-    setUser((prev) => ({ ...prev, profile_picture_url: null, avatar_emoji: "🎓" }));
-    setAvatarMode("emoji");
+    try {
+      if (activeChildId) {
+        await base44.functions.invoke("updateChildProfile", {
+          child_id: activeChildId,
+          profile_picture_url: null,
+        });
+      } else {
+        await base44.auth.updateMe({ profile_picture_url: null });
+      }
+      setUser((prev) => ({ ...prev, profile_picture_url: null }));
+      setAvatarMode("emoji");
+    } catch (err) {
+      toast({ title: "Gagal", description: "Tidak dapat memadam gambar.", variant: "destructive" });
+    }
+  };
+
+  const handleSelectPresetAvatar = async (url) => {
+    setUploading(true);
+    try {
+      if (activeChildId) {
+        await base44.functions.invoke("updateChildProfile", {
+          child_id: activeChildId,
+          profile_picture_url: url,
+        });
+      } else {
+        await base44.auth.updateMe({ profile_picture_url: url, avatar_emoji: null });
+      }
+      setUser((prev) => ({ ...prev, profile_picture_url: url, avatar_emoji: null }));
+      setAvatarMode("photo");
+      toast({
+        title: "Avatar Ditukar! 🌟",
+        description: "Avatar baru anda kelihatan sangat hebat!",
+      });
+    } catch (err) {
+      toast({ title: "Gagal", description: "Tidak dapat menukar avatar.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePurchaseAvatar = () => {
+    toast({
+      title: "Fungsi Akan Datang! 🚀",
+      description: "Pembelian avatar premium sedang dibina. Teruskan kumpul syiling anda!",
+    });
   };
 
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      await base44.auth.updateMe(formData);
-      const updatedUser = await base44.auth.me();
-      setUser(updatedUser);
-      syncFormData(updatedUser);
-      setEditing(false);
-
-      if (updatedUser.app_role === "student") {
-        const linkReqs = await base44.entities.LinkRequest.filter({ 
-          student_email: updatedUser.email, 
-          status: "approved" 
+      if (activeChildId) {
+        // Update Child Profile in User Entity via edge function
+        await base44.functions.invoke("updateChildProfile", {
+          child_id: activeChildId,
+          nickname: formData.nickname,
+          full_name: formData.full_name,
+          education_level: formData.education_level || formData.school_year,
+          school_name: formData.school_name,
+          gender: formData.gender,
+          date_of_birth: formData.date_of_birth,
         });
-        await Promise.all(
-          linkReqs.map(req =>
-            base44.entities.LinkRequest.update(req.id, { 
-              student_name: updatedUser.full_name || updatedUser.email 
-            })
-          )
-        );
+      } else {
+        // Update direct user profile
+        await base44.auth.updateMe({
+          ...formData,
+          education_level: formData.education_level || formData.school_year,
+        });
       }
 
-      toast({
-        title: "Profil disimpan! ✓",
-        description: "Maklumat profil anda telah berjaya dikemas kini.",
-      });
+      setEditing(false);
+      toast({ title: "Profil disimpan! ✓", description: "Maklumat profil telah dikemas kini." });
     } catch (err) {
-      console.error("Failed to save profile:", err);
-      toast({
-        title: "Gagal menyimpan",
-        description: err.message || "Sesuatu masalah berlaku",
-        variant: "destructive",
-      });
+      toast({ title: "Gagal menyimpan", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -225,303 +300,242 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+        <p className="mt-3 text-xs font-bold text-stone-500 uppercase tracking-wider">Memuat turun profil...</p>
       </div>
     );
   }
 
-  const isStudent = user?.app_role === "student";
-  const isParent = user?.app_role === "parent";
+  const isStudent = user?.app_role === "student" || Boolean(activeChildId);
+  const isParent = user?.app_role === "parent" && !activeChildId;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-sans">
       
-      {/* Profile Header Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-indigo-600 to-violet-700 p-6 md:p-10 text-white shadow-xl shadow-indigo-900/10"
+      {/* HEADER KAD PROFIL */}
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-6 md:p-10 text-white shadow-xl"
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4 blur-lg pointer-events-none" />
-        
-        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 z-10">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
             <div className="relative group">
-              <div className="w-28 h-28 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/20 shadow-xl transition-transform duration-300 group-hover:scale-105">
+              <div className="w-28 h-28 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/30 shadow-xl">
                 {user?.profile_picture_url ? (
-                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover lively-avatar" />
+                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-5xl select-none lively-avatar">{user?.avatar_emoji || "🎓"}</span>
+                  <span className="text-5xl select-none">{user?.selected_avatar || user?.avatar_emoji || "🦧"}</span>
                 )}
               </div>
-              {isStudent && (user?.profile_picture_url || user?.avatar_emoji !== "🎓") && (
-                <button
-                  onClick={handleRemovePhoto}
-                  className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-destructive text-white flex items-center justify-center font-bold text-xs hover:bg-destructive/90 shadow-md transition-colors"
-                  title="Reset Profil"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
-
             <div className="space-y-1.5">
-              <div className="flex flex-col sm:flex-row items-center gap-2">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{user?.full_name || "User"}</h1>
-                <span className="px-3 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-white/20 backdrop-blur-xs text-white/90">
-                  {user?.app_role || "student"}
-                </span>
+              <div className="flex items-center justify-center md:justify-start gap-2">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                  {user?.nickname || user?.full_name || "Pelajar"}
+                </h1>
+                {activeChildId && (
+                  <span className="bg-amber-100 text-amber-900 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Mod Anak
+                  </span>
+                )}
               </div>
-              <p className="text-white/75 text-sm md:text-base font-medium">{user?.email}</p>
+              <p className="text-orange-50 font-medium text-sm">
+                {user?.email || (formData.education_level ? `Tahap: ${formData.education_level}` : "Penjelajah StudyQuest")}
+              </p>
             </div>
           </div>
-
-          {/* Header Actions Panel */}
-          {(isStudent || isParent) && (
-            <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/10 w-full md:w-auto">
-              {isStudent && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAvatar(!showAvatar)}
-                  className="text-white hover:bg-white/10 hover:text-white rounded-xl text-xs h-9 px-4 font-medium"
-                >
-                  {showAvatar ? "Tutup Panel" : "Pilih Avatar Animasi"}
-                </Button>
-              )}
-              
-              <Button
-                size="sm"
-                variant={editing ? "secondary" : "default"}
-                disabled={saving}
-                onClick={() => editing ? handleSaveProfile() : setEditing(true)}
-                className={`text-xs h-9 px-4 font-semibold rounded-xl transition-all shadow-xs ${
-                  editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-indigo-700 hover:bg-white/90"
-                }`}
+          
+          <div className="flex flex-wrap items-center justify-center gap-3 bg-white/10 p-2 rounded-2xl backdrop-blur-md border border-white/20">
+            {isStudent && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowAvatar(!showAvatar)} 
+                className="text-white hover:bg-white/20 hover:text-white rounded-xl text-xs h-9 px-4 font-bold"
               >
-                {saving ? (
-                  <div className="w-4 h-4 border-2 border-indigo-700/30 border-t-indigo-700 rounded-full animate-spin mr-1.5" />
-                ) : editing ? (
-                  <Check className="w-3.5 h-3.5 mr-1.5" />
-                ) : (
-                  <Pen className="w-3.5 h-3.5 mr-1.5" />
-                )}
-                {saving ? "Saving..." : editing ? "Simpan Data" : "Kemaskini Profil"}
+                {showAvatar ? "Tutup Tetapan" : "Tukar Avatar/Gambar"}
               </Button>
-            </div>
-          )}
+            )}
+            <Button 
+              size="sm" 
+              variant={editing ? "secondary" : "default"} 
+              disabled={saving} 
+              onClick={() => editing ? handleSaveProfile() : setEditing(true)} 
+              className={`text-xs h-9 px-4 font-bold rounded-xl transition-all shadow-sm ${
+                editing ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-white text-orange-600 hover:bg-orange-50"
+              }`}
+            >
+              {saving ? "Menyimpan..." : editing ? "Simpan Profil" : "Kemaskini"}
+            </Button>
+          </div>
         </div>
       </motion.div>
 
-      {/* Main Core Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         
-        {/* Left Hand Sidebar Column */}
+        {/* SIDEBAR KIRI (Metrik & Identiti) */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Quick Metrics */}
           {isStudent && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="grid grid-cols-3 gap-3"
-            >
-              <Card className="border-border/60 shadow-xs bg-card">
-                <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <p className="text-xl font-bold tracking-tight mt-1">{totalQuizzes}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Quizzes</p>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-3 gap-3">
+              <Card className="border-orange-100 shadow-sm">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xl font-bold">{totalQuizzes}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Kuiz</p>
                 </CardContent>
               </Card>
-              
-              <Card className="border-border/60 shadow-xs bg-card">
-                <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
-                    <Trophy className="w-4 h-4" />
-                  </div>
-                  <p className="text-xl font-bold tracking-tight mt-1">Lv {progress?.level || 1}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Level</p>
+              <Card className="border-orange-100 shadow-sm">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xl font-bold">Lv {progress?.level || 1}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Tahap</p>
                 </CardContent>
               </Card>
-
-              <Card className="border-border/60 shadow-xs bg-card">
-                <CardContent className="p-4 text-center space-y-1">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
-                    <Coins className="w-4 h-4" />
-                  </div>
-                  <p className="text-xl font-bold tracking-tight mt-1">{wallet?.balance || 0}</p>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Coins</p>
+              <Card className="border-orange-100 shadow-sm">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xl font-bold text-amber-500">{wallet?.balance || 0}</p>
+                  <p className="text-[10px] text-slate-500 uppercase font-bold">Syiling</p>
                 </CardContent>
               </Card>
             </motion.div>
           )}
 
-          {/* Student Identifiers */}
           {isStudent && (
-            <div className="bg-card rounded-2xl shadow-xs border border-border/60 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden">
               <StudentIdSection user={user} />
             </div>
           )}
-          
-          {/* Admin Tools Links */}
-          {user?.role === "admin" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <Link to="/admin/textbooks" className="group flex items-center gap-4 bg-primary/5 rounded-2xl p-4 border border-primary/10 hover:bg-primary/10 transition-all duration-200">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                  <BookMarked className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground">Textbook Library</p>
-                  <p className="text-xs text-muted-foreground truncate">Upload Malaysian curriculum modules</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/70 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-            </motion.div>
-          )}
+
+          <Button 
+            variant="outline" 
+            onClick={handleLogout} 
+            className="w-full rounded-2xl h-12 text-red-500 border-red-200 bg-red-50 hover:bg-red-100 font-bold"
+          >
+            <LogOut className="w-4 h-4 mr-2" /> Log Keluar Akaun
+          </Button>
         </div>
 
-        {/* Right Hand / Main Content Columns */}
+        {/* BAHAGIAN KANAN (Tetapan Avatar & Borang) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Sub-Komponen Pilihan Avatar Dinamik */}
           <AnimatePresence>
             {showAvatar && isStudent && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden p-1"
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }} 
+                animate={{ opacity: 1, height: "auto" }} 
+                exit={{ opacity: 0, height: 0 }} 
+                className="overflow-hidden bg-white rounded-2xl border border-orange-100 shadow-sm"
               >
-                <ProfilePhotoSection
-                  user={user}
-                  avatarMode={avatarMode}
-                  setAvatarMode={setAvatarMode}
-                  uploading={uploading}
-                  fileInputRef={fileInputRef}
-                  handlePhotoUpload={handlePhotoUpload}
-                  handleSaveAvatar={handleSaveAvatar}
-                />
+                
+                {/* 1. Komponen Upload Asal */}
+                <div className="p-1 border-b-2 border-orange-50">
+                  <ProfilePhotoSection
+                    user={user} 
+                    avatarMode={avatarMode} 
+                    setAvatarMode={setAvatarMode}
+                    uploading={uploading} 
+                    setUploading={setUploading} 
+                    fileInputRef={fileInputRef}
+                    handlePhotoUpload={handlePhotoUpload} 
+                    handleRemovePhoto={handleRemovePhoto}
+                    handleSaveAvatar={handleSaveAvatar} 
+                    showAvatar={showAvatar} 
+                    setShowAvatar={setShowAvatar}
+                  />
+                </div>
+
+                {/* 2. Galeri Avatar Percuma */}
+                <div className="p-6 bg-slate-50/50">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5 text-blue-500" />
+                    <h3 className="text-sm font-bold text-slate-700">Koleksi Avatar Percuma</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
+                    {FREE_AVATARS.map((url, idx) => {
+                      const isSelected = user?.profile_picture_url === url;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleSelectPresetAvatar(url)}
+                          disabled={uploading}
+                          className={`relative aspect-square rounded-2xl border-4 transition-all overflow-hidden ${
+                            isSelected 
+                              ? "border-blue-500 shadow-md scale-105" 
+                              : "border-transparent hover:border-blue-200 hover:scale-105 hover:shadow-sm"
+                          }`}
+                        >
+                          <img src={url} alt={`Avatar Percuma ${idx}`} className="w-full h-full object-cover bg-white" />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                              <Check className="w-6 h-6 text-blue-600 drop-shadow-md" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Galeri Avatar Premium */}
+                <div className="p-6 bg-amber-50/50 border-t border-amber-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-amber-500" />
+                      <h3 className="text-sm font-bold text-amber-700">Avatar Premium (Akan Datang)</h3>
+                    </div>
+                    <div className="flex items-center gap-1 bg-amber-100 px-3 py-1 rounded-full">
+                      <Coins className="w-4 h-4 text-amber-600" />
+                      <span className="text-sm font-bold text-amber-700">{wallet?.balance || 0}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {PREMIUM_AVATARS.map((avatar) => {
+                      return (
+                        <button
+                          key={avatar.id}
+                          onClick={handlePurchaseAvatar}
+                          className="relative flex flex-col items-center p-2 rounded-2xl border-4 border-transparent bg-white hover:border-amber-200 hover:scale-105 hover:shadow-sm transition-all overflow-hidden"
+                        >
+                          <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-2">
+                            <img src={avatar.url} alt={avatar.label} className="w-full h-full object-cover bg-white" />
+                            <div className="absolute inset-0 bg-slate-900/30 flex items-center justify-center backdrop-blur-[1px]">
+                              <Lock className="w-6 h-6 text-white" />
+                            </div>
+                          </div>
+                          
+                          <div className="text-center w-full">
+                            <p className="text-xs font-bold text-slate-700 truncate">{avatar.label}</p>
+                            <div className="flex items-center justify-center gap-1 mt-1 text-xs font-bold text-slate-500">
+                              <Coins className="w-3 h-3" />
+                              {avatar.cost}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Kondisi UI: Papar Ringkasan VS Papar Borang Kemaskini */}
-          {(isStudent || isParent) && (
-            <>
-              {!editing ? (
-                /* 1. Paparan Ringkas Semasa Mod Read-Only */
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                  <Card className="border-border/60 shadow-xs rounded-2xl bg-card">
-                    <CardContent className="p-6 md:p-8 space-y-6">
-                      <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-                        <User className="w-5 h-5 text-primary" />
-                        <h3 className="font-bold text-base text-foreground">Maklumat Profil Ringkas</h3>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-                        <div>
-                          <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider">Nama Penuh</p>
-                          <p className="font-semibold text-foreground mt-1">{user?.full_name || "-"}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider">Nama Panggilan</p>
-                          <p className="font-semibold text-foreground mt-1">{user?.nickname || "-"}</p>
-                        </div>
-                        {isStudent && (
-                          <>
-                            <div>
-                              <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider">Nama Sekolah</p>
-                              <p className="font-semibold text-foreground mt-1">{user?.school_name || "-"}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground font-medium text-xs uppercase tracking-wider">Tahun / Tingkatan & Kelas</p>
-                              <p className="font-semibold text-foreground mt-1">
-                                {user?.class_name ? `${user.class_name} (${user.school_year || ''})` : "-"}
-                              </p>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ) : (
-                /* 2. Hanya Keluar Apabila Butang "Kemaskini Profil" Ditekan */
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                  <Card className="border-border/60 shadow-xs rounded-2xl overflow-hidden bg-card">
-                    <CardContent className="p-6 md:p-8">
-                      <ProfileForm
-                        user={user}
-                        editing={editing}
-                        formData={formData}
-                        setFormData={setFormData}
-                        isStudent={isStudent}
-                      />
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </>
-          )}
-
-          {/* Notifications Form Blocks */}
-          {editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
-              <NotificationPreferencesSection
-                editing={editing}
-                formData={formData}
-                setFormData={setFormData}
+          <Card className="border-orange-100 shadow-sm rounded-2xl overflow-hidden bg-white">
+            <CardContent className="p-6 md:p-8">
+              <ProfileForm 
+                user={user} 
+                editing={editing} 
+                formData={formData} 
+                setFormData={setFormData} 
+                isStudent={isStudent} 
               />
-            </motion.div>
-          )}
+            </CardContent>
+          </Card>
 
-          {/* Learning Sub-settings Track */}
-          {isStudent && editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
-              <LearningPreferencesSection
-                editing={editing}
-                formData={formData}
-                setFormData={setFormData}
-              />
-            </motion.div>
-          )}
-
-          {/* Password Security Actions Module */}
-          {editing && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border/60 shadow-xs p-6 md:p-8">
-              <SecuritySection
-                editing={editing}
-                formData={formData}
-                setFormData={setFormData}
-                onSavePassword={async () => {
-                  toast({
-                    title: "Security Request Notice",
-                    description: "Please utilize the native portal forgot password authorization pipeline to handle active updates.",
-                    variant: "destructive",
-                  });
-                }}
-              />
-            </motion.div>
-          )}
         </div>
       </div>
-
-      {/* Butang Log Keluar Di Bawah Sekali */}
-      <div className="pt-6 border-t border-border/60 flex justify-center">
-        <Button
-          variant="outline"
-          onClick={handleLogout}
-          className="w-full sm:w-auto sm:px-12 rounded-2xl h-12 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors font-medium text-sm"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Sign Out of Account
-        </Button>
-      </div>
-
     </div>
   );
 }
