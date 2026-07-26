@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
-import { matchesEducationLevel } from "@/lib/childUtils";
+import { matchesEducationLevel, getStudentEducationLevel } from "@/lib/childUtils";
 import { 
   ArrowLeft, ChevronRight, BookOpen, FolderOpen, 
   Map, Library, Leaf, TreePine, Compass,
@@ -97,23 +97,27 @@ export default function StudyPage() {
         const books = results[1].status === "fulfilled" ? results[1].value : [];
         const currentUser = results[2].status === "fulfilled" ? results[2].value : null;
 
-        // Resolve active student profile (Handles Direct Student & Parent Child Mode)
+        // 🔥 ACCURATELY RESOLVE CHILD PROFILE (EVEN WHEN LOGGED IN AS PARENT)
         let studentUser = currentUser;
         if (currentUser?.app_role === "parent") {
-          const activeChildId = localStorage.getItem("active_child_session") || localStorage.getItem("selected_child_id");
+          const activeChildId = 
+            localStorage.getItem("active_child_session") || 
+            localStorage.getItem("selected_child_id") || 
+            localStorage.getItem("active_student_id");
+
           if (activeChildId) {
-            const cachedChildStr = localStorage.getItem("active_child");
-            if (cachedChildStr) {
-              try { studentUser = JSON.parse(cachedChildStr); } catch (e) {}
-            }
-            if (!studentUser || studentUser.id !== activeChildId) {
-              try {
-                const res = await base44.functions.invoke("fetchParentChildren");
-                if (res.data?.success && Array.isArray(res.data?.children)) {
-                  const child = res.data.children.find((c) => c.id === activeChildId);
-                  if (child) studentUser = child;
-                }
-              } catch (e) {}
+            // Step A: Try fetching active child record directly from database
+            try {
+              const fetchedChild = await base44.entities.User.get(activeChildId);
+              if (fetchedChild) {
+                studentUser = fetchedChild;
+              }
+            } catch (e) {
+              // Step B: Fallback to localStorage cached child object
+              const cachedChildStr = localStorage.getItem("active_child");
+              if (cachedChildStr) {
+                try { studentUser = JSON.parse(cachedChildStr); } catch (err) {}
+              }
             }
           }
         }
@@ -145,12 +149,16 @@ export default function StudyPage() {
     load();
   }, [subjectId, querySubject]);
 
-  // 🔥 FILTER TOPICS BASED ON IVAN'S EDUCATION LEVEL / FORM / YEAR
+  // 🔥 FILTER TOPICS BASED ON IVAN'S SPECIFIC EDUCATION LEVEL
   const filteredTopics = useMemo(() => {
     if (!topics || !user) return topics || [];
     
-    // Get student's grade/form level (e.g. "Form 2" or "Tingkatan 2")
-    const studentLevel = user.education_level || user.school_year || user.grade_year;
+    // Safely extract level using helper function
+    const studentLevel = getStudentEducationLevel(user);
+    
+    if (!studentLevel) {
+      return topics; // Show all if student profile has no level specified
+    }
     
     return topics.filter(t => matchesEducationLevel(studentLevel, t.form_level));
   }, [topics, user]);
@@ -169,7 +177,7 @@ export default function StudyPage() {
   };
 
   const studentFirstName = user?.nickname || (user?.full_name ? user.full_name.split(" ")[0] : "Penjelajah");
-  const studentLevelDisplay = user?.education_level || user?.school_year || "Semua Tahap";
+  const studentLevelDisplay = getStudentEducationLevel(user) || "Semua Tahap";
 
   const getWorldConfig = (subObj) => {
     if (!subObj) return SUBJECT_WORLDS_CONFIG.default;
@@ -209,7 +217,7 @@ export default function StudyPage() {
                 Sedia untuk teroka, {studentFirstName}?
               </h1>
               <p className="text-emerald-100 font-medium text-sm sm:text-base max-w-lg">
-                Pilih Dunia Subjek di bawah untuk memulakan pengembaraan {studentLevelDisplay} anda!
+                Pilih Dunia Subjek di bawah untuk memulakan pengembaraan <span className="text-lime-300 font-black">{studentLevelDisplay}</span> anda!
               </p>
             </div>
             
