@@ -136,18 +136,30 @@ Deno.serve(async (req) => {
       console.warn("ParentChildRelationship create note:", err);
     });
 
-    // 6. Create approved LinkRequest record
-    await db.entities.LinkRequest.create({
-      student_id: newStudentId,
-      student_name: nickname,
-      student_username: generatedUsername,
-      student_email: virtualEmail,
-      parent_id: parentId,
-      parent_email: parentEmail,
-      parent_name: parentName,
-      initiated_by: "parent",
-      status: "approved"
-    }).catch(() => null);
+ // Inside base44/functions/createChildAccount/entry.ts
+
+// Step 6: Create approved LinkRequest record with embedded student_profile
+await db.entities.LinkRequest.create({
+  student_id: newStudentId,
+  student_name: nickname,
+  student_username: generatedUsername,
+  student_email: virtualEmail,
+  parent_id: parentId,
+  parent_email: parentEmail,
+  parent_name: parentName,
+  initiated_by: "parent",
+  status: "approved",
+  student_profile: {
+    full_name: fullName,
+    nickname: nickname,
+    education_level: educationLevel,
+    selected_avatar: selectedAvatar,
+    username: generatedUsername,
+    student_id: studentId
+  }
+}).catch((err) => {
+  console.warn("LinkRequest creation note:", err);
+});
 
     // 7. Link child ID to parent user record
     const currentLinked = Array.isArray(parent.linked_student_ids) ? parent.linked_student_ids : [];
