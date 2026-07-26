@@ -2,38 +2,29 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Flame, Target, Clock, Coins, CheckCircle2, Award, BookOpen, 
-  HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2, 
-  Eye, EyeOff, Edit3, Trash2, Key, GraduationCap, UserCheck, ChevronRight
+  Users, Flame, Clock, Coins, GraduationCap, Zap, Loader2, 
+  Eye, EyeOff, Edit3, Key, BarChart3, UserCheck, AlertCircle 
 } from "lucide-react";
 import moment from "moment";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { getChildDisplayName, getStudentEducationLevel, loadChildrenWithStats } from "@/lib/childUtils";
 import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
 
+// Malaysian standard and form grade options
 const GRADE_OPTIONS = [
   "Standard 1", "Standard 2", "Standard 3", "Standard 4", "Standard 5", "Standard 6",
   "Form 1", "Form 2", "Form 3", "Form 4", "Form 5"
 ];
 
-// ================= 1. KAD DETEIL ANAK (DETAILED CHILD CARD) =================
-function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdated }) {
+// =====================================================================
+// 1. INDIVIDUAL CHILD CARD COMPONENT
+// =====================================================================
+function DetailedChildCard({ child, onOpenReport, onDataUpdated }) {
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -42,7 +33,6 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
   const [inputPin, setInputPin] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isChangingGrade, setIsChangingGrade] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [openCredentialsModal, setOpenCredentialsModal] = useState(false);
   
   const displayName = getChildDisplayName(child);
@@ -68,7 +58,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     ? `Belajar Terakhir: ${moment(sessionData.updated_at).format("DD/MM/YYYY")}` 
     : "Tiada rekod aktif";
 
-  // 🔥 UPDATE NAME IN DATABASE
+  // UPDATE NAME IN DATABASE
   const handleSaveName = async () => {
     if (!inputName.trim()) {
       toast({ title: "Medan Wajib", description: "Nama panggilan tidak boleh kosong.", variant: "destructive" });
@@ -99,7 +89,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // 🔥 UPDATE EDUCATION LEVEL / GRADE IN DATABASE
+  // UPDATE EDUCATION LEVEL IN DATABASE
   const handleSaveGrade = async (newGrade) => {
     setUpdating(true);
     try {
@@ -125,7 +115,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // 🔥 UPDATE PIN IN DATABASE
+  // UPDATE PIN IN DATABASE
   const handleSaveNewPin = async () => {
     if (inputPin.length !== 4) {
       toast({ title: "Format Salah", description: "PIN mestilah tepat 4 digit.", variant: "destructive" });
@@ -155,7 +145,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
     }
   };
 
-  // 🔥 SWITCH TO CHILD MODE
+  // SWITCH TO CHILD MODE
   const handleSwitchToChildMode = () => {
     localStorage.setItem("active_child_session", child.id);
     localStorage.setItem("selected_child_id", child.id);
@@ -363,7 +353,9 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
   );
 }
 
-// ================= 2. MAIN MY CHILDREN PAGE =================
+// =====================================================================
+// 2. MAIN MY CHILDREN PAGE COMPONENT
+// =====================================================================
 export default function MyChildrenPage() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
