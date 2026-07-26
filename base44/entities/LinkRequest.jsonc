@@ -4,23 +4,27 @@
   "properties": {
     "student_id": {
       "type": "string",
-      "description": "ID of the student (filled when accepted)"
+      "description": "Database ID or student code of the student"
     },
     "student_name": {
       "type": "string",
-      "description": "Display name of the student (filled when accepted)"
+      "description": "Display name of the student"
+    },
+    "student_username": {
+      "type": "string",
+      "description": "Username of the student"
     },
     "student_email": {
       "type": "string",
-      "description": "Email of the student"
+      "description": "Email address of the student"
     },
     "parent_id": {
       "type": "string",
-      "description": "ID of the parent who initiated the link"
+      "description": "Database ID of the parent"
     },
     "parent_email": {
       "type": "string",
-      "description": "Email of the parent"
+      "description": "Email address of the parent"
     },
     "parent_name": {
       "type": "string",
@@ -28,25 +32,73 @@
     },
     "initiated_by": {
       "type": "string",
-      "enum": [
-        "student",
-        "parent"
-      ],
-      "default": "parent",
-      "description": "Who initiated the link request"
+      "enum": ["parent", "student"],
+      "default": "parent"
     },
     "status": {
       "type": "string",
-      "enum": [
-        "pending",
-        "approved",
-        "rejected"
-      ],
+      "enum": ["pending", "approved", "rejected", "cancelled"],
       "default": "pending"
+    },
+    "student_profile": {
+      "type": "object",
+      "description": "Embedded snapshot of the student's profile details",
+      "properties": {
+        "full_name": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "education_level": {
+          "type": "string",
+          "description": "School grade e.g. Standard 1, Form 2"
+        },
+        "selected_avatar": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "student_id": {
+          "type": "string"
+        }
+      }
     }
   },
   "required": [
-    "student_email",
-    "parent_email"
-  ]
+    "student_id",
+    "parent_id",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        { "data.parent_id": "{{user.id}}" },
+        { "data.student_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "read": {
+      "$or": [
+        { "data.parent_id": "{{user.id}}" },
+        { "data.student_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "update": {
+      "$or": [
+        { "data.parent_id": "{{user.id}}" },
+        { "data.student_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "delete": {
+      "$or": [
+        { "data.parent_id": "{{user.id}}" },
+        { "data.student_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    }
+  }
 }
