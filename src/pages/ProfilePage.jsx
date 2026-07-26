@@ -99,7 +99,7 @@ export default function ProfilePage() {
 
         setUser(profileUser);
         
-        const effectiveStudentId = activeChildId || (profileUser.app_role === "student" ? profileUser.id : null);
+        const effectiveStudentId = profileUser.id || activeChildId || (profileUser.app_role === "student" ? profileUser.id : null);
         setTargetStudentId(effectiveStudentId);
 
         if (effectiveStudentId) {
@@ -150,7 +150,7 @@ export default function ProfilePage() {
 
   const handleSaveAvatar = async (emoji) => {
     try {
-      const childId = targetStudentId || user?.id;
+      const childId = user?.id || targetStudentId;
       if (childId) {
         await base44.functions.invoke("updateChildProfile", {
           child_id: childId,
@@ -172,7 +172,7 @@ export default function ProfilePage() {
     setUploading(true);
     try {
       const result = await base44.integrations.Core.UploadFile({ file });
-      const childId = targetStudentId || user?.id;
+      const childId = user?.id || targetStudentId;
       if (childId) {
         await base44.functions.invoke("updateChildProfile", {
           child_id: childId,
@@ -193,7 +193,7 @@ export default function ProfilePage() {
 
   const handleRemovePhoto = async () => {
     try {
-      const childId = targetStudentId || user?.id;
+      const childId = user?.id || targetStudentId;
       if (childId) {
         await base44.functions.invoke("updateChildProfile", {
           child_id: childId,
@@ -212,7 +212,7 @@ export default function ProfilePage() {
   const handleSelectPresetAvatar = async (url) => {
     setUploading(true);
     try {
-      const childId = targetStudentId || user?.id;
+      const childId = user?.id || targetStudentId;
       if (childId) {
         await base44.functions.invoke("updateChildProfile", {
           child_id: childId,
@@ -241,10 +241,10 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const childId = targetStudentId || (user?.app_role === "student" ? user?.id : null);
+      const childId = user?.id || targetStudentId;
 
       const payload = {
-        child_id: childId || user?.id,
+        child_id: childId,
         nickname: formData.nickname || user?.nickname || "",
         full_name: formData.full_name || user?.full_name || "",
         education_level: formData.education_level || formData.school_year || "",
@@ -253,7 +253,7 @@ export default function ProfilePage() {
         date_of_birth: formData.date_of_birth || "",
       };
 
-      if (childId || user?.app_role === "student") {
+      if (childId) {
         const response = await base44.functions.invoke("updateChildProfile", payload);
         const resPayload = response?.data || response;
 
@@ -263,11 +263,9 @@ export default function ProfilePage() {
 
         if (resPayload?.user) {
           setUser(resPayload.user);
-          if (childId) {
-            const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
-            cachedChildren[childId] = { ...cachedChildren[childId], ...resPayload.user };
-            localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
-          }
+          const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+          cachedChildren[childId] = { ...cachedChildren[childId], ...resPayload.user };
+          localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
         }
       } else {
         await base44.auth.updateMe({
