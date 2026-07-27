@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 
 import AddChildModal from "@/components/parent/AddChildModal";
 import ChildSummaryCard from "@/components/parent/ChildSummaryCard";
-import SukuAIInsights from "@/components/parent/ai-insights/SukuAIInsights";
+import ChildDetailPanel from "@/components/parent/ChildDetailPanel";
 import { loadChildrenWithStats, getSelectedChildId, setSelectedChildId } from "@/lib/childUtils";
 
 // Maps WMO Weather Interpretation Codes (WW) to icons and language text
@@ -250,11 +250,34 @@ export default function ParentDashboard() {
         </div>
 
         {childrenList.length > 0 ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none -mx-1 px-1 md:grid md:grid-cols-2 lg:grid-cols-3 md:overflow-visible">
-            {childrenList.map((child) => (
-              <ChildSummaryCard key={child.id} child={child} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {childrenList.map((child) => (
+                <ChildSummaryCard
+                  key={child.id}
+                  child={child}
+                  isSelected={selectedChild?.id === child.id}
+                  onClick={() => {
+                    if (selectedChild?.id === child.id) {
+                      setSelectedChild(null);
+                    } else {
+                      setSelectedChild(child);
+                      setSelectedChildId(child.id);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+
+            {selectedChild && (
+              <div className="mt-4">
+                <ChildDetailPanel
+                  child={selectedChild}
+                  onClose={() => setSelectedChild(null)}
+                />
+              </div>
+            )}
+          </>
         ) : (
           <Card className="p-8 text-center border-dashed border-2 border-slate-200 rounded-xl bg-white">
             <p className="text-sm text-slate-500 font-medium mb-3">
@@ -269,9 +292,6 @@ export default function ParentDashboard() {
           </Card>
         )}
       </div>
-
-      {/* ═══ SUKU AI LEARNING INSIGHTS ═══ */}
-      {selectedChild && <SukuAIInsights childId={selectedChild.id} />}
 
       {/* ═══ ADD CHILD MODAL ═══ */}
       <AddChildModal
