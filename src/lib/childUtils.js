@@ -209,11 +209,6 @@ export const loadChildrenWithStats = async () => {
     }
   } catch {}
 
-  const cachedChildren = safeReadCache("cached_children");
-  if (childIds.length === 0 && Object.keys(cachedChildren).length > 0) {
-    childIds = Object.keys(cachedChildren);
-  }
-
   if (childIds.length === 0) return [];
 
   const kids = await Promise.all(
@@ -228,34 +223,19 @@ export const loadChildrenWithStats = async () => {
           base44.entities.LinkRequest.filter({ student_id: id }).catch(() => []),
         ]);
 
-        const localCache = cachedChildren[id] || {};
         const matchedLinkReq = linkReqRes?.find((lr) => lr.student_name && lr.student_name !== "Pelajar");
 
         const nickname =
           childUser?.nickname ||
-          localCache.nickname ||
           matchedLinkReq?.student_name ||
           childUser?.full_name ||
-          localCache.full_name ||
           childUser?.username ||
           "Pelajar";
 
         const fullName =
           childUser?.full_name ||
-          localCache.full_name ||
           matchedLinkReq?.student_name ||
           nickname;
-
-        cachedChildren[id] = {
-          ...localCache,
-          id,
-          nickname,
-          full_name: fullName,
-          selected_avatar: childUser?.selected_avatar || localCache.selected_avatar || null,
-          username: childUser?.username || localCache.username || "student",
-          email: childUser?.email || localCache.email || matchedLinkReq?.student_email || "",
-          child_login_pin: childUser?.child_login_pin || localCache.child_login_pin || "",
-        };
 
         let allSessions = [];
         let latestSession = {};
@@ -286,22 +266,22 @@ export const loadChildrenWithStats = async () => {
 
         return {
           id,
-          email: childUser?.email || localCache.email || matchedLinkReq?.student_email || "",
+          email: childUser?.email || matchedLinkReq?.student_email || "",
           nickname,
           full_name: fullName,
-          username: childUser?.username || localCache.username || "student",
-          selected_avatar: childUser?.selected_avatar || localCache.selected_avatar || null,
+          username: childUser?.username || "student",
+          selected_avatar: childUser?.selected_avatar || null,
           profile_picture_url: childUser?.profile_picture_url || null,
-          avatar_emoji: childUser?.avatar_emoji || localCache.avatar_emoji || "🦧",
-          pin_hash: childUser?.pin_hash || childUser?.child_login_pin || localCache.child_login_pin || null,
-          child_login_pin: childUser?.child_login_pin || localCache.child_login_pin || null,
+          avatar_emoji: childUser?.avatar_emoji || "🦧",
+          pin_hash: childUser?.pin_hash || childUser?.child_login_pin || null,
+          child_login_pin: childUser?.child_login_pin || null,
           login_enabled: childUser?.login_enabled !== false,
-          gender: childUser?.gender || localCache.gender || "",
-          date_of_birth: childUser?.date_of_birth || localCache.date_of_birth || "",
-          school_name: childUser?.school_name || localCache.school_name || "",
-          education_level: childUser?.education_level || localCache.education_level || "",
-          preferred_language: childUser?.preferred_language || localCache.preferred_language || "ms",
-          interests: childUser?.interests || localCache.interests || [],
+          gender: childUser?.gender || "",
+          date_of_birth: childUser?.date_of_birth || "",
+          school_name: childUser?.school_name || "",
+          education_level: childUser?.education_level || "",
+          preferred_language: childUser?.preferred_language || "ms",
+          interests: childUser?.interests || [],
           wallet,
           allSessions,
           latestSession,
@@ -314,8 +294,6 @@ export const loadChildrenWithStats = async () => {
       }
     })
   );
-
-  safeWriteCache("cached_children", cachedChildren);
 
   return kids.filter(Boolean);
 };
