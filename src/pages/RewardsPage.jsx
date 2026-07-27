@@ -4,6 +4,7 @@ import { Gift, Check, Clock, X, Loader2, Sparkles, Lock, Leaf, Sprout } from "lu
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
+import { getActiveStudentId } from "@/lib/rewardSystem";
 
 export default function RewardsPage() {
   const [user, setUser] = useState(null);
@@ -20,9 +21,16 @@ export default function RewardsPage() {
         const studentUser = await base44.auth.me();
         setUser(studentUser);
 
-        // Cari ID ibu bapa yang aktif
+        // Resolve the correct active student ID (handles parent-in-child-mode)
+        const activeStudentId = await getActiveStudentId();
+        if (!activeStudentId) {
+          setLoading(false);
+          return;
+        }
+
+        // Cari ID ibu bapa yang aktif berdasarkan ID anak yang sebenar
         const relationships = await base44.entities.ParentChildRelationship.filter({
-          child_id: studentUser.id,
+          child_id: activeStudentId,
           status: "active",
         });
 
@@ -30,11 +38,11 @@ export default function RewardsPage() {
 
         // Gunakan Promise.allSettled untuk API yang kebal
         const results = await Promise.allSettled([
-          activeParentId 
-            ? base44.entities.Reward.filter({ parent_id: activeParentId, student_id: studentUser.id }) 
+          activeParentId
+            ? base44.entities.Reward.filter({ parent_id: activeParentId, student_id: activeStudentId })
             : Promise.resolve([]),
-          base44.entities.Wallet.filter({ student_id: studentUser.id }),
-          base44.entities.RewardRequest.filter({ student_id: studentUser.id }, "-created_date", 20),
+          base44.entities.Wallet.filter({ student_id: activeStudentId }),
+          base44.entities.RewardRequest.filter({ student_id: activeStudentId }, "-created_date", 20),
         ]);
 
         setRewards(results[0].status === "fulfilled" ? results[0].value : []);
@@ -62,11 +70,17 @@ export default function RewardsPage() {
     
     if (!user) return;
     setRequesting(reward.id);
-    
+
     try {
+      const activeStudentId = await getActiveStudentId();
+      if (!activeStudentId) {
+        toast({ title: "Ralat", description: "Sesi tidak ditemui. Sila log masuk semula.", variant: "destructive" });
+        return;
+      }
+
       const req = await base44.entities.RewardRequest.create({
-        student_id: user.id,
-        student_email: user.email, 
+        student_id: activeStudentId,
+        student_email: user.email,
         reward_id: reward.id,
         reward_title: reward.title,
         coin_cost: reward.coin_cost,
