@@ -67,7 +67,9 @@ export default function SukuAIInsights({ childId }) {
 
   if (!user) return null;
 
-  const isPremium = user.subscription_tier === "premium" || user.app_role === "admin";
+  const isPremium = user.app_role === "admin" ||
+    (user.subscription_tier === "premium" &&
+     (!user.premium_expires_at || new Date(user.premium_expires_at) > new Date()));
   if (!isPremium) return <PremiumGate />;
 
   if (loading) {

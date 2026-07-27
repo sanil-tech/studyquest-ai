@@ -99,6 +99,11 @@
       ],
       "default": "free",
       "description": "Parent subscription tier \u2014 premium unlocks Suku AI Learning Insights"
+    },
+    "premium_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When temporary premium access expires (null = permanent if premium)"
     }
   },
   "required": [

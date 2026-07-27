@@ -53,6 +53,7 @@ const ChildSelectionPage = React.lazy(() => import('@/pages/ChildSelectionPage')
 
 // Lazy-loaded Admin Pages
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
+const AdminPremiumAccess = React.lazy(() => import('@/pages/AdminPremiumAccess'));
 
 // ============================================================================
 // LOADING SPINNER
@@ -103,6 +104,7 @@ const AuthenticatedApp = () => {
             <Route path="/admin/textbooks" element={<TextbookUpload />} />
             <Route path="/admin/lesson-resources" element={<LessonResources />} />
             <Route path="/admin/edit-lesson" element={<EditLessonResources />} />
+            <Route path="/admin/premium-access" element={<AdminPremiumAccess />} />
           </Route>
 
           {/* Shared layout routes */}
