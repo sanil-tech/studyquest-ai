@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 const STEPS = [
   { key: "video", label: "Video Guru", icon: Tv },
   { key: "lesson", label: "Nota Pintar", icon: BookOpen },
-  { key: "flashcard", label: "Kad Memori", icon: Layers },
   { key: "mindmap", label: "Peta Minda", icon: Network },
   { key: "games", label: "Permainan", icon: Gamepad2 },
   { key: "quiz", label: "Kuiz Boss", icon: Trophy },

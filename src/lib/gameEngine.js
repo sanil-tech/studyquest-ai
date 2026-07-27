@@ -229,12 +229,67 @@ const FALLBACK_GAMES = {
   ],
 };
 
+function getFlashcardData(subject) {
+  const key = (subject || "").toLowerCase();
+  if (key.includes("math")) {
+    return [
+      { front: "5 + 5", back: "10" },
+      { front: "3 + 4", back: "7" },
+      { front: "6 - 2", back: "4" },
+      { front: "2 \u00d7 3", back: "6" },
+    ];
+  }
+  if (key.includes("sains") || key.includes("science")) {
+    return [
+      { front: "Apakah benda hidup?", back: "Tumbuhan, haiwan, manusia" },
+      { front: "Apakah keperluan benda hidup?", back: "Udara, air, makanan, cahaya" },
+      { front: "Proses tumbuhan membuat makanan", back: "Fotosintesis" },
+      { front: "Organ pernafasan manusia", back: "Paru-paru" },
+    ];
+  }
+  if (key.includes("bahasa") || key.includes("bm")) {
+    return [
+      { front: "Suku kata 'ba' + 'ju'", back: "baju" },
+      { front: "Lawan kata 'besar'", back: "kecil" },
+      { front: "Sinonim 'cantik'", back: "indah" },
+      { front: "Nama terbitan 'makan'", back: "makanan" },
+    ];
+  }
+  if (key.includes("english")) {
+    return [
+      { front: "Opposite of 'big'", back: "small" },
+      { front: "Past tense of 'go'", back: "went" },
+      { front: "Plural of 'cat'", back: "cats" },
+      { front: "Synonym of 'happy'", back: "joyful" },
+    ];
+  }
+  return [
+    { front: "Fact 1", back: "Answer 1" },
+    { front: "Fact 2", back: "Answer 2" },
+  ];
+}
+
 function getFallbackGames(subject) {
   const key = (subject || "").toLowerCase();
-  for (const [subj, games] of Object.entries(FALLBACK_GAMES)) {
-    if (key.includes(subj)) return games;
+  let games = [];
+  for (const [subj, g] of Object.entries(FALLBACK_GAMES)) {
+    if (key.includes(subj)) { games = [...g]; break; }
   }
-  return FALLBACK_GAMES.mathematics;
+  if (games.length === 0) games = [...FALLBACK_GAMES.mathematics];
+
+  // Always include a flashcard game
+  games.push({
+    game_name: "Kad Kilat",
+    game_type: "flashcard",
+    skill: "Memory & recall",
+    difficulty: "easy",
+    instructions: "Semak kad kilat untuk mengingat fakta penting!",
+    reward_xp: 15,
+    reward_coins: 3,
+    game_data: JSON.stringify({ flashcards: getFlashcardData(subject) }),
+  });
+
+  return games;
 }
 
 // ============================================================

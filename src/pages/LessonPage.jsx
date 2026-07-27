@@ -568,7 +568,7 @@ export default function LessonPage() {
       const nextStatePayload = { 
         ...progressState, 
         lesson_completed: true, 
-        current_stage: progressState.flashcard_completed ? progressState.current_stage : "flashcard", 
+        current_stage: progressState.mindmap_completed ? progressState.current_stage : "mindmap", 
         xp_earned: progressState.xp_earned + rewardVal 
       };
       
@@ -752,7 +752,6 @@ export default function LessonPage() {
               {activeTab === "map" && "Pilih mana-mana ikon dalam Peta Misi di bawah untuk memulakan cabaran!"}
               {activeTab === "video" && "Tonton taklimat video ini untuk memahami konsep asas terlebih dahulu."}
               {activeTab === "lesson" && "Baca nota khazanah ini. Tekan butang pembesar suara untuk mendengar sebutan!"}
-              {activeTab === "flashcard" && "Uji ingatan pantas anda dengan kad kilat di bawah."}
               {activeTab === "mindmap" && "Ini gambaran keseluruhan topik menerusi Peta Minda!"}
               {activeTab === "games" && "Bermain sambil belajar! Pilih permainan untuk menguatkan pemahaman kamu."}
               {activeTab === "quiz" && "Sedia untuk bertarung dalam Cabaran Boss untuk mengutip XP penuh?"}
@@ -777,7 +776,6 @@ export default function LessonPage() {
                     if (!key) return;
                     if (key === "video") setActiveTab("video");
                     if (key === "lesson") setActiveTab("lesson");
-                    if (key === "flashcard") loadFlashcardsOnDemand();
                     if (key === "mindmap") loadMindMapOnDemand();
                     if (key === "games") setActiveTab("games");
                     if (key === "quiz") setActiveTab("quiz");
@@ -839,29 +837,7 @@ export default function LessonPage() {
             </motion.div>
           )}
 
-          {/* STAGE 3: FLASHCARDS */}
-          {activeTab === "flashcard" && (
-            <motion.div key="flashcard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
-              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
-                <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-amber-400"/> Langkah 3: Kad Kilat Ingatan
-                </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
-                  Peta 🗺️
-                </Button>
-              </div>
-
-              <Flashcards flashcards={flashcards || []} />
-
-              <Button onClick={() => updateStageProgress("flashcard", "mindmap", 15).then(() => setActiveTab("map"))}
-                className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
-              >
-                Selesai Ulangkaji Kad Kilat! 🚀
-              </Button>
-            </motion.div>
-          )}
-
-          {/* STAGE 4: MIND MAP */}
+          {/* STAGE 3: MIND MAP */}
           {activeTab === "mindmap" && (
             <motion.div key="mindmap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">

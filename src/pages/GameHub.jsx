@@ -27,6 +27,7 @@ const GAME_ICONS = {
   memory: "🧠",
   sorting: "📦",
   word_builder: "🔤",
+  flashcard: "🎴",
   sequence: "🔢",
   time_challenge: "⏱️",
   simulation: "🎭",
