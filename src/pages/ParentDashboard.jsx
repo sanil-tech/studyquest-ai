@@ -233,10 +233,10 @@ export default function ParentDashboard() {
           />
           <ShortcutCard
             icon={Crown}
-            title="Premium"
-            desc="Langgan ciri istimewa"
+            title="Pembayaran"
+            desc="Status langganan & akses"
             gradient="from-amber-500 to-orange-600"
-            onClick={() => navigate("/premium")}
+            onClick={() => navigate("/parent/billing")}
           />
 
         </div>
