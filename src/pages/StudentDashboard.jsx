@@ -177,39 +177,23 @@ export default function StudentDashboard() {
         }
 
       } else {
+        // Direct child login: use backend function with service role (bypasses RLS)
         const studentId = currentUser.id;
         studentUser = currentUser;
 
-        const results = await Promise.allSettled([
-          base44.entities.Progress.filter({ student_id: studentId }),
-          base44.entities.Wallet.filter({ student_id: studentId }),
-          base44.entities.StudySession.filter({ student_id: studentId }, "-created_date", 10),
-          base44.entities.QuizAttempt.filter({ student_id: studentId }, "-created_date", 10),
-          base44.entities.ParentChildRelationship.filter({ child_id: studentId, status: "pending" }),
-        ]);
+        const res = await base44.functions.invoke("fetchChildDashboard", {
+          student_id: studentId,
+        });
 
-        if (results[0].status === "fulfilled" && results[0].value?.[0]) progress = results[0].value[0];
-        if (results[1].status === "fulfilled" && results[1].value?.[0]) wallet = results[1].value[0];
-        if (results[2].status === "fulfilled" && results[2].value) sessions = results[2].value;
-        if (results[3].status === "fulfilled" && results[3].value) quizzes = results[3].value;
-        
-        const pendingRels = results[4].status === "fulfilled" ? results[4].value : [];
-
-        if (pendingRels && pendingRels.length > 0) {
-          pendingRequests = await Promise.all(
-            pendingRels.map(async (rel) => {
-              try {
-                const parentUser = await base44.entities.User.get(rel.parent_id);
-                return {
-                  id: rel.id,
-                  parent_name: parentUser.full_name || parentUser.nickname || parentUser.username,
-                  parent_email: parentUser.email || "Tiada emel",
-                };
-              } catch {
-                return { id: rel.id, parent_name: "Penjaga", parent_email: "Pengesahan diperlukan" };
-              }
-            })
-          );
+        if (res.data?.success) {
+          progress = res.data.progress || progress;
+          wallet = res.data.wallet || wallet;
+          sessions = res.data.sessions || sessions;
+          quizzes = res.data.quizzes || quizzes;
+          pendingRequests = res.data.pendingRequests || [];
+          if (res.data.user?.nickname) {
+            studentUser = { ...studentUser, ...res.data.user };
+          }
         }
       }
 
