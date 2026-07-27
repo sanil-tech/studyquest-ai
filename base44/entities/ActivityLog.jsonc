@@ -12,13 +12,14 @@
         "lesson_complete",
         "quiz_practice",
         "quiz_mastery",
+        "game_complete",
         "streak_milestone"
       ],
       "description": "Type of learning activity"
     },
     "reference_id": {
       "type": "string",
-      "description": "Topic ID, Quiz ID, or milestone key (e.g. streak_7)"
+      "description": "Topic ID, Quiz ID, Game ID, or milestone key (e.g. streak_7)"
     },
     "reference_name": {
       "type": "string",
@@ -29,7 +30,7 @@
     },
     "score": {
       "type": "number",
-      "description": "Quiz score 0-100 if applicable"
+      "description": "Quiz or game score 0-100 if applicable"
     },
     "xp_earned": {
       "type": "number",

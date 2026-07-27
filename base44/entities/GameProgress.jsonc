@@ -1,0 +1,113 @@
+{
+  "name": "GameProgress",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "game_id": {
+      "type": "string",
+      "description": "ID of the EducationalGame"
+    },
+    "game_name": {
+      "type": "string",
+      "description": "Game name for display"
+    },
+    "game_type": {
+      "type": "string",
+      "description": "Type of game"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "topic_name": {
+      "type": "string"
+    },
+    "attempts": {
+      "type": "number",
+      "default": 0,
+      "description": "Total number of times this game was played"
+    },
+    "highest_score": {
+      "type": "number",
+      "default": 0,
+      "description": "Best score percentage 0-100"
+    },
+    "mastery_level": {
+      "type": "string",
+      "enum": [
+        "developing",
+        "proficient",
+        "mastered"
+      ],
+      "default": "developing",
+      "description": "Mastery level achieved"
+    },
+    "last_played": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the game was last played"
+    },
+    "total_xp_earned": {
+      "type": "number",
+      "default": 0
+    },
+    "total_coins_earned": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "student_id",
+    "game_id"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

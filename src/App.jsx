@@ -41,6 +41,7 @@ const QuizPage = React.lazy(() => import('@/pages/QuizPage'));
 const QuizResult = React.lazy(() => import('@/pages/QuizResult'));
 const WalletPage = React.lazy(() => import('@/pages/WalletPage'));
 const RewardsPage = React.lazy(() => import('@/pages/RewardsPage'));
+const GameHub = React.lazy(() => import('@/pages/GameHub'));
 
 // Lazy-loaded Parent Pages
 const ParentDashboard = React.lazy(() => import('@/pages/ParentDashboard'));
@@ -127,6 +128,7 @@ const AuthenticatedApp = () => {
 
                 <Route path="/quiz/:quizId" element={<QuizPage />} />
                 <Route path="/quiz-result/:attemptId" element={<QuizResult />} />
+                <Route path="/games/:subjectId/:topicId" element={<GameHub />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/rewards" element={<RewardsPage />} />
               </Route>

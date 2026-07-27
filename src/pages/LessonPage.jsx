@@ -19,7 +19,8 @@ import {
   BookOpen,
   Brain,
   Zap,
-  X
+  X,
+  Gamepad2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -342,6 +343,7 @@ export default function LessonPage() {
     lesson_completed: false, 
     flashcard_completed: false, 
     mindmap_completed: false, 
+    games_completed: false,
     quiz_completed: false, 
     current_stage: "video", 
     xp_earned: 0 
@@ -437,6 +439,7 @@ export default function LessonPage() {
             lesson_completed: session.lesson_completed || false, 
             flashcard_completed: session.flashcard_completed || false, 
             mindmap_completed: session.mindmap_completed || false, 
+            games_completed: session.games_completed || false,
             quiz_completed: session.quiz_completed || false, 
             current_stage: savedStage, 
             xp_earned: session.xp_earned || 0 
@@ -751,6 +754,7 @@ export default function LessonPage() {
               {activeTab === "lesson" && "Baca nota khazanah ini. Tekan butang pembesar suara untuk mendengar sebutan!"}
               {activeTab === "flashcard" && "Uji ingatan pantas anda dengan kad kilat di bawah."}
               {activeTab === "mindmap" && "Ini gambaran keseluruhan topik menerusi Peta Minda!"}
+              {activeTab === "games" && "Bermain sambil belajar! Pilih permainan untuk menguatkan pemahaman kamu."}
               {activeTab === "quiz" && "Sedia untuk bertarung dalam Cabaran Boss untuk mengutip XP penuh?"}
             </p>
           </div>
@@ -775,6 +779,7 @@ export default function LessonPage() {
                     if (key === "lesson") setActiveTab("lesson");
                     if (key === "flashcard") loadFlashcardsOnDemand();
                     if (key === "mindmap") loadMindMapOnDemand();
+                    if (key === "games") setActiveTab("games");
                     if (key === "quiz") setActiveTab("quiz");
                   }}
                 />
@@ -876,15 +881,48 @@ export default function LessonPage() {
                 )}
               </div>
 
-              <Button onClick={() => updateStageProgress("mindmap", "quiz", 15).then(() => setActiveTab("map"))}
+              <Button onClick={() => updateStageProgress("mindmap", "games", 15).then(() => setActiveTab("map"))}
                 className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
               >
-                Teruskan ke Cabaran Boss! ⚔️
+                Teruskan ke Permainan! 🎮
               </Button>
             </motion.div>
           )}
 
-          {/* STAGE 5: BOSS QUIZ */}
+          {/* STAGE 5: PRACTICE GAMES */}
+          {activeTab === "games" && (
+            <motion.div key="games" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
+                <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
+                  <Gamepad2 className="w-5 h-5 text-emerald-400"/> Langkah 5: Permainan Edukatif
+                </h3>
+                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                  Peta 🗺️
+                </Button>
+              </div>
+
+              <div className="text-center py-6 space-y-4">
+                <div className="text-5xl mb-2">🎮</div>
+                <p className="text-xs sm:text-sm text-stone-300 font-bold">
+                  Bermain sambil belajar, Pengembara Muda! Pilih permainan untuk menguatkan pemahaman kamu.
+                </p>
+                <Button
+                  onClick={() => navigate(`/games/${subjectId}/${topicId}`)}
+                  className={`h-12 px-8 ${worldTheme.accentColor} font-black text-sm rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
+                >
+                  🎮 Mula Bermain!
+                </Button>
+              </div>
+
+              <Button onClick={() => updateStageProgress("games", "quiz", 10).then(() => setActiveTab("map"))}
+                className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
+              >
+                Sedia untuk Cabaran Boss! ⚔️
+              </Button>
+            </motion.div>
+          )}
+
+          {/* STAGE 6: BOSS QUIZ */}
           {activeTab === "quiz" && (
             <motion.div key="quiz" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-950 via-stone-900 to-amber-900 rounded-3xl p-8 border-4 border-amber-500/40 shadow-2xl text-center">
               <Trophy className="w-14 h-14 text-amber-400 mx-auto mb-3 animate-bounce"/>

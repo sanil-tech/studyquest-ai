@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Lock, Play, Star, Leaf, Cloud, Tv, Sparkles } from "lucide-react";
+import { BookOpen, Layers, Network, Gamepad2, CheckCircle2, Lock, Play, Star, Leaf, Cloud, Tv, Sparkles, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const STEPS = [
@@ -7,7 +7,8 @@ const STEPS = [
   { key: "lesson", label: "Nota Pintar", icon: BookOpen },
   { key: "flashcard", label: "Kad Memori", icon: Layers },
   { key: "mindmap", label: "Peta Minda", icon: Network },
-  { key: "quiz", label: "Kuiz Boss", icon: Gamepad2 },
+  { key: "games", label: "Permainan", icon: Gamepad2 },
+  { key: "quiz", label: "Kuiz Boss", icon: Trophy },
 ];
 
 export default function LessonProgress({ steps, onStepClick }) {
