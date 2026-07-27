@@ -100,11 +100,16 @@ export default function AvatarEvolutionCard({
               >
                 {isUnlocked ? (
                   stage.stage >= 4 && creature.imageUrl ? (
-                    <img
-                      src={creature.imageUrl}
-                      alt={stage.name}
-                      className="w-full h-full object-cover"
-                    />
+                    <>
+                      <img
+                        src={creature.imageUrl}
+                        alt={stage.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-0 right-0 text-[9px] bg-white/90 rounded-tl-md px-0.5 leading-none py-0.5 shadow-sm border border-stone-200">
+                        {stage.emoji}
+                      </span>
+                    </>
                   ) : (
                     <span className="text-xl">{stage.emoji}</span>
                   )

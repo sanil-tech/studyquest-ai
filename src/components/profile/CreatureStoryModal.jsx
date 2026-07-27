@@ -113,7 +113,7 @@ function StoryIllustration({ page }) {
         {CREATURES.map((c) => (
           <div key={c.id} className="text-center">
             <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${c.bgGradient} border-2 ${c.borderColor} flex items-center justify-center text-3xl shadow-sm`}>
-              {c.stages[2].emoji}
+              {c.emoji}
             </div>
             <p className={`text-[9px] font-black mt-1 ${c.textColor}`}>{c.name}</p>
             <p className="text-[7px] text-slate-400">{c.subjectIcon} {c.subject}</p>
