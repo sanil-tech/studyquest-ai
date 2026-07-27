@@ -30,7 +30,7 @@ const STORY_PAGES = [
     icon: "🥚",
     bgGradient: "from-indigo-50 to-blue-50",
     title: "10 Tahap Evolusi",
-    text: "Setiap rakan makhluk mempunyai 10 tahap pertumbuhan! Bermula dari telur kecil, menjadi bayi, dewasa, dan akhirnya Raja Penjaga! Lihat perjalanan Cikgu Mat...",
+    text: "Setiap rakan makhluk mempunyai 10 tahap pertumbuhan! Bermula dari telur kecil, menjadi bayi, dewasa, dan akhirnya Raja Penjaga! Lihat perjalanan Numerix...",
     type: "evolution",
     evolutionCreatureId: "mat",
   },
@@ -38,7 +38,7 @@ const STORY_PAGES = [
     icon: "🔄",
     bgGradient: "from-purple-50 to-violet-50",
     title: "Setiap Subjek Ada Penjaga",
-    text: "Matematik ada Cikgu Mat 🦉, English ada Cikgu Lex 🦊, Sains ada Cikgu Atom 🐭, Sejarah ada Cikgu Krono 🐢, Geografi ada Cikgu Atlas 🦅, dan Bahasa Melayu ada Cikgu Sastera 🐯!",
+    text: "Matematik ada Numerix 🦉, English ada Lexis 🦊, Sains ada Sparky 🐭, Sejarah ada Shelldon 🐢, Geografi ada Skyler 🦅, dan Bahasa Melayu ada Rimau 🐯!",
     type: "allCreatures",
   },
   {
