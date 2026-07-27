@@ -1,0 +1,44 @@
+{
+  "name": "CommonMistake",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "mistake": {
+      "type": "string",
+      "description": "Description of the common mistake"
+    },
+    "correction": {
+      "type": "string",
+      "description": "The correct approach or answer"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Explanation of why the correction is right"
+    }
+  },
+  "required": [
+    "lesson_id",
+    "mistake"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

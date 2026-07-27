@@ -1,0 +1,104 @@
+{
+  "name": "QuestionBank",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "topic_id": {
+      "type": "string",
+      "description": "ID of the parent Topic (for topic-level queries)"
+    },
+    "subtopic_id": {
+      "type": "string",
+      "description": "ID of the parent Subtopic (optional)"
+    },
+    "question_id": {
+      "type": "string",
+      "description": "Unique question identifier within this bank"
+    },
+    "question": {
+      "type": "string",
+      "description": "The question text"
+    },
+    "question_image_url": {
+      "type": "string",
+      "description": "URL of an accompanying image (optional)"
+    },
+    "correct_answer": {
+      "type": "string",
+      "description": "The correct answer (label e.g. 'A' or full text)"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Explanation of the correct answer"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Difficulty level"
+    },
+    "tp_code": {
+      "type": "string",
+      "description": "Tunjuk Performa (TP) code this question maps to"
+    },
+    "standard_pembelajaran": {
+      "type": "string",
+      "description": "KSSR/KSSM Standard Pembelajaran code"
+    },
+    "keywords_json": {
+      "type": "string",
+      "description": "JSON array of keywords for this question"
+    },
+    "textbook_reference": {
+      "type": "string",
+      "description": "Reference to source textbook page/section"
+    },
+    "quiz_type": {
+      "type": "string",
+      "enum": [
+        "pre_quiz",
+        "lesson_quiz",
+        "practice",
+        "daily",
+        "weekly",
+        "tournament",
+        "boss_battle",
+        "time_attack",
+        "adventure"
+      ],
+      "default": "practice",
+      "description": "Which quiz type this question is best suited for"
+    }
+  },
+  "required": [
+    "lesson_id",
+    "question_id",
+    "question",
+    "correct_answer",
+    "difficulty"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

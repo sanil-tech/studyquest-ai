@@ -1,0 +1,39 @@
+{
+  "name": "MindMap",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "branches_json": {
+      "type": "string",
+      "description": "JSON array of mindmap branches [{label, children}]"
+    },
+    "infographic_url": {
+      "type": "string",
+      "description": "URL of a pre-generated mindmap infographic image"
+    }
+  },
+  "required": [
+    "lesson_id"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

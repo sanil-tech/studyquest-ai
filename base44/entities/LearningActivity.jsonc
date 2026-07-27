@@ -1,0 +1,52 @@
+{
+  "name": "LearningActivity",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "activity_type": {
+      "type": "string",
+      "enum": [
+        "matching",
+        "sorting",
+        "word_builder",
+        "sequence",
+        "simulation",
+        "puzzle"
+      ],
+      "description": "Type of learning activity"
+    },
+    "activity_data_json": {
+      "type": "string",
+      "description": "JSON string of activity-specific data (pairs, items, words, etc.)"
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Child-friendly instructions in Bahasa Melayu"
+    }
+  },
+  "required": [
+    "lesson_id",
+    "activity_type"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

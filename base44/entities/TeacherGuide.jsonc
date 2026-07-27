@@ -1,0 +1,59 @@
+{
+  "name": "TeacherGuide",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "learning_objective": {
+      "type": "string",
+      "description": "Learning objective for this lesson"
+    },
+    "learning_outcome": {
+      "type": "string",
+      "description": "Expected learning outcome"
+    },
+    "teaching_duration": {
+      "type": "string",
+      "description": "Suggested teaching duration e.g. '30 minit'"
+    },
+    "teaching_strategy": {
+      "type": "string",
+      "description": "Recommended teaching strategy"
+    },
+    "common_misconceptions_json": {
+      "type": "string",
+      "description": "JSON array of common misconceptions"
+    },
+    "suggested_interventions_json": {
+      "type": "string",
+      "description": "JSON array of suggested interventions"
+    },
+    "classroom_activities_json": {
+      "type": "string",
+      "description": "JSON array of classroom activities"
+    }
+  },
+  "required": [
+    "lesson_id"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
