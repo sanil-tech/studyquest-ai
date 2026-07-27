@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
+import RecommendationCard from "@/components/student/RecommendationCard";
 import { useViewMode } from "@/lib/ViewModeContext";
 
 // Subject Worlds Data
@@ -438,6 +439,13 @@ export default function StudentDashboard() {
             />
           </div>
         </div>
+
+        {/* 4.5. AI RECOMMENDATION CARD */}
+        <RecommendationCard 
+          user={user} 
+          sessions={sessions} 
+          quizzes={quizzes} 
+        />
 
         {/* 5. DUNIA SUBJEK (SUBJECT WORLDS GRID) */}
         <div>
