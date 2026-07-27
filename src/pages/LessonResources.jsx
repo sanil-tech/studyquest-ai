@@ -51,6 +51,7 @@ export default function LessonResources() {
   const [modularTopics, setModularTopics] = useState([]);
   const [selectedModularTopicId, setSelectedModularTopicId] = useState("");
   const [isGeneratingModular, setIsGeneratingModular] = useState(false);
+  const [topicSearchQuery, setTopicSearchQuery] = useState("");
 
   useEffect(() => {
     const semakAksesAdmin = async () => {
@@ -372,10 +373,43 @@ export default function LessonResources() {
       <Card className="p-4 bg-purple-50/30 border border-purple-200/60 rounded-2xl shadow-2xs space-y-3">
         <label className="text-xs font-black text-purple-800 uppercase flex items-center gap-1.5 mb-1"><Sparkles className="w-4 h-4 animate-pulse" /> Jana Kandungan AI Modular (Sistem Baru)</label>
         <p className="text-[11px] text-slate-500 font-medium">Jana SEMUA aset pelajaran (Nota, Peta Minda, Kuiz, Flashcard, Permainan, Panduan Guru) ke entiti modular berasingan dalam satu panggilan AI.</p>
-        <select value={selectedModularTopicId} onChange={(e) => setSelectedModularTopicId(e.target.value)} className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-bold text-slate-700 shadow-sm">
-          <option value="">-- Pilih Topik dari Pangkalan Data --</option>
-          {modularTopics.map(t => (<option key={t.id} value={t.id}>{t.name} (ID: {t.id})</option>))}
-        </select>
+        <div className="relative space-y-1.5">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={topicSearchQuery}
+              onChange={(e) => setTopicSearchQuery(e.target.value)}
+              placeholder="Taip nama topik untuk cari..."
+              className="w-full pl-8 pr-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-bold text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+            />
+          </div>
+          <div className="max-h-44 overflow-y-auto rounded-xl border border-purple-100 bg-white shadow-sm">
+            {(() => {
+              const filtered = modularTopics.filter(t =>
+                (t.name || "").toLowerCase().includes(topicSearchQuery.toLowerCase())
+              );
+              if (filtered.length === 0) {
+                return <p className="text-[11px] text-slate-400 font-medium p-3 text-center">Tiada topik dijumpai.</p>;
+              }
+              return filtered.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => { setSelectedModularTopicId(t.id); setTopicSearchQuery(t.name); }}
+                  className={`w-full text-left px-3 py-2 text-xs font-bold border-b border-slate-50 last:border-0 transition-colors ${
+                    selectedModularTopicId === t.id ? "bg-purple-100 text-purple-900" : "hover:bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ));
+            })()}
+          </div>
+          {selectedModularTopicId && (
+            <p className="text-[10px] text-purple-600 font-bold">✓ Topik dipilih: {modularTopics.find(t => t.id === selectedModularTopicId)?.name}</p>
+          )}
+        </div>
         <Button type="button" onClick={handleGenerateModularContent} disabled={isGeneratingModular || !selectedModularTopicId} className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-2 disabled:opacity-50">
           {isGeneratingModular ? <><Loader2 className="w-4 h-4 animate-spin" /> Menjana Kandungan Modular...</> : <><Sparkles className="w-4 h-4" /> Jana Kandungan AI Modular</>}
         </Button>
