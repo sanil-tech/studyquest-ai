@@ -57,6 +57,11 @@ const ParentProfilePage = React.lazy(() => import('@/pages/ParentProfilePage'));
 const ParentBilling = React.lazy(() => import('@/pages/ParentBilling'));
 const ChildSelectionPage = React.lazy(() => import('@/pages/ChildSelectionPage'));
 
+// Lazy-loaded Extra Pages
+const Leaderboard = React.lazy(() => import('@/pages/Leaderboard'));
+const Achievements = React.lazy(() => import('@/pages/Achievements'));
+const ParentTips = React.lazy(() => import('@/pages/ParentTips'));
+
 // Lazy-loaded Admin Pages
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
 const AdminPremiumAccess = React.lazy(() => import('@/pages/AdminPremiumAccess'));
@@ -141,6 +146,9 @@ const AuthenticatedApp = () => {
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/rewards" element={<RewardsPage />} />
 
+                <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/achievements" element={<Achievements />} />
+
                 {/* Diagnostic Routes */}
                 <Route path="/diagnostic" element={<DiagnosticIntro />} />
                 <Route path="/diagnostic/assessment" element={<DiagnosticAssessment />} />
@@ -163,6 +171,7 @@ const AuthenticatedApp = () => {
                 <Route path="/parent/approvals" element={<ParentApprovals />} />
                 <Route path="/parent/profile" element={<ParentProfilePage />} />
                 <Route path="/parent/billing" element={<ParentBilling />} />
+                <Route path="/parent-tips" element={<ParentTips />} />
               </Route>
             </Route>
           </Route>

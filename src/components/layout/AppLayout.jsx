@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { useViewMode } from "@/lib/ViewModeContext";
-import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound, Moon, User } from "lucide-react";
+import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound, Moon, User, Crown, Award, Lightbulb } from "lucide-react";
 import BottomNav from "@/components/layout/BottomNav";
 import { resolveCssAvatar } from "@/lib/avatarSystem";
 
@@ -69,7 +69,7 @@ export default function AppLayout() {
   // and prevent students from accessing parent pages
   useEffect(() => {
     if (!user) return;
-    const studentPaths = ["/dashboard", "/study", "/quiz", "/wallet", "/rewards", "/lessons", "/lesson"];
+    const studentPaths = ["/dashboard", "/study", "/quiz", "/wallet", "/rewards", "/lessons", "/lesson", "/leaderboard", "/achievements"];
     const parentPaths = ["/parent"];
 
     const onStudentPath = studentPaths.some(p => location.pathname.startsWith(p));
@@ -202,6 +202,28 @@ export default function AppLayout() {
             })}
           </nav>
 
+          {/* Extra nav links — not shown in bottom nav */}
+          <div className="pt-4 mt-4 border-t-2 border-orange-100 space-y-2">
+            {(!isParent || isChildMode) ? (
+              <>
+                <p className="px-4 text-[10px] font-black uppercase tracking-wider text-stone-400">Lain-lain</p>
+                <Link to="/leaderboard" className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/leaderboard" ? "bg-orange-500 text-white shadow-md" : "text-slate-500 hover:bg-orange-50 hover:text-orange-600"}`}>
+                  <Crown className={`w-5 h-5 ${location.pathname === "/leaderboard" ? "text-white" : "text-slate-400"}`} />
+                  Carta Juara
+                </Link>
+                <Link to="/achievements" className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/achievements" ? "bg-orange-500 text-white shadow-md" : "text-slate-500 hover:bg-orange-50 hover:text-orange-600"}`}>
+                  <Award className={`w-5 h-5 ${location.pathname === "/achievements" ? "text-white" : "text-slate-400"}`} />
+                  Lencana
+                </Link>
+              </>
+            ) : (
+              <Link to="/parent-tips" className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/parent-tips" ? "bg-indigo-500 text-white shadow-md" : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}>
+                <Lightbulb className={`w-5 h-5 ${location.pathname === "/parent-tips" ? "text-white" : "text-slate-400"}`} />
+                Tips Ibu Bapa
+              </Link>
+            )}
+          </div>
+
           {/* Mode switch button at bottom of sidebar */}
           <div className="mt-4 pt-4 border-t-2 border-orange-100">
             {renderSwitchModeButton()}
@@ -238,6 +260,26 @@ export default function AppLayout() {
             );
           })}
         </nav>
+
+        <div className="pt-4 border-t-2 border-orange-100 space-y-2">
+          {(!isParent || isChildMode) ? (
+            <>
+              <Link to="/leaderboard" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/leaderboard" ? "bg-orange-500 text-white" : "text-slate-500 hover:bg-orange-50 hover:text-orange-600"}`}>
+                <Crown className="w-5 h-5 text-slate-400" />
+                Carta Juara
+              </Link>
+              <Link to="/achievements" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/achievements" ? "bg-orange-500 text-white" : "text-slate-500 hover:bg-orange-50 hover:text-orange-600"}`}>
+                <Award className="w-5 h-5 text-slate-400" />
+                Lencana
+              </Link>
+            </>
+          ) : (
+            <Link to="/parent-tips" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/parent-tips" ? "bg-indigo-500 text-white" : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}>
+              <Lightbulb className="w-5 h-5 text-slate-400" />
+              Tips Ibu Bapa
+            </Link>
+          )}
+        </div>
 
         <div className="p-4 border-t-2 border-orange-100">
           {renderSwitchModeButton()}
