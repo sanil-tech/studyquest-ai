@@ -14,6 +14,7 @@ import RoleRoute from '@/components/RoleRoute';
 import ProfileCompleteRoute from '@/components/ProfileCompleteRoute';
 import AdminRoute from '@/components/AdminRoute';
 import AppLayout from '@/components/layout/AppLayout';
+import { ViewModeProvider } from '@/lib/ViewModeContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 // Admin Page Imports
@@ -80,6 +81,7 @@ const AuthenticatedApp = () => {
   }
 
   return (
+    <ViewModeProvider>
     <Suspense fallback={<LoadingSpinner message="Melompat ke dahan baru..." />}>
       <Routes>
         {/* Public auth routes */}
@@ -149,8 +151,9 @@ const AuthenticatedApp = () => {
         </Route>
 
         <Route path="*" element={<PageNotFound />} />
-      </Routes>
+        </Routes>
     </Suspense>
+    </ViewModeProvider>
   );
 };
 

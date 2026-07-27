@@ -144,7 +144,15 @@ export const AuthProvider = ({ children }) => {
   const logout = (shouldRedirect = true) => {
     localStorage.removeItem('studyquest_session');
     localStorage.removeItem('studyquest_user');
-    
+    // Clear view-mode state so next login defaults to parent mode
+    localStorage.removeItem('studyquest_view_mode');
+    localStorage.removeItem('studyquest_selected_child');
+    localStorage.removeItem('active_child_session');
+    localStorage.removeItem('selected_child_id');
+    localStorage.removeItem('active_student_id');
+    localStorage.removeItem('active_student_name');
+    localStorage.removeItem('active_child');
+
     setUser(null);
     setIsAuthenticated(false);
     

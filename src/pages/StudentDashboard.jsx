@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
+import { useViewMode } from "@/lib/ViewModeContext";
 
 // Subject Worlds Data
 const SUBJECT_WORLDS = [
@@ -90,6 +91,7 @@ const SUBJECT_WORLDS = [
 export default function StudentDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { returnToParentMode } = useViewMode();
   
   const [dashboardState, setDashboardState] = useState({
     user: null,
@@ -251,12 +253,8 @@ export default function StudentDashboard() {
   }, [toast, loadDashboardData]);
 
   const handleExitChildMode = () => {
-    localStorage.removeItem("active_child_session");
-    localStorage.removeItem("selected_child_id");
-    localStorage.removeItem("active_student_id");
-    localStorage.removeItem("active_student_name");
-    localStorage.removeItem("active_child");
-    navigate("/parent");
+    // Delegate all cleanup + navigation to the ViewModeContext
+    returnToParentMode();
   };
 
   // ✅ FIX: Clean, isolated calculation object avoids Temporal Dead Zone (TDZ)

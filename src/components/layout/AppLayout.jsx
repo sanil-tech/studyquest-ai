@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
+import { useViewMode } from "@/lib/ViewModeContext";
+import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound } from "lucide-react";
 
 const studentNav = [
   { path: "/dashboard", icon: Home, label: "Home" },
@@ -20,16 +22,12 @@ const parentNav = [
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  
-  const [user, setUser] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
-  
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true); 
+  const { user } = useAuth();
+  const { activeViewMode, selectedChildProfile, returnToParentMode } = useViewMode();
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -39,49 +37,52 @@ export default function AppLayout() {
   }, [user, location]);
 
   const isParent = user?.app_role === "parent";
-  
-  // Check if parent has selected an active child profile
-  const hasActiveChildSession = Boolean(
-    localStorage.getItem("active_child_session") || 
-    localStorage.getItem("selected_child_id")
-  );
 
-  const activeChildName = localStorage.getItem("active_student_name");
-  let activeChildAvatar = null;
-  const storedChildStr = localStorage.getItem("active_child");
-  if (storedChildStr) {
-    try {
-      const parsedChild = JSON.parse(storedChildStr);
-      activeChildAvatar = parsedChild.selected_avatar || parsedChild.avatar_emoji;
-    } catch (e) {}
-  }
+  // Core fix: mode is driven by the ViewModeContext, not stale localStorage flags
+  const isChildMode = activeViewMode === "child_mode" && !!selectedChildProfile;
 
-  // Determine navigation menu and header profile details
-  const nav = isParent && !hasActiveChildSession ? parentNav : studentNav;
-  const displayProfileName = (isParent && hasActiveChildSession)
-    ? (activeChildName || "Pelajar")
+  // Navigation menu: parent nav in parent mode; student nav in child mode or for actual students
+  const nav = (isParent && !isChildMode) ? parentNav : studentNav;
+
+  // Header display name: child name in child mode; user's own name otherwise
+  const displayProfileName = isChildMode
+    ? (selectedChildProfile?.name || "Pelajar")
     : (user?.full_name || (isParent ? "Ibu Bapa" : "Pelajar"));
 
+  // Role label shown under the name in the header
+  const roleLabel = isChildMode
+    ? "MOD ANAK"
+    : (isParent ? "MOD IBU BAPA" : "Pelajar");
+
+  // Mode badge text + styling for visual indicator
+  const modeBadge = isChildMode
+    ? { text: `🐢 Mod Anak`, cls: "bg-indigo-100 text-indigo-700" }
+    : isParent
+      ? { text: "🏠 Mod Ibu Bapa", cls: "bg-emerald-100 text-emerald-700" }
+      : { text: "Pelajar", cls: "bg-orange-100 text-orange-700" };
+
+  // Route guard: prevent parents from accessing student pages without an active child,
+  // and prevent students from accessing parent pages
   useEffect(() => {
     if (!user) return;
-    const studentPaths = ["/dashboard", "/study", "/quiz", "/wallet", "/rewards"];
-    const parentPaths = ["/parent", "/parent/children", "/parent/rewards", "/parent/approvals"];
+    const studentPaths = ["/dashboard", "/study", "/quiz", "/wallet", "/rewards", "/lessons", "/lesson"];
+    const parentPaths = ["/parent"];
 
     const onStudentPath = studentPaths.some(p => location.pathname.startsWith(p));
     const onParentPath = parentPaths.some(p => location.pathname.startsWith(p));
 
-    if (isParent && onStudentPath && !hasActiveChildSession) {
+    if (isParent && onStudentPath && !isChildMode) {
       navigate("/parent", { replace: true });
     } else if (!isParent && onParentPath) {
       navigate("/dashboard", { replace: true });
     }
-  }, [user, isParent, hasActiveChildSession, location.pathname, navigate]);
+  }, [user, isParent, isChildMode, location.pathname, navigate]);
 
   const playCuteBloop = () => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return; 
-      
+      if (!AudioContext) return;
+
       const ctx = new AudioContext();
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
@@ -112,11 +113,11 @@ export default function AppLayout() {
 
   const RenderAvatar = ({ className = "w-10 h-10" }) => (
     <div className={`${className} rounded-full overflow-hidden border-2 border-orange-400 bg-orange-100 flex items-center justify-center shadow-sm shrink-0`}>
-      {isParent && hasActiveChildSession ? (
-        activeChildAvatar && activeChildAvatar.startsWith("http") ? (
-          <img src={activeChildAvatar} alt="Child Profile" className="w-full h-full object-cover bg-white" />
+      {isChildMode ? (
+        selectedChildProfile?.profile_picture_url ? (
+          <img src={selectedChildProfile.profile_picture_url} alt="Child Profile" className="w-full h-full object-cover bg-white" />
         ) : (
-          <span className="text-xl select-none">{activeChildAvatar || "🦧"}</span>
+          <span className="text-xl select-none">{selectedChildProfile?.avatar || "🦧"}</span>
         )
       ) : user?.profile_picture_url ? (
         <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover bg-white" />
@@ -128,24 +129,54 @@ export default function AppLayout() {
     </div>
   );
 
+  const SwitchModeButton = ({ compact = false }) => {
+    if (!isParent) return null;
+
+    if (isChildMode) {
+      return (
+        <button
+          onClick={returnToParentMode}
+          className={`flex items-center gap-1.5 font-bold text-rose-600 bg-rose-50 rounded-xl border border-rose-200 transition-all active:scale-95 ${
+            compact ? "px-2.5 py-1.5 text-[10px]" : "px-4 py-3 text-xs w-full"
+          }`}
+        >
+          <LogOut className={compact ? "w-3 h-3" : "w-4 h-4"} />
+          {compact ? "Keluar" : "Kembali ke Mod Ibu Bapa"}
+        </button>
+      );
+    }
+
+    return (
+      <button
+        onClick={() => navigate("/parent/select-child")}
+        className={`flex items-center gap-1.5 font-bold text-indigo-600 bg-indigo-50 rounded-xl border border-indigo-200 transition-all active:scale-95 ${
+          compact ? "px-2.5 py-1.5 text-[10px]" : "px-4 py-3 text-xs w-full"
+        }`}
+      >
+        <UserRound className={compact ? "w-3 h-3" : "w-4 h-4"} />
+        {compact ? "Mod Anak" : "Masuk Mod Anak"}
+      </button>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-orange-50/40 overflow-hidden font-sans" onMouseDownCapture={handleAppClick}>
-      
+
       {/* DESKTOP SIDEBAR */}
-      <aside 
+      <aside
         className={`hidden md:flex bg-white border-r-4 border-orange-100 flex-col shadow-xl z-20 transition-all duration-300 ease-in-out ${
           isDesktopSidebarOpen ? "w-64 lg:w-72" : "w-0 -translate-x-full border-r-0"
         }`}
       >
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="p-6 flex-1 overflow-y-auto flex flex-col">
           <div className="flex items-center justify-between mb-10">
-            <Link to={isParent && !hasActiveChildSession ? "/parent" : "/dashboard"} className="flex items-center gap-3 group">
+            <Link to={isParent && !isChildMode ? "/parent" : "/dashboard"} className="flex items-center gap-3 group">
                <div className="text-3xl group-hover:scale-110 transition-transform">🦧</div>
                <div className="text-xl lg:text-2xl font-black text-orange-700 tracking-tight">StudyQuest</div>
             </Link>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-2 flex-1">
             {nav.map((item) => {
               const isActive = location.pathname === item.path || (item.path !== "/dashboard" && item.path !== "/parent" && location.pathname.startsWith(item.path));
               return (
@@ -160,6 +191,11 @@ export default function AppLayout() {
               );
             })}
           </nav>
+
+          {/* Mode switch button at bottom of sidebar */}
+          <div className="mt-4 pt-4 border-t-2 border-orange-100">
+            <SwitchModeButton />
+          </div>
         </div>
       </aside>
 
@@ -167,7 +203,7 @@ export default function AppLayout() {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
-      
+
       <aside className={`md:hidden fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b-2 border-orange-100 flex items-center justify-between bg-orange-50/50">
           <span className="font-black text-xl text-orange-700 flex items-center gap-2">🦧 StudyQuest</span>
@@ -175,7 +211,7 @@ export default function AppLayout() {
             <X className="w-6 h-6" />
           </button>
         </div>
-        
+
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           {nav.map((item) => {
             const isActive = location.pathname === item.path || (item.path !== "/dashboard" && item.path !== "/parent" && location.pathname.startsWith(item.path));
@@ -192,14 +228,18 @@ export default function AppLayout() {
             );
           })}
         </nav>
+
+        <div className="p-4 border-t-2 border-orange-100">
+          <SwitchModeButton />
+        </div>
       </aside>
 
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <header className="p-4 bg-white border-b-2 border-orange-100 flex justify-between items-center z-30 shadow-sm relative min-h-[72px]">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)} 
+            <button
+              onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
               className="hidden md:flex p-2 text-orange-600 bg-orange-50 rounded-xl hover:bg-orange-100 transition-colors border-2 border-orange-100"
             >
               {isDesktopSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -208,14 +248,15 @@ export default function AppLayout() {
             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 text-orange-600 rounded-xl hover:bg-orange-50 transition-colors">
               <Menu className="w-6 h-6" />
             </button>
-            
+
             <span className={`font-black text-xl text-orange-700 tracking-tight transition-opacity ${!isDesktopSidebarOpen || 'md:hidden'} block`}>
               StudyQuest <span className="hidden md:inline">🦧</span>
             </span>
           </div>
-          
+
           <div className="flex items-center gap-2 md:gap-4">
-            {(!isParent || hasActiveChildSession) && (
+            {/* Notifications bell — visible for students or parent-in-child-mode */}
+            {(!isParent || isChildMode) && (
               <Link to="/notifications" className="relative p-2 rounded-full hover:bg-orange-50 text-slate-400 hover:text-orange-500 transition-colors">
                 <Bell className="w-6 h-6" />
                 {unreadCount > 0 && (
@@ -225,16 +266,26 @@ export default function AppLayout() {
                 )}
               </Link>
             )}
-            
+
+            {/* Mode badge — visual indicator */}
+            <span className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${modeBadge.cls}`}>
+              {modeBadge.text}
+            </span>
+
+            {/* Compact switch button for mobile header */}
+            <div className="md:hidden">
+              <SwitchModeButton compact />
+            </div>
+
             <Link to="/profile" className="flex items-center gap-3 group md:hover:bg-orange-50 md:p-1.5 md:pr-4 md:rounded-full transition-colors">
               <RenderAvatar className="w-9 h-9 md:w-10 md:h-10 transition-transform group-hover:scale-105" />
-              
+
               <div className="hidden md:block text-left">
                 <p className="text-sm font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition-colors max-w-[140px] truncate">
                   {displayProfileName}
                 </p>
-                <p className="text-[10px] text-orange-600 font-bold uppercase tracking-wide">
-                  {isParent && hasActiveChildSession ? "Mod Anak" : (user?.app_role || "User")}
+                <p className="text-[10px] font-black uppercase tracking-wide text-orange-600">
+                  {roleLabel}
                 </p>
               </div>
             </Link>

@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { loadChildrenWithStats, getChildDisplayName, setSelectedChildId } from "@/lib/childUtils";
+import { loadChildrenWithStats, getChildDisplayName } from "@/lib/childUtils";
+import { useViewMode } from "@/lib/ViewModeContext";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 import { getStageProgress } from "@/lib/avatarSystem";
 import { hashPin } from "@/lib/credentials";
@@ -224,6 +225,7 @@ function PinEntryDialog({ child, open, onOpenChange, onSuccess }) {
 
 export default function ChildSelectionPage() {
   const navigate = useNavigate();
+  const { enterChildMode } = useViewMode();
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedChild, setSelectedChild] = useState(null);
@@ -250,21 +252,9 @@ export default function ChildSelectionPage() {
 
   const handlePinSuccess = () => {
     if (!selectedChild) return;
-
-    // 1. Store Child ID via childUtils helper
-    setSelectedChildId(selectedChild.id);
-
-    // 2. Persist session variables for Student Dashboard access
-    localStorage.setItem("active_child_session", selectedChild.id);
-    localStorage.setItem("selected_child_id", selectedChild.id);
-    localStorage.setItem("active_student_id", selectedChild.id);
-    localStorage.setItem("active_student_name", selectedChild.nickname || selectedChild.full_name || "Pelajar");
-    localStorage.setItem("active_child", JSON.stringify(selectedChild));
-
     setPinDialogOpen(false);
-
-    // 3. Navigate directly to student dashboard route
-    navigate("/dashboard");
+    // Delegate all state + localStorage + navigation to the ViewModeContext
+    enterChildMode(selectedChild);
   };
 
   if (loading) {
