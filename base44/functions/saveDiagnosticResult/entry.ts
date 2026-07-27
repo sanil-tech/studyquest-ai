@@ -60,16 +60,27 @@ export default async function(req: Request): Promise<Response> {
         `- ${s.category} - ${s.skillDisplayName || s.skill}: Tahap ${s.level}, Skor ${s.score}%, Penguasaan: ${s.mastery}`
       ).join('\n');
 
+      const uploadedImages = results.uploadedImages || [];
+      const imageUrls = uploadedImages.map((img: any) => img.imageUrl).filter(Boolean);
+
+      let imageContext = '';
+      if (uploadedImages.length > 0) {
+        const imgList = uploadedImages.map((img: any) =>
+          `- Modul ${img.category} - ${img.skillDisplayName || img.skill}: Diminta tulis "${img.target}"`
+        ).join('\n');
+        imageContext = `\n\nGAMBAR TULISAN TANGAN PELAJAR (dilampirkan untuk semakan AI):\n${imgList}\n\nSila juga nilai tulisan tangan pelajar dari gambar yang dilampirkan. Berikan komen tentang kemasan, bentuk huruf, ejaan, dan ruang menulis. Masukkan dalam field "handwriting_review".`;
+      }
+
       const prompt = `Anda adalah pakar pendidikan awal kanak-kanak dan kurikulum KSSR Malaysia. Analisis hasil diagnostik pelajar berikut.
 
 PROFIL PELAJAR:
-- Membaca: Tahap ${results.membaca?.level || 1}/4, Penguasaan: ${results.membaca?.mastery || 'developing'}
-- Menulis: Tahap ${results.menulis?.level || 1}/4, Penguasaan: ${results.menulis?.mastery || 'developing'}
+- Membaca: Tahap ${results.membaca?.level || 1}/6, Penguasaan: ${results.membaca?.mastery || 'developing'}
+- Menulis: Tahap ${results.menulis?.level || 1}/6, Penguasaan: ${results.menulis?.mastery || 'developing'}
 - Mengira: Tahap ${results.mengira?.level || 1}/4, Penguasaan: ${results.mengira?.mastery || 'developing'}
 - Skor Keseluruhan: ${results.totalScore || 0}%
 
-KEPUTUSAN KEMAHIRAN TERPERINCI:
-${skillSummary || 'Tiada data terperinci.'}
+KEPUTUSAN KEMAHIRAAN TERPERINCI:
+${skillSummary || 'Tiada data terperinci.'}${imageContext}
 
 Jana analisis dalam Bahasa Melayu. Gunakan bahasa yang positif, menyokong, dan menggalakkan.
 
@@ -82,6 +93,7 @@ PENTING:
 
       aiResult = await base44.integrations.Core.InvokeLLM({
         prompt,
+        file_urls: imageUrls.length > 0 ? imageUrls : undefined,
         response_json_schema: {
           type: "object",
           properties: {
@@ -119,7 +131,8 @@ PENTING:
                 required: ["activity", "purpose"]
               }
             },
-            parent_insight: { type: "string" }
+            parent_insight: { type: "string" },
+            handwriting_review: { type: "string" }
           },
           required: ["strengths", "weaknesses", "recommended_starting_point", "recommended_activities", "parent_insight"]
         },

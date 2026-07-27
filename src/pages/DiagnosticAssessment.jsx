@@ -29,13 +29,26 @@ export default function DiagnosticAssessment() {
   const [lastLevelScore, setLastLevelScore] = useState(null);
 
   const levelAnswersRef = useRef([]);
+  const uploadedImagesRef = useRef([]);
 
   const currentModule = DIAGNOSTIC_MODULES[moduleIndex];
   const currentLevel = currentModule.levels[levelIndex];
   const currentQuestion = currentLevel.questions[questionIndex];
 
-  const handleAnswer = (isCorrect) => {
+  const handleAnswer = (isCorrect, metadata = {}) => {
     levelAnswersRef.current.push(isCorrect);
+
+    if (metadata.imageUrl) {
+      uploadedImagesRef.current.push({
+        skill: currentLevel.skill,
+        skillDisplayName: currentLevel.skillDisplayName,
+        category: currentModule.id,
+        level: currentLevel.level,
+        imageUrl: metadata.imageUrl,
+        target: metadata.target || "",
+        question: metadata.question || "",
+      });
+    }
 
     if (levelAnswersRef.current.length < currentLevel.questions.length) {
       setQuestionIndex((prev) => prev + 1);
@@ -79,8 +92,15 @@ export default function DiagnosticAssessment() {
   const finalizeModule = (levelScores) => {
     const levelsPassed = levelScores.filter((ls) => ls.passed).length;
     const resultLevel = getResultLevel(levelsPassed, currentModule.maxResultLevel);
-    const totalCorrect = levelScores.reduce((sum, ls) => sum + Math.round((ls.score / 100) * 4), 0);
-    const totalAnswered = levelScores.length * 4;
+    const totalCorrect = levelScores.reduce((sum, ls) => {
+      const levelData = currentModule.levels.find((l) => l.level === ls.level);
+      const qCount = levelData?.questions.length || 4;
+      return sum + Math.round((ls.score / 100) * qCount);
+    }, 0);
+    const totalAnswered = levelScores.reduce((sum, ls) => {
+      const levelData = currentModule.levels.find((l) => l.level === ls.level);
+      return sum + (levelData?.questions.length || 4);
+    }, 0);
     const avgScore = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
 
     const moduleResult = {
@@ -154,6 +174,7 @@ export default function DiagnosticAssessment() {
         mengira: allModuleResults.mengira || { level: 1, mastery: "developing" },
         totalScore,
         skillDetails,
+        uploadedImages: uploadedImagesRef.current,
       };
 
       const response = await base44.functions.invoke("saveDiagnosticResult", {
@@ -355,7 +376,7 @@ export default function DiagnosticAssessment() {
               <div className={`bg-gradient-to-br ${currentModule.id === "membaca" ? "from-emerald-600 to-green-700" : currentModule.id === "menulis" ? "from-blue-600 to-indigo-700" : "from-amber-600 to-orange-700"} rounded-2xl p-5 text-center border-2 ${currentModule.id === "membaca" ? "border-emerald-400/40" : currentModule.id === "menulis" ? "border-blue-400/40" : "border-amber-400/40"}`}>
                 <div className="text-3xl mb-1">{getMasteryEmoji(moduleResult.mastery)}</div>
                 <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Tahap {currentModule.title}</p>
-                <p className="text-3xl font-black text-white mt-1">{moduleResult.level}/4</p>
+                <p className="text-3xl font-black text-white mt-1">{moduleResult.level}/{currentModule.maxResultLevel}</p>
                 <p className="text-sm font-bold text-white/90 mt-1">{moduleResult.description}</p>
                 <p className="text-xs text-white/60 mt-1">{getMasteryLabel(moduleResult.mastery)}</p>
               </div>
