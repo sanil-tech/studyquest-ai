@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
@@ -19,6 +19,7 @@ import {
 import DiagnosticQuestion from "@/components/diagnostic/DiagnosticQuestion";
 import { Loader2, CheckCircle2, Trophy, X, ChevronRight, PartyPopper, Search, Brain } from "lucide-react";
 import confetti from "canvas-confetti";
+import { saveDiagnosticSession, getDiagnosticSession, clearDiagnosticSession } from "@/lib/sessionCache";
 
 // Map question bank format to component-expected format
 function mapQuestionForComponent(q) {
@@ -67,6 +68,57 @@ export default function DiagnosticAssessment() {
 
   const currentModule = DIAGNOSTIC_MODULES_META[moduleIndex];
   const currentQuestion = currentQuestions[questionIndex];
+
+  // ✅ Pulihkan sesi diagnostik dari cache pada mount pertama
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const cached = getDiagnosticSession();
+    if (!cached) return;
+
+    if (typeof cached.moduleIndex === "number") setModuleIndex(cached.moduleIndex);
+    if (typeof cached.questionIndex === "number") setQuestionIndex(cached.questionIndex);
+    if (cached.phase) setPhase(cached.phase);
+    if (cached.currentLayer) setCurrentLayer(cached.currentLayer);
+    if (cached.moduleResults) setModuleResults(cached.moduleResults);
+    if (typeof cached.weakSkillCount === "number") setWeakSkillCount(cached.weakSkillCount);
+    if (Array.isArray(cached.allResponses)) allResponsesRef.current = cached.allResponses;
+    if (Array.isArray(cached.uploadedImages)) uploadedImagesRef.current = cached.uploadedImages;
+    if (Array.isArray(cached.voiceAnalyses)) voiceAnalysesRef.current = cached.voiceAnalyses;
+    if (Array.isArray(cached.handwritingAnalyses)) handwritingAnalysesRef.current = cached.handwritingAnalyses;
+
+    // Jika ada sesi aktif dengan modul & layer, jana semula soalan untuk modul/layer tersebut
+    if (cached.phase === "questioning" && cached.currentLayer) {
+      const mod = DIAGNOSTIC_MODULES_META[cached.moduleIndex || 0];
+      if (mod) {
+        if (cached.currentLayer === "screening") {
+          const screening = getScreeningQuestions(mod.id);
+          setCurrentQuestions(screening.map(mapQuestionForComponent));
+        } else if (cached.currentLayer === "investigation" && Array.isArray(cached.investigationQuestions)) {
+          setCurrentQuestions(cached.investigationQuestions.map(mapQuestionForComponent));
+        }
+      }
+    }
+  }, []);
+
+  // ✅ Auto-simpan sesi ke cache setiap kali state penting berubah
+  useEffect(() => {
+    if (phase === "saving") return; // jangan simpan semasa submitting
+    saveDiagnosticSession({
+      moduleIndex,
+      questionIndex,
+      phase,
+      currentLayer,
+      moduleResults,
+      weakSkillCount,
+      allResponses: allResponsesRef.current,
+      uploadedImages: uploadedImagesRef.current,
+      voiceAnalyses: voiceAnalysesRef.current,
+      handwritingAnalyses: handwritingAnalysesRef.current,
+      investigationQuestions: currentLayer === "investigation" ? currentQuestions : [],
+    });
+  }, [moduleIndex, questionIndex, phase, currentLayer, moduleResults, weakSkillCount, currentQuestions]);
 
   // ==========================================
   // ADAPTIVE FLOW LOGIC
@@ -238,6 +290,7 @@ export default function DiagnosticAssessment() {
       });
 
       if (response.data?.success) {
+        clearDiagnosticSession();
         confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 } });
         setTimeout(() => {
           navigate(`/diagnostic/result/${response.data.session_id}`, {

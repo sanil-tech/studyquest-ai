@@ -17,6 +17,7 @@ import { getActiveStudentId } from "@/lib/rewardSystem";
 import { processReward } from "@/lib/rewardEngine";
 import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
 import QuizModeHeader from "@/components/quiz/QuizModeHeader";
+import { saveQuizSession, getQuizSession, clearQuizSession } from "@/lib/sessionCache";
 
 const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
   const canvasRef = useRef(null);
@@ -195,7 +196,8 @@ export default function QuizPage() {
         const storedFeedback = safeJsonParse(q.feedback_library_json, []);
         setFeedbackLibrary(Array.isArray(storedFeedback) ? storedFeedback : []);
         const modeParam = searchParams.get("mode");
-        setQuizType(modeParam === "mastery" ? "mastery" : (modeParam === "practice" ? "practice" : (q?.quiz_type || "practice")));
+        const resolvedType = modeParam === "mastery" ? "mastery" : (modeParam === "practice" ? "practice" : (q?.quiz_type || "practice"));
+        setQuizType(resolvedType);
 
         let parsed = safeJsonParse(q.questions_json, []);
 
@@ -210,6 +212,15 @@ export default function QuizPage() {
         }
 
         if (parsed.length > 0) setQuestions(parsed);
+
+        // ✅ Pulihkan sesi dari cache jika ada
+        const cached = getQuizSession(quizId);
+        if (cached && cached.answers && Object.keys(cached.answers).length > 0) {
+          setAnswers(cached.answers);
+          if (typeof cached.currentQ === "number" && cached.currentQ < parsed.length) {
+            setCurrentQ(cached.currentQ);
+          }
+        }
       } catch (e) {
         console.error("Gagal memuat turun kuiz:", e);
       } finally {
@@ -218,6 +229,13 @@ export default function QuizPage() {
     };
     loadQuiz();
   }, [quizId, searchParams]);
+
+  // ✅ Auto-simpan jawapan ke cache setiap kali berubah
+  useEffect(() => {
+    if (quizId && questions.length > 0 && Object.keys(answers).length > 0) {
+      saveQuizSession(quizId, { currentQ, answers, quizType });
+    }
+  }, [quizId, currentQ, answers, quizType, questions.length]);
 
   // PRACTICE MODE: Encouragement after each answer
   // ✅ OPTIMIZATION: Use pre-generated feedback library first — AI only as fallback
@@ -522,6 +540,9 @@ Generate a comprehensive mastery report. Respond in JSON:
         : attempt?.id;
 
       // Rewards already processed by processReward above (anti-farming engine)
+
+      // ✅ Bersihkan cache sesi selepas berjaya submit
+      clearQuizSession(quizId);
 
       if (document.fullscreenElement) {
         if (document.exitFullscreen)
