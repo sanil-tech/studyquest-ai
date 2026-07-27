@@ -1,7 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 
-export function useDiagnosticAudio(questionId, textToSpeak) {
+/**
+ * Loads and plays diagnostic TTS audio.
+ * @param {string} questionId
+ * @param {string} textToSpeak
+ * @param {boolean} autoPlay - if true, plays audio automatically once loaded (for non-readers)
+ */
+export function useDiagnosticAudio(questionId, textToSpeak, autoPlay = false) {
   const [audioUrl, setAudioUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const audioRef = useRef(null);
@@ -22,6 +28,16 @@ export function useDiagnosticAudio(questionId, textToSpeak) {
         });
         if (!cancelled && res.data?.success && res.data.audio_url) {
           setAudioUrl(res.data.audio_url);
+          if (autoPlay) {
+            // Small delay so UI settles before audio kicks in
+            setTimeout(() => {
+              if (!cancelled) {
+                const audio = new Audio(res.data.audio_url);
+                audioRef.current = audio;
+                audio.play().catch(() => {});
+              }
+            }, 400);
+          }
         }
       } catch (err) {
         console.error("Audio load error:", err);
@@ -32,7 +48,7 @@ export function useDiagnosticAudio(questionId, textToSpeak) {
 
     loadAudio();
     return () => { cancelled = true; };
-  }, [questionId, textToSpeak]);
+  }, [questionId, textToSpeak, autoPlay]);
 
   const playAudio = useCallback(() => {
     if (audioUrl) {

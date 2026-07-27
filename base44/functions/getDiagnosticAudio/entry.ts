@@ -8,6 +8,30 @@ function sanitizeTextForTTS(text: string): string {
     .trim();
 }
 
+/**
+ * Formats text for child-friendly speech:
+ * - Short segments with periods create natural pauses, slowing delivery
+ * - Adds gentle filler words ("Mari kita tengok.") at the start for warmth
+ * - Splits long sentences into bite-sized chunks
+ */
+function formatForChildSpeech(text: string): string {
+  if (!text) return '';
+  let t = text.trim();
+
+  // Add a gentle intro pause if the text is short (single word/number)
+  if (t.length <= 12 && !t.includes('.')) {
+    return `Mari kita tengok. ${t}.`;
+  }
+
+  // Insert pauses after question words/phrases to slow delivery
+  t = t.replace(/,/g, '.');
+  // Ensure ends with a period for a calm finish
+  if (!t.endsWith('.') && !t.endsWith('?') && !t.endsWith('!')) {
+    t += '.';
+  }
+  return t;
+}
+
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -37,9 +61,12 @@ export default async function(req: Request): Promise<Response> {
     }
 
     // 2. Generate TTS audio (only once per question — cached for all students)
+    //    Voice 'honey' = warm, soft — ideal for young children (6-7 years)
+    //    Text is broken into short segments with periods to slow down delivery
+    const childFriendlyText = formatForChildSpeech(cleanText);
     const ttsResult = await base44.integrations.Core.GenerateSpeech({
-      text: cleanText,
-      voice: 'river',
+      text: childFriendlyText,
+      voice: 'honey',
       language_code: 'ms',
     });
 

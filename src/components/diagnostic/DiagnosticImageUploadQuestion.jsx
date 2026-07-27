@@ -1,9 +1,8 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Upload, Loader2, ImageIcon, CheckCircle2 } from "lucide-react";
+import { Camera, Upload, Loader2, ImageIcon, CheckCircle2, RotateCw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useDiagnosticAudio } from "@/hooks/useDiagnosticAudio";
-import TTSButton from "@/components/diagnostic/TTSButton";
 
 export default function DiagnosticImageUploadQuestion({ question, questionNumber, totalQuestions, onAnswerNext }) {
   const [uploading, setUploading] = useState(false);
@@ -11,7 +10,8 @@ export default function DiagnosticImageUploadQuestion({ question, questionNumber
   const [showResult, setShowResult] = useState(false);
   const fileInputRef = useRef(null);
 
-  const { audioUrl, loading: loadingAudio, playAudio } = useDiagnosticAudio(question.id, question.question);
+  // Auto-play so the child hears the instruction
+  const { audioUrl, loading: loadingAudio, playAudio } = useDiagnosticAudio(question.id, question.question, true);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -70,21 +70,33 @@ export default function DiagnosticImageUploadQuestion({ question, questionNumber
 
       {/* Question + what to write */}
       <div className="text-center space-y-3 py-2">
-        <p className="text-sm font-bold text-stone-300">{question.question}</p>
+        <p className="text-lg font-black text-white">{question.question}</p>
         {question.display && (
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="text-4xl sm:text-5xl font-black text-blue-300 py-6 min-h-[80px] flex items-center justify-center"
+            className="text-5xl sm:text-6xl font-black text-blue-300 py-6 min-h-[100px] flex items-center justify-center"
           >
             {question.display}
           </motion.div>
         )}
       </div>
 
-      {/* TTS — dengar soalan dibaca dengan kuat */}
+      {/* TTS — auto-plays; replay button for re-listening */}
       <div className="flex items-center justify-center">
-        <TTSButton loading={loadingAudio} audioUrl={audioUrl} onPlay={playAudio} label="Dengar Soalan" />
+        {loadingAudio ? (
+          <div className="flex items-center gap-2 text-xs font-bold text-stone-400">
+            <div className="w-4 h-4 border-2 border-stone-500 border-t-stone-300 rounded-full animate-spin" />
+            Sediakan suara...
+          </div>
+        ) : audioUrl ? (
+          <button
+            onClick={playAudio}
+            className="flex items-center gap-2 bg-blue-500/20 border-2 border-blue-400/40 text-blue-300 font-black px-4 py-2.5 rounded-2xl text-sm active:scale-95 transition-all"
+          >
+            <RotateCw className="w-4 h-4" /> Dengar Lagi
+          </button>
+        ) : null}
       </div>
 
       {/* Upload area */}

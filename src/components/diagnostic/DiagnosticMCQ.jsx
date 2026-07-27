@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { RotateCw } from "lucide-react";
 import { useDiagnosticAudio } from "@/hooks/useDiagnosticAudio";
-import TTSButton from "@/components/diagnostic/TTSButton";
 
 export default function DiagnosticMCQ({ question, questionNumber, totalQuestions, onAnswerNext }) {
   const [selected, setSelected] = useState(null);
   const [showResult, setShowResult] = useState(false);
 
-  const { audioUrl, loading: loadingAudio, playAudio } = useDiagnosticAudio(question.id, question.question);
+  // Auto-play so non-readers hear the question immediately
+  const { audioUrl, loading: loadingAudio, playAudio } = useDiagnosticAudio(question.id, question.question, true);
 
   const handleSelect = (option) => {
     if (showResult) return;
@@ -64,21 +65,33 @@ export default function DiagnosticMCQ({ question, questionNumber, totalQuestions
 
       {/* Question text + display */}
       <div className="text-center space-y-3 py-2">
-        <p className="text-sm font-bold text-stone-300">{question.question}</p>
+        <p className="text-lg sm:text-xl font-black text-white">{question.question}</p>
         {question.display && (
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="text-5xl sm:text-6xl font-black text-white py-4 min-h-[80px] flex items-center justify-center"
+            className="text-6xl sm:text-7xl font-black text-amber-300 py-4 min-h-[100px] flex items-center justify-center"
           >
             {question.display}
           </motion.div>
         )}
       </div>
 
-      {/* TTS — dengar soalan dibaca dengan kuat */}
+      {/* Replay button — audio auto-plays on load; this lets children hear it again */}
       <div className="flex items-center justify-center">
-        <TTSButton loading={loadingAudio} audioUrl={audioUrl} onPlay={playAudio} label="Dengar Soalan" />
+        {loadingAudio ? (
+          <div className="flex items-center gap-2 text-xs font-bold text-stone-400">
+            <div className="w-4 h-4 border-2 border-stone-500 border-t-stone-300 rounded-full animate-spin" />
+            Sediakan suara...
+          </div>
+        ) : audioUrl ? (
+          <button
+            onClick={playAudio}
+            className="flex items-center gap-2 bg-blue-500/20 border-2 border-blue-400/40 text-blue-300 font-black px-4 py-2.5 rounded-2xl text-sm active:scale-95 transition-all"
+          >
+            <RotateCw className="w-4 h-4" /> Dengar Lagi
+          </button>
+        ) : null}
       </div>
 
       {/* Options */}
@@ -89,7 +102,7 @@ export default function DiagnosticMCQ({ question, questionNumber, totalQuestions
             onClick={() => handleSelect(option)}
             disabled={showResult}
             whileTap={{ scale: 0.95 }}
-            className={`p-4 sm:p-5 rounded-2xl border-2 font-black text-base sm:text-lg transition-all duration-200 ${getOptionStyle(option)}`}
+            className={`p-4 sm:p-5 rounded-2xl border-2 font-black text-lg sm:text-xl transition-all duration-200 ${getOptionStyle(option)}`}
           >
             {option}
           </motion.button>
