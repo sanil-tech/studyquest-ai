@@ -275,7 +275,7 @@ export default function LessonResources() {
       return;
     }
     const sahkan = window.confirm(
-      `Jana semua kandungan AI untuk topik ini?\n\nIni akan menjana: Nota, Peta Minda, Penjelasan AI, Kesilapan Biasa, Pustaka Maklum Balas, dan Soalan Kuiz.\n\nKandungan sedia ada akan ditimpa.`
+      `Jana semua kandungan AI untuk topik ini?\n\nIni akan menjana: Nota, Peta Minda, Penjelasan AI, Kesilapan Biasa, Pustaka Maklum Balas, Soalan Kuiz, dan Permainan Pendidikan.\n\nSemua soalan dan permainan akan berdasarkan nota pelajaran topik ini.\n\nKandungan sedia ada akan ditimpa.`
     );
     if (!sahkan) return;
 
@@ -290,7 +290,7 @@ export default function LessonResources() {
       if (res.data?.success) {
         toast({
           title: "Kandungan AI Dijana! 🎉",
-          description: `Versi ${res.data.content_version} — ${res.data.generated?.quiz_questions || 0} soalan, ${res.data.generated?.feedback_messages || 0} maklum balas disimpan.`,
+          description: `Versi ${res.data.content_version} — ${res.data.generated?.quiz_questions || 0} soalan, ${res.data.generated?.games_created || 0} permainan, ${res.data.generated?.feedback_messages || 0} maklum balas disimpan.`,
         });
       } else {
         toast({ title: "Ralat", description: res.data?.error || "Gagal menjana.", variant: "destructive" });

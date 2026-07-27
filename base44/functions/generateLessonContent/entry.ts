@@ -61,12 +61,24 @@ Tahap: ${formLevel}
 
 Jana SEMUA kandungan berikut dalam Bahasa Melayu:
 
-1. lesson_notes: Nota pelajaran dalam format Markdown — termasuk penjelasan, contoh, ringkasan, dan kata kunci penting.
-2. mindmap: Array cabang peta minda [{label, children}] untuk visualisasi topik.
-3. ai_explanations: Array penjelasan konsep [{concept, explanation}] untuk konsep utama.
-4. common_mistakes: Array kesilapan biasa pelajar [{mistake, correction, explanation}].
+1. lesson_notes: Nota pelajaran dalam format Markdown — termasuk penjelasan, contoh, ringkasan, dan kata kunci penting. Ini adalah RUJUKAN UTAMA untuk semua kandungan lain di bawah.
+
+2. mindmap: Array cabang peta minda [{label, children}] untuk visualisasi topik. Berdasarkan konsep dalam lesson_notes.
+
+3. ai_explanations: Array penjelasan konsep [{concept, explanation}] untuk konsep utama dari lesson_notes.
+
+4. common_mistakes: Array kesilapan biasa pelajar [{mistake, correction, explanation}] berdasarkan konsep dalam lesson_notes.
+
 5. feedback_library: Array mesej maklum balas [{type: "correct"|"incorrect"|"hint", message}] — 3 mesej untuk setiap jenis (jumlah 9 mesej). Mesej harus mesra, memotivasi, dan sesuai untuk kanak-kanak sekolah rendah.
+
 6. quiz_questions: Array 10 soalan kuiz [{question, options (4 pilihan), correct_answer, explanation, difficulty}] — 5 soalan mudah, 3 sederhana, 2 susah.
+   ⚠️ PENTING: Setiap soalan MESTI berdasarkan kandungan lesson_notes di atas. Soalan harus menguji konsep, fakta, atau contoh yang secara spesifik diajar dalam nota. JANGAN jana soalan generik tentang topik — rujuk nota yang anda tulis. Pilihan jawapan harus termasuk kesilapan biasa dari common_mistakes sebagai pengganggu (distractors).
+
+7. game_content: Kandungan permainan pendidikan berdasarkan lesson_notes. Setiap permainan MESTI menggunakan konsep, contoh, dan kosa kata dari nota.
+   - matching_game: { pairs: [{left, right}] } — 5 pasangan padanan berdasarkan konsep dari nota (contoh: istilah ↔ definisi, soalan ↔ jawapan, gambar ↔ perkataan).
+   - sorting_game: { categories: [2 string], items: [{value, category}] } — 6 item untuk disusun kepada 2 kategori berdasarkan konsep dari nota.
+   - word_builder_game: { words: [{word, syllables: [string]}] } — 4 perkataan kunci dari nota untuk ejaan.
+   - flashcards: [{front, back}] — 6 kad kilat berdasarkan fakta penting dari nota.
 
 Respons mestilah dalam format JSON yang sah.`;
 
@@ -136,8 +148,76 @@ Respons mestilah dalam format JSON yang sah.`;
               required: ['question', 'options', 'correct_answer', 'explanation', 'difficulty'],
             },
           },
+          game_content: {
+            type: 'object',
+            properties: {
+              matching_game: {
+                type: 'object',
+                properties: {
+                  pairs: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        left: { type: 'string' },
+                        right: { type: 'string' },
+                      },
+                      required: ['left', 'right'],
+                    },
+                  },
+                },
+                required: ['pairs'],
+              },
+              sorting_game: {
+                type: 'object',
+                properties: {
+                  categories: { type: 'array', items: { type: 'string' } },
+                  items: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        value: { type: 'string' },
+                        category: { type: 'string' },
+                      },
+                      required: ['value', 'category'],
+                    },
+                  },
+                },
+                required: ['categories', 'items'],
+              },
+              word_builder_game: {
+                type: 'object',
+                properties: {
+                  words: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        word: { type: 'string' },
+                        syllables: { type: 'array', items: { type: 'string' } },
+                      },
+                      required: ['word', 'syllables'],
+                    },
+                  },
+                },
+                required: ['words'],
+              },
+              flashcards: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    front: { type: 'string' },
+                    back: { type: 'string' },
+                  },
+                  required: ['front', 'back'],
+                },
+              },
+            },
+          },
         },
-        required: ['lesson_notes', 'mindmap', 'ai_explanations', 'common_mistakes', 'feedback_library', 'quiz_questions'],
+        required: ['lesson_notes', 'mindmap', 'ai_explanations', 'common_mistakes', 'feedback_library', 'quiz_questions', 'game_content'],
       },
     });
 
@@ -165,6 +245,96 @@ Respons mestilah dalam format JSON yang sah.`;
     // 6. Save to database
     await base44.entities.Quiz.update(quizId, updatePayload);
 
+    // 6b. Create EducationalGame records from generated game content
+    let gamesCreated = 0;
+    try {
+      const gameContent = aiResponse.game_content || {};
+      const formLevelForGame = body.form_level || 'All Levels';
+
+      // Delete existing AI-generated games for this topic to avoid duplicates
+      await base44.entities.EducationalGame.deleteMany({
+        topic_name: topicName,
+        subject: subjectName,
+      }).catch(() => {});
+
+      const gamesToCreate = [];
+
+      if (gameContent.matching_game?.pairs?.length > 0) {
+        gamesToCreate.push({
+          game_name: `Padanan: ${topicName}`,
+          game_type: 'matching',
+          subject: subjectName,
+          form_level: formLevelForGame,
+          topic_name: topicName,
+          skill: 'Konsep padanan',
+          difficulty: 'easy',
+          instructions: 'Padankan item yang betul berdasarkan apa yang kamu belajar!',
+          game_data: JSON.stringify(gameContent.matching_game),
+          reward_xp: 20,
+          reward_coins: 5,
+          is_active: true,
+        });
+      }
+
+      if (gameContent.sorting_game?.items?.length > 0) {
+        gamesToCreate.push({
+          game_name: `Susun: ${topicName}`,
+          game_type: 'sorting',
+          subject: subjectName,
+          form_level: formLevelForGame,
+          topic_name: topicName,
+          skill: 'Pengkelasan konsep',
+          difficulty: 'easy',
+          instructions: 'Susun item kepada kategori yang betul!',
+          game_data: JSON.stringify(gameContent.sorting_game),
+          reward_xp: 25,
+          reward_coins: 5,
+          is_active: true,
+        });
+      }
+
+      if (gameContent.word_builder_game?.words?.length > 0) {
+        gamesToCreate.push({
+          game_name: `Eja: ${topicName}`,
+          game_type: 'word_builder',
+          subject: subjectName,
+          form_level: formLevelForGame,
+          topic_name: topicName,
+          skill: 'Ejaan dan kosa kata',
+          difficulty: 'easy',
+          instructions: 'Susun huruf untuk membina perkataan!',
+          game_data: JSON.stringify(gameContent.word_builder_game),
+          reward_xp: 25,
+          reward_coins: 5,
+          is_active: true,
+        });
+      }
+
+      if (gameContent.flashcards?.length > 0) {
+        gamesToCreate.push({
+          game_name: `Kad Kilat: ${topicName}`,
+          game_type: 'matching',
+          subject: subjectName,
+          form_level: formLevelForGame,
+          topic_name: topicName,
+          skill: 'Ingatan dan fakta',
+          difficulty: 'easy',
+          instructions: 'Semak kad kilat untuk mengingat fakta penting!',
+          game_data: JSON.stringify({ flashcards: gameContent.flashcards }),
+          reward_xp: 15,
+          reward_coins: 3,
+          is_active: true,
+        });
+      }
+
+      if (gamesToCreate.length > 0) {
+        await base44.entities.EducationalGame.bulkCreate(gamesToCreate);
+        gamesCreated = gamesToCreate.length;
+      }
+    } catch (gameErr) {
+      console.error('Game creation failed:', gameErr);
+    }
+
     // 7. Log AI usage (non-blocking)
     try {
       const tokenEstimate = Math.ceil(generationPrompt.length / 4) + Math.ceil(JSON.stringify(aiResponse).length / 4);
@@ -191,6 +361,7 @@ Respons mestilah dalam format JSON yang sah.`;
         common_mistakes: (aiResponse.common_mistakes || []).length,
         feedback_messages: (aiResponse.feedback_library || []).length,
         quiz_questions: (aiResponse.quiz_questions || []).length,
+        games_created: gamesCreated,
       },
     });
 
