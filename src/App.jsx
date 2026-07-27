@@ -32,6 +32,7 @@ const CompleteProfile = React.lazy(() => import('@/pages/CompleteProfile'));
 const Home = React.lazy(() => import('@/pages/Home'));
 const NotificationsPage = React.lazy(() => import('@/pages/NotificationsPage'));
 const ProfilePage = React.lazy(() => import('@/pages/ProfilePage'));
+const PremiumPage = React.lazy(() => import('@/pages/PremiumPage'));
 
 // Lazy-loaded Student & Learning Pages
 const StudentDashboard = React.lazy(() => import('@/pages/StudentDashboard'));
@@ -115,6 +116,7 @@ const AuthenticatedApp = () => {
             <Route path="/" element={<Home />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/premium" element={<PremiumPage />} />
 
             {/* Student & Learning Routes (Allows parents in Child Mode too) */}
             <Route element={<ProfileCompleteRoute />}>
