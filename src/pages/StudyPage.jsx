@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { matchesEducationLevel, getStudentEducationLevel } from "@/lib/childUtils";
+import { useStudentData } from "@/hooks/useStudentData";
 import { 
   ArrowLeft, Compass, TreePine, Sparkles, Play
 } from "lucide-react";
@@ -79,41 +80,17 @@ export default function StudyPage() {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { studentUser: hookStudentUser, loading: hookLoading } = useStudentData();
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const results = await Promise.allSettled([
-          base44.entities.Subject.list(),
-          base44.auth.me(),
-        ]);
-
-        const subs = results[0].status === "fulfilled" ? results[0].value : [];
-        const currentUser = results[1].status === "fulfilled" ? results[1].value : null;
-
-        // Resolve active student profile
-        let studentUser = currentUser;
-        if (currentUser?.app_role === "parent") {
-          const activeChildId = 
-            localStorage.getItem("active_child_session") || 
-            localStorage.getItem("selected_child_id") || 
-            localStorage.getItem("active_student_id");
-
-          if (activeChildId) {
-            try {
-              const fetchedChild = await base44.entities.User.get(activeChildId);
-              if (fetchedChild) {
-                studentUser = fetchedChild;
-              }
-            } catch (e) {
-              // No localStorage fallback — child profile must come from DB only
-            }
-          }
-        }
+        const subs = await base44.entities.Subject.list().catch(() => []);
+        const currentUser = hookStudentUser;
 
         setSubjects(subs);
-        setUser(studentUser);
+        setUser(currentUser);
 
         const targetSubjectKey = subjectId || querySubject;
         if (targetSubjectKey) {
@@ -147,7 +124,7 @@ export default function StudyPage() {
     };
 
     load();
-  }, [subjectId, querySubject]);
+  }, [subjectId, querySubject, hookStudentUser, hookLoading]);
 
   // 🔥 STRICT TOPIC FILTERING — Only show topics matching the student's year level
   const studentLevel = getStudentEducationLevel(user);

@@ -14,90 +14,24 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import moment from "moment";
+import { useStudentData } from "@/hooks/useStudentData";
 
 export default function WalletPage() {
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [studentName, setStudentName] = useState("Penjelajah");
-
-  // Helper function to get the correct student ID (handles Direct Student & Parent Child Mode)
-  const getActiveStudentId = useCallback(async () => {
-    const currentUser = await base44.auth.me().catch(() => null);
-    if (!currentUser) return null;
-
-    let studentId = currentUser.id;
-    let name = currentUser.nickname || currentUser.full_name || "Penjelajah";
-
-    // If parent is viewing in child mode, resolve the active child
-    if (currentUser.app_role === "parent") {
-      const activeChildId = localStorage.getItem("active_child_session") || localStorage.getItem("selected_child_id");
-      if (activeChildId) {
-        studentId = activeChildId;
-        const storedName = localStorage.getItem("active_student_name");
-        if (storedName) name = storedName;
-      }
-    }
-
-    setStudentName(name);
-    return studentId;
-  }, []);
+  const { data, loading, studentUser } = useStudentData();
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadWalletData = async () => {
-      try {
-        setLoading(true);
-        const studentId = await getActiveStudentId();
-
-        if (!studentId) {
-          setLoading(false);
-          return;
-        }
-
-        // Fetch wallet and transaction records in parallel
-        const results = await Promise.allSettled([
-          base44.entities.Wallet.filter({ student_id: studentId }),
-          base44.entities.Transaction.filter({ student_id: studentId }, "-created_date", 50),
-        ]);
-
-        if (!isMounted) return;
-
-        // Process Wallet Result
-        if (results[0].status === "fulfilled" && results[0].value.length > 0) {
-          setWallet(results[0].value[0]);
-        } else {
-          // If no wallet exists yet, create one for the student
-          try {
-            const newWallet = await base44.entities.Wallet.create({ 
-              student_id: studentId, 
-              balance: 0 
-            });
-            const validWallet = Array.isArray(newWallet) ? newWallet[0] : newWallet;
-            setWallet(validWallet || { balance: 0 });
-          } catch (e) {
-            setWallet({ balance: 0 });
-          }
-        }
-
-        // Process Transactions Result
-        if (results[1].status === "fulfilled") {
-          setTransactions(results[1].value || []);
-        }
-      } catch (err) {
-        console.error("Ralat memuat turun butiran kantung:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadWalletData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [getActiveStudentId]);
+    if (data) {
+      setWallet(data.wallet || { balance: 0 });
+      setTransactions(data.transactions || []);
+      setStudentName(studentUser?.nickname || studentUser?.full_name || "Penjelajah");
+    } else if (!loading) {
+      setWallet({ balance: 0 });
+      setTransactions([]);
+    }
+  }, [data, loading, studentUser]);
 
   if (loading) {
     return (

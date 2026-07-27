@@ -4,9 +4,9 @@ import { base44 } from "@/api/base44Client";
 /**
  * Mendapatkan ID Pelajar Aktif (Menyokong Log Masuk Pelajar & Mod Anak Ibu Bapa)
  */
-export const getActiveStudentId = async () => {
+export const getActiveStudentId = async (authUser = null) => {
   try {
-    const currentUser = await base44.auth.me();
+    const currentUser = authUser || await base44.auth.me();
     if (!currentUser) return null;
 
     if (currentUser.app_role === "parent") {

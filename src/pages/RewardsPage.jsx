@@ -4,58 +4,25 @@ import { Gift, Check, Clock, X, Loader2, Sparkles, Lock, Leaf, Sprout } from "lu
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
-import { getActiveStudentId } from "@/lib/rewardSystem";
+import { useStudentData } from "@/hooks/useStudentData";
 
 export default function RewardsPage() {
   const [user, setUser] = useState(null);
   const [rewards, setRewards] = useState([]);
   const [wallet, setWallet] = useState(null);
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(null);
   const { toast } = useToast();
+  const { data, loading, studentUser, studentId } = useStudentData();
 
   useEffect(() => {
-    const loadStudentData = async () => {
-      try {
-        const studentUser = await base44.auth.me();
-        setUser(studentUser);
-
-        // Resolve the correct active student ID (handles parent-in-child-mode)
-        const activeStudentId = await getActiveStudentId();
-        if (!activeStudentId) {
-          setLoading(false);
-          return;
-        }
-
-        // Cari ID ibu bapa yang aktif berdasarkan ID anak yang sebenar
-        const relationships = await base44.entities.ParentChildRelationship.filter({
-          child_id: activeStudentId,
-          status: "active",
-        });
-
-        const activeParentId = relationships[0]?.parent_id || null;
-
-        // Gunakan Promise.allSettled untuk API yang kebal
-        const results = await Promise.allSettled([
-          activeParentId
-            ? base44.entities.Reward.filter({ parent_id: activeParentId, student_id: activeStudentId })
-            : Promise.resolve([]),
-          base44.entities.Wallet.filter({ student_id: activeStudentId }),
-          base44.entities.RewardRequest.filter({ student_id: activeStudentId }, "-created_date", 20),
-        ]);
-
-        setRewards(results[0].status === "fulfilled" ? results[0].value : []);
-        setWallet(results[1].status === "fulfilled" && results[1].value.length > 0 ? results[1].value[0] : { balance: 0 });
-        setRequests(results[2].status === "fulfilled" ? results[2].value : []);
-      } catch (err) {
-        console.error("Ralat memuat turun data ganjaran:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadStudentData();
-  }, []);
+    if (data) {
+      setUser(data.user || studentUser);
+      setRewards(data.rewards || []);
+      setWallet(data.wallet || { balance: 0 });
+      setRequests(data.rewardRequests || []);
+    }
+  }, [data, studentUser]);
 
   const requestReward = async (reward) => {
     const currentBalance = wallet?.balance || 0;
@@ -72,7 +39,7 @@ export default function RewardsPage() {
     setRequesting(reward.id);
 
     try {
-      const activeStudentId = await getActiveStudentId();
+      const activeStudentId = studentId;
       if (!activeStudentId) {
         toast({ title: "Ralat", description: "Sesi tidak ditemui. Sila log masuk semula.", variant: "destructive" });
         return;

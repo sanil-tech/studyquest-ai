@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
 import StudentIdSection from "@/components/profile/StudentIdSection";
+import { useStudentData } from "@/hooks/useStudentData";
 
 const FREE_AVATARS = [
   "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy&backgroundColor=ffdfbf",
@@ -63,85 +64,35 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
+  const { data, loading: hookLoading, studentUser, studentId: hookStudentId } = useStudentData();
 
   useEffect(() => {
-    let isMounted = true;
+    setLoading(hookLoading);
+    if (!data || !studentUser) return;
 
-    const loadProfileData = async () => {
-      try {
-        setLoading(true);
-        const currentUser = await base44.auth.me();
-        if (!currentUser) return;
+    const profileUser = data.user || studentUser;
 
-        let profileUser = currentUser;
-        let activeChildId = null;
+    setUser(profileUser);
+    setTargetStudentId(hookStudentId);
+    setProgress(data.progress || { level: 1, total_xp: 0 });
+    setWallet(data.wallet || { balance: 0 });
+    setTotalQuizzes(data.quizAttempts?.length || 0);
 
-        if (currentUser.app_role === "parent") {
-          activeChildId = 
-            localStorage.getItem("active_child_session") || 
-            localStorage.getItem("selected_child_id") || 
-            localStorage.getItem("active_student_id");
+    const eduLevel = profileUser.education_level || profileUser.school_year || "";
 
-          if (activeChildId) {
-            try {
-              const fetchedChild = await base44.entities.User.get(activeChildId);
-              if (fetchedChild) profileUser = fetchedChild;
-            } catch (e) {
-              const cachedChildStr = localStorage.getItem("active_child");
-              if (cachedChildStr) {
-                try { profileUser = JSON.parse(cachedChildStr); } catch (err) {}
-              }
-            }
-          }
-        }
-
-        if (!isMounted) return;
-
-        setUser(profileUser);
-        
-        const effectiveStudentId = profileUser.id || activeChildId || (profileUser.app_role === "student" ? profileUser.id : null);
-        setTargetStudentId(effectiveStudentId);
-
-        if (effectiveStudentId) {
-          const [progs, wallets, attempts] = await Promise.all([
-            base44.entities.Progress.filter({ student_id: effectiveStudentId }).catch(() => []),
-            base44.entities.Wallet.filter({ student_id: effectiveStudentId }).catch(() => []),
-            base44.entities.QuizAttempt.filter({ student_id: effectiveStudentId }).catch(() => []),
-          ]);
-
-          if (isMounted) {
-            setProgress(progs?.[0] || { level: 1, total_xp: 0 });
-            setWallet(wallets?.[0] || { balance: 0 });
-            setTotalQuizzes(attempts?.length || 0);
-          }
-        }
-
-        const eduLevel = profileUser.education_level || profileUser.school_year || "";
-
-        setFormData({
-          full_name: profileUser.full_name || "",
-          nickname: profileUser.nickname || "",
-          school_year: eduLevel,
-          education_level: eduLevel,
-          school_name: profileUser.school_name || "",
-          class_name: profileUser.class_name || "",
-          gender: profileUser.gender || "",
-          date_of_birth: profileUser.date_of_birth || "",
-          country: profileUser.country || "Malaysia",
-          state: profileUser.state || "",
-        });
-
-      } catch (err) {
-        console.error("Gagal memuat turun profil:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadProfileData();
-
-    return () => { isMounted = false; };
-  }, []);
+    setFormData({
+      full_name: profileUser.full_name || "",
+      nickname: profileUser.nickname || "",
+      school_year: eduLevel,
+      education_level: eduLevel,
+      school_name: profileUser.school_name || "",
+      class_name: profileUser.class_name || "",
+      gender: profileUser.gender || "",
+      date_of_birth: profileUser.date_of_birth || "",
+      country: profileUser.country || "Malaysia",
+      state: profileUser.state || "",
+    });
+  }, [data, hookLoading, studentUser, hookStudentId]);
 
   const handleLogout = () => {
     localStorage.clear();
