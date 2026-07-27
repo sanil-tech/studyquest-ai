@@ -134,6 +134,13 @@ function toast({ ...props }) {
     },
   });
 
+  // Auto-dismiss after 10 seconds unless marked as important
+  if (!props.important) {
+    setTimeout(() => {
+      dismiss();
+    }, 10000);
+  }
+
   return {
     id,
     dismiss,
