@@ -14,6 +14,8 @@ export default async function(req) {
       learning_path = null,
       uploaded_images = [],
       module_results = {},
+      voice_analyses = [],
+      handwriting_analyses = [],
     } = body;
 
     if (!student_id) {
@@ -112,6 +114,7 @@ export default async function(req) {
     }
 
     // 5. Run AI Analysis (ONE call only — token optimization)
+    //    Multimodal evidence: skill scores + voice analyses + handwriting analyses
     const skillSummary = skill_profiles.map((p) => ({
       subject: p.subject,
       skill: p.skill,
@@ -121,23 +124,60 @@ export default async function(req) {
       recommendation: p.recommendation,
     }));
 
+    // Summarize voice analyses (pronunciation, fluency, confidence)
+    const voiceSummary = voice_analyses.length > 0
+      ? voice_analyses.map((v) => ({
+          skill: v.skill,
+          sub_skill: v.sub_skill,
+          target: v.target_text,
+          pronunciation: v.pronunciation_accuracy,
+          fluency: v.fluency_score,
+          confidence: v.confidence,
+          feedback: v.educational_feedback,
+        }))
+      : [];
+
+    // Summarize handwriting analyses (formation, spacing, alignment)
+    const handwritingSummary = handwriting_analyses.length > 0
+      ? handwriting_analyses.map((h) => ({
+          skill: h.skill,
+          sub_skill: h.sub_skill,
+          target: h.target_text,
+          formation: h.writing_accuracy,
+          spacing: h.spacing,
+          alignment: h.alignment,
+          completeness: h.completeness,
+          feedback: h.educational_feedback,
+        }))
+      : [];
+
+    const hasMultimodal = voiceSummary.length > 0 || handwritingSummary.length > 0;
+
+    const multimodalSection = hasMultimodal
+      ? `\n\nBUKTI MULTIMODAL (Analisis AI):\n${voiceSummary.length > 0 ? `Analisis Suara Bacaan:\n${JSON.stringify(voiceSummary, null, 2)}` : ''}\n${handwritingSummary.length > 0 ? `Analisis Tulisan Tangan:\n${JSON.stringify(handwritingSummary, null, 2)}` : ''}\n`
+      : '';
+
     const aiPrompt = `Anda adalah pakar pendidikan awal kanak-kanak dan kurikulum KSSR Malaysia.
 Analisis keputusan diagnostik 3M (Membaca, Menulis, Mengira) untuk pelajar berikut.
+${hasMultimodal ? 'Sistem ini menggunakan analisis multimodal AI — suara dan tulisan tangan pelajar telah dianalisis.' : ''}
 
 KEPUTUSAN KEMAHIRAN:
 ${JSON.stringify(skillSummary, null, 2)}
-
+${multimodalSection}
 LALUAN PEMBELAJARAN:
 ${JSON.stringify(learning_path, null, 2)}
 
 TUGASAN:
-Berdasarkan keputusan di atas, hasilkan analisis dalam format JSON berikut:
+Berdasarkan SEMUA keputusan di atas${hasMultimodal ? ' termasuk bukti multimodal' : ''}, hasilkan Student Foundation Learning Profile dalam format JSON berikut:
 {
   "strengths": [{"skill": "nama kemahiran", "description": "penjelasan kekuatan dalam Bahasa Melayu"}],
   "weaknesses": [{"skill": "nama kemahiran", "description": "penjelasan kelemahan dan apa perlu dilatih"}],
   "recommended_starting_point": "Titik permulaan pembelajaran yang disyorkan (1-2 ayat dalam Bahasa Melayu)",
   "recommended_activities": [{"activity": "nama aktiviti", "purpose": "tujuan aktiviti"}],
-  "parent_insight": "Mesej positif dan galakan untuk ibu bapa (2-3 ayat dalam Bahasa Melayu)"
+  "parent_insight": "Mesej positif dan galakan untuk ibu bapa (2-3 ayat dalam Bahasa Melayu)",
+  "reading_profile": {"level": "Developing/Good/Needs Practice", "strength": "kekuatan bacaan", "needs": "apa perlu dilatih"},
+  "writing_profile": {"level": "Beginning/Developing/Good", "strength": "kekuatan menulis", "needs": "apa perlu dilatih"},
+  "numeracy_profile": {"level": "Needs Practice/Developing/Good", "strength": "kekuatan mengira", "needs": "apa perlu dilatih"}
 }
 
 Panduan:
@@ -145,7 +185,10 @@ Panduan:
 - Kekuatan: kemahiran yang dikuasai (mastered) atau skor tinggi
 - Kelemahan: kemahiran yang needs_foundation atau developing
 - Aktiviti: 3-5 aktiviti praktikal yang ibu bapa/ guru boleh lakukan
-- Mesej ibu bapa: positif, tidak menakutkan, beri harapan`;
+- Mesej ibu bapa: positif, tidak menakutkan, beri harapan
+- JANGAN label gangguan pertuturan, kecacatan pembelajaran, atau diagnosis perubatan
+- Fokus pada maklum balas pendidikan sahaja
+${hasMultimodal ? '- Gunakan bukti multimodal (suara & tulisan) untuk memberikan analisis yang lebih tepat dan spesifik' : ''}`;
 
     let analysis = null;
     try {
@@ -186,6 +229,30 @@ Panduan:
               },
             },
             parent_insight: { type: 'string' },
+            reading_profile: {
+              type: 'object',
+              properties: {
+                level: { type: 'string' },
+                strength: { type: 'string' },
+                needs: { type: 'string' },
+              },
+            },
+            writing_profile: {
+              type: 'object',
+              properties: {
+                level: { type: 'string' },
+                strength: { type: 'string' },
+                needs: { type: 'string' },
+              },
+            },
+            numeracy_profile: {
+              type: 'object',
+              properties: {
+                level: { type: 'string' },
+                strength: { type: 'string' },
+                needs: { type: 'string' },
+              },
+            },
           },
         },
       });

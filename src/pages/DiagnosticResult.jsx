@@ -220,6 +220,53 @@ export default function DiagnosticResult() {
             transition={{ delay: 0.2 }}
             className="space-y-4"
           >
+            {/* Multimodal Foundation Profiles */}
+            {(analysis.reading_profile || analysis.writing_profile || analysis.numeracy_profile) && (
+              <div className="bg-stone-900/80 border-2 border-purple-500/30 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                  <h3 className="text-sm font-black text-purple-300">Profil Asas Multimodal AI</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  {analysis.reading_profile && (
+                    <div className="bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-black text-emerald-300">📖 Membaca</p>
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                          {analysis.reading_profile.level}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-200/80">✓ {analysis.reading_profile.strength}</p>
+                      <p className="text-[11px] text-amber-200/80">→ {analysis.reading_profile.needs}</p>
+                    </div>
+                  )}
+                  {analysis.writing_profile && (
+                    <div className="bg-blue-950/40 border border-blue-500/20 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-black text-blue-300">✏️ Menulis</p>
+                        <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                          {analysis.writing_profile.level}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-blue-200/80">✓ {analysis.writing_profile.strength}</p>
+                      <p className="text-[11px] text-amber-200/80">→ {analysis.writing_profile.needs}</p>
+                    </div>
+                  )}
+                  {analysis.numeracy_profile && (
+                    <div className="bg-amber-950/40 border border-amber-500/20 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-black text-amber-300">🔢 Mengira</p>
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                          {analysis.numeracy_profile.level}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-200/80">✓ {analysis.numeracy_profile.strength}</p>
+                      <p className="text-[11px] text-amber-200/80">→ {analysis.numeracy_profile.needs}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Strengths */}
             {strengths.length > 0 && (
               <div className="bg-emerald-950/60 border-2 border-emerald-500/30 rounded-2xl p-4 space-y-3">

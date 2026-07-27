@@ -54,6 +54,8 @@ export default function DiagnosticAssessment() {
 
   const allResponsesRef = useRef([]);
   const uploadedImagesRef = useRef([]);
+  const voiceAnalysesRef = useRef([]);
+  const handwritingAnalysesRef = useRef([]);
   const [moduleResults, setModuleResults] = useState({});
   const [lastModuleResult, setLastModuleResult] = useState(null);
   const [weakSkillCount, setWeakSkillCount] = useState(0);
@@ -97,6 +99,47 @@ export default function DiagnosticAssessment() {
         target: metadata.target || "",
         question: metadata.question || currentQuestion?.question || "",
       });
+    }
+
+    // Collect multimodal AI analyses
+    if (metadata.ai_analysis) {
+      if (metadata.audio_url || metadata.transcript) {
+        voiceAnalysesRef.current.push({
+          question_id: qMeta.question_id,
+          subject: qMeta.subject,
+          skill: qMeta.skill,
+          sub_skill: qMeta.sub_skill,
+          target_text: metadata.target || "",
+          transcript: metadata.transcript || "",
+          audio_url: metadata.audio_url || null,
+          pronunciation_accuracy: metadata.ai_analysis.pronunciation_accuracy || 0,
+          fluency_score: metadata.ai_analysis.fluency_score || 0,
+          confidence: metadata.ai_analysis.confidence || 0,
+          is_correct: metadata.ai_analysis.is_correct ?? isCorrect,
+          strength: metadata.ai_analysis.strength || "",
+          needs_practice: metadata.ai_analysis.needs_practice || "",
+          educational_feedback: metadata.ai_analysis.educational_feedback || "",
+        });
+      } else if (metadata.imageUrl) {
+        handwritingAnalysesRef.current.push({
+          question_id: qMeta.question_id,
+          subject: qMeta.subject,
+          skill: qMeta.skill,
+          sub_skill: qMeta.sub_skill,
+          target_text: metadata.target || "",
+          image_url: metadata.imageUrl,
+          letter_recognition: metadata.ai_analysis.letter_recognition || 0,
+          writing_accuracy: metadata.ai_analysis.writing_accuracy || 0,
+          spacing: metadata.ai_analysis.spacing || 0,
+          alignment: metadata.ai_analysis.alignment || 0,
+          completeness: metadata.ai_analysis.completeness || 0,
+          overall_score: metadata.ai_analysis.overall_score || 0,
+          is_correct: metadata.ai_analysis.is_correct ?? isCorrect,
+          strength: metadata.ai_analysis.strength || "",
+          needs_practice: metadata.ai_analysis.needs_practice || "",
+          educational_feedback: metadata.ai_analysis.educational_feedback || "",
+        });
+      }
     }
 
     if (questionIndex + 1 < currentQuestions.length) {
@@ -185,6 +228,8 @@ export default function DiagnosticAssessment() {
         learning_path: learningPath,
         uploaded_images: uploadedImagesRef.current,
         module_results: finalModuleResults,
+        voice_analyses: voiceAnalysesRef.current,
+        handwriting_analyses: handwritingAnalysesRef.current,
       });
 
       if (response.data?.success) {

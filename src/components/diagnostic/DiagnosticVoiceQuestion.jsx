@@ -1,62 +1,34 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Loader2, Square, RotateCw } from "lucide-react";
+import { Mic, Loader2, Square, RotateCw, Sparkles } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useDiagnosticAudio } from "@/hooks/useDiagnosticAudio";
 
 const ACCURACY_THRESHOLD = 70;
 
-function calculateMatchAccuracy(transcript, target) {
-  if (!transcript || !target) return 0;
-  const targetWords = target.toLowerCase().trim().split(/\s+/).filter((w) => w.length > 0);
-  const transcriptWords = transcript.toLowerCase().trim().split(/\s+/);
-  if (targetWords.length === 0) return 0;
-
-  let matched = 0;
-  for (const tw of targetWords) {
-    const found = transcriptWords.some(
-      (w) => w === tw || w.includes(tw) || tw.includes(w) ||
-        (tw.length > 3 && (w.startsWith(tw.slice(0, 3)) || tw.startsWith(w.slice(0, 3))))
-    );
-    if (found) matched++;
-  }
-  return Math.round((matched / targetWords.length) * 100);
-}
-
-function getMatchedWords(transcript, target) {
-  const targetWords = target.toLowerCase().trim().split(/\s+/).filter((w) => w.length > 0);
-  const transcriptWords = transcript.toLowerCase().trim().split(/\s+/);
-  let matched = 0;
-  for (const tw of targetWords) {
-    const found = transcriptWords.some(
-      (w) => w === tw || w.includes(tw) || tw.includes(w) ||
-        (tw.length > 3 && (w.startsWith(tw.slice(0, 3)) || tw.startsWith(w.slice(0, 3))))
-    );
-    if (found) matched++;
-  }
-  return { matched, total: targetWords.length };
-}
-
 export default function DiagnosticVoiceQuestion({ question, questionNumber, totalQuestions, onAnswerNext }) {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [showResult, setShowResult] = useState(false);
-  const [accuracy, setAccuracy] = useState(0);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
   const [isCorrect, setIsCorrect] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [micError, setMicError] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const audioFileUrlRef = useRef(null);
 
   const targetText = question.correct || question.display || "";
-  // Auto-play the example reading so the child hears what to read
+  // Auto-play the example reading
   const { audioUrl, loading: loadingAudio, playAudio } = useDiagnosticAudio(question.id, targetText, true);
 
   const startRecording = async () => {
     setTranscript("");
     setShowResult(false);
     setManualMode(false);
+    setAiAnalysis(null);
     setMicError(false);
 
     try {
@@ -71,7 +43,7 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         stream.getTracks().forEach((track) => track.stop());
-        await transcribeAudio(audioBlob);
+        await transcribeAndAnalyze(audioBlob);
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -92,55 +64,90 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
     }
   };
 
-  const transcribeAudio = async (audioBlob) => {
+  const transcribeAndAnalyze = async (audioBlob) => {
     try {
+      // Step 1: Upload audio
       const audioFile = new File([audioBlob], "recording.webm", { type: "audio/webm" });
       const { file_url } = await base44.integrations.Core.UploadFile({ file: audioFile });
+      audioFileUrlRef.current = file_url;
 
+      // Step 2: Transcribe
       const transcribeResult = await base44.integrations.Core.TranscribeAudio({ audio_url: file_url });
       const transcriptText = (transcribeResult || "").trim();
-
       setTranscript(transcriptText);
-      const acc = calculateMatchAccuracy(transcriptText, targetText);
-      setAccuracy(acc);
-      setIsCorrect(acc >= ACCURACY_THRESHOLD);
+
+      // Step 3: AI Voice Analysis (pronunciation, fluency, confidence)
+      setTranscribing(false);
+      setAnalyzing(true);
+
+      const analysisRes = await base44.functions.invoke("analyzeReadingVoice", {
+        audio_url: file_url,
+        target_text: targetText,
+        transcript: transcriptText,
+        skill: question._meta?.skill,
+        sub_skill: question._meta?.sub_skill,
+        question_id: question.id,
+      });
+
+      const analysis = analysisRes.data;
+      setAiAnalysis(analysis);
+      setIsCorrect(analysis?.is_correct ?? false);
       setShowResult(true);
     } catch (err) {
-      console.error("Transcription error:", err);
+      console.error("Voice analysis error:", err);
       setManualMode(true);
     } finally {
       setTranscribing(false);
+      setAnalyzing(false);
     }
   };
 
   const handleNext = () => {
-    onAnswerNext(isCorrect, { transcript, accuracy, target: targetText });
+    onAnswerNext(isCorrect, {
+      transcript,
+      accuracy: aiAnalysis?.pronunciation_accuracy || 0,
+      target: targetText,
+      audio_url: audioFileUrlRef.current,
+      ai_analysis: aiAnalysis,
+    });
     setTranscript("");
     setShowResult(false);
     setManualMode(false);
+    setAiAnalysis(null);
   };
 
   const handleManualYes = () => {
     setIsCorrect(true);
-    setAccuracy(100);
+    setAiAnalysis({
+      pronunciation_accuracy: 100,
+      fluency_score: 100,
+      confidence: 80,
+      strength: "Pelajar membaca dengan betul!",
+      needs_practice: "Teruskan latihan bacaan.",
+      educational_feedback: "Bagus! Pelajar boleh membaca dengan baik.",
+    });
     setShowResult(true);
     setManualMode(false);
   };
 
   const handleManualNo = () => {
     setIsCorrect(false);
-    setAccuracy(0);
+    setAiAnalysis({
+      pronunciation_accuracy: 0,
+      fluency_score: 0,
+      confidence: 30,
+      strength: "Pelajar sedang berusaha.",
+      needs_practice: "Latihan bacaan diperlukan.",
+      educational_feedback: "Teruskan berlatih, kamu semakin baik!",
+    });
     setShowResult(true);
     setManualMode(false);
   };
 
-  const matchInfo = showResult && transcript ? getMatchedWords(transcript, targetText) : null;
-  const statement = showResult && matchInfo
-    ? accuracy === 100
-      ? `🎉 Sempurna! Kamu baca semua ${matchInfo.total} perkataan dengan betul!`
-      : accuracy >= ACCURACY_THRESHOLD
-        ? `✅ Bagus! Kamu baca ${matchInfo.matched} daripada ${matchInfo.total} perkataan dengan betul (${accuracy}%).`
-        : `💪 Cuba lagi. Kamu baca ${matchInfo.matched} daripada ${matchInfo.total} perkataan dengan betul (${accuracy}%). Latihan lagi ya!`
+  const statement = showResult && aiAnalysis
+    ? isCorrect
+      ? `🎉 ${aiAnalysis.strength}`
+      : `💪 ${aiAnalysis.needs_practice}`
     : "";
 
   return (
@@ -182,7 +189,7 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
         )}
       </div>
 
-      {/* TTS Audio — auto-plays example, replay button for re-listening */}
+      {/* TTS — auto-plays example, replay button */}
       <div className="flex items-center justify-center">
         {loadingAudio ? (
           <div className="flex items-center gap-2 text-xs font-bold text-stone-400">
@@ -199,45 +206,58 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
         ) : null}
       </div>
 
-      {/* Recording / Transcribing / Manual mode */}
+      {/* Recording / Analyzing / Manual mode */}
       {!showResult && !manualMode && (
         <div className="flex flex-col items-center gap-3">
-          <motion.button
-            onClick={recording ? stopRecording : startRecording}
-            whileTap={{ scale: 0.95 }}
-            disabled={transcribing}
-            className={`w-24 h-24 rounded-full flex items-center justify-center border-4 transition-all ${
-              recording
-                ? "bg-rose-500 border-rose-300 animate-pulse"
-                : transcribing
-                  ? "bg-stone-700 border-stone-600"
-                  : "bg-emerald-500 border-emerald-300 hover:bg-emerald-400"
-            }`}
-          >
-            {transcribing ? (
-              <Loader2 className="w-10 h-10 text-white animate-spin" />
-            ) : recording ? (
-              <Square className="w-8 h-8 text-white" />
-            ) : (
-              <Mic className="w-10 h-10 text-white" />
-            )}
-          </motion.button>
-          <p className="text-sm font-bold text-stone-400">
-            {transcribing
-              ? "⏳ Suku sedang semak bacaan kamu..."
-              : recording
-                ? "🎙️ Sila baca sekarang... (Tekan untuk berhenti)"
-                : "Tekan butang dan baca dengan kuat"}
-          </p>
-          {micError && (
-            <p className="text-xs text-amber-400 font-bold text-center max-w-xs">
-              Tidak dapat akses mikrofon. Gunakan mod manual di bawah.
-            </p>
+          {analyzing ? (
+            <>
+              <div className="w-24 h-24 rounded-full flex items-center justify-center border-4 bg-purple-500 border-purple-300">
+                <Sparkles className="w-10 h-10 text-white animate-pulse" />
+              </div>
+              <p className="text-sm font-bold text-purple-300">
+                ✨ Suku sedang analisis bacaan kamu...
+              </p>
+            </>
+          ) : (
+            <>
+              <motion.button
+                onClick={recording ? stopRecording : startRecording}
+                whileTap={{ scale: 0.95 }}
+                disabled={transcribing}
+                className={`w-24 h-24 rounded-full flex items-center justify-center border-4 transition-all ${
+                  recording
+                    ? "bg-rose-500 border-rose-300 animate-pulse"
+                    : transcribing
+                      ? "bg-stone-700 border-stone-600"
+                      : "bg-emerald-500 border-emerald-300 hover:bg-emerald-400"
+                }`}
+              >
+                {transcribing ? (
+                  <Loader2 className="w-10 h-10 text-white animate-spin" />
+                ) : recording ? (
+                  <Square className="w-8 h-8 text-white" />
+                ) : (
+                  <Mic className="w-10 h-10 text-white" />
+                )}
+              </motion.button>
+              <p className="text-sm font-bold text-stone-400">
+                {transcribing
+                  ? "⏳ Suku sedang semak bacaan kamu..."
+                  : recording
+                    ? "🎙️ Sila baca sekarang... (Tekan untuk berhenti)"
+                    : "Tekan butang dan baca dengan kuat"}
+              </p>
+              {micError && (
+                <p className="text-xs text-amber-400 font-bold text-center max-w-xs">
+                  Tidak dapat akses mikrofon. Gunakan mod manual di bawah.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
 
-      {/* Manual mode: teacher/parent confirms */}
+      {/* Manual mode */}
       {manualMode && !showResult && (
         <div className="bg-stone-800/60 rounded-2xl p-4 text-center">
           <p className="text-sm font-bold text-stone-300 mb-3">Adakah pelajar membaca dengan betul?</p>
@@ -259,9 +279,9 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
         </div>
       )}
 
-      {/* Result with transcript and statement */}
+      {/* Result with AI analysis */}
       <AnimatePresence>
-        {showResult && (
+        {showResult && aiAnalysis && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -273,6 +293,30 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
                 <p className="text-sm font-bold text-stone-300">"{transcript}"</p>
               </div>
             )}
+
+            {/* AI Analysis scores */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-stone-800/60 rounded-xl p-2.5 text-center">
+                <p className="text-[10px] font-bold text-stone-500 uppercase">Sebutan</p>
+                <p className={`text-lg font-black ${aiAnalysis.pronunciation_accuracy >= 70 ? "text-emerald-400" : "text-amber-400"}`}>
+                  {aiAnalysis.pronunciation_accuracy || 0}%
+                </p>
+              </div>
+              <div className="bg-stone-800/60 rounded-xl p-2.5 text-center">
+                <p className="text-[10px] font-bold text-stone-500 uppercase">Kefasihan</p>
+                <p className={`text-lg font-black ${aiAnalysis.fluency_score >= 70 ? "text-emerald-400" : "text-amber-400"}`}>
+                  {aiAnalysis.fluency_score || 0}%
+                </p>
+              </div>
+              <div className="bg-stone-800/60 rounded-xl p-2.5 text-center">
+                <p className="text-[10px] font-bold text-stone-500 uppercase">Keyakinan</p>
+                <p className={`text-lg font-black ${aiAnalysis.confidence >= 70 ? "text-emerald-400" : "text-amber-400"}`}>
+                  {aiAnalysis.confidence || 0}%
+                </p>
+              </div>
+            </div>
+
+            {/* Feedback */}
             <div className={`p-3 rounded-2xl text-center font-black text-sm ${
               isCorrect
                 ? "bg-emerald-900/60 text-emerald-300 border-2 border-emerald-500/40"
@@ -280,6 +324,18 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
             }`}>
               {statement}
             </div>
+
+            {/* Educational feedback */}
+            {aiAnalysis.educational_feedback && (
+              <div className="bg-purple-950/40 border border-purple-500/30 rounded-2xl p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <p className="text-[10px] font-black text-purple-400 uppercase tracking-wider">Maklum Balas Suku</p>
+                </div>
+                <p className="text-xs text-stone-300 leading-relaxed">{aiAnalysis.educational_feedback}</p>
+              </div>
+            )}
+
             <button
               onClick={handleNext}
               className="w-full h-13 py-3.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-base rounded-2xl border-b-4 border-amber-700 active:translate-y-1 transition-all"
