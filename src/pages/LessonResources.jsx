@@ -45,6 +45,7 @@ export default function LessonResources() {
   // 🌟 BARU: STATE UNTUK FUNGSI COPY-PASTE JSON
   const [showPasteJson, setShowPasteJson] = useState(false);
   const [pastedJson, setPastedJson] = useState("");
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   useEffect(() => {
     const semakAksesAdmin = async () => {
@@ -267,6 +268,40 @@ export default function LessonResources() {
     } catch (err) { alert("❌ RALAT DATABASE KRITIKAL: " + err.message); } finally { setIsSaving(false); }
   };
 
+  // ✅ "Generate Once, Store, Reuse" — Bulk AI content generation
+  const handleGenerateAIContent = async () => {
+    if (!selectedLessonId) {
+      toast({ title: "Pilih topik dahulu", variant: "destructive" });
+      return;
+    }
+    const sahkan = window.confirm(
+      `Jana semua kandungan AI untuk topik ini?\n\nIni akan menjana: Nota, Peta Minda, Penjelasan AI, Kesilapan Biasa, Pustaka Maklum Balas, dan Soalan Kuiz.\n\nKandungan sedia ada akan ditimpa.`
+    );
+    if (!sahkan) return;
+
+    setIsGeneratingAI(true);
+    try {
+      const res = await base44.functions.invoke("generateLessonContent", {
+        quiz_id: selectedLessonId,
+        topic_name: title,
+        subject_name: subtitle,
+        force: true,
+      });
+      if (res.data?.success) {
+        toast({
+          title: "Kandungan AI Dijana! 🎉",
+          description: `Versi ${res.data.content_version} — ${res.data.generated?.quiz_questions || 0} soalan, ${res.data.generated?.feedback_messages || 0} maklum balas disimpan.`,
+        });
+      } else {
+        toast({ title: "Ralat", description: res.data?.error || "Gagal menjana.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Ralat Sistem", description: err.message, variant: "destructive" });
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   if (checkingAuth) return (<div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>);
 
   return (
@@ -283,12 +318,17 @@ export default function LessonResources() {
       </div>
 
       {borangMod === "edit" && (
-        <Card className="p-4 bg-amber-50/30 border border-amber-200/60 rounded-2xl shadow-2xs">
+        <Card className="p-4 bg-amber-50/30 border border-amber-200/60 rounded-2xl shadow-2xs space-y-3">
           <label className="text-xs font-black text-amber-800 uppercase flex items-center gap-1.5 mb-1"><Search className="w-4 h-4" /> Pilih Topik Semasa Untuk Disunting</label>
           <select value={selectedLessonId} onChange={handlePilihLesson} disabled={isLoadingList || isDeleting} className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs font-bold text-slate-700 shadow-sm">
             <option value="">-- Sila Pilih Modul Pelajaran --</option>
             {lessonsList.map(l => (<option key={l.id} value={l.id}>{l.topic_name} (ID: {l.id})</option>))}
           </select>
+          {selectedLessonId && (
+            <Button type="button" onClick={handleGenerateAIContent} disabled={isGeneratingAI} className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-2">
+              {isGeneratingAI ? <><Loader2 className="w-4 h-4 animate-spin" /> Menjana Kandungan AI...</> : <><Sparkles className="w-4 h-4" /> Jana Semua Kandungan AI (Nota, Kuiz, Peta Minda)</>}
+            </Button>
+          )}
         </Card>
       )}
 

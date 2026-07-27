@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { getActiveStudentId, awardCoinsAndXP } from "@/lib/rewardSystem";
+import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
 import QuizModeHeader from "@/components/quiz/QuizModeHeader";
 
 const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
@@ -178,6 +179,8 @@ export default function QuizPage() {
   const [hintLoading, setHintLoading] = useState(false);
   const [aiEncouragement, setAiEncouragement] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  // ✅ Pre-generated content (loaded once from DB — reused, no AI calls)
+  const [feedbackLibrary, setFeedbackLibrary] = useState([]);
 
   const isPracticeMode = quizType !== "mastery";
   const isMasteryMode = quizType === "mastery";
@@ -187,6 +190,9 @@ export default function QuizPage() {
       try {
         const q = await base44.entities.Quiz.get(quizId);
         setQuiz(q);
+        // ✅ Load pre-generated feedback library from DB (no AI needed)
+        const storedFeedback = safeJsonParse(q.feedback_library_json, []);
+        setFeedbackLibrary(Array.isArray(storedFeedback) ? storedFeedback : []);
         const modeParam = searchParams.get("mode");
         setQuizType(modeParam === "mastery" ? "mastery" : (modeParam === "practice" ? "practice" : (q?.quiz_type || "practice")));
 
@@ -212,7 +218,8 @@ export default function QuizPage() {
     loadQuiz();
   }, [quizId, searchParams]);
 
-  // PRACTICE MODE: AI encouragement after each answer
+  // PRACTICE MODE: Encouragement after each answer
+  // ✅ OPTIMIZATION: Use pre-generated feedback library first — AI only as fallback
   const generateAIEncouragement = async (questionIndex, studentAnswer) => {
     const q = questions[questionIndex];
     if (!q) return;
@@ -221,17 +228,25 @@ export default function QuizPage() {
       String(studentAnswer).trim().toLowerCase() ===
       String(correctAns).trim().toLowerCase();
 
+    // ✅ Step 1: Try pre-generated feedback from library (ZERO AI tokens)
+    const feedbackType = isCorrect ? "correct" : "incorrect";
+    const matchingFeedback = feedbackLibrary.filter(f => f.type === feedbackType);
+    if (matchingFeedback.length > 0) {
+      const randomFeedback = matchingFeedback[Math.floor(Math.random() * matchingFeedback.length)];
+      setAiEncouragement(randomFeedback.message);
+      return;
+    }
+
+    // Step 2: Fallback to AI only if no pre-generated feedback exists
     setAiLoading(true);
     setAiEncouragement(null);
     try {
       const prompt = isCorrect
-        ? `A Malaysian primary school student correctly answered a quiz question. Question: "${q.question}". Their answer: "${studentAnswer}". Generate a short, warm encouragement in Bahasa Melayu (1-2 sentences) that celebrates their correct answer and briefly reinforces why it's correct. Use friendly, motivating language suitable for children. Example: "Hebat Pengembara! Jawapan kamu betul. 5 + 3 = 8 kerana kita menggabungkan 5 objek dengan 3 objek lagi."`
-        : `A Malaysian primary school student answered a quiz question incorrectly. Question: "${q.question}". Their answer: "${studentAnswer}". Correct answer: "${correctAns}". Generate a warm encouragement in Bahasa Melayu (1-2 sentences) that encourages them not to give up and gives a simple hint to help them understand. Do NOT reveal the correct answer directly. Use friendly, motivating language suitable for children. Example: "Hampir berjaya! Mari kira semula gambar tersebut. Berapa jumlah objek semuanya?"`;
+        ? `A Malaysian primary school student correctly answered a quiz question. Question: "${q.question}". Their answer: "${studentAnswer}". Generate a short, warm encouragement in Bahasa Melayu (1-2 sentences) that celebrates their correct answer. Use friendly, motivating language suitable for children.`
+        : `A Malaysian primary school student answered a quiz question incorrectly. Question: "${q.question}". Their answer: "${studentAnswer}". Correct answer: "${correctAns}". Generate a warm encouragement in Bahasa Melayu (1-2 sentences) that encourages them not to give up and gives a simple hint. Do NOT reveal the correct answer directly. Use friendly, motivating language suitable for children.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({ prompt });
-      setAiEncouragement(
-        typeof result === "string" ? result : String(result)
-      );
+      const result = await trackedInvokeLLM({ prompt }, "encouragement", quiz?.topic_name);
+      setAiEncouragement(typeof result === "string" ? result : String(result));
     } catch (e) {
       console.error("AI encouragement error:", e);
     } finally {
@@ -240,10 +255,26 @@ export default function QuizPage() {
   };
 
   // PRACTICE MODE: Hint request
+  // ✅ OPTIMIZATION: Use stored explanation or feedback library first — AI only as fallback
   const requestHint = async () => {
     const q = questions[currentQ];
     if (!q) return;
 
+    // ✅ Step 1: Use question's stored explanation as hint (ZERO AI tokens)
+    if (q.explanation) {
+      setHint(q.explanation);
+      return;
+    }
+
+    // ✅ Step 2: Try pre-generated hint from feedback library
+    const storedHints = feedbackLibrary.filter(f => f.type === "hint");
+    if (storedHints.length > 0) {
+      const randomHint = storedHints[Math.floor(Math.random() * storedHints.length)];
+      setHint(randomHint.message);
+      return;
+    }
+
+    // Step 3: Fallback to AI only if no stored content exists
     setHintLoading(true);
     setHint(null);
     try {
@@ -252,7 +283,7 @@ export default function QuizPage() {
       }". Options: ${(q.options || []).join(
         ", "
       )}. Generate a helpful hint in Bahasa Melayu (1-2 sentences) that guides them toward the correct answer WITHOUT revealing it directly. Use friendly language suitable for children.`;
-      const result = await base44.integrations.Core.InvokeLLM({ prompt });
+      const result = await trackedInvokeLLM({ prompt }, "hint", quiz?.topic_name);
       setHint(typeof result === "string" ? result : String(result));
     } catch (e) {
       console.error("Hint error:", e);
@@ -279,10 +310,10 @@ export default function QuizPage() {
 
       const promptMsg = `Look at this handwritten image of a primary school student. Is the written text matching "${targetAns}"? Answer strictly YES or NO, followed by detected text.`;
 
-      const res = await base44.integrations.Core.InvokeLLM({
+      const res = await trackedInvokeLLM({
         prompt: promptMsg,
         file_urls: [imageDataUrl],
-      });
+      }, "student_interaction", quiz?.topic_name);
 
       const resStr = String(res).toLowerCase();
       if (resStr.includes("yes")) {
@@ -354,7 +385,7 @@ export default function QuizPage() {
       if (isPracticeMode) {
         // PRACTICE REPORT
         try {
-          const practiceAnalysis = await base44.integrations.Core.InvokeLLM({
+          const practiceAnalysis = await trackedInvokeLLM({
             prompt: `Generate a practice report for a Malaysian primary school student who completed a practice quiz.
 Topic: "${quiz?.topic_name}". Subject: "${quiz?.subject_name}". Score: ${score}%. Correct: ${correct}/${questions.length}.
 
@@ -393,7 +424,7 @@ Respond in JSON:
                 summary: { type: "string" },
               },
             },
-          });
+          }, "quiz_analysis", quiz?.topic_name);
           analysisJson = JSON.stringify(practiceAnalysis);
           feedbackResult =
             practiceAnalysis.summary || "Syabas atas usaha anda!";
@@ -404,7 +435,7 @@ Respond in JSON:
       } else {
         // MASTERY ANALYSIS
         try {
-          const masteryAnalysis = await base44.integrations.Core.InvokeLLM({
+          const masteryAnalysis = await trackedInvokeLLM({
             prompt: `You are an EdTech assessment specialist for Malaysian KSSR primary education. Analyze this student's mastery assessment results.
 
 Topic: "${quiz?.topic_name}". Subject: "${quiz?.subject_name}". Score: ${score}% (${correct}/${questions.length} correct).
@@ -455,7 +486,7 @@ Generate a comprehensive mastery report. Respond in JSON:
                 learning_path: { type: "string" },
               },
             },
-          });
+          }, "quiz_analysis", quiz?.topic_name);
           analysisJson = JSON.stringify(masteryAnalysis);
           feedbackResult =
             masteryAnalysis.ai_recommendation ||

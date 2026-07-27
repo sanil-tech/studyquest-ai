@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { getActiveStudentId, awardCoinsAndXP } from "@/lib/rewardSystem";
+import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
 import {
   Tv,
   CheckCircle2,
@@ -327,6 +328,7 @@ export default function LessonPage() {
   
   const [actualQuizId, setActualQuizId] = useState("");
   const [rawBankQuestions, setRawBankQuestions] = useState([]);
+  const [storedMindmap, setStoredMindmap] = useState(null);
 
   const [videoUrl, setVideoUrl] = useState("");
   const [notesContent, setNotesContent] = useState("");
@@ -417,6 +419,7 @@ export default function LessonPage() {
             }
           }
           setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
+          setStoredMindmap(safeJsonParse(foundBank.mindmap_json, []));
         }
 
         const cachedSessions = await base44.entities.StudySession.filter(
@@ -605,9 +608,15 @@ export default function LessonPage() {
   const loadMindMapOnDemand = async () => { 
     setActiveTab("mindmap"); 
     if (mindMap?.length > 0 || infographicUrl) return; 
+    // ✅ OPTIMIZATION: Use stored mindmap first — zero AI tokens
+    if (storedMindmap?.length > 0) {
+      setMindMap(storedMindmap);
+      return;
+    }
+    // Fallback: generate via AI only if no stored content exists
     setStatus(p => ({ ...p, mindmap: true })); 
     try { 
-      const res = await base44.integrations.Core.InvokeLLM({ 
+      const res = await trackedInvokeLLM({ 
         model: "gemini_3_flash", 
         prompt: `Generate mindmap branches array for summary: ${topic?.name}`, 
         response_json_schema: {
@@ -621,7 +630,7 @@ export default function LessonPage() {
             required: ["label", "children"]
           }
         } 
-      }); 
+      }, "content_generation", topic?.name);
       setMindMap(res); 
     } catch (e) {
       console.error(e);

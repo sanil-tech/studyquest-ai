@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { getStudentEducationLevel, matchesEducationLevel } from "@/lib/childUtils";
+import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
 import { Sparkles, ArrowRight, Loader2, Lightbulb, GraduationCap } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -104,7 +105,7 @@ Respond in this exact JSON format:
   "difficulty": "easy or medium or hard"
 }`;
 
-        const result = await base44.integrations.Core.InvokeLLM({
+        const result = await trackedInvokeLLM({
           prompt,
           response_json_schema: {
             type: "object",
@@ -117,7 +118,7 @@ Respond in this exact JSON format:
               difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
             },
           },
-        });
+        }, "recommendation");
 
         // Validate: ensure recommended IDs exist in our data
         const validSubject = subjects.find(s => s.id === result.subject_id || s.name === result.subject_name);

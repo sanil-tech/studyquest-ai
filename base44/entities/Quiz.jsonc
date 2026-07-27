@@ -81,6 +81,55 @@
     "infographic_url": {
       "type": "string",
       "description": "URL of the mind map infographic image"
+    },
+    "mindmap_json": {
+      "type": "string",
+      "description": "JSON string of AI-generated mindmap branches [{label, children}]. Generated once, reused for all students."
+    },
+    "feedback_library_json": {
+      "type": "string",
+      "description": "JSON string of pre-generated feedback messages [{type, message}]. Reused instead of calling AI per answer."
+    },
+    "ai_explanations_json": {
+      "type": "string",
+      "description": "JSON string of AI explanations for key concepts [{concept, explanation}]. Used for RAG-based tutor."
+    },
+    "common_mistakes_json": {
+      "type": "string",
+      "description": "JSON string of common student mistakes [{mistake, correction, explanation}]. Used for pre-generated feedback."
+    },
+    "voice_script": {
+      "type": "string",
+      "description": "AI-generated narration script for text-to-speech. Generated once, reused."
+    },
+    "voice_audio_url": {
+      "type": "string",
+      "description": "URL of generated TTS audio file. Generated once, reused for all students."
+    },
+    "lesson_content_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ai_generated",
+        "reviewed",
+        "published"
+      ],
+      "default": "draft",
+      "description": "Content lifecycle status: draft \u2192 ai_generated \u2192 reviewed \u2192 published"
+    },
+    "content_version": {
+      "type": "number",
+      "default": 1,
+      "description": "Content version for tracking updates"
+    },
+    "last_generated_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When AI content was last generated"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin/teacher who approved the content"
     }
   },
   "required": [
