@@ -22,15 +22,20 @@ import confetti from "canvas-confetti";
 
 // Map question bank format to component-expected format
 function mapQuestionForComponent(q) {
+  const content = typeof q.question_content === "string"
+    ? JSON.parse(q.question_content)
+    : q.question_content;
   return {
-    id: q.question_id,
+    id: q.id || q.question_id,
     type: q.question_type,
-    question: q.question_content.question,
-    display: q.question_content.display,
-    options: q.question_content.options,
-    correct: q.question_content.correct,
+    question: content.question,
+    display: content.display,
+    options: content.options,
+    correct: content.correct,
+    prompt: content.prompt,
+    instruction: content.instruction,
     _meta: {
-      question_id: q.question_id,
+      question_id: q.id || q.question_id,
       subject: q.subject,
       skill: q.skill,
       sub_skill: q.sub_skill,
