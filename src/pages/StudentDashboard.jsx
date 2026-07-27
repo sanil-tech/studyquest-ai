@@ -1,11 +1,15 @@
 // src/pages/StudentDashboard.jsx
+// 🎮 STUDENT EXPERIENCE — "Jungle Adventure" Theme (Age 7-12)
+// Design language: warm colors, chunky borders, big shadows, playful animations,
+// game-UI elements (badges, meters, quests), large touch targets, encouraging Malay.
+
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
-  Trophy, BookOpen, Target, Award, Play, CheckCircle2, 
-  UserCheck, UserX, ShieldAlert, Sparkles, Leaf, TreePine, 
-  Sprout, LogOut, Compass, Flame, Rocket
+  BookOpen, Award, Play,
+  UserCheck, UserX, ShieldAlert, Sparkles, Leaf,
+  Sprout, LogOut, Compass, Flame, Rocket, Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -95,7 +99,7 @@ export default function StudentDashboard() {
   const { toast } = useToast();
   const { returnToParentMode } = useViewMode();
   const { user: authUser } = useAuth();
-  
+
   const [dashboardState, setDashboardState] = useState({
     user: null,
     activeChildId: null,
@@ -117,10 +121,10 @@ export default function StudentDashboard() {
 
       if (!currentUser) throw new Error("No user");
 
-      const activeChildId = currentUser.app_role === "parent" 
-        ? localStorage.getItem("active_child_session") 
+      const activeChildId = currentUser.app_role === "parent"
+        ? localStorage.getItem("active_child_session")
         : null;
-      
+
       let studentUser = currentUser;
       let progress = { level: 1, total_xp: 0, streak_days: 0 };
       let wallet = { balance: 0 };
@@ -213,18 +217,18 @@ export default function StudentDashboard() {
 
     } catch (err) {
       console.error("Ralat memuat turun data:", err);
-      toast({ 
-        title: "Alamak!", 
-        description: "Gagal memuat turun data pengembaraan anda.", 
-        variant: "destructive" 
+      toast({
+        title: "Alamak!",
+        description: "Gagal memuat turun data pengembaraan anda.",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
-  useEffect(() => { 
-    loadDashboardData(); 
+  useEffect(() => {
+    loadDashboardData();
   }, [loadDashboardData]);
 
   const handleLinkAction = useCallback(async (relationshipId, actionType) => {
@@ -246,11 +250,9 @@ export default function StudentDashboard() {
   }, [toast, loadDashboardData]);
 
   const handleExitChildMode = () => {
-    // Delegate all cleanup + navigation to the ViewModeContext
     returnToParentMode();
   };
 
-  // ✅ FIX: Clean, isolated calculation object avoids Temporal Dead Zone (TDZ)
   const progressCalculations = useMemo(() => {
     const currentLevel = dashboardState.progress?.level || 1;
     const currentXp = dashboardState.progress?.total_xp || 0;
@@ -265,7 +267,6 @@ export default function StudentDashboard() {
     };
   }, [dashboardState.progress]);
 
-  // Safely destructure after calculation finishes
   const { level, xp, nextLevelXp, xpPercentage } = progressCalculations;
 
   const todayMinutes = useMemo(() => {
@@ -277,7 +278,7 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F4F9F4]">
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}>
           <Sparkles className="w-14 h-14 text-emerald-500" />
         </motion.div>
@@ -291,32 +292,32 @@ export default function StudentDashboard() {
   const { user, progress, wallet, sessions, quizzes, pendingRequests, activeChildId, diagnosticSession } = dashboardState;
 
   return (
-    <div className="min-h-screen bg-[#F4F9F4] font-sans pb-24 text-stone-800 selection:bg-lime-200">
-      
-      {/* 1. TOP STATS BAR */}
-      <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b-4 border-stone-200/80 px-4 py-3">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
+    <div className="min-h-screen bg-gradient-to-b from-lime-50 via-emerald-50 to-teal-50 font-sans pb-24 text-stone-800 selection:bg-lime-200">
+
+      {/* ═══ 1. STICKY STATS BAR — Game-UI pills ═══ */}
+      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-4 border-emerald-200/60 px-4 py-3 shadow-sm">
+        <div className="max-w-5xl mx-auto flex justify-between items-center gap-2">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black px-4 py-1.5 rounded-2xl shadow-md text-sm border-b-2 border-green-700">
-              <TreePine className="w-5 h-5" />
+            <div className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-orange-400 text-stone-900 font-black px-4 py-2 rounded-2xl border-2 border-amber-300 shadow-md text-sm">
+              <Star className="w-5 h-5 fill-stone-900" />
               <span>Dahan {level}</span>
             </div>
             {activeChildId && (
               <button
                 onClick={handleExitChildMode}
-                className="flex items-center gap-1 font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 text-xs active:scale-95 transition-transform"
+                className="flex items-center gap-1 font-bold text-rose-600 bg-rose-50 px-3 py-2 rounded-xl border border-rose-200 text-xs active:scale-95 transition-transform"
               >
                 <LogOut className="w-4 h-4" /> Keluar
               </button>
             )}
           </div>
-          
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 font-extrabold text-amber-600 bg-amber-100/80 px-3.5 py-1.5 rounded-2xl border-b-2 border-amber-300 text-sm">
-              <Flame className="w-5 h-5 text-amber-500 fill-amber-400 animate-bounce" />
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 font-black text-orange-700 bg-orange-100 px-3 py-2 rounded-2xl border-2 border-orange-200 text-sm">
+              <Flame className="w-5 h-5 text-orange-500 fill-orange-400" />
               <span>{progress?.streak_days || 0} Hari</span>
             </div>
-            <div className="flex items-center gap-1.5 font-extrabold text-lime-700 bg-lime-100/80 px-3.5 py-1.5 rounded-2xl border-b-2 border-lime-300 text-sm">
+            <div className="flex items-center gap-1.5 font-black text-lime-700 bg-lime-100 px-3 py-2 rounded-2xl border-2 border-lime-200 text-sm">
               <Leaf className="w-5 h-5 text-lime-600 fill-lime-500" />
               <span>{wallet?.balance || 0} Daun</span>
             </div>
@@ -324,50 +325,92 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 mt-6 space-y-8">
-        
-        {/* 2. HERO BANNER */}
-        <motion.div 
+      <div className="max-w-5xl mx-auto px-4 mt-6 space-y-6">
+
+        {/* ═══ 2. HERO BANNER — Immersive adventure greeting ═══ */}
+        <motion.div
           initial={{ scale: 0.96, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 120 }}
-          className="relative bg-gradient-to-r from-emerald-600 via-green-600 to-teal-700 rounded-[2.5rem] p-6 sm:p-8 text-white shadow-xl border-b-8 border-green-800 overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6"
+          transition={{ type: "spring", stiffness: 100 }}
+          className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 p-6 sm:p-8 text-white shadow-2xl border-b-8 border-green-800"
         >
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-            <div className="relative">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/20 p-2 border-4 border-white/40 shadow-inner flex items-center justify-center">
-                <AvatarDisplay xp={xp} size="lg" variant="plain" />
+          {/* Floating decorations */}
+          <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3 }} className="absolute top-4 right-8 text-3xl opacity-30 pointer-events-none">🌿</motion.div>
+          <motion.div animate={{ y: [0, -6, 0] }} transition={{ repeat: Infinity, duration: 2.5, delay: 0.5 }} className="absolute bottom-6 left-8 text-2xl opacity-30 pointer-events-none">🍃</motion.div>
+          <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 4, delay: 1 }} className="absolute top-12 right-24 text-xl opacity-20 pointer-events-none">✨</motion.div>
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+              <div className="relative">
+                <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/20 p-2 border-4 border-white/40 shadow-inner flex items-center justify-center">
+                  <AvatarDisplay xp={xp} size="lg" variant="plain" />
+                </motion.div>
+                <span className="absolute -bottom-1 -right-1 bg-amber-400 text-stone-900 font-black text-xs px-2.5 py-1 rounded-full border-2 border-white shadow-sm">
+                  Lv. {level}
+                </span>
               </div>
-              <span className="absolute -bottom-1 -right-1 bg-amber-400 text-stone-900 font-black text-xs px-2.5 py-1 rounded-full border-2 border-white shadow-sm">
-                Lv. {level}
-              </span>
+
+              <div>
+                <div className="inline-flex items-center gap-1.5 bg-lime-400 text-green-950 font-black px-3 py-1 rounded-full text-xs uppercase tracking-wider mb-2 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5" /> Wira StudyQuest
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight drop-shadow-md">
+                  Selamat Datang, {user?.nickname || "Penjelajah"}!
+                </h1>
+                <p className="text-emerald-100 font-medium mt-1 text-sm sm:text-base max-w-md">
+                  Suku, Bimo dan kawan-kawan dah sedia untuk pengembaraan hari ini. Jom buka Dunia Pembelajaran!
+                </p>
+              </div>
             </div>
 
-            <div>
-              <div className="inline-flex items-center gap-1.5 bg-lime-400 text-green-950 font-black px-3 py-1 rounded-full text-xs uppercase tracking-wider mb-2 shadow-sm">
-                <Sparkles className="w-3.5 h-3.5" /> Wira StudyQuest
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight drop-shadow-md">
-                Selamat Datang, {user?.nickname || "Penjelajah"}!
-              </h1>
-              <p className="text-emerald-100 font-medium mt-1 text-sm sm:text-base max-w-md">
-                Suku, Bimo dan kawan-kawan dah sedia untuk pengembaraan hari ini. Jom buka Dunia Pembelajaran!
-              </p>
-            </div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full md:w-auto">
+              <Button
+                onClick={() => navigate("/lessons")}
+                className="w-full md:w-auto bg-amber-400 hover:bg-amber-300 text-stone-900 font-black text-base px-7 py-6 rounded-2xl shadow-lg border-b-4 border-amber-600 flex items-center justify-center gap-2"
+              >
+                <Rocket className="w-5 h-5 text-stone-900" />
+                Teroka Sekarang
+              </Button>
+            </motion.div>
           </div>
-
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full md:w-auto">
-            <Button 
-              onClick={() => navigate("/lessons")}
-              className="w-full md:w-auto bg-amber-400 hover:bg-amber-300 text-stone-900 font-black text-lg px-8 py-7 rounded-2xl shadow-lg border-b-4 border-amber-600 flex items-center justify-center gap-2"
-            >
-              <Rocket className="w-6 h-6 text-stone-900" />
-              Teroka Sekarang
-            </Button>
-          </motion.div>
         </motion.div>
 
-        {/* 2.5. DIAGNOSTIC BANNER */}
+        {/* ═══ 3. DAILY QUEST — Gamified call-to-action ═══ */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className={
+            todayMinutes === 0
+              ? "bg-gradient-to-r from-amber-400 to-orange-400 rounded-3xl p-5 border-4 border-amber-300 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4"
+              : "bg-gradient-to-r from-emerald-400 to-green-500 rounded-3xl p-5 border-4 border-emerald-300 shadow-md flex items-center gap-4"
+          }
+        >
+          {todayMinutes === 0 ? (
+            <>
+              <div className="flex items-center gap-4 text-center sm:text-left">
+                <div className="text-4xl shrink-0">🗺️</div>
+                <div>
+                  <p className="font-black text-stone-900 text-base">Misi Hari Ini!</p>
+                  <p className="text-sm font-bold text-stone-700">Mula pengembaraan pertama kamu hari ini!</p>
+                </div>
+              </div>
+              <Button onClick={() => navigate("/lessons")} className="bg-stone-900 text-white font-black px-5 py-3 rounded-2xl shrink-0 hover:bg-stone-800">
+                Mula! 🚀
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="text-4xl shrink-0">⭐</div>
+              <div className="text-center sm:text-left">
+                <p className="font-black text-white text-base">Hebat! Kamu dah belajar {todayMinutes} minit hari ini!</p>
+                <p className="text-sm font-bold text-emerald-50">Teruskan usaha kamu, wira!</p>
+              </div>
+            </>
+          )}
+        </motion.div>
+
+        {/* ═══ 4. DIAGNOSTIC BANNER — Quest card ═══ */}
         <AnimatePresence>
           {!diagnosticSession ? (
             <motion.div
@@ -420,12 +463,12 @@ export default function StudentDashboard() {
           )}
         </AnimatePresence>
 
-        {/* 3. PARENT LINK PENDING BANNER */}
+        {/* ═══ 5. PARENT LINK PENDING BANNER ═══ */}
         <AnimatePresence>
           {pendingRequests.length > 0 && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }} 
-              animate={{ opacity: 1, y: 0 }} 
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, height: 0 }}
               className="bg-amber-50 rounded-3xl p-5 border-4 border-amber-200 shadow-sm"
             >
@@ -440,17 +483,17 @@ export default function StudentDashboard() {
                       <p className="text-xs text-stone-500">{req.parent_email} • Ingin memautkan akaun</p>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
-                      <Button 
-                        onClick={() => handleLinkAction(req.id, "approve")} 
-                        disabled={actionLoading} 
+                      <Button
+                        onClick={() => handleLinkAction(req.id, "approve")}
+                        disabled={actionLoading}
                         className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl"
                       >
                         <UserCheck className="w-4 h-4 mr-1" /> Terima
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleLinkAction(req.id, "reject")} 
-                        disabled={actionLoading} 
+                      <Button
+                        variant="outline"
+                        onClick={() => handleLinkAction(req.id, "reject")}
+                        disabled={actionLoading}
                         className="flex-1 border-stone-300 font-bold rounded-xl"
                       >
                         <UserX className="w-4 h-4 mr-1" /> Tolak
@@ -463,36 +506,41 @@ export default function StudentDashboard() {
           )}
         </AnimatePresence>
 
-        {/* 4. LEVEL PROGRESS BAR */}
-        <div className="bg-white rounded-3xl p-6 border-4 border-stone-200 shadow-sm">
+        {/* ═══ 6. PROGRESS — "Tree Growing" visualization ═══ */}
+        <div className="bg-white rounded-3xl p-6 border-4 border-emerald-100 shadow-sm">
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
-              <Target className="w-6 h-6 text-emerald-500" />
-              <h2 className="text-lg font-black text-stone-800">Kemajuan Dahan Pokok</h2>
+              <Sprout className="w-6 h-6 text-emerald-500" />
+              <h2 className="text-lg font-black text-stone-800">Pokok Kamu Semakin Tinggi!</h2>
             </div>
             <span className="text-xs font-black bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">
-              {xp} / {nextLevelXp} Meter XP
+              {xp} / {nextLevelXp} XP
             </span>
           </div>
 
-          <div className="h-5 bg-stone-100 rounded-full overflow-hidden border-2 border-stone-200 p-0.5">
+          <div className="h-7 bg-stone-100 rounded-full overflow-hidden border-2 border-stone-200 p-0.5 relative">
             <motion.div
-              initial={{ width: 0 }} 
-              animate={{ width: `${xpPercentage}%` }} 
+              initial={{ width: 0 }}
+              animate={{ width: `${xpPercentage}%` }}
               transition={{ duration: 1.2, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-lime-400 via-emerald-500 to-green-600 rounded-full"
-            />
+              className="h-full bg-gradient-to-r from-lime-400 via-emerald-500 to-green-600 rounded-full flex items-center justify-end pr-2"
+            >
+              {xpPercentage > 15 && <span className="text-lg">🌳</span>}
+            </motion.div>
           </div>
+          <p className="text-xs font-bold text-stone-500 mt-2 text-center">
+            {nextLevelXp - xp} XP lagi untuk naik ke Dahan {level + 1}! 🎯
+          </p>
         </div>
 
-        {/* 4.5. AI RECOMMENDATION CARD */}
-        <RecommendationCard 
-          user={user} 
-          sessions={sessions} 
-          quizzes={quizzes} 
+        {/* ═══ 7. AI RECOMMENDATION ═══ */}
+        <RecommendationCard
+          user={user}
+          sessions={sessions}
+          quizzes={quizzes}
         />
 
-        {/* 5. DUNIA SUBJEK (SUBJECT WORLDS GRID) */}
+        {/* ═══ 8. SUBJECT WORLDS — Big, playful adventure cards ═══ */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -510,7 +558,8 @@ export default function StudentDashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                whileHover={{ y: -6 }}
+                whileHover={{ y: -6, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 className={`bg-gradient-to-br ${sw.color} rounded-3xl p-5 text-white shadow-lg border-b-8 border-black/20 flex flex-col justify-between relative overflow-hidden group cursor-pointer`}
                 onClick={() => navigate(sw.path)}
               >
@@ -541,9 +590,9 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* 6. RECENT ACTIVITY & QUIZZES */}
+        {/* ═══ 9. ADVENTURE JOURNAL — Recent activity ═══ */}
         <div className="grid md:grid-cols-2 gap-6">
-          
+
           {/* Recent Lessons */}
           <div className="bg-white rounded-3xl p-6 border-4 border-stone-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -558,7 +607,7 @@ export default function StudentDashboard() {
             <div className="space-y-3">
               {sessions.length === 0 ? (
                 <div className="text-center py-8 text-stone-400 font-bold text-sm">
-                  Belum ada rekod pembelajaran hari ini.
+                  Belum ada rekod pembelajaran hari ini. 🌱
                 </div>
               ) : (
                 sessions.slice(0, 3).map((s) => (
@@ -587,14 +636,14 @@ export default function StudentDashboard() {
             <div className="space-y-3">
               {quizzes.length === 0 ? (
                 <div className="text-center py-8 text-stone-400 font-bold text-sm">
-                  Sedia untuk cabaran minda pertama anda?
+                  Sedia untuk cabaran minda pertama kamu? 🧠
                 </div>
               ) : (
                 quizzes.slice(0, 3).map((q) => {
-                  const scoreClass = q.score >= 80 
-                    ? "text-emerald-700 bg-emerald-100" 
-                    : q.score >= 50 
-                      ? "text-amber-700 bg-amber-100" 
+                  const scoreClass = q.score >= 80
+                    ? "text-emerald-700 bg-emerald-100"
+                    : q.score >= 50
+                      ? "text-amber-700 bg-amber-100"
                       : "text-rose-700 bg-rose-100";
 
                   return (
