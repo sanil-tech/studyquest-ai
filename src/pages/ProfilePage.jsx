@@ -324,7 +324,7 @@ export default function ProfilePage() {
                 )}
               </div>
               <p className="text-orange-50 font-medium text-sm">
-                {user?.email || (formData.education_level ? `Tahap: ${formData.education_level}` : "Penjelajah StudyQuest")}
+                {formData.education_level ? `Tahap: ${formData.education_level}` : "Penjelajah StudyQuest"}
               </p>
             </div>
           </div>
