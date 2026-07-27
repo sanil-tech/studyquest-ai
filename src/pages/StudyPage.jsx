@@ -344,6 +344,12 @@ export default function StudyPage() {
                 <p className="text-stone-500 text-xs sm:text-sm max-w-xs mx-auto mt-2 font-bold">
                   Sila tetapkan tahap persekolahan dalam profil untuk melihat misi yang sesuai.
                 </p>
+                <Link
+                  to="/profile"
+                  className="inline-flex items-center gap-1.5 mt-4 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs rounded-2xl shadow-md border-b-4 border-emerald-700 transition-all hover:scale-105"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> Tetapkan Tahap Sekarang
+                </Link>
               </>
             )}
           </div>
