@@ -13,6 +13,7 @@ import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
 import StudentIdSection from "@/components/profile/StudentIdSection";
 import { useStudentData } from "@/hooks/useStudentData";
+import { resolveCssAvatar } from "@/lib/avatarSystem";
 
 const FREE_AVATARS = [
   "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy&backgroundColor=ffdfbf",
@@ -263,13 +264,24 @@ export default function ProfilePage() {
         <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 z-10">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
             <div className="relative group">
-              <div className="w-28 h-28 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center overflow-hidden border-4 border-white/30 shadow-xl">
-                {user?.profile_picture_url ? (
-                  <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-5xl select-none">{user?.selected_avatar || user?.avatar_emoji || "🦧"}</span>
-                )}
-              </div>
+              {(() => {
+                const cssAvatar = resolveCssAvatar(user?.profile_picture_url) || resolveCssAvatar(user?.avatar_emoji) || resolveCssAvatar(user?.selected_avatar);
+                const realPhoto = user?.profile_picture_url && !cssAvatar ? user.profile_picture_url : null;
+                const fallbackEmoji = user?.selected_avatar || user?.avatar_emoji || "🦧";
+                return (
+                  <div className={`w-28 h-28 rounded-full flex items-center justify-center overflow-hidden border-4 border-white/30 shadow-xl ${
+                    cssAvatar ? `bg-gradient-to-br ${cssAvatar.bg}` : "bg-white/20 backdrop-blur-md"
+                  }`}>
+                    {cssAvatar ? (
+                      <span className="text-5xl select-none drop-shadow-md">{cssAvatar.emoji}</span>
+                    ) : realPhoto ? (
+                      <img src={realPhoto} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-5xl select-none">{fallbackEmoji}</span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-center md:justify-start gap-2">
