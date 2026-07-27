@@ -3,21 +3,24 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { useViewMode } from "@/lib/ViewModeContext";
-import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound, Moon } from "lucide-react";
+import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound, Moon, User } from "lucide-react";
+import BottomNav from "@/components/layout/BottomNav";
 import { resolveCssAvatar } from "@/lib/avatarSystem";
 
 const studentNav = [
   { path: "/dashboard", icon: Home, label: "Home" },
-  { path: "/study", icon: BookOpen, label: "Study" },
-  { path: "/wallet", icon: Wallet, label: "Wallet" },
-  { path: "/rewards", icon: Trophy, label: "Rewards" },
+  { path: "/study", icon: BookOpen, label: "Belajar" },
+  { path: "/wallet", icon: Wallet, label: "Dompet" },
+  { path: "/rewards", icon: Trophy, label: "Ganjaran" },
+  { path: "/profile", icon: User, label: "Profil" },
 ];
 
 const parentNav = [
   { path: "/parent", icon: Home, label: "Home" },
-  { path: "/parent/children", icon: Users, label: "Children" },
-  { path: "/parent/rewards", icon: Gift, label: "Rewards" },
-  { path: "/parent/approvals", icon: CheckSquare, label: "Approvals" },
+  { path: "/parent/children", icon: Users, label: "Anak" },
+  { path: "/parent/rewards", icon: Gift, label: "Ganjaran" },
+  { path: "/parent/approvals", icon: CheckSquare, label: "Lulus" },
+  { path: "/profile", icon: User, label: "Profil" },
 ];
 
 export default function AppLayout() {
@@ -299,12 +302,14 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 scroll-smooth transition-all duration-300">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-20 md:pb-8 scroll-smooth transition-all duration-300">
           <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>
         </main>
       </div>
+
+      <BottomNav nav={nav} />
     </div>
   );
 }

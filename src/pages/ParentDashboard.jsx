@@ -366,22 +366,6 @@ export default function ParentDashboard() {
         </Card>
       </div>
 
-      {/* ═══ WEATHER WIDGET ═══ */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <WeatherIcon className={`w-5 h-5 ${weatherInfo.color}`} />
-          <div>
-            <span className="text-sm font-bold text-slate-700">{weatherInfo.label}, {weather.temp}°C</span>
-            <span className="text-xs text-slate-400 flex items-center gap-0.5">
-              <MapPin className="w-3 h-3" /> {weather.city}
-            </span>
-          </div>
-        </div>
-        <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-3 py-1 rounded-lg">
-          {moment().format("D MMM")}
-        </span>
-      </div>
-
       {/* ═══ PENDING APPROVALS ═══ */}
       <PendingApprovalsBanner
         pendingCount={pendingApprovalsCount}
@@ -391,7 +375,7 @@ export default function ParentDashboard() {
       {/* ═══ SHORTCUTS ═══ */}
       <div>
         <h3 className="text-sm font-bold text-slate-700 mb-3">Tindakan Pantas</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <ShortcutCard
             icon={Users}
             title="Pengurusan Anak"
@@ -413,13 +397,7 @@ export default function ParentDashboard() {
             gradient="from-emerald-600 to-teal-600"
             onClick={() => navigate("/parent/approvals")}
           />
-          <ShortcutCard
-            icon={Settings}
-            title="Pilih Profil"
-            desc="Tukar modul anak"
-            gradient="from-slate-700 to-slate-900"
-            onClick={() => navigate("/parent/select-child")}
-          />
+
         </div>
       </div>
 

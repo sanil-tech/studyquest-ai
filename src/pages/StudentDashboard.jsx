@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import moment from "moment";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
+import MissionCard from "@/components/student/MissionCard";
 import RecommendationCard from "@/components/student/RecommendationCard";
 import { useViewMode } from "@/lib/ViewModeContext";
 import { useAuth } from "@/lib/AuthContext";
@@ -302,14 +303,7 @@ export default function StudentDashboard() {
               <Star className="w-5 h-5 fill-stone-900" />
               <span>Dahan {level}</span>
             </div>
-            {activeChildId && (
-              <button
-                onClick={handleExitChildMode}
-                className="flex items-center gap-1 font-bold text-indigo-600 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-200 text-xs active:scale-95 transition-transform"
-              >
-                <Moon className="w-4 h-4" /> Selesai 🌙
-              </button>
-            )}
+
           </div>
 
           <div className="flex items-center gap-2">
@@ -327,88 +321,14 @@ export default function StudentDashboard() {
 
       <div className="max-w-5xl mx-auto px-4 mt-6 space-y-6">
 
-        {/* ═══ 2. HERO BANNER — Immersive adventure greeting ═══ */}
-        <motion.div
-          initial={{ scale: 0.96, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 100 }}
-          className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 p-6 sm:p-8 text-white shadow-2xl border-b-8 border-green-800"
-        >
-          {/* Floating decorations */}
-          <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3 }} className="absolute top-4 right-8 text-3xl opacity-30 pointer-events-none">🌿</motion.div>
-          <motion.div animate={{ y: [0, -6, 0] }} transition={{ repeat: Infinity, duration: 2.5, delay: 0.5 }} className="absolute bottom-6 left-8 text-2xl opacity-30 pointer-events-none">🍃</motion.div>
-          <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 4, delay: 1 }} className="absolute top-12 right-24 text-xl opacity-20 pointer-events-none">✨</motion.div>
-
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-              <div className="relative">
-                <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/20 p-2 border-4 border-white/40 shadow-inner flex items-center justify-center">
-                  <AvatarDisplay xp={xp} size="lg" variant="plain" />
-                </motion.div>
-                <span className="absolute -bottom-1 -right-1 bg-amber-400 text-stone-900 font-black text-xs px-2.5 py-1 rounded-full border-2 border-white shadow-sm">
-                  Lv. {level}
-                </span>
-              </div>
-
-              <div>
-                <div className="inline-flex items-center gap-1.5 bg-lime-400 text-green-950 font-black px-3 py-1 rounded-full text-xs uppercase tracking-wider mb-2 shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5" /> Wira StudyQuest
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight drop-shadow-md">
-                  Selamat Datang, {user?.nickname || "Penjelajah"}!
-                </h1>
-                <p className="text-emerald-100 font-medium mt-1 text-sm sm:text-base max-w-md">
-                  Suku, Bimo dan kawan-kawan dah sedia untuk pengembaraan hari ini. Jom buka Dunia Pembelajaran!
-                </p>
-              </div>
-            </div>
-
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full md:w-auto">
-              <Button
-                onClick={() => navigate("/lessons")}
-                className="w-full md:w-auto bg-amber-400 hover:bg-amber-300 text-stone-900 font-black text-base px-7 py-6 rounded-2xl shadow-lg border-b-4 border-amber-600 flex items-center justify-center gap-2"
-              >
-                <Rocket className="w-5 h-5 text-stone-900" />
-                Teroka Sekarang
-              </Button>
-            </motion.div>
-          </div>
-        </motion.div>
-
-        {/* ═══ 3. DAILY QUEST — Gamified call-to-action ═══ */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className={
-            todayMinutes === 0
-              ? "bg-gradient-to-r from-amber-400 to-orange-400 rounded-3xl p-5 border-4 border-amber-300 shadow-md flex flex-col sm:flex-row items-center justify-between gap-4"
-              : "bg-gradient-to-r from-emerald-400 to-green-500 rounded-3xl p-5 border-4 border-emerald-300 shadow-md flex items-center gap-4"
-          }
-        >
-          {todayMinutes === 0 ? (
-            <>
-              <div className="flex items-center gap-4 text-center sm:text-left">
-                <div className="text-4xl shrink-0">🗺️</div>
-                <div>
-                  <p className="font-black text-stone-900 text-base">Misi Hari Ini!</p>
-                  <p className="text-sm font-bold text-stone-700">Mula pengembaraan pertama kamu hari ini!</p>
-                </div>
-              </div>
-              <Button onClick={() => navigate("/lessons")} className="bg-stone-900 text-white font-black px-5 py-3 rounded-2xl shrink-0 hover:bg-stone-800">
-                Mula! 🚀
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="text-4xl shrink-0">⭐</div>
-              <div className="text-center sm:text-left">
-                <p className="font-black text-white text-base">Hebat! Kamu dah belajar {todayMinutes} minit hari ini!</p>
-                <p className="text-sm font-bold text-emerald-50">Teruskan usaha kamu, wira!</p>
-              </div>
-            </>
-          )}
-        </motion.div>
+        {/* ═══ MISSION CARD — Merged hero + daily quest ═══ */}
+        <MissionCard
+          user={user}
+          level={level}
+          xp={xp}
+          todayMinutes={todayMinutes}
+          onStart={() => navigate("/lessons")}
+        />
 
         {/* ═══ 4. DIAGNOSTIC BANNER — Quest card ═══ */}
         <AnimatePresence>
