@@ -190,7 +190,8 @@ export default function QuizPage() {
   useEffect(() => {
     const loadQuiz = async () => {
       try {
-        const q = await base44.entities.Quiz.get(quizId);
+        const contentRes = await base44.functions.invoke('getLessonContent', { quiz_id: quizId });
+        const q = contentRes.data;
         setQuiz(q);
         // ✅ Load pre-generated feedback library from DB (no AI needed)
         const storedFeedback = safeJsonParse(q.feedback_library_json, []);

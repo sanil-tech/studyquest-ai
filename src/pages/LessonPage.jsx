@@ -405,31 +405,21 @@ export default function LessonPage() {
           try { setSavedQuizProgress(JSON.parse(savedData)); } catch(e) {}
         }
 
-        const allQuizBanks = await base44.entities.Quiz.filter({});
-        let foundBank = allQuizBanks.find(b => b.id === topicId);
-        if (!foundBank) {
-          const targetClean = bersihkanTeksPadanan(top.name);
-          foundBank = allQuizBanks.find(b => bersihkanTeksPadanan(b.topic_name) === targetClean);
-        }
+        const contentRes = await base44.functions.invoke('getLessonContent', { topic_id: topicId });
+        const content = contentRes.data;
 
-        if (foundBank && isMounted) {
-          setActualQuizId(foundBank.id);
-          setVideoUrl(foundBank.video_url || "");
-          setInfographicUrl(foundBank.infographic_url || "");
+        if (content && content.source !== "none" && isMounted) {
+          setActualQuizId(content.quiz_id || content.lesson_id || "");
+          setVideoUrl(content.video_url || "");
+          setInfographicUrl(content.infographic_url || "");
           
-          let rawNotes = foundBank.notes_content;
-          if (rawNotes) {
-            try {
-              let parsed = typeof rawNotes === "object" ? rawNotes : JSON.parse(String(rawNotes).trim());
-              setNotesContent(parsed.text || String(rawNotes));
-              setNotesImage(parsed.image || "");
-            } catch (e) {
-              setNotesContent(String(rawNotes));
-            }
+          if (content.notes_content) {
+            setNotesContent(content.notes_content.text || "");
+            setNotesImage(content.notes_content.image || "");
           }
-          setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
-          setStoredMindmap(safeJsonParse(foundBank.mindmap_json, []));
-          setSubtopics(safeJsonParse(foundBank.subtopics_json, []));
+          setRawBankQuestions(safeJsonParse(content.questions_json, []));
+          setStoredMindmap(safeJsonParse(content.mindmap_json, []));
+          setSubtopics(safeJsonParse(content.subtopics_json, []));
         }
 
         const cachedSessions = await base44.entities.StudySession.filter(
