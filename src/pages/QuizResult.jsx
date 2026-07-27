@@ -106,7 +106,7 @@ export default function QuizResult() {
         </div>
         <div className="bg-purple-50 rounded-2xl p-4 text-center border border-purple-100">
           <Zap className="w-6 h-6 text-purple-500 mx-auto mb-1" />
-          <p className="text-2xl font-bold text-purple-700">+{Math.round(score / 2)}</p>
+          <p className="text-2xl font-bold text-purple-700">+{attempt?.xp_earned || Math.round((attempt?.coins_earned || 0) / 2)}</p>
           <p className="text-xs text-purple-500">XP Earned</p>
         </div>
       </motion.div>

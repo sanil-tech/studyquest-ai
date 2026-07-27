@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Mail, Lock, Loader2, Users, GraduationCap, BookOpen, CheckCircle2 } from "lucide-react";
+import { UserPlus, Mail, Lock, Loader2, Users, GraduationCap, CheckCircle2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import AuthLayout from "@/components/AuthLayout";
 import GoogleIcon from "@/components/GoogleIcon";
@@ -94,13 +94,6 @@ export default function Register() {
             description="For students aged 13+ who want to manage their own learning"
             color="primary"
             onClick={() => handleRoleSelect("student")}
-          />
-          <RoleOption
-            icon={BookOpen}
-            title="I am a Teacher"
-            description="Manage classes and monitor student progress"
-            color="emerald"
-            onClick={() => handleRoleSelect("teacher")}
           />
         </div>
       </AuthLayout>

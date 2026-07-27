@@ -120,9 +120,20 @@ export default function StudyPage() {
 
         const targetSubjectKey = subjectId || querySubject;
         if (targetSubjectKey) {
+          // Map short subject keys to name patterns for fuzzy matching
+          const SUBJECT_KEY_ALIASES = {
+            bm: ["bahasa melayu", "bahasa"],
+            ict: ["ict", "tmk", "rbt", "teknologi", "rekabentuk"],
+            art: ["seni", "art", "lukisan"],
+            science: ["science", "sains"],
+            math: ["math", "matematik"],
+            english: ["english", "inggeris"],
+            history: ["history", "sejarah"],
+          };
+          const aliases = SUBJECT_KEY_ALIASES[targetSubjectKey.toLowerCase()] || [targetSubjectKey.toLowerCase()];
           const foundSubject = subs.find(s => 
             s.id === targetSubjectKey || 
-            s.name.toLowerCase().includes(targetSubjectKey.toLowerCase())
+            aliases.some(alias => s.name.toLowerCase().includes(alias))
           );
 
           if (foundSubject) {
@@ -173,9 +184,18 @@ export default function StudyPage() {
 
   const getWorldConfig = (subObj) => {
     if (!subObj) return SUBJECT_WORLDS_CONFIG.default;
-    const key = (subObj.id || subObj.name || "").toLowerCase();
-    for (const [wKey, wVal] of Object.entries(SUBJECT_WORLDS_CONFIG)) {
-      if (key.includes(wKey)) return wVal;
+    const key = (subObj.name || subObj.id || "").toLowerCase();
+    const THEME_ALIASES = {
+      science: ["science", "sains"],
+      math: ["math", "matematik"],
+      bm: ["bahasa melayu", "bahasa"],
+      english: ["english", "inggeris"],
+      history: ["history", "sejarah"],
+      art: ["seni", "art", "lukisan"],
+      ict: ["ict", "tmk", "rbt", "teknologi", "rekabentuk"],
+    };
+    for (const [wKey, aliases] of Object.entries(THEME_ALIASES)) {
+      if (aliases.some(alias => key.includes(alias))) return SUBJECT_WORLDS_CONFIG[wKey];
     }
     return SUBJECT_WORLDS_CONFIG.default;
   };

@@ -1,8 +1,8 @@
 // src/pages/QuizPage.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Loader2, Eraser, PenTool, Image as ImageIcon } from "lucide-react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, CheckCircle2, Loader2, Eraser, PenTool, Image as ImageIcon, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { getActiveStudentId, awardCoinsAndXP } from "@/lib/rewardSystem";
@@ -95,10 +95,10 @@ const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
       </div>
 
       <div className="flex items-center gap-3 w-full max-w-[320px]">
-        <Button className="flex-1 rounded-xl border-stone-300 text-stone-600 h-10 text-xs font-bold" disabled="{isVerifying}" onClick="{clearCanvas}" type="button" variant="outline">
+        <Button className="flex-1 rounded-xl border-stone-300 text-stone-600 h-10 text-xs font-bold" disabled={isVerifying} onClick={clearCanvas} type="button" variant="outline">
           <Eraser className="w-4 h-4 mr-1"/> Padam
         </Button>
-        <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white h-10 text-xs font-black shadow-md" disabled="{isVerifying}" onClick="{handleVerify}" type="button">
+        <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white h-10 text-xs font-black shadow-md" disabled={isVerifying} onClick={handleVerify} type="button">
           {isVerifying ? (
             <><Loader2 className="w-4 h-4 animate-spin mr-1"/> Semak...</>
           ) : (
@@ -129,6 +129,7 @@ const safeJsonParse = (str, fallback = []) => {
 export default function QuizPage() {
   const { quizId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [quiz, setQuiz] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -136,6 +137,7 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
 
   const [inputMode, setInputMode] = useState("mcq"); 
   const [isVerifyingAI, setIsVerifyingAI] = useState(false);
@@ -147,6 +149,19 @@ export default function QuizPage() {
         setQuiz(q);
         
         let parsed = safeJsonParse(q.questions_json, []);
+
+        // Apply question limit from URL param (?limit=10 or ?limit=20)
+        const limitParam = parseInt(searchParams.get("limit"));
+        if (limitParam && limitParam > 0 && parsed.length > limitParam) {
+          // Shuffle and slice to get the requested number of questions
+          const shuffled = [...parsed];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          parsed = shuffled.slice(0, limitParam);
+        }
+
         if (parsed.length > 0) setQuestions(parsed);
       } catch (e) {
         console.error("Gagal memuat turun kuiz:", e);
@@ -155,10 +170,11 @@ export default function QuizPage() {
       }
     };
     loadQuiz();
-  }, [quizId]);
+  }, [quizId, searchParams]);
 
   const handleAnswer = (index, answer) => {
     setAnswers(prev => ({ ...prev, [index]: answer }));
+    setShowExplanation(true);
   };
 
   const verifyHandwritingWithAI = async (imageDataUrl) => {
@@ -171,7 +187,7 @@ export default function QuizPage() {
       
       const res = await base44.integrations.Core.InvokeLLM({
         prompt: promptMsg,
-        image_url: imageDataUrl
+        file_urls: [imageDataUrl]
       });
 
       const resStr = String(res).toLowerCase();
@@ -225,6 +241,7 @@ export default function QuizPage() {
         answers_json: JSON.stringify(answers), 
         score, 
         coins_earned: coins, 
+        xp_earned: xpEarned,
         feedback_text: typeof feedbackResult === "object" ? JSON.stringify(feedbackResult) : feedbackResult 
       });
       const finalAttemptId = Array.isArray(attempt) ? attempt[0]?.id : attempt?.id;
@@ -308,15 +325,18 @@ export default function QuizPage() {
             <div className="space-y-2.5">
               {q?.options?.map((option, i) => {
                 const isSelected = String(selectedAnswer || "").toLowerCase() === String(option).toLowerCase();
+                const correctAns = q?.correct_answer || q?.correctAnswer || "";
+                const isCorrect = isSelected && String(correctAns).toLowerCase() === String(option).toLowerCase();
+                const isWrongChoice = isSelected && !isCorrect;
                 return (
                   <button 
                     key={i} 
                     onClick={() => handleAnswer(currentQ, option)} 
                     disabled={submitted} 
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-transform active:scale-[0.99] text-xs sm:text-sm flex items-center ${isSelected ? "border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold" : "border-stone-200 hover:border-emerald-200 hover:bg-stone-50 text-stone-700"}`}
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-transform active:scale-[0.99] text-xs sm:text-sm flex items-center ${isCorrect ? "border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold" : isWrongChoice ? "border-rose-400 bg-rose-50/50 text-rose-900 font-bold" : isSelected ? "border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold" : "border-stone-200 hover:border-emerald-200 hover:bg-stone-50 text-stone-700"}`}
                   >
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-black mr-3 shadow-sm shrink-0 ${isSelected ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-500"}`}>
-                      {String.fromCharCode(65 + i)}
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-black mr-3 shadow-sm shrink-0 ${isCorrect ? "bg-emerald-600 text-white" : isWrongChoice ? "bg-rose-500 text-white" : isSelected ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-500"}`}>
+                      {isCorrect ? "✓" : isWrongChoice ? "✗" : String.fromCharCode(65 + i)}
                     </span>
                     <span className="flex-1">{option}</span>
                   </button>
@@ -324,12 +344,26 @@ export default function QuizPage() {
               })}
             </div>
           )}
+
+          {/* EXPLANATION DISPLAY — shown after student answers */}
+          {showExplanation && selectedAnswer && q?.explanation && (
+            <motion.div 
+              initial={{ opacity: 0, y: 5 }} 
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 space-y-1"
+            >
+              <p className="text-xs font-black text-amber-800 flex items-center gap-1.5">
+                <Lightbulb className="w-4 h-4 text-amber-500" /> Penjelasan Cikgu:
+              </p>
+              <p className="text-xs text-stone-700 font-medium leading-relaxed">{q.explanation}</p>
+            </motion.div>
+          )}
         </motion.div>
       </AnimatePresence>
 
       <div className="flex items-center gap-3">
         {currentQ > 0 && ( 
-          <Button onClick={() => { setCurrentQ(currentQ - 1); setInputMode("mcq"); }}
+          <Button onClick={() => { setCurrentQ(currentQ - 1); setInputMode("mcq"); setShowExplanation(!!answers[currentQ - 1]); }}
             variant="outline"
             className="flex-1 rounded-xl h-12 text-xs font-bold border-stone-300 text-stone-600 hover:bg-stone-100"
           >
@@ -337,7 +371,7 @@ export default function QuizPage() {
           </Button>
         )}
         {currentQ < questions.length - 1 ? ( 
-          <Button onClick={() => { setCurrentQ(currentQ + 1); setInputMode("mcq"); }}
+          <Button onClick={() => { setCurrentQ(currentQ + 1); setInputMode("mcq"); setShowExplanation(!!answers[currentQ + 1]); }}
             disabled={!selectedAnswer}
             className="flex-1 rounded-xl h-12 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           >
@@ -358,7 +392,7 @@ export default function QuizPage() {
         {questions.map((_, i) => ( 
           <button 
             key={i} 
-            onClick={() => { setCurrentQ(i); setInputMode("mcq"); }} 
+            onClick={() => { setCurrentQ(i); setInputMode("mcq"); setShowExplanation(!!answers[i]); }} 
             className={`w-3 h-3 rounded-full transition-all ${i === currentQ ? "bg-emerald-600 scale-125 ring-2 ring-emerald-200" : answers[i] ? "bg-emerald-400/50" : "bg-stone-300"}`} 
           /> 
         ))}

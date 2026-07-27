@@ -28,6 +28,11 @@
       "type": "number",
       "description": "Coins earned from this attempt"
     },
+    "xp_earned": {
+      "type": "number",
+      "description": "XP earned from this attempt",
+      "default": 0
+    },
     "feedback_text": {
       "type": "string",
       "description": "AI feedback on performance"
@@ -37,5 +42,46 @@
     "student_id",
     "quiz_id",
     "score"
-  ]
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

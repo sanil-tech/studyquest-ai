@@ -357,9 +357,19 @@ export default function LessonPage() {
 
   const worldTheme = useMemo(() => {
     if (!subjectId && !subject?.name) return WORLD_THEMES.default;
-    const key = (subjectId || subject?.name || "").toLowerCase();
-    for (const [wKey, wVal] of Object.entries(WORLD_THEMES)) {
-      if (key.includes(wKey)) return wVal;
+    const key = (subject?.name || subjectId || "").toLowerCase();
+    // Map subject names to world theme keys (handles Malay/English subject names)
+    const THEME_ALIASES = {
+      science: ["science", "sains"],
+      math: ["math", "matematik"],
+      bm: ["bahasa melayu", "bahasa"],
+      english: ["english", "inggeris"],
+      history: ["history", "sejarah"],
+      art: ["seni", "art", "lukisan"],
+      ict: ["ict", "tmk", "rbt", "teknologi", "rekabentuk"],
+    };
+    for (const [wKey, aliases] of Object.entries(THEME_ALIASES)) {
+      if (aliases.some(alias => key.includes(alias))) return WORLD_THEMES[wKey];
     }
     return WORLD_THEMES.default;
   }, [subjectId, subject]);

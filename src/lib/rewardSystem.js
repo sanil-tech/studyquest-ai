@@ -51,10 +51,16 @@ export const awardCoinsAndXP = async (studentId, { coins = 0, xp = 0, reason = "
           const newBalance = (targetWallet.balance || 0) + coins;
           await base44.entities.Wallet.update(targetWallet.id, { balance: newBalance });
         } else {
-          await base44.entities.Wallet.create({ student_id: studentId, balance: coins });
+          // Fallback: create wallet if none exists, then verify it was created
+          const newWallet = await base44.entities.Wallet.create({ student_id: studentId, balance: coins });
+          const verifyWallet = Array.isArray(newWallet) ? newWallet[0] : newWallet;
+          if (!verifyWallet?.id) {
+            // Final fallback: try once more
+            await base44.entities.Wallet.create({ student_id: studentId, balance: coins });
+          }
         }
 
-        // Merekodkan transaksi kewangan
+        // Merekodkan transaksi kewangan (only if coins > 0)
         await base44.entities.Transaction.create({
           student_id: studentId,
           type: "earn",
@@ -67,10 +73,11 @@ export const awardCoinsAndXP = async (studentId, { coins = 0, xp = 0, reason = "
       }
     }
 
-    // 2. KEMAS KINI / CIPTA PROGRESS XP & LEVEL ANAK
+    // 2. KEMAS KINI / CIPTA PROGRESS XP, LEVEL & STREAK ANAK
     if (xp > 0) {
       try {
         const todayStr = new Date().toISOString().split("T")[0];
+        const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
         const progresses = await base44.entities.Progress.filter({ student_id: studentId });
         const targetProgress = Array.isArray(progresses) ? progresses[0] : progresses;
 
@@ -79,9 +86,23 @@ export const awardCoinsAndXP = async (studentId, { coins = 0, xp = 0, reason = "
           const newXp = currentXp + xp;
           const newLevel = Math.floor(newXp / 200) + 1;
 
+          // Calculate streak: increment if last study was yesterday, keep if today, reset to 1 if gap
+          const lastStudyDate = targetProgress.last_study_date;
+          let newStreak = targetProgress.streak_days || 0;
+          if (lastStudyDate === todayStr) {
+            // Already studied today — keep current streak
+          } else if (lastStudyDate === yesterdayStr) {
+            // Studied yesterday — increment streak
+            newStreak = newStreak + 1;
+          } else {
+            // Gap in study — reset streak
+            newStreak = 1;
+          }
+
           await base44.entities.Progress.update(targetProgress.id, {
             total_xp: newXp,
             level: newLevel,
+            streak_days: newStreak,
             last_study_date: todayStr
           });
         } else {
