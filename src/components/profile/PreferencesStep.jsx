@@ -7,8 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { motion } from "framer-motion";
 
 const favoriteSubjects = [
-  "Mathematics", "Science", "English", "Bahasa Melayu", "History", 
-  "Geography", "Art", "Music", "Physical Education", "Computer Science"
+  "Matematik", "Sains", "Bahasa Inggeris", "Bahasa Melayu", "Sejarah",
+  "Geografi", "Seni Visual", "Muzik", "Pendidikan Jasmani", "Sains Komputer"
 ];
 
 export default function PreferencesStep({
@@ -33,22 +33,22 @@ export default function PreferencesStep({
       {user.app_role === "student" && (
         <>
           <div className="space-y-2">
-            <Label htmlFor="language">Preferred Language</Label>
+            <Label htmlFor="language">Bahasa Pilihan</Label>
             <Select value={preferredLanguage} onValueChange={setPreferredLanguage}>
               <SelectTrigger>
-                <SelectValue placeholder="Select language" />
+                <SelectValue placeholder="Pilih bahasa" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="en">Bahasa Inggeris</SelectItem>
                 <SelectItem value="ms">Bahasa Melayu</SelectItem>
-                <SelectItem value="zh">Chinese</SelectItem>
-                <SelectItem value="ta">Tamil</SelectItem>
+                <SelectItem value="zh">Bahasa Cina</SelectItem>
+                <SelectItem value="ta">Bahasa Tamil</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Daily Learning Goal</Label>
+            <Label>Matlamat Belajar Harian</Label>
             <div className="grid grid-cols-4 gap-2">
               {[10, 20, 30, 60].map(minutes => (
                 <Button
@@ -66,7 +66,7 @@ export default function PreferencesStep({
           </div>
 
           <div className="space-y-2">
-            <Label>Favorite Subjects (select all that apply)</Label>
+            <Label>Subjek Kegemaran (pilih semua yang berkenaan)</Label>
             <div className="grid grid-cols-2 gap-2">
               {favoriteSubjects.map(subject => (
                 <Button
@@ -84,15 +84,15 @@ export default function PreferencesStep({
           </div>
 
           <div className="space-y-2">
-            <Label>Difficulty Preference</Label>
+            <Label>Keutamaan Tahap Kesukaran</Label>
             <Select value={difficultyPreference} onValueChange={setDifficultyPreference}>
               <SelectTrigger>
-                <SelectValue placeholder="Select difficulty" />
+                <SelectValue placeholder="Pilih tahap kesukaran" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="easy">Easy - Build confidence first</SelectItem>
-                <SelectItem value="medium">Medium - Balanced challenge</SelectItem>
-                <SelectItem value="hard">Hard - Advanced learner</SelectItem>
+                <SelectItem value="easy">Mudah - Bina keyakinan dahulu</SelectItem>
+                <SelectItem value="medium">Sederhana - Cabaran seimbang</SelectItem>
+                <SelectItem value="hard">Sukar - Pelajar lanjutan</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -105,8 +105,8 @@ export default function PreferencesStep({
           <div className="space-y-4">
             <div className="flex items-center justify-between space-x-2">
               <div className="flex-1">
-                <Label htmlFor="email-notif" className="cursor-pointer">Email Notifications</Label>
-                <p className="text-xs text-muted-foreground">Receive updates via email</p>
+                <Label htmlFor="email-notif" className="cursor-pointer">Pemberitahuan E-mel</Label>
+                <p className="text-xs text-muted-foreground">Terima kemaskini melalui e-mel</p>
               </div>
               <Switch
                 id="email-notif"
@@ -119,8 +119,8 @@ export default function PreferencesStep({
               <>
                 <div className="flex items-center justify-between space-x-2">
                   <div className="flex-1">
-                    <Label htmlFor="progress-reports" className="cursor-pointer">Progress Reports</Label>
-                    <p className="text-xs text-muted-foreground">Weekly child progress summaries</p>
+                    <Label htmlFor="progress-reports" className="cursor-pointer">Laporan Kemajuan</Label>
+                    <p className="text-xs text-muted-foreground">Ringkasan kemajuan anak mingguan</p>
                   </div>
                   <Switch
                     id="progress-reports"
@@ -131,8 +131,8 @@ export default function PreferencesStep({
 
                 <div className="flex items-center justify-between space-x-2">
                   <div className="flex-1">
-                    <Label htmlFor="weekly-summary" className="cursor-pointer">Weekly Summary</Label>
-                    <p className="text-xs text-muted-foreground">Achievement highlights every week</p>
+                    <Label htmlFor="weekly-summary" className="cursor-pointer">Ringkasan Mingguan</Label>
+                    <p className="text-xs text-muted-foreground">Sorotan pencapaian setiap minggu</p>
                   </div>
                   <Switch
                     id="weekly-summary"
@@ -143,8 +143,8 @@ export default function PreferencesStep({
 
                 <div className="flex items-center justify-between space-x-2">
                   <div className="flex-1">
-                    <Label htmlFor="learning-alerts" className="cursor-pointer">Learning Alerts</Label>
-                    <p className="text-xs text-muted-foreground">Reminders for quiz and study sessions</p>
+                    <Label htmlFor="learning-alerts" className="cursor-pointer">Amaran Pembelajaran</Label>
+                    <p className="text-xs text-muted-foreground">Peringatan untuk sessi kuiz dan belajar</p>
                   </div>
                   <Switch
                     id="learning-alerts"
@@ -158,8 +158,8 @@ export default function PreferencesStep({
             {user.app_role === "teacher" && (
               <div className="flex items-center justify-between space-x-2">
                 <div className="flex-1">
-                  <Label htmlFor="learning-alerts" className="cursor-pointer">Learning Alerts</Label>
-                  <p className="text-xs text-muted-foreground">Reminders for class activities</p>
+                  <Label htmlFor="learning-alerts" className="cursor-pointer">Amaran Pembelajaran</Label>
+                  <p className="text-xs text-muted-foreground">Peringatan untuk aktiviti kelas</p>
                 </div>
                 <Switch
                   id="learning-alerts"

@@ -29,20 +29,21 @@
     "form_level": {
       "type": "string",
       "enum": [
-        "All Levels",
-        "Standard 1",
-        "Standard 2",
-        "Standard 3",
-        "Standard 4",
-        "Standard 5",
-        "Standard 6",
-        "Form 1",
-        "Form 2",
-        "Form 3",
-        "Form 4",
-        "Form 5"
+        "Semua Tahap",
+        "Tahun 1",
+        "Tahun 2",
+        "Tahun 3",
+        "Tahun 4",
+        "Tahun 5",
+        "Tahun 6",
+        "Tingkatan 1",
+        "Tingkatan 2",
+        "Tingkatan 3",
+        "Tingkatan 4",
+        "Tingkatan 5"
       ],
-      "default": "All Levels"
+      "default": "Semua Tahap",
+      "description": "Tahap persekolahan Malaysia \u2014 Tahun 1-6 (sekolah rendah) atau Tingkatan 1-5 (sekolah menengah)"
     },
     "topic_id": {
       "type": "string",

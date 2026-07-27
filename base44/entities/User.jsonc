@@ -28,7 +28,7 @@
     },
     "education_level": {
       "type": "string",
-      "description": "Student school level e.g. Standard 1, Standard 2, Form 1, Form 2"
+      "description": "Tahap persekolahan pelajar cth. Tahun 1, Tahun 2, Tingkatan 1, Tingkatan 2"
     },
     "school_year": {
       "type": "string"

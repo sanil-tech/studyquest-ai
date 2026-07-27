@@ -12,8 +12,8 @@ import { Loader2, UserPlus, Sparkles, Key, GraduationCap, Check } from "lucide-r
 
 // Grade options matching StudyQuest standards
 const GRADE_OPTIONS = [
-  "Standard 1", "Standard 2", "Standard 3", "Standard 4", "Standard 5", "Standard 6",
-  "Form 1", "Form 2", "Form 3", "Form 4", "Form 5"
+  "Tahun 1", "Tahun 2", "Tahun 3", "Tahun 4", "Tahun 5", "Tahun 6",
+  "Tingkatan 1", "Tingkatan 2", "Tingkatan 3", "Tingkatan 4", "Tingkatan 5"
 ];
 
 // Preset avatar collection
@@ -39,7 +39,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
   const [formData, setFormData] = useState({
     nickname: "",
     fullName: "",
-    grade: "Standard 1",
+    grade: "Tahun 1",
     pin: "",
     selectedAvatar: "🦖"
   });
@@ -56,7 +56,7 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
     setFormData({
       nickname: "",
       fullName: "",
-      grade: "Standard 1",
+      grade: "Tahun 1",
       pin: "",
       selectedAvatar: "🦖"
     });

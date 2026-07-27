@@ -11,17 +11,17 @@ const malaysianStates = [
   "Pahang", "Penang", "Perak", "Perlis", "Putrajaya", "Sabah", "Sarawak", "Selangor", "Terengganu"
 ];
 
-export default function ProfileStep({ 
-  user, 
-  nickname, setNickname, 
-  gender, setGender, 
-  dateOfBirth, setDateOfBirth, 
-  country, setCountry, 
+export default function ProfileStep({
+  user,
+  nickname, setNickname,
+  gender, setGender,
+  dateOfBirth, setDateOfBirth,
+  country, setCountry,
   state, setState,
   profilePictureUrl, setProfilePictureUrl,
   phoneNumber, setPhoneNumber,
   uploading, setUploading,
-  handleFileUpload 
+  handleFileUpload
 }) {
   return (
     <motion.div
@@ -32,11 +32,11 @@ export default function ProfileStep({
     >
       {/* Profile Picture */}
       <div className="space-y-2">
-        <Label>Profile Picture (optional)</Label>
+        <Label>Gambar Profil (Pilihan)</Label>
         <div className="flex items-center gap-4">
           {profilePictureUrl ? (
             <div className="relative">
-              <img src={profilePictureUrl} alt="Profile" className="w-20 h-20 rounded-full object-cover border-2 border-primary" />
+              <img src={profilePictureUrl} alt="Profil" className="w-20 h-20 rounded-full object-cover border-2 border-primary" />
               <button
                 type="button"
                 onClick={() => setProfilePictureUrl("")}
@@ -63,11 +63,11 @@ export default function ProfileStep({
               <Button variant="outline" type="button" asChild disabled={uploading}>
                 <span>
                   <Upload className="w-4 h-4 mr-2" />
-                  {uploading ? "Uploading..." : "Upload Photo"}
+                  {uploading ? "Memuat naik..." : "Muat Naik Foto"}
                 </span>
               </Button>
             </Label>
-            <p className="text-xs text-muted-foreground mt-1">Max 5MB</p>
+            <p className="text-xs text-muted-foreground mt-1">Maks 5MB</p>
           </div>
         </div>
       </div>
@@ -75,25 +75,25 @@ export default function ProfileStep({
       {/* Basic Info */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="nickname">Nickname (optional)</Label>
+          <Label htmlFor="nickname">Nama Panggilan (Pilihan)</Label>
           <Input
             id="nickname"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
-            placeholder="What should we call you?"
+            placeholder="Apa yang kami patut panggil kamu?"
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="gender">Gender</Label>
+          <Label htmlFor="gender">Jantina</Label>
           <Select value={gender} onValueChange={setGender}>
             <SelectTrigger>
-              <SelectValue placeholder="Select" />
+              <SelectValue placeholder="Pilih" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="male">Male</SelectItem>
-              <SelectItem value="female">Female</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-              <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+              <SelectItem value="male">Lelaki</SelectItem>
+              <SelectItem value="female">Perempuan</SelectItem>
+              <SelectItem value="other">Lain-lain</SelectItem>
+              <SelectItem value="prefer_not_to_say">Tidak mahu nyatakan</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -101,7 +101,7 @@ export default function ProfileStep({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="dob">Date of Birth *</Label>
+          <Label htmlFor="dob">Tarikh Lahir *</Label>
           <Input
             id="dob"
             type="date"
@@ -110,7 +110,7 @@ export default function ProfileStep({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="country">Country</Label>
+          <Label htmlFor="country">Negara</Label>
           <Input
             id="country"
             value={country}
@@ -121,10 +121,10 @@ export default function ProfileStep({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="state">State</Label>
+        <Label htmlFor="state">Negeri</Label>
         <Select value={state} onValueChange={setState}>
           <SelectTrigger>
-            <SelectValue placeholder="Select your state" />
+            <SelectValue placeholder="Pilih negeri anda" />
           </SelectTrigger>
           <SelectContent>
             {malaysianStates.map(s => (
@@ -137,7 +137,7 @@ export default function ProfileStep({
       {/* Phone for Parent/Teacher */}
       {(user.app_role === "parent" || user.app_role === "teacher") && (
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number (optional)</Label>
+          <Label htmlFor="phone">Nombor Telefon (Pilihan)</Label>
           <Input
             id="phone"
             value={phoneNumber}

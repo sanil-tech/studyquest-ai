@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 
 const educationLevels = [
-  "Standard 1", "Standard 2", "Standard 3", "Standard 4", "Standard 5", "Standard 6",
-  "Form 1", "Form 2", "Form 3", "Form 4", "Form 5"
+  "Tahun 1", "Tahun 2", "Tahun 3", "Tahun 4", "Tahun 5", "Tahun 6",
+  "Tingkatan 1", "Tingkatan 2", "Tingkatan 3", "Tingkatan 4", "Tingkatan 5"
 ];
 
 export default function RoleSpecificStep({
@@ -33,21 +33,21 @@ export default function RoleSpecificStep({
       {user.app_role === "student" && (
         <>
           <div className="space-y-2">
-            <Label htmlFor="school">School Name *</Label>
+            <Label htmlFor="school">Nama Sekolah *</Label>
             <Input
               id="school"
               value={schoolName}
               onChange={(e) => setSchoolName(e.target.value)}
-              placeholder="e.g. SK Taman Jaya"
+              placeholder="Cth: SK Taman Jaya"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="education">Education Level *</Label>
+              <Label htmlFor="education">Tahap Pendidikan *</Label>
               <Select value={educationLevel} onValueChange={setEducationLevel}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select level" />
+                  <SelectValue placeholder="Pilih tahap" />
                 </SelectTrigger>
                 <SelectContent>
                   {educationLevels.map(level => (
@@ -60,19 +60,19 @@ export default function RoleSpecificStep({
                   <CardContent className="p-3">
                     <p className="text-xs text-emerald-700 font-medium flex items-center gap-1">
                       <Award className="w-3 h-3" />
-                      Recommended for age {age}: Form {age - 12}
+                      Disyorkan untuk umur {age}: Tingkatan {age - 12}
                     </p>
                   </CardContent>
                 </Card>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="grade">Class (optional)</Label>
+              <Label htmlFor="grade">Kelas (Pilihan)</Label>
               <Input
                 id="grade"
                 value={gradeYear}
                 onChange={(e) => setGradeYear(e.target.value)}
-                placeholder="e.g. Jaya, Bestari"
+                placeholder="Cth: Jaya, Bestari"
               />
             </div>
           </div>
@@ -83,7 +83,7 @@ export default function RoleSpecificStep({
       {user.app_role === "parent" && (
         <>
           <div className="space-y-2">
-            <Label htmlFor="numChildren">Number of Children *</Label>
+            <Label htmlFor="numChildren">Bilangan Anak *</Label>
             <Input
               id="numChildren"
               type="number"
@@ -91,16 +91,16 @@ export default function RoleSpecificStep({
               max="10"
               value={numChildren}
               onChange={(e) => setNumChildren(e.target.value)}
-              placeholder="How many children do you have?"
+              placeholder="Berapa orang anak anda?"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="childrenNames">Children's Names (optional)</Label>
+            <Label htmlFor="childrenNames">Nama Anak-anak (Pilihan)</Label>
             <Input
               id="childrenNames"
               value={childrenNames}
               onChange={(e) => setChildrenNames(e.target.value)}
-              placeholder="e.g. Ali, Siti, Ahmad"
+              placeholder="Cth: Ali, Siti, Ahmad"
             />
           </div>
         </>
@@ -110,24 +110,24 @@ export default function RoleSpecificStep({
       {user.app_role === "teacher" && (
         <>
           <div className="space-y-2">
-            <Label htmlFor="subjects">Subjects Taught *</Label>
+            <Label htmlFor="subjects">Subjek Diajar *</Label>
             <Input
               id="subjects"
               value={teachingSubjects}
               onChange={(e) => setTeachingSubjects(e.target.value)}
-              placeholder="e.g. Mathematics, Science, English"
+              placeholder="Cth: Matematik, Sains, Bahasa Inggeris"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="teachingLevel">Teaching Level *</Label>
+            <Label htmlFor="teachingLevel">Tahap Mengajar *</Label>
             <Select value={teachingLevel} onValueChange={setTeachingLevel}>
               <SelectTrigger>
-                <SelectValue placeholder="Select level" />
+                <SelectValue placeholder="Pilih tahap" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="primary">Primary School</SelectItem>
-                <SelectItem value="secondary">Secondary School</SelectItem>
-                <SelectItem value="both">Both Levels</SelectItem>
+                <SelectItem value="primary">Sekolah Rendah</SelectItem>
+                <SelectItem value="secondary">Sekolah Menengah</SelectItem>
+                <SelectItem value="both">Kedua-dua Tahap</SelectItem>
               </SelectContent>
             </Select>
           </div>

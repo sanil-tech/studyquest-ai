@@ -30,7 +30,7 @@ export default function CompleteProfile() {
   const [schoolName, setSchoolName] = useState("");
   const [educationLevel, setEducationLevel] = useState("");
   const [gradeYear, setGradeYear] = useState("");
-  const [preferredLanguage, setPreferredLanguage] = useState("en");
+  const [preferredLanguage, setPreferredLanguage] = useState("ms");
   const [dailyGoalMinutes, setDailyGoalMinutes] = useState(20);
   const [favoriteSubjectsList, setFavoriteSubjectsList] = useState([]);
   const [difficultyPreference, setDifficultyPreference] = useState("medium");
@@ -83,9 +83,9 @@ export default function CompleteProfile() {
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       setProfilePictureUrl(file_url);
-      toast({ title: "Photo uploaded!", duration: 1500 });
+      toast({ title: "Foto dimuat naik!", duration: 1500 });
     } catch (err) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      toast({ title: "Gagal memuat naik", description: err.message, variant: "destructive" });
     } finally {
       setUploading(false);
     }
@@ -94,7 +94,7 @@ export default function CompleteProfile() {
   const validateStep = (step) => {
     if (step === 1) {
       if (!dateOfBirth) {
-        toast({ title: "Date of birth is required", variant: "destructive" });
+        toast({ title: "Tarikh lahir diperlukan", variant: "destructive" });
         return false;
       }
       return true;
@@ -102,17 +102,17 @@ export default function CompleteProfile() {
     if (step === 2) {
       if (user?.app_role === "student") {
         if (!schoolName || !educationLevel) {
-          toast({ title: "Please complete school details", variant: "destructive" });
+          toast({ title: "Sila lengkapkan butiran sekolah", variant: "destructive" });
           return false;
         }
       } else if (user?.app_role === "parent") {
         if (!numChildren) {
-          toast({ title: "Number of children is required", variant: "destructive" });
+          toast({ title: "Bilangan anak diperlukan", variant: "destructive" });
           return false;
         }
       } else if (user?.app_role === "teacher") {
         if (!teachingSubjects || !teachingLevel) {
-          toast({ title: "Please complete teaching details", variant: "destructive" });
+          toast({ title: "Sila lengkapkan butiran pengajaran", variant: "destructive" });
           return false;
         }
       }
@@ -236,15 +236,15 @@ export default function CompleteProfile() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Unable to load profile. Please refresh.</p>
+        <p className="text-muted-foreground">Tidak dapat memuatkan profil. Sila muat semula.</p>
       </div>
     );
   }
 
   const steps = [
-    { num: 1, title: "Profile", icon: User },
-    { num: 2, title: "Details", icon: GraduationCap },
-    { num: 3, title: "Preferences", icon: Settings },
+    { num: 1, title: "Profil", icon: User },
+    { num: 2, title: "Butiran", icon: GraduationCap },
+    { num: 3, title: "Keutamaan", icon: Settings },
   ];
 
   return (
@@ -252,9 +252,9 @@ export default function CompleteProfile() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-heading font-bold text-foreground">Complete Your Profile</h1>
+          <h1 className="text-2xl font-heading font-bold text-foreground">Lengkapkan Profil Anda</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Welcome, {user.full_name?.split(" ")[0] || "there"}! Let's set up your account.
+            Selamat datang, {user.full_name?.split(" ")[0] || "kawan"}! Mari sediakan akaun anda.
           </p>
         </div>
 
@@ -292,7 +292,7 @@ export default function CompleteProfile() {
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="font-heading font-bold text-foreground">
-              Step {currentStep} of 3
+              Langkah {currentStep} daripada 3
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -352,19 +352,19 @@ export default function CompleteProfile() {
             disabled={currentStep === 1}
             className="gap-1"
           >
-            <ChevronLeft className="w-4 h-4" /> Back
+            <ChevronLeft className="w-4 h-4" /> Kembali
           </Button>
 
           {currentStep < 3 ? (
             <Button onClick={handleNext} className="gap-1">
-              Next <ChevronRight className="w-4 h-4" />
+              Seterusnya <ChevronRight className="w-4 h-4" />
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={saving} className="gap-2">
               {saving ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> Menyimpan...</>
               ) : (
-                "Complete Profile 🎉"
+                "Lengkapkan Profil 🎉"
               )}
             </Button>
           )}
