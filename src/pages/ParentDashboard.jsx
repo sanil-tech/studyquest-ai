@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import {
   Gift, BarChart2, CloudRain, Sun, Cloud, CloudLightning,
-  UserPlus, Flame, Loader2, ChevronRight, Users
+  UserPlus, Flame, Loader2, ChevronRight, Users, Crown
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card } from "@/components/ui/card";
@@ -230,6 +230,13 @@ export default function ParentDashboard() {
             desc="Sahkan ganjaran"
             gradient="from-emerald-600 to-teal-600"
             onClick={() => navigate("/parent/approvals")}
+          />
+          <ShortcutCard
+            icon={Crown}
+            title="Premium"
+            desc="Langgan ciri istimewa"
+            gradient="from-amber-500 to-orange-600"
+            onClick={() => navigate("/premium")}
           />
 
         </div>
