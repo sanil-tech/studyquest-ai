@@ -114,25 +114,25 @@ export default function StudentIdSection({ user }) {
   const isExpired = linkCode && new Date() > new Date(linkCode.expires_at);
 
   return (
-    <div className="bg-white rounded-[2rem] p-6 sm:p-8 border-4 border-slate-100 shadow-xl relative overflow-hidden">
+    <div className="bg-white rounded-[2rem] p-4 sm:p-5 border-4 border-slate-100 shadow-xl relative overflow-hidden">
       {/* Hiasan Latar Belakang */}
       <IdCard className="absolute -top-6 -right-6 w-32 h-32 text-cyan-50/50 rotate-12 pointer-events-none" />
 
       <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-cyan-100 rounded-2xl">
-            <IdCard className="w-6 h-6 text-cyan-600" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 bg-cyan-100 rounded-xl">
+            <IdCard className="w-5 h-5 text-cyan-600" />
           </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Maklumat Pengembara 🪪</h2>
-            <p className="text-sm text-slate-500">ID rasmi dan kod rahsia anda di StudyQuest.</p>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800">Maklumat Pengembara 🪪</h2>
+            <p className="text-xs text-slate-500">ID rasmi dan kod rahsia anda di StudyQuest.</p>
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-3">
           
           {/* BAHAGIAN 1: ID PELAJAR */}
-          <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border-2 border-slate-100 space-y-3">
+          <div className="bg-slate-50 p-3 sm:p-4 rounded-2xl border-2 border-slate-100 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">ID Pelajar (Tetap)</label>
               <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 text-[10px]">
@@ -162,7 +162,7 @@ export default function StudentIdSection({ user }) {
           </div>
 
           {/* BAHAGIAN 2: KOD RAHSIA (LINK CODE) */}
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 sm:p-5 rounded-2xl border-2 border-amber-100 space-y-3">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-3 sm:p-4 rounded-2xl border-2 border-amber-100 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1">
                 <KeyRound className="w-3.5 h-3.5" /> Kod Pautan Segera
