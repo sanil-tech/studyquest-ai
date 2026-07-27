@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { 
   Users, Flame, Target, Clock, Coins, CheckCircle2, Award, BookOpen, 
   HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2, 
-  Eye, EyeOff, Edit3, Trash2, Key, GraduationCap, UserCheck, ChevronRight, UserPlus
+  Eye, EyeOff, Edit3, Trash2, Key, GraduationCap, UserCheck, ChevronRight, UserPlus, UserMinus
 } from "lucide-react";
 import moment from "moment";
 import { Link, useNavigate } from "react-router-dom";
@@ -151,6 +151,40 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
       if (onDataUpdated) onDataUpdated();
     } catch (err) {
       toast({ title: "Gagal menyimpan PIN 🛑", description: err.message, variant: "destructive" });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // 🔥 UNLINK CHILD (keeps child account & progress)
+  const handleUnlinkChild = async () => {
+    setUpdating(true);
+    try {
+      const response = await base44.functions.invoke("removeParentChildLink", { child_id: child.id });
+      const resPayload = response?.data || response;
+      if (resPayload?.success === false) throw new Error(resPayload?.error || "Gagal memutuskan tautan.");
+      toast({ title: "Tautan Diputus 🚪", description: `${displayName} tidak lagi dikaitkan dengan akaun anda.` });
+      setConfirmDeleteOpen(false);
+      if (onDataUpdated) onDataUpdated();
+    } catch (err) {
+      toast({ title: "Gagal memutuskan tautan", description: err.message, variant: "destructive" });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // 🔥 DELETE CHILD PERMANENTLY (removes account + all data)
+  const handleDeleteChild = async () => {
+    setUpdating(true);
+    try {
+      const response = await base44.functions.invoke("removeChildLink", { child_id: child.id });
+      const resPayload = response?.data || response;
+      if (resPayload?.success === false) throw new Error(resPayload?.error || "Gagal memadamkan profil.");
+      toast({ title: "Profil Dihapus 🗑️", description: `Profil ${displayName} dan semua data telah dipadamkan.` });
+      setConfirmDeleteOpen(false);
+      if (onDataUpdated) onDataUpdated();
+    } catch (err) {
+      toast({ title: "Gagal memadamkan profil", description: err.message, variant: "destructive" });
     } finally {
       setUpdating(false);
     }
@@ -350,6 +384,14 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
           >
             <BarChart3 className="w-3 h-3 mr-1 text-emerald-600" /> Laporan
           </Button>
+
+          <Button
+            variant="ghost"
+            onClick={() => setConfirmDeleteOpen(true)}
+            className="text-[11px] font-bold text-rose-500 hover:bg-rose-50 h-8 rounded-lg"
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
         </div>
       </div>
 
@@ -360,6 +402,42 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
         child={child}
         onCredentialsUpdated={onDataUpdated}
       />
+
+      {/* DELETE / UNLINK CONFIRMATION DIALOG */}
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent className="rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-black text-slate-900 flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-rose-500" /> Urus Akaun Anak
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-500 leading-relaxed">
+              Pilih tindakan untuk <strong className="text-slate-700">{displayName}</strong>. Anda boleh memutuskan tautan (anak kekal akaun & data) atau memadamkan secara kekal (semua data hilang).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Button
+              onClick={handleUnlinkChild}
+              disabled={updating}
+              variant="outline"
+              className="w-full h-11 rounded-xl border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-black justify-start"
+            >
+              {updating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserMinus className="w-4 h-4 mr-2" />}
+              Putus Tautan (Akaun Anak Kekal)
+            </Button>
+            <Button
+              onClick={handleDeleteChild}
+              disabled={updating}
+              className="w-full h-11 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black justify-start"
+            >
+              {updating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Padam Kekal (Semua Data Dihapus)
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl text-xs font-bold" disabled={updating}>Batal</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
