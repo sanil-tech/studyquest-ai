@@ -18,7 +18,7 @@
     },
     "xp_cap": {
       "type": "number",
-      "default": 500,
+      "default": 350,
       "description": "Maximum XP allowed per day"
     },
     "is_capped": {

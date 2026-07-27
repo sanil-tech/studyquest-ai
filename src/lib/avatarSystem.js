@@ -9,15 +9,15 @@
 
 const STAGE_DEFS = [
   { stage: 1, name: "Telur Misteri", xpRequired: 0, emoji: "🥚", tier: "bayi", animation: "bounce" },
-  { stage: 2, name: "Baru Menetas", xpRequired: 100, emoji: "🐣", tier: "bayi", animation: "bounce" },
-  { stage: 3, name: "Anak Comel", xpRequired: 300, emoji: "🐾", tier: "bayi", animation: "wiggle" },
-  { stage: 4, name: "Penjelajah", xpRequired: 600, emoji: "✨", tier: "pelajar", animation: "float" },
-  { stage: 5, name: "Pelajar Rajin", xpRequired: 1000, emoji: "📚", tier: "pelajar", animation: "pulse" },
-  { stage: 6, name: "Pakar Muda", xpRequired: 1500, emoji: "🌟", tier: "pelajar", animation: "swing" },
-  { stage: 7, name: "Sarjana", xpRequired: 2200, emoji: "🔮", tier: "master", animation: "pulse" },
-  { stage: 8, name: "Master Ilmu", xpRequired: 3000, emoji: "💫", tier: "master", animation: "wiggle" },
-  { stage: 9, name: "Profesor", xpRequired: 4000, emoji: "🎓", tier: "master", animation: "pulse" },
-  { stage: 10, name: "Raja Penjaga", xpRequired: 5500, emoji: "👑", tier: "lagenda", animation: "pulse" },
+  { stage: 2, name: "Baru Menetas", xpRequired: 120, emoji: "🐣", tier: "bayi", animation: "bounce" },
+  { stage: 3, name: "Anak Comel", xpRequired: 350, emoji: "🐾", tier: "bayi", animation: "wiggle" },
+  { stage: 4, name: "Penjelajah", xpRequired: 700, emoji: "✨", tier: "pelajar", animation: "float" },
+  { stage: 5, name: "Pelajar Rajin", xpRequired: 1200, emoji: "📚", tier: "pelajar", animation: "pulse" },
+  { stage: 6, name: "Pakar Muda", xpRequired: 2000, emoji: "🌟", tier: "pelajar", animation: "swing" },
+  { stage: 7, name: "Sarjana", xpRequired: 3000, emoji: "🔮", tier: "master", animation: "pulse" },
+  { stage: 8, name: "Master Ilmu", xpRequired: 4500, emoji: "💫", tier: "master", animation: "wiggle" },
+  { stage: 9, name: "Profesor", xpRequired: 6500, emoji: "🎓", tier: "master", animation: "pulse" },
+  { stage: 10, name: "Raja Penjaga", xpRequired: 9000, emoji: "👑", tier: "lagenda", animation: "pulse" },
 ];
 
 const STAGE_DESCS = [

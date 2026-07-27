@@ -10,37 +10,37 @@ import { awardCoinsAndXP } from "@/lib/rewardSystem";
 // ============================================================
 const DEFAULT_RULES = {
   lesson_complete: {
-    base_xp: 15,
+    base_xp: 10,
     base_coins: 0,
     first_completion_multiplier: 1.5,
     first_completion_coins: 5,
-    diminishing_tiers: [1.0, 0.7, 0.5, 0.3, 0.15],
+    diminishing_tiers: [1.0, 0.5, 0.25, 0.1, 0.05],
     mastery_threshold: 80,
     mastery_coin_bonus: 0,
     improvement_bonus_rate: 0,
-    daily_xp_cap: 500,
+    daily_xp_cap: 350,
   },
   quiz_practice: {
-    base_xp: 50,
+    base_xp: 35,
     base_coins: 0,
     first_completion_multiplier: 1.5,
     first_completion_coins: 10,
-    diminishing_tiers: [1.0, 0.7, 0.5, 0.3, 0.15],
+    diminishing_tiers: [1.0, 0.5, 0.25, 0.1, 0.05],
     mastery_threshold: 80,
-    mastery_coin_bonus: 30,
+    mastery_coin_bonus: 20,
     improvement_bonus_rate: 2,
-    daily_xp_cap: 500,
+    daily_xp_cap: 350,
   },
   quiz_mastery: {
-    base_xp: 100,
+    base_xp: 70,
     base_coins: 10,
     first_completion_multiplier: 2.0,
     first_completion_coins: 20,
-    diminishing_tiers: [1.0, 0.7, 0.5, 0.3, 0.15],
+    diminishing_tiers: [1.0, 0.5, 0.25, 0.1, 0.05],
     mastery_threshold: 80,
-    mastery_coin_bonus: 50,
+    mastery_coin_bonus: 35,
     improvement_bonus_rate: 3,
-    daily_xp_cap: 500,
+    daily_xp_cap: 350,
   },
 };
 
@@ -283,7 +283,7 @@ export async function calculateReward(studentId, { activityType, referenceId, sc
 
   // Perfect score bonus (mastery mode only)
   if (score !== null && score === 100 && activityType === "quiz_mastery") {
-    coins += 50;
+    coins += 30;
   }
 
   // Improvement coin bonus (small)
