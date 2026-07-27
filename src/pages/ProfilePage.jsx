@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
 import StudentIdSection from "@/components/profile/StudentIdSection";
+import CreatureCompanionSection from "@/components/profile/CreatureCompanionSection";
 import { useStudentData } from "@/hooks/useStudentData";
 import { resolveCssAvatar } from "@/lib/avatarSystem";
 import { useAuth } from "@/lib/AuthContext";
@@ -118,6 +119,10 @@ export default function ProfilePage() {
   const handleLogout = () => {
     localStorage.clear();
     base44.auth.logout("/login");
+  };
+
+  const handleCreatureChanged = (newCreatureId) => {
+    setUser((prev) => ({ ...prev, selected_creature: newCreatureId }));
   };
 
   const handleSaveAvatar = async (emoji) => {
@@ -494,6 +499,15 @@ export default function ProfilePage() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {isStudent && (
+            <CreatureCompanionSection
+              user={user}
+              xp={progress?.total_xp || 0}
+              targetStudentId={targetStudentId}
+              onCreatureChanged={handleCreatureChanged}
+            />
+          )}
 
           <Card className="border-orange-100 shadow-sm rounded-2xl overflow-hidden bg-white">
             <CardContent className="p-6 md:p-8">

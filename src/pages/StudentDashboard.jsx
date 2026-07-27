@@ -18,7 +18,6 @@ import moment from "moment";
 import MissionCard from "@/components/student/MissionCard";
 import AvatarEvolutionCard from "@/components/student/AvatarEvolutionCard";
 import RecommendationCard from "@/components/student/RecommendationCard";
-import AvatarSelector from "@/components/student/AvatarSelector";
 import AvatarShop from "@/components/student/AvatarShop";
 import { parseOwnedItems, parseEquippedItems } from "@/lib/avatarSystem";
 import { useViewMode } from "@/lib/ViewModeContext";
@@ -45,7 +44,6 @@ export default function StudentDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
   const [showAvatarShop, setShowAvatarShop] = useState(false);
 
   // Load Dashboard Data
@@ -193,28 +191,6 @@ export default function StudentDashboard() {
 
   const handleExitChildMode = () => {
     returnToParentMode();
-  };
-
-  const handleSelectCreature = async (newCreatureId) => {
-    try {
-      if (activeChildId) {
-        await base44.functions.invoke("updateChildProfile", {
-          child_id: activeChildId,
-          selected_creature: newCreatureId,
-        });
-      } else {
-        await base44.auth.updateMe({ selected_creature: newCreatureId });
-      }
-      setDashboardState(prev => ({
-        ...prev,
-        creatureId: newCreatureId,
-        user: { ...prev.user, selected_creature: newCreatureId },
-      }));
-      setShowAvatarSelector(false);
-      toast({ title: "Rakan Avatar Dipilih! 🎉", description: "Mula pelihara makhluk kamu!" });
-    } catch (err) {
-      toast({ title: "Gagal menyimpan", description: "Sila cuba lagi.", variant: "destructive" });
-    }
   };
 
   const handleBuyItem = async (item) => {
@@ -459,7 +435,7 @@ export default function StudentDashboard() {
         {/* ═══ 6b. AVATAR ACTIONS — Change creature & Shop ═══ */}
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => setShowAvatarSelector(true)}
+            onClick={() => navigate("/profile")}
             className="bg-white rounded-2xl p-4 border-2 border-stone-200 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-all"
           >
             <span className="text-2xl">🐾</span>
@@ -574,15 +550,6 @@ export default function StudentDashboard() {
         )}
 
       </div>
-
-      {/* Avatar Selector Modal */}
-      {showAvatarSelector && (
-        <AvatarSelector
-          currentCreature={creatureId}
-          onSelect={handleSelectCreature}
-          onClose={() => setShowAvatarSelector(false)}
-        />
-      )}
 
       {/* Avatar Shop Modal */}
       {showAvatarShop && (
