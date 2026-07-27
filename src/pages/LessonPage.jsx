@@ -630,7 +630,7 @@ export default function LessonPage() {
     } 
   };
 
-  const runQuizGeneration = async (numQ, isResume = false) => { 
+  const runQuizGeneration = async (numQ, quizType = "practice", isResume = false) => { 
     await recordStudyTime(); 
     setStatus(p => ({ ...p, quiz: true })); 
     try { 
@@ -642,13 +642,14 @@ export default function LessonPage() {
       if (sessionId) {
         await base44.entities.StudySession.update(sessionId, { quiz_completed: true, current_stage: "quiz" }).catch(()=>{});
       }
+      const resumeType = savedQuizProgress?.quizType || quizType;
       if (isResume && savedQuizProgress) {
-        navigate(`/quiz/${actualQuizId}?limit=${savedQuizProgress.limit}&resume=true`);
+        navigate(`/quiz/${actualQuizId}?limit=${savedQuizProgress.limit}&mode=${resumeType}&resume=true`);
       } else {
-        navigate(`/quiz/${actualQuizId}?limit=${numQ}`);
+        navigate(`/quiz/${actualQuizId}?limit=${numQ}&mode=${quizType}`);
       }
     } catch (e) { 
-      navigate(`/quiz/${actualQuizId || topicId}?limit=${numQ}`);
+      navigate(`/quiz/${actualQuizId || topicId}?limit=${numQ}&mode=${quizType}`);
     } finally { 
       setStatus(p => ({ ...p, quiz: false })); 
     } 
@@ -869,7 +870,7 @@ export default function LessonPage() {
               {savedQuizProgress && (
                 <div className="mb-6 p-4 bg-stone-900/80 border-2 border-emerald-400/40 border-dashed rounded-2xl">
                   <p className="text-xs font-black text-emerald-300 mb-2">Misi cabaran terdahulu dikesan!</p>
-                  <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, true)}
+                  <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, savedQuizProgress.quizType || "practice", true)}
                     className="w-full h-12 bg-teal-500 hover:bg-teal-400 text-stone-950 font-black rounded-xl flex items-center justify-center gap-2 border-b-4 border-teal-700"
                   >
                     <Play className="w-4 h-4 fill-stone-950"/> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
@@ -878,17 +879,27 @@ export default function LessonPage() {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
-                <Button onClick={() => runQuizGeneration(10)}
+                <Button onClick={() => runQuizGeneration(10, "practice")}
                   disabled={status.quiz}
-                  className="h-16 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-base rounded-2xl shadow-lg border-b-4 border-amber-700 active:translate-y-1 transition-all"
+                  className="h-auto py-4 bg-[#fca326] hover:bg-[#f59e0b] text-stone-950 font-black text-sm rounded-2xl shadow-lg border-b-4 border-[#d97706] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1"
                 >
-                  {status.quiz ? "Menyediakan..." : "⚡ Misi Kilat (10 Soalan)"}
+                  {status.quiz ? "Menyediakan..." : (
+                    <>
+                      <span className="flex items-center gap-1.5">⚡ Misi Kilat (10 Soalan)</span>
+                      <span className="text-[10px] font-bold text-stone-800/70">Latihan • Bantuan AI Suku</span>
+                    </>
+                  )}
                 </Button>
-                <Button onClick={() => runQuizGeneration(20)}
+                <Button onClick={() => runQuizGeneration(20, "mastery")}
                   disabled={status.quiz}
-                  className="h-16 bg-orange-500 hover:bg-orange-400 text-stone-950 font-black text-base rounded-2xl shadow-lg border-b-4 border-orange-700 active:translate-y-1 transition-all"
+                  className="h-auto py-4 bg-[#f57f20] hover:bg-[#ea580c] text-stone-950 font-black text-sm rounded-2xl shadow-lg border-b-4 border-[#c2410c] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1"
                 >
-                  {status.quiz ? "Menyediakan..." : "⚔️ Lawan Boss (20 Soalan)"}
+                  {status.quiz ? "Menyediakan..." : (
+                    <>
+                      <span className="flex items-center gap-1.5">⚔️ Lawan Boss (20 Soalan)</span>
+                      <span className="text-[10px] font-bold text-stone-800/70">Ujian • XP & Daun Bonus</span>
+                    </>
+                  )}
                 </Button>
               </div>
             </motion.div>

@@ -187,7 +187,8 @@ export default function QuizPage() {
       try {
         const q = await base44.entities.Quiz.get(quizId);
         setQuiz(q);
-        setQuizType(q?.quiz_type || "practice");
+        const modeParam = searchParams.get("mode");
+        setQuizType(modeParam === "mastery" ? "mastery" : (modeParam === "practice" ? "practice" : (q?.quiz_type || "practice")));
 
         let parsed = safeJsonParse(q.questions_json, []);
 
