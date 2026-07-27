@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { getActiveStudentId, awardCoinsAndXP } from "@/lib/rewardSystem";
+import { getActiveStudentId } from "@/lib/rewardSystem";
+import { processReward } from "@/lib/rewardEngine";
 import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
 import QuizModeHeader from "@/components/quiz/QuizModeHeader";
 
@@ -363,20 +364,17 @@ export default function QuizPage() {
 
       const score = Math.round((correct / questions.length) * 100);
 
-      // Mode-aware rewards
-      let coins = 0;
-      let xpEarned = 0;
-
-      if (isPracticeMode) {
-        // Practice: +50 XP, small coin reward
-        xpEarned = 50;
-        coins = correct * 5;
-      } else {
-        // Mastery: full rewards based on performance
-        coins = correct * 10;
-        if (score === 100) coins += 50;
-        xpEarned = correct * 5;
-      }
+      // 🎯 Anti-farming reward engine: calculates fair rewards based on completion history
+      const reward = await processReward(studentId, {
+        activityType: isPracticeMode ? "quiz_practice" : "quiz_mastery",
+        referenceId: quizId,
+        referenceName: quiz?.topic_name || "Topik",
+        subjectName: quiz?.subject_name,
+        score,
+        reason: isPracticeMode
+          ? `Latihan: ${quiz?.topic_name || "Topik"}`
+          : `Ujian Mahir: ${quiz?.topic_name || "Topik"}`,
+      });
 
       // Generate mode-aware feedback/analysis
       let feedbackResult = "";
@@ -510,8 +508,8 @@ Generate a comprehensive mastery report. Respond in JSON:
         subject_name: quiz?.subject_name || "Subjek",
         answers_json: JSON.stringify(answers),
         score,
-        coins_earned: coins,
-        xp_earned: xpEarned,
+        coins_earned: reward.coins,
+        xp_earned: reward.xp,
         feedback_text:
           typeof feedbackResult === "object"
             ? JSON.stringify(feedbackResult)
@@ -523,15 +521,7 @@ Generate a comprehensive mastery report. Respond in JSON:
         ? attempt[0]?.id
         : attempt?.id;
 
-      // Award coins & XP
-      await awardCoinsAndXP(studentId, {
-        coins,
-        xp: xpEarned,
-        reason: isPracticeMode
-          ? `Latihan: ${quiz?.topic_name || "Topik"}`
-          : `Ujian Mahir: ${quiz?.topic_name || "Topik"}`,
-        referenceId: finalAttemptId,
-      });
+      // Rewards already processed by processReward above (anti-farming engine)
 
       if (document.fullscreenElement) {
         if (document.exitFullscreen)

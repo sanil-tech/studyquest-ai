@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { getActiveStudentId, awardCoinsAndXP } from "@/lib/rewardSystem";
+import { getActiveStudentId } from "@/lib/rewardSystem";
+import { processReward } from "@/lib/rewardEngine";
 import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
 import {
   Tv,
@@ -484,11 +485,13 @@ export default function LessonPage() {
       };
 
       if (addedReward > 0 && studentId) {
-        awardCoinsAndXP(studentId, {
-          coins: addedReward,
-          xp: addedReward,
+        processReward(studentId, {
+          activityType: "lesson_complete",
+          referenceId: `${topicId}_${stageId}`,
+          referenceName: `${topic?.name || "Misi"} - ${stageId}`,
+          subjectName: subject?.name,
           reason: `Selesai ${stageId.toUpperCase()}: ${topic?.name || "Misi"}`
-        });
+        }).catch(() => {});
       }
 
       return nextState;
@@ -533,7 +536,13 @@ export default function LessonPage() {
         setSessionId(validId); 
         setProgressState(p => ({ ...p, video_completed: true, current_stage: "lesson", xp_earned: 10 })); 
         
-        await awardCoinsAndXP(studentId, { coins: 10, xp: 10, reason: `Taklimat Video: ${topic?.name || "Selesai"}` });
+        await processReward(studentId, {
+          activityType: "lesson_complete",
+          referenceId: `${topicId}_video`,
+          referenceName: `${topic?.name || "Misi"} - Video`,
+          subjectName: subject?.name,
+          reason: `Taklimat Video: ${topic?.name || "Selesai"}`
+        });
         
         triggerConfetti(); 
         setActiveTab("map"); 
@@ -577,7 +586,13 @@ export default function LessonPage() {
       }
 
       if (rewardVal > 0 && studentId) {
-        await awardCoinsAndXP(studentId, { coins: rewardVal, xp: rewardVal, reason: `Hadam Nota: ${topic?.name || "Selesai"}` });
+        await processReward(studentId, {
+          activityType: "lesson_complete",
+          referenceId: `${topicId}_lesson`,
+          referenceName: `${topic?.name || "Misi"} - Nota`,
+          subjectName: subject?.name,
+          reason: `Hadam Nota: ${topic?.name || "Selesai"}`
+        });
       }
 
       setProgressState(nextStatePayload); 
