@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
 
 import AddChildModal from "@/components/parent/AddChildModal";
+import SukuAIInsights from "@/components/parent/ai-insights/SukuAIInsights";
 import {
   loadChildrenWithStats, getChildDisplayName, getChildAvatar, isAvatarUrl,
   getSelectedChildId, setSelectedChildId
@@ -411,6 +412,9 @@ export default function ParentDashboard() {
           </Button>
         </Card>
       )}
+
+      {/* Suku AI Learning Insights (Premium Feature) */}
+      {selectedChild && <SukuAIInsights childId={selectedChild.id} />}
 
       {/* Modal for adding a new child */}
       <AddChildModal

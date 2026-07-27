@@ -1,0 +1,103 @@
+{
+  "name": "LearningAnalytics",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Subject name"
+    },
+    "skill": {
+      "type": "string",
+      "description": "Skill name (use 'overall' for subject-level aggregate)"
+    },
+    "score": {
+      "type": "number",
+      "default": 0,
+      "description": "Average score 0-100"
+    },
+    "trend": {
+      "type": "string",
+      "enum": [
+        "improving",
+        "stable",
+        "declining"
+      ],
+      "default": "stable",
+      "description": "Score trend direction"
+    },
+    "confidence_level": {
+      "type": "number",
+      "default": 0,
+      "description": "Confidence level 0-100"
+    },
+    "last_assessed": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this skill was last assessed"
+    }
+  },
+  "required": [
+    "student_id",
+    "subject",
+    "skill"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

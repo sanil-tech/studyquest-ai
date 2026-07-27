@@ -4,18 +4,17 @@
   "properties": {
     "app_role": {
       "type": "string",
-      "enum": ["student", "parent", "teacher", "admin"]
+      "enum": [
+        "student",
+        "parent",
+        "teacher",
+        "admin"
+      ]
     },
     "nickname": {
       "type": "string"
     },
-    "full_name": {
-      "type": "string"
-    },
     "username": {
-      "type": "string"
-    },
-    "email": {
       "type": "string"
     },
     "child_login_pin": {
@@ -91,7 +90,18 @@
     "status": {
       "type": "string",
       "default": "active"
+    },
+    "subscription_tier": {
+      "type": "string",
+      "enum": [
+        "free",
+        "premium"
+      ],
+      "default": "free",
+      "description": "Parent subscription tier \u2014 premium unlocks Suku AI Learning Insights"
     }
   },
-  "required": ["app_role"]
+  "required": [
+    "app_role"
+  ]
 }
