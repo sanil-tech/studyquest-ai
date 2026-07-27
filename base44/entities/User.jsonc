@@ -133,6 +133,26 @@
       "type": "string",
       "format": "date-time",
       "description": "When temporary premium access expires (null = permanent if premium)"
+    },
+    "diagnostic_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed"
+      ],
+      "default": "not_started",
+      "description": "Status penilaian diagnostik 3M anak \u2014 not_started, in_progress, atau completed"
+    },
+    "diagnostic_recommended_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Tarikh di mana penilaian diagnostik dicadangkan kepada ibu bapa"
+    },
+    "diagnostic_completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Tarikh anak menyelesaikan penilaian diagnostik 3M"
     }
   },
   "required": [

@@ -35,6 +35,16 @@ export default async function(req: Request): Promise<Response> {
       throw new Error('Gagal mencipta sesi diagnostik.');
     }
 
+    // 1.5. Update child's User record — mark diagnostic as completed
+    try {
+      await db.entities.User.update(student_id, {
+        diagnostic_status: 'completed',
+        diagnostic_completed_date: new Date().toISOString(),
+      });
+    } catch (userUpdateErr) {
+      console.error('Failed to update user diagnostic_status:', userUpdateErr);
+    }
+
     // 2. Create skill results in bulk
     const skillDetails = results.skillDetails || [];
     if (skillDetails.length > 0) {

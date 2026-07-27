@@ -18,7 +18,10 @@ import { Button } from "@/components/ui/button";
 import AddChildModal from "@/components/parent/AddChildModal";
 import ChildSummaryCard from "@/components/parent/ChildSummaryCard";
 import ChildDetailPanel from "@/components/parent/ChildDetailPanel";
+import DiagnosticRecommendationCard, { shouldShowDiagnosticRecommendation } from "@/components/parent/DiagnosticRecommendationCard";
+import ParentDiagnosticIntroModal from "@/components/parent/ParentDiagnosticIntroModal";
 import { loadChildrenWithStats, getSelectedChildId, setSelectedChildId } from "@/lib/childUtils";
+import { useViewMode } from "@/lib/ViewModeContext";
 
 // Maps WMO Weather Interpretation Codes (WW) to icons and language text
 const getWeatherDetails = (code) => {
@@ -82,12 +85,15 @@ function PendingApprovalsBanner({ pendingCount, onClick }) {
 export default function ParentDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { enterChildMode } = useViewMode();
 
   const [childrenList, setChildrenList] = useState([]);
   const [selectedChild, setSelectedChild] = useState(null);
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [addChildModalOpen, setAddChildModalOpen] = useState(false);
+  const [diagnosticIntroOpen, setDiagnosticIntroOpen] = useState(false);
+  const [diagnosticTargetChild, setDiagnosticTargetChild] = useState(null);
 
   const [weather] = useState({ code: 0, temp: 28, city: "Kota Kinabalu" });
 
@@ -299,6 +305,79 @@ export default function ParentDashboard() {
           </Card>
         )}
       </div>
+
+      {/* ═══ 3M DIAGNOSTIC RECOMMENDATION ═══ */}
+      {childrenList.length > 0 && (
+        <div className="space-y-3">
+          {childrenList.map((child) => {
+            const showCard = shouldShowDiagnosticRecommendation(child);
+            if (!showCard) return null;
+            const wasSkipped = child.diagnostic_status === "not_started" && child.diagnostic_recommended_date;
+            const isInProgress = child.diagnostic_status === "in_progress";
+            const isReminder = wasSkipped || isInProgress;
+
+            return (
+              <DiagnosticRecommendationCard
+                key={child.id}
+                child={child}
+                isReminder={isReminder}
+                onStart={() => {
+                  setDiagnosticTargetChild(child);
+                  setSelectedChildId(child.id);
+                  setDiagnosticIntroOpen(true);
+                }}
+                onSkip={async () => {
+                  try {
+                    // Mark the child's diagnostic as recommended (not_started + date) so reminder shows
+                    await base44.entities.User.update(child.id, {
+                      diagnostic_status: "not_started",
+                      diagnostic_recommended_date: new Date().toISOString(),
+                    }).catch(() => {});
+                    toast({
+                      title: "Tiada tekanan!",
+                      description: "Anda boleh mulakan Misi Penemuan 3M bila-bila masa dari profil anak.",
+                    });
+                    loadDashboardData();
+                  } catch (err) {
+                    console.error("Skip diagnostic error:", err);
+                  }
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* ═══ DIAGNOSTIC INTRO MODAL ═══ */}
+      <ParentDiagnosticIntroModal
+        open={diagnosticIntroOpen}
+        onClose={() => setDiagnosticIntroOpen(false)}
+        childName={diagnosticTargetChild?.nickname || diagnosticTargetChild?.full_name}
+        onStart={async () => {
+          try {
+            // Mark diagnostic as in_progress on the child
+            if (diagnosticTargetChild) {
+              await base44.entities.User.update(diagnosticTargetChild.id, {
+                diagnostic_status: "in_progress",
+                diagnostic_recommended_date: diagnosticTargetChild.diagnostic_recommended_date || new Date().toISOString(),
+              }).catch(() => {});
+            }
+            setDiagnosticIntroOpen(false);
+            // Enter child mode so diagnostic uses the child's ID, then navigate to diagnostic
+            if (diagnosticTargetChild) {
+              enterChildMode(diagnosticTargetChild);
+              // Override the /dashboard navigation from enterChildMode
+              setTimeout(() => navigate("/diagnostic"), 100);
+            } else {
+              navigate("/diagnostic");
+            }
+          } catch (err) {
+            console.error("Start diagnostic error:", err);
+            setDiagnosticIntroOpen(false);
+            navigate("/diagnostic");
+          }
+        }}
+      />
 
       {/* ═══ ADD CHILD MODAL ═══ */}
       <AddChildModal
