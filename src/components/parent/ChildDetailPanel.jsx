@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { getChildDisplayName, getChildAvatar, isAvatarUrl } from "@/lib/childUtils";
 import SukuAIInsights from "@/components/parent/ai-insights/SukuAIInsights";
+import DiagnosticReportCard from "@/components/parent/DiagnosticReportCard";
 import moment from "moment";
 
 /**
@@ -131,6 +132,12 @@ export default function ChildDetailPanel({ child, onClose }) {
           Lihat Laporan Penuh Anak <ArrowRight className="w-4 h-4" />
         </button>
       </Card>
+
+      {/* Diagnostic Report */}
+      <div>
+        <h3 className="text-sm font-bold text-slate-700 mb-2">Keputusan Diagnostik</h3>
+        <DiagnosticReportCard childId={child.id} childName={displayName} />
+      </div>
 
       {/* AI Learning Insights */}
       <SukuAIInsights childId={child.id} />

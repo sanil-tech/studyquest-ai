@@ -19,7 +19,8 @@
         "coins_earned",
         "reward_requested",
         "reward_approved",
-        "reward_rejected"
+        "reward_rejected",
+        "diagnostic_complete"
       ],
       "description": "Notification type"
     },

@@ -150,6 +150,49 @@ PENTING:
       // Session is still saved with levels and mastery — just no AI analysis
     }
 
+    // 4. Notify parent(s) — send in-app notification + email
+    try {
+      const parentRels = await db.entities.ParentChildRelationship.filter({
+        child_id: student_id,
+        status: 'active'
+      }).catch(() => []);
+
+      const childName = results.studentName || 'Anak anda';
+      const score = results.totalScore || 0;
+
+      for (const rel of parentRels) {
+        // In-app notification
+        await db.entities.Notification.create({
+          user_id: rel.parent_id,
+          title: 'Keputusan Diagnostik Baru',
+          message: `${childName} telah menamatkan ujian diagnostik 3M. Skor keseluruhan: ${score}%.`,
+          type: 'diagnostic_complete',
+          reference_id: sessionId,
+          read: false,
+        }).catch(() => {});
+
+        // Email notification
+        try {
+          const parentUser = await db.entities.User.get(rel.parent_id).catch(() => null);
+          if (parentUser?.email) {
+            const parentInsight = aiResult?.parent_insight
+              ? `\n\nInsight AI untuk anda:\n${aiResult.parent_insight}`
+              : '';
+
+            await base44.integrations.Core.SendEmail({
+              to: parentUser.email,
+              subject: `Keputusan Diagnostik ${childName}`,
+              body: `Salam sejahtera,\n\n${childName} telah menamatkan ujian diagnostik 3M (Membaca, Menulis, Mengira).\n\nSkor Keseluruhan: ${score}%\n\nTahap Membaca: ${results.membaca?.level || 1} (${results.membaca?.mastery || 'developing'})\nTahap Menulis: ${results.menulis?.level || 1} (${results.menulis?.mastery || 'developing'})\nTahap Mengira: ${results.mengira?.level || 1} (${results.mengira?.mastery || 'developing'})${parentInsight}\n\nSila log masuk ke aplikasi StudyQuest untuk melihat laporan penuh dan cadangan aktiviti pembelajaran.\n\nTerima kasih,\nPasukan StudyQuest`,
+            });
+          }
+        } catch (emailErr) {
+          console.error('Email notification failed:', emailErr);
+        }
+      }
+    } catch (notifyErr) {
+      console.error('Parent notification failed:', notifyErr);
+    }
+
     return Response.json({
       success: true,
       session_id: sessionId,
