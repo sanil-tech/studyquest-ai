@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { useViewMode } from "@/lib/ViewModeContext";
 import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound } from "lucide-react";
+import { resolveCssAvatar } from "@/lib/avatarSystem";
 
 const studentNav = [
   { path: "/dashboard", icon: Home, label: "Home" },
@@ -111,23 +112,29 @@ export default function AppLayout() {
     }
   };
 
-  const RenderAvatar = ({ className = "w-10 h-10" }) => (
-    <div className={`${className} rounded-full overflow-hidden border-2 border-orange-400 bg-orange-100 flex items-center justify-center shadow-sm shrink-0`}>
-      {isChildMode ? (
-        selectedChildProfile?.profile_picture_url ? (
-          <img src={selectedChildProfile.profile_picture_url} alt="Child Profile" className="w-full h-full object-cover bg-white" />
+  const RenderAvatar = ({ className = "w-10 h-10" }) => {
+    // Gather all possible avatar fields from the active profile
+    const profile = isChildMode ? selectedChildProfile : user;
+    const picUrl = profile?.profile_picture_url;
+    const emojiVal = profile?.avatar_emoji || profile?.selected_avatar || profile?.avatar;
+
+    // A css-avatar: identifier may be stored in profile_picture_url OR avatar_emoji
+    const cssAvatar = resolveCssAvatar(picUrl) || resolveCssAvatar(emojiVal);
+
+    return (
+      <div className={`${className} rounded-full overflow-hidden border-2 border-orange-400 flex items-center justify-center shadow-sm shrink-0 ${
+        cssAvatar ? `bg-gradient-to-br ${cssAvatar.bg}` : "bg-orange-100"
+      }`}>
+        {cssAvatar ? (
+          <span className="text-xl select-none drop-shadow-md">{cssAvatar.emoji}</span>
+        ) : picUrl ? (
+          <img src={picUrl} alt="Profile" className="w-full h-full object-cover bg-white" />
         ) : (
-          <span className="text-xl select-none">{selectedChildProfile?.avatar || "🦧"}</span>
-        )
-      ) : user?.profile_picture_url ? (
-        <img src={user.profile_picture_url} alt="Profile" className="w-full h-full object-cover bg-white" />
-      ) : user?.avatar_emoji ? (
-        <span className="text-xl select-none">{user.avatar_emoji}</span>
-      ) : (
-        <span className="text-xl select-none">🦧</span>
-      )}
-    </div>
-  );
+          <span className="text-xl select-none">{emojiVal || "🦧"}</span>
+        )}
+      </div>
+    );
+  };
 
   const SwitchModeButton = ({ compact = false }) => {
     if (!isParent) return null;

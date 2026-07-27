@@ -70,7 +70,8 @@ export default function ProfilePhotoSection({ user, avatarMode, setAvatarMode, u
   const [activeTab, setActiveTab] = useState("warrior");
 
   const checkIsSelected = (avatar) => {
-    return user?.profile_picture_url === `css-avatar:${avatar.id}`;
+    const cssId = `css-avatar:${avatar.id}`;
+    return user?.profile_picture_url === cssId || user?.avatar_emoji === cssId || user?.selected_avatar === cssId;
   };
 
   return (

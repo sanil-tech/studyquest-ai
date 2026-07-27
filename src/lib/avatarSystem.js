@@ -97,6 +97,48 @@ export const getAvatarStage = (xp = 0) => {
   return stage;
 };
 
+// CSS Avatar Presets — stored as `css-avatar:<id>` in profile_picture_url
+// Shared between ProfilePhotoSection (selection) and AppLayout (rendering)
+export const CSS_AVATAR_PRESETS = [
+  { id: "war_01", emoji: "🥷", bg: "from-red-500 via-orange-500 to-amber-500" },
+  { id: "war_02", emoji: "🛡️", bg: "from-blue-600 via-indigo-600 to-cyan-500" },
+  { id: "war_03", emoji: "⚔️", bg: "from-rose-500 via-purple-600 to-indigo-600" },
+  { id: "war_04", emoji: "🪓", bg: "from-amber-600 via-amber-700 to-amber-900" },
+  { id: "war_05", emoji: "🏹", bg: "from-emerald-600 via-teal-600 to-cyan-600" },
+  { id: "war_06", emoji: "🔱", bg: "from-orange-600 via-red-600 to-stone-700" },
+  { id: "her_01", emoji: "🦸", bg: "from-blue-500 via-red-500 to-yellow-400" },
+  { id: "her_02", emoji: "⚡", bg: "from-yellow-400 via-orange-500 to-red-500" },
+  { id: "her_03", emoji: "🕶️", bg: "from-zinc-700 via-slate-800 to-zinc-900" },
+  { id: "her_04", emoji: "🧜‍♂️", bg: "from-cyan-500 via-blue-500 to-indigo-600" },
+  { id: "her_05", emoji: "🧬", bg: "from-lime-400 via-emerald-500 to-teal-700" },
+  { id: "her_06", emoji: "🛡️", bg: "from-indigo-600 via-purple-600 to-pink-500" },
+  { id: "cyb_01", emoji: "🤖", bg: "from-slate-700 via-zinc-800 to-gray-600" },
+  { id: "cyb_02", emoji: "👾", bg: "from-emerald-500 via-teal-600 to-cyan-500" },
+  { id: "cyb_03", emoji: "🚀", bg: "from-amber-400 via-orange-500 to-red-600" },
+  { id: "cyb_04", emoji: "💻", bg: "from-fuchsia-500 via-purple-600 to-indigo-700" },
+  { id: "cyb_05", emoji: "🎧", bg: "from-pink-500 via-rose-500 to-violet-600" },
+  { id: "cyb_06", emoji: "🦾", bg: "from-cyan-600 via-slate-700 to-blue-900" },
+  { id: "bst_01", emoji: "🦊", bg: "from-orange-500 via-red-500 to-yellow-400" },
+  { id: "bst_02", emoji: "🐉", bg: "from-cyan-400 via-blue-500 to-emerald-500" },
+  { id: "bst_03", emoji: "🐯", bg: "from-amber-500 via-yellow-600 to-zinc-800" },
+  { id: "bst_04", emoji: "🐼", bg: "from-stone-300 via-stone-500 to-stone-700" },
+  { id: "bst_05", emoji: "🐶", bg: "from-amber-400 via-orange-400 to-amber-600" },
+  { id: "bst_06", emoji: "🐱", bg: "from-purple-400 via-pink-400 to-indigo-500" },
+  { id: "mys_01", emoji: "🔮", bg: "from-purple-600 via-fuchsia-600 to-pink-500" },
+  { id: "mys_02", emoji: "🔥", bg: "from-red-600 via-rose-500 to-amber-400" },
+  { id: "mys_03", emoji: "✨", bg: "from-indigo-900 via-purple-800 to-slate-900" },
+  { id: "mys_04", emoji: "🦅", bg: "from-amber-500 via-red-500 to-rose-600" },
+  { id: "mys_05", emoji: "❄️", bg: "from-sky-400 via-blue-500 to-teal-400" },
+  { id: "mys_06", emoji: "⏳", bg: "from-emerald-600 via-teal-700 to-slate-800" },
+];
+
+// Returns { emoji, bg } if the URL is a css-avatar: identifier, or null otherwise
+export const resolveCssAvatar = (url) => {
+  if (!url || typeof url !== "string" || !url.startsWith("css-avatar:")) return null;
+  const id = url.replace("css-avatar:", "");
+  return CSS_AVATAR_PRESETS.find((a) => a.id === id) || null;
+};
+
 // Returns the next stage after the current one (or null if at max)
 export const getNextStage = (xp = 0) => {
   const current = getAvatarStage(xp);
