@@ -287,7 +287,13 @@ export default function AppLayout() {
               {renderSwitchModeButton(true)}
             </div>
 
-            <Link to="/profile" className="flex items-center gap-3 group md:hover:bg-orange-50 md:p-1.5 md:pr-4 md:rounded-full transition-colors">
+            <Link
+              to={isParent && !isChildMode ? "#" : "/profile"}
+              onClick={isParent && !isChildMode ? (e) => e.preventDefault() : undefined}
+              className={`flex items-center gap-3 group md:p-1.5 md:pr-4 md:rounded-full transition-colors ${
+                isParent && !isChildMode ? "cursor-default md:hover:bg-transparent" : "md:hover:bg-orange-50 cursor-pointer"
+              }`}
+            >
               <RenderAvatar className="w-9 h-9 md:w-10 md:h-10 transition-transform group-hover:scale-105" />
 
               <div className="hidden md:block text-left">
