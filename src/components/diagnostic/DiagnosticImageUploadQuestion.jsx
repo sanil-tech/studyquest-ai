@@ -2,12 +2,16 @@ import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Upload, Loader2, ImageIcon, CheckCircle2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { useDiagnosticAudio } from "@/hooks/useDiagnosticAudio";
+import TTSButton from "@/components/diagnostic/TTSButton";
 
 export default function DiagnosticImageUploadQuestion({ question, questionNumber, totalQuestions, onAnswerNext }) {
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState(null);
   const [showResult, setShowResult] = useState(false);
   const fileInputRef = useRef(null);
+
+  const { audioUrl, loading: loadingAudio, playAudio } = useDiagnosticAudio(question.id, question.question);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -76,6 +80,11 @@ export default function DiagnosticImageUploadQuestion({ question, questionNumber
             {question.display}
           </motion.div>
         )}
+      </div>
+
+      {/* TTS — dengar soalan dibaca dengan kuat */}
+      <div className="flex items-center justify-center">
+        <TTSButton loading={loadingAudio} audioUrl={audioUrl} onPlay={playAudio} label="Dengar Soalan" />
       </div>
 
       {/* Upload area */}

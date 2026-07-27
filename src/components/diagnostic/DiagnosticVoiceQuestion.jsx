@@ -1,7 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Loader2, Volume2, Square, CheckCircle2 } from "lucide-react";
+import { Mic, Loader2, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { useDiagnosticAudio } from "@/hooks/useDiagnosticAudio";
+import TTSButton from "@/components/diagnostic/TTSButton";
 
 const ACCURACY_THRESHOLD = 70;
 
@@ -37,8 +39,6 @@ function getMatchedWords(transcript, target) {
 }
 
 export default function DiagnosticVoiceQuestion({ question, questionNumber, totalQuestions, onAnswerNext }) {
-  const [loadingAudio, setLoadingAudio] = useState(true);
-  const [audioUrl, setAudioUrl] = useState(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -51,34 +51,7 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
   const audioChunksRef = useRef([]);
 
   const targetText = question.correct || question.display || "";
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadAudio = async () => {
-      try {
-        const res = await base44.functions.invoke("getDiagnosticAudio", {
-          question_id: question.id,
-          target_text: targetText,
-        });
-        if (!cancelled && res.data?.success && res.data.audio_url) {
-          setAudioUrl(res.data.audio_url);
-        }
-      } catch (err) {
-        console.error("Audio load error:", err);
-      } finally {
-        if (!cancelled) setLoadingAudio(false);
-      }
-    };
-    loadAudio();
-    return () => { cancelled = true; };
-  }, [question.id, targetText]);
-
-  const playAudio = () => {
-    if (audioUrl) {
-      const audio = new Audio(audioUrl);
-      audio.play().catch((err) => console.error("Audio play error:", err));
-    }
-  };
+  const { audioUrl, loading: loadingAudio, playAudio } = useDiagnosticAudio(question.id, targetText);
 
   const startRecording = async () => {
     setTranscript("");
@@ -210,19 +183,8 @@ export default function DiagnosticVoiceQuestion({ question, questionNumber, tota
       </div>
 
       {/* TTS Audio — play target so student can hear what to read */}
-      <div className="flex items-center justify-center gap-2">
-        {loadingAudio ? (
-          <div className="flex items-center gap-2 text-xs font-bold text-stone-400">
-            <Loader2 className="w-4 h-4 animate-spin" /> Sedang sediakan audio...
-          </div>
-        ) : audioUrl ? (
-          <button
-            onClick={playAudio}
-            className="flex items-center gap-2 bg-blue-500/20 border-2 border-blue-400/40 text-blue-300 font-black px-4 py-2.5 rounded-2xl text-sm active:scale-95 transition-all"
-          >
-            <Volume2 className="w-4 h-4" /> Dengar Contoh Bacaan
-          </button>
-        ) : null}
+      <div className="flex items-center justify-center">
+        <TTSButton loading={loadingAudio} audioUrl={audioUrl} onPlay={playAudio} label="Dengar Contoh Bacaan" />
       </div>
 
       {/* Recording / Transcribing / Manual mode */}

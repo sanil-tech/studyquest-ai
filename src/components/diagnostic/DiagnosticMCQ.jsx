@@ -1,9 +1,13 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDiagnosticAudio } from "@/hooks/useDiagnosticAudio";
+import TTSButton from "@/components/diagnostic/TTSButton";
 
 export default function DiagnosticMCQ({ question, questionNumber, totalQuestions, onAnswerNext }) {
   const [selected, setSelected] = useState(null);
   const [showResult, setShowResult] = useState(false);
+
+  const { audioUrl, loading: loadingAudio, playAudio } = useDiagnosticAudio(question.id, question.question);
 
   const handleSelect = (option) => {
     if (showResult) return;
@@ -70,6 +74,11 @@ export default function DiagnosticMCQ({ question, questionNumber, totalQuestions
             {question.display}
           </motion.div>
         )}
+      </div>
+
+      {/* TTS — dengar soalan dibaca dengan kuat */}
+      <div className="flex items-center justify-center">
+        <TTSButton loading={loadingAudio} audioUrl={audioUrl} onPlay={playAudio} label="Dengar Soalan" />
       </div>
 
       {/* Options */}
