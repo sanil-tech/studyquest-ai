@@ -104,6 +104,7 @@ export default function StudentDashboard() {
     sessions: [],
     quizzes: [],
     pendingRequests: [],
+    diagnosticSession: null,
   });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -126,6 +127,7 @@ export default function StudentDashboard() {
       let sessions = [];
       let quizzes = [];
       let pendingRequests = [];
+      let diagnosticSession = null;
 
       if (activeChildId) {
         let matchedChild = null;
@@ -191,6 +193,7 @@ export default function StudentDashboard() {
           sessions = res.data.sessions || sessions;
           quizzes = res.data.quizzes || quizzes;
           pendingRequests = res.data.pendingRequests || [];
+          diagnosticSession = res.data.diagnosticSession || null;
           if (res.data.user?.nickname) {
             studentUser = { ...studentUser, ...res.data.user };
           }
@@ -205,6 +208,7 @@ export default function StudentDashboard() {
         sessions,
         quizzes,
         pendingRequests,
+        diagnosticSession,
       });
 
     } catch (err) {
@@ -284,7 +288,7 @@ export default function StudentDashboard() {
     );
   }
 
-  const { user, progress, wallet, sessions, quizzes, pendingRequests, activeChildId } = dashboardState;
+  const { user, progress, wallet, sessions, quizzes, pendingRequests, activeChildId, diagnosticSession } = dashboardState;
 
   return (
     <div className="min-h-screen bg-[#F4F9F4] font-sans pb-24 text-stone-800 selection:bg-lime-200">
@@ -362,6 +366,59 @@ export default function StudentDashboard() {
             </Button>
           </motion.div>
         </motion.div>
+
+        {/* 2.5. DIAGNOSTIC BANNER */}
+        <AnimatePresence>
+          {!diagnosticSession ? (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-3xl p-5 text-white shadow-lg border-b-4 border-purple-900 flex flex-col sm:flex-row items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-4 text-center sm:text-left">
+                <div className="text-4xl shrink-0">🐢</div>
+                <div>
+                  <div className="inline-flex items-center gap-1.5 bg-white/20 text-white font-black px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider mb-1">
+                    <Compass className="w-3 h-3" /> Misi Penemuan
+                  </div>
+                  <p className="font-black text-base">Kenal Kemahiran Asas 3M Kamu!</p>
+                  <p className="text-xs text-purple-100 mt-0.5">Membaca · Menulis · Mengira — Suku nak tahu tahap permulaan kamu.</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => navigate("/diagnostic")}
+                className="shrink-0 bg-amber-400 hover:bg-amber-300 text-stone-900 font-black px-6 py-3 rounded-2xl border-b-4 border-amber-600 flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" /> Mula Misi
+              </Button>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl p-4 border-2 border-stone-200 shadow-sm flex flex-wrap items-center justify-between gap-3"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">✅</span>
+                <div>
+                  <p className="font-black text-sm text-stone-800">Profil Asas 3M Dah Siap!</p>
+                  <div className="flex items-center gap-3 mt-1 text-xs font-bold text-stone-500">
+                    <span>📖 L{diagnosticSession.reading_level}</span>
+                    <span>✏️ L{diagnosticSession.writing_level}</span>
+                    <span>🔢 L{diagnosticSession.numeracy_level}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate(`/diagnostic/result/${diagnosticSession.id}`)}
+                className="text-xs font-black text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-200 active:scale-95 transition-all"
+              >
+                Lihat Keputusan →
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 3. PARENT LINK PENDING BANNER */}
         <AnimatePresence>

@@ -1,0 +1,102 @@
+{
+  "name": "DiagnosticSkillResult",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "ID of the BasicDiagnosticSession"
+    },
+    "skill_category": {
+      "type": "string",
+      "enum": [
+        "membaca",
+        "menulis",
+        "mengira"
+      ],
+      "description": "Which 3M module this skill belongs to"
+    },
+    "skill_name": {
+      "type": "string",
+      "description": "Specific skill name (e.g. letter_recognition, syllable_blending, number_recognition)"
+    },
+    "skill_display_name": {
+      "type": "string",
+      "description": "Human-friendly skill name in Bahasa Melayu"
+    },
+    "mastery_level": {
+      "type": "string",
+      "enum": [
+        "developing",
+        "good",
+        "strong"
+      ],
+      "default": "developing",
+      "description": "Mastery level achieved for this skill"
+    },
+    "score": {
+      "type": "number",
+      "default": 0,
+      "description": "Score percentage 0-100 for this skill"
+    },
+    "level_achieved": {
+      "type": "number",
+      "default": 0,
+      "description": "Highest level passed for this skill area"
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Specific recommendation for this skill"
+    }
+  },
+  "required": [
+    "student_id",
+    "session_id",
+    "skill_category",
+    "skill_name"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -27,13 +27,15 @@ Deno.serve(async (req) => {
     }
 
     // Fetch all dashboard data in parallel using Service Role (bypasses RLS)
-    const [childUser, progressRes, walletRes, sessionsRes, quizRes, pendingRelsRes] = await Promise.all([
+    const [childUser, progressRes, walletRes, sessionsRes, quizRes, pendingRelsRes, diagnosticSessionRes, diagnosticSkillsRes] = await Promise.all([
       db.entities.User.get(studentId).catch(() => null),
       db.entities.Progress.filter({ student_id: studentId }).catch(() => []),
       db.entities.Wallet.filter({ student_id: studentId }).catch(() => []),
       db.entities.StudySession.filter({ student_id: studentId }, "-created_date", 10).catch(() => []),
       db.entities.QuizAttempt.filter({ student_id: studentId }, "-created_date", 10).catch(() => []),
       db.entities.ParentChildRelationship.filter({ child_id: studentId, status: "pending" }).catch(() => []),
+      db.entities.BasicDiagnosticSession.filter({ student_id: studentId, status: "completed" }, "-created_date", 1).catch(() => []),
+      db.entities.DiagnosticSkillResult.filter({ student_id: studentId }, "-created_date", 20).catch(() => []),
     ]);
 
     const progress = (progressRes && progressRes[0]) || { total_xp: 0, streak_days: 0, level: 1 };
@@ -81,6 +83,8 @@ Deno.serve(async (req) => {
         sessions,
         quizzes,
         pendingRequests,
+        diagnosticSession: (diagnosticSessionRes && diagnosticSessionRes[0]) || null,
+        diagnosticSkills: diagnosticSkillsRes || [],
       },
       { status: 200, headers: resHeaders }
     );

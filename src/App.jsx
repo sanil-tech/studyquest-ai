@@ -42,6 +42,9 @@ const QuizResult = React.lazy(() => import('@/pages/QuizResult'));
 const WalletPage = React.lazy(() => import('@/pages/WalletPage'));
 const RewardsPage = React.lazy(() => import('@/pages/RewardsPage'));
 const GameHub = React.lazy(() => import('@/pages/GameHub'));
+const DiagnosticIntro = React.lazy(() => import('@/pages/DiagnosticIntro'));
+const DiagnosticAssessment = React.lazy(() => import('@/pages/DiagnosticAssessment'));
+const DiagnosticResult = React.lazy(() => import('@/pages/DiagnosticResult'));
 
 // Lazy-loaded Parent Pages
 const ParentDashboard = React.lazy(() => import('@/pages/ParentDashboard'));
@@ -133,6 +136,11 @@ const AuthenticatedApp = () => {
                 <Route path="/games/:subjectId/:topicId" element={<GameHub />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/rewards" element={<RewardsPage />} />
+
+                {/* Diagnostic Routes */}
+                <Route path="/diagnostic" element={<DiagnosticIntro />} />
+                <Route path="/diagnostic/assessment" element={<DiagnosticAssessment />} />
+                <Route path="/diagnostic/result/:sessionId" element={<DiagnosticResult />} />
               </Route>
             </Route>
 
