@@ -1,0 +1,106 @@
+{
+  "name": "DiagnosticQuestionBank",
+  "type": "object",
+  "properties": {
+    "question_id": {
+      "type": "string",
+      "description": "Unique question identifier"
+    },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "membaca",
+        "menulis",
+        "mengira"
+      ],
+      "description": "Which 3M module this question belongs to"
+    },
+    "skill": {
+      "type": "string",
+      "description": "Primary skill being tested (e.g. letter_recognition, syllable_blending, number_recognition)"
+    },
+    "sub_skill": {
+      "type": "string",
+      "description": "Specific sub-skill (e.g. vowels, consonants, confusion, KV, KV+KV)"
+    },
+    "difficulty": {
+      "type": "number",
+      "enum": [
+        1,
+        2,
+        3
+      ],
+      "default": 1,
+      "description": "Difficulty level: 1=easy, 2=medium, 3=hard"
+    },
+    "question_type": {
+      "type": "string",
+      "enum": [
+        "mcq",
+        "voice",
+        "image_upload"
+      ],
+      "description": "How the student answers this question"
+    },
+    "question_content": {
+      "type": "string",
+      "description": "JSON string of question data: {question, display, options, correct}"
+    },
+    "answer": {
+      "type": "string",
+      "description": "The correct answer"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Explanation of the correct answer for feedback"
+    },
+    "visual_asset": {
+      "type": "string",
+      "description": "URL or emoji for visual display"
+    },
+    "audio_asset": {
+      "type": "string",
+      "description": "URL of pre-generated TTS audio (if applicable)"
+    },
+    "layer": {
+      "type": "string",
+      "enum": [
+        "screening",
+        "investigation"
+      ],
+      "default": "screening",
+      "description": "Which assessment layer this question belongs to"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this question is currently in use"
+    }
+  },
+  "required": [
+    "question_id",
+    "subject",
+    "skill",
+    "question_type",
+    "question_content",
+    "answer"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

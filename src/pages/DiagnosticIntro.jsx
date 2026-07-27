@@ -52,6 +52,25 @@ export default function DiagnosticIntro() {
           </p>
         </motion.div>
 
+        {/* Adaptive Flow Info */}
+        <div className="bg-stone-900/60 border-2 border-stone-700 rounded-2xl p-4 space-y-3">
+          <p className="text-xs font-black text-stone-400 uppercase tracking-wider text-center">Bagaimana ia berfungsi:</p>
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-xs font-black text-emerald-400 shrink-0">1</span>
+            <div>
+              <p className="text-xs font-bold text-stone-200">Saringan Ringkas</p>
+              <p className="text-[11px] text-stone-400">Soalan pantas untuk kenal tahap umum kamu</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-xs font-black text-amber-400 shrink-0">2</span>
+            <div>
+              <p className="text-xs font-bold text-stone-200">Siasatan Kemahiran</p>
+              <p className="text-[11px] text-stone-400">Soalan khusus hanya untuk kemahiran yang perlu diterokai</p>
+            </div>
+          </div>
+        </div>
+
         {/* 3M Modules */}
         <div className="grid grid-cols-3 gap-3">
           {[

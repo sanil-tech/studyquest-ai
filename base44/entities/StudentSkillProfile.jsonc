@@ -1,0 +1,113 @@
+{
+  "name": "StudentSkillProfile",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "ID of the BasicDiagnosticSession that generated this profile"
+    },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "membaca",
+        "menulis",
+        "mengira"
+      ],
+      "description": "Which 3M module"
+    },
+    "skill": {
+      "type": "string",
+      "description": "Skill name (e.g. letter_recognition, syllable_blending)"
+    },
+    "sub_skill": {
+      "type": "string",
+      "description": "Sub-skill name (e.g. vowels, consonants, KV)"
+    },
+    "mastery_level": {
+      "type": "string",
+      "enum": [
+        "mastered",
+        "developing",
+        "needs_foundation"
+      ],
+      "default": "developing",
+      "description": "Mastery level: mastered (90-100%), developing (60-89%), needs_foundation (<60%)"
+    },
+    "score": {
+      "type": "number",
+      "default": 0,
+      "description": "Score percentage 0-100 for this skill"
+    },
+    "questions_attempted": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of questions attempted for this skill"
+    },
+    "questions_correct": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of correct answers for this skill"
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Specific recommendation for this skill"
+    }
+  },
+  "required": [
+    "student_id",
+    "session_id",
+    "subject",
+    "skill",
+    "mastery_level"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -2,63 +2,64 @@ import React, { useState, useEffect } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
-import { getActiveStudentId } from "@/lib/rewardSystem";
-import { getMasteryEmoji } from "@/lib/diagnosticQuestions";
+import { useStudentData } from "@/hooks/useStudentData";
+import { getMasteryEmoji, getMasteryLabel, DIAGNOSTIC_MODULES_META } from "@/lib/diagnosticQuestionBank";
 import FoundationProfile from "@/components/diagnostic/FoundationProfile";
-import { Loader2, Sparkles, Target, Lightbulb, Heart, Rocket, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Sparkles, Target, Lightbulb, Heart, Rocket, CheckCircle, AlertCircle, Gamepad2, Map as MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function DiagnosticResult() {
   const { sessionId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { studentId } = useStudentData();
 
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [skillResults, setSkillResults] = useState([]);
   const [analysis, setAnalysis] = useState(null);
+  const [learningPath, setLearningPath] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
       // Try router state first (from assessment page)
       const stateData = location.state;
 
-      if (stateData?.results && stateData?.totalScore != null) {
-        const r = stateData.results;
+      if (stateData?.moduleResults && stateData?.overallScore != null) {
+        const mr = stateData.moduleResults;
+
         const sessionData = {
-          reading_level: r.membaca?.level || 1,
-          writing_level: r.menulis?.level || 1,
-          numeracy_level: r.mengira?.level || 1,
-          reading_mastery: r.membaca?.mastery || "developing",
-          writing_mastery: r.menulis?.mastery || "developing",
-          numeracy_mastery: r.mengira?.mastery || "developing",
-          total_score: stateData.totalScore,
+          reading_level: mr.membaca?.level || 1,
+          writing_level: mr.menulis?.level || 1,
+          numeracy_level: mr.mengira?.level || 1,
+          reading_mastery: mr.membaca?.mastery || "needs_foundation",
+          writing_mastery: mr.menulis?.mastery || "needs_foundation",
+          numeracy_mastery: mr.mengira?.mastery || "needs_foundation",
+          total_score: stateData.overallScore,
         };
 
-        const skills = [];
-        for (const moduleId of ["membaca", "menulis", "mengira"]) {
-          const mod = r[moduleId];
-          if (mod?.levelScores) {
-            mod.levelScores.forEach((ls) => {
-              skills.push({
-                skill_category: moduleId,
-                skill_display_name: ls.skillDisplayName,
-                score: ls.score,
-              });
-            });
-          }
-        }
+        // Map skill profiles to display format
+        const skills = (stateData.skillProfiles || []).map((p) => {
+          const moduleMeta = DIAGNOSTIC_MODULES_META.find((m) => m.id === p.subject);
+          return {
+            subject: p.subject,
+            skill: p.skill,
+            skill_display_name: moduleMeta?.skillDisplayNames[p.skill] || p.skill,
+            score: p.score,
+            mastery_level: p.mastery_level,
+          };
+        });
 
         setSession(sessionData);
         setSkillResults(skills);
         setAnalysis(stateData.analysis);
+        setLearningPath(stateData.learningPath);
         setLoading(false);
         return;
       }
 
       // Fallback: load from fetchChildDashboard
       try {
-        const studentId = await getActiveStudentId();
         const res = await base44.functions.invoke("fetchChildDashboard", {
           student_id: studentId,
         });
@@ -94,7 +95,7 @@ export default function DiagnosticResult() {
     };
 
     loadData();
-  }, [sessionId, location.state, navigate]);
+  }, [sessionId, location.state, navigate, studentId]);
 
   if (loading) {
     return (
@@ -130,6 +131,8 @@ export default function DiagnosticResult() {
   const strengths = safeParse(analysis?.strengths);
   const weaknesses = safeParse(analysis?.weaknesses);
   const activities = safeParse(analysis?.recommended_activities);
+  const recommendedTopics = safeParse(learningPath?.recommended_topics);
+  const recommendedGames = safeParse(learningPath?.recommended_games);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-900 via-green-900 to-stone-950 font-body text-stone-100 pb-20">
@@ -153,7 +156,61 @@ export default function DiagnosticResult() {
         </motion.div>
 
         {/* Foundation Profile */}
-        <FoundationProfile session={session} skillResults={skillResults} />
+        <FoundationProfile session={session} skillResults={skillResults} learningPath={learningPath} />
+
+        {/* Learning Path */}
+        {learningPath && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-stone-900/80 border-2 border-stone-700 rounded-2xl p-4 space-y-3"
+          >
+            <div className="flex items-center gap-2">
+              <MapIcon className="w-5 h-5 text-blue-400" />
+              <h3 className="text-sm font-black text-blue-300">Laluan Pembelajaran</h3>
+            </div>
+            <p className="text-xs text-stone-300 leading-relaxed">{learningPath.overall_recommendation}</p>
+
+            {/* Recommended Topics */}
+            {recommendedTopics.length > 0 && (
+              <div className="space-y-2 mt-3">
+                <p className="text-[11px] font-black text-stone-400 uppercase tracking-wider">Topik Cadangan:</p>
+                {recommendedTopics.slice(0, 5).map((topic, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-stone-800/40 rounded-xl p-2.5">
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${
+                      topic.priority === "high" ? "bg-rose-500/20 text-rose-400" : "bg-amber-500/20 text-amber-400"
+                    }`}>
+                      {topic.priority === "high" ? "Utama" : "Sederhana"}
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-stone-200">{topic.subject} → {topic.topic}</p>
+                      <p className="text-[11px] text-stone-400">{topic.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Recommended Games */}
+            {recommendedGames.length > 0 && (
+              <div className="space-y-2 mt-3">
+                <p className="text-[11px] font-black text-stone-400 uppercase tracking-wider flex items-center gap-1">
+                  <Gamepad2 className="w-3 h-3" /> Permainan Cadangan:
+                </p>
+                {recommendedGames.slice(0, 3).map((game, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-stone-800/40 rounded-xl p-2.5">
+                    <Gamepad2 className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-stone-200 capitalize">{game.game_type.replace(/_/g, " ")}</p>
+                      <p className="text-[11px] text-stone-400">{game.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* AI Analysis */}
         {analysis ? (

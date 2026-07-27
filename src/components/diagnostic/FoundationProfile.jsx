@@ -1,8 +1,9 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { getMasteryEmoji, getMasteryLabel } from "@/lib/diagnosticQuestions";
+import { getMasteryEmoji, getMasteryLabel, DIAGNOSTIC_MODULES_META } from "@/lib/diagnosticQuestionBank";
+import { Rocket } from "lucide-react";
 
-export default function FoundationProfile({ session, skillResults = [] }) {
+export default function FoundationProfile({ session, skillResults = [], learningPath = null }) {
   const modules = [
     {
       id: "membaca",
@@ -12,6 +13,7 @@ export default function FoundationProfile({ session, skillResults = [] }) {
       mastery: session.reading_mastery,
       gradient: "from-emerald-600 to-green-700",
       border: "border-emerald-400/40",
+      startingPoint: learningPath?.reading_starting_point || "",
     },
     {
       id: "menulis",
@@ -21,6 +23,7 @@ export default function FoundationProfile({ session, skillResults = [] }) {
       mastery: session.writing_mastery,
       gradient: "from-blue-600 to-indigo-700",
       border: "border-blue-400/40",
+      startingPoint: learningPath?.writing_starting_point || "",
     },
     {
       id: "mengira",
@@ -30,6 +33,7 @@ export default function FoundationProfile({ session, skillResults = [] }) {
       mastery: session.numeracy_mastery,
       gradient: "from-amber-600 to-orange-700",
       border: "border-amber-400/40",
+      startingPoint: learningPath?.numeracy_starting_point || "",
     },
   ];
 
@@ -42,7 +46,9 @@ export default function FoundationProfile({ session, skillResults = [] }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {modules.map((mod, i) => {
-          const skills = skillResults.filter((s) => s.skill_category === mod.id);
+          const moduleMeta = DIAGNOSTIC_MODULES_META.find((m) => m.id === mod.id);
+          const skills = skillResults.filter((s) => s.subject === mod.id || s.skill_category === mod.id);
+          const maxLevel = moduleMeta?.levelMax || 6;
 
           return (
             <motion.div
@@ -58,7 +64,7 @@ export default function FoundationProfile({ session, skillResults = [] }) {
               </div>
               <h3 className="text-base font-black text-white">{mod.title}</h3>
               <div className="mt-1.5 space-y-0.5">
-                <p className="text-xs font-bold text-white/90">Tahap {mod.level}/4</p>
+                <p className="text-xs font-bold text-white/90">Tahap {mod.level}/{maxLevel}</p>
                 <p className="text-[11px] text-white/60">{getMasteryLabel(mod.mastery)}</p>
               </div>
 
@@ -66,10 +72,21 @@ export default function FoundationProfile({ session, skillResults = [] }) {
                 <div className="mt-3 pt-2.5 border-t border-white/20 space-y-1">
                   {skills.map((skill, j) => (
                     <div key={j} className="flex items-center justify-between text-[10px]">
-                      <span className="text-white/70 truncate pr-1">{skill.skill_display_name}</span>
+                      <span className="text-white/70 truncate pr-1">
+                        {skill.skill_display_name || moduleMeta?.skillDisplayNames[skill.skill] || skill.skill}
+                      </span>
                       <span className="text-white/50 font-bold shrink-0">{skill.score}%</span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {mod.startingPoint && (
+                <div className="mt-3 pt-2.5 border-t border-white/20">
+                  <div className="flex items-start gap-1.5">
+                    <Rocket className="w-3 h-3 text-white/60 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-white/70 leading-tight">{mod.startingPoint}</p>
+                  </div>
                 </div>
               )}
             </motion.div>

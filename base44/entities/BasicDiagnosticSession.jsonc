@@ -11,6 +11,11 @@
       "format": "date-time",
       "description": "When the diagnostic was started"
     },
+    "completion_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the diagnostic was completed"
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -20,25 +25,36 @@
       "default": "in_progress",
       "description": "Current status of the diagnostic session"
     },
+    "current_layer": {
+      "type": "string",
+      "enum": [
+        "screening",
+        "investigation",
+        "completed"
+      ],
+      "default": "screening",
+      "description": "Current adaptive layer"
+    },
     "reading_level": {
       "type": "number",
       "default": 0,
-      "description": "Reading (Membaca) level achieved (1-4)"
+      "description": "Reading (Membaca) level achieved (1-6)"
     },
     "writing_level": {
       "type": "number",
       "default": 0,
-      "description": "Writing (Menulis) level achieved (1-4)"
+      "description": "Writing (Menulis) level achieved (1-6)"
     },
     "numeracy_level": {
       "type": "number",
       "default": 0,
-      "description": "Numeracy (Mengira) level achieved (1-4)"
+      "description": "Numeracy (Mengira) level achieved (1-5)"
     },
     "reading_mastery": {
       "type": "string",
       "enum": [
         "not_assessed",
+        "needs_foundation",
         "developing",
         "good",
         "strong"
@@ -50,6 +66,7 @@
       "type": "string",
       "enum": [
         "not_assessed",
+        "needs_foundation",
         "developing",
         "good",
         "strong"
@@ -61,12 +78,23 @@
       "type": "string",
       "enum": [
         "not_assessed",
+        "needs_foundation",
         "developing",
         "good",
         "strong"
       ],
       "default": "not_assessed",
       "description": "Mastery rating for numeracy"
+    },
+    "overall_level": {
+      "type": "string",
+      "enum": [
+        "foundation",
+        "developing",
+        "proficient",
+        "advanced"
+      ],
+      "description": "Overall readiness level across all 3M"
     },
     "total_score": {
       "type": "number",
@@ -84,6 +112,14 @@
     "recommended_activities": {
       "type": "string",
       "description": "JSON array of recommended activities [{activity, purpose}]"
+    },
+    "learning_path_id": {
+      "type": "string",
+      "description": "ID of the generated LearningPath entity"
+    },
+    "investigation_skills_json": {
+      "type": "string",
+      "description": "JSON array of skills that triggered Layer 2 investigation"
     }
   },
   "required": [

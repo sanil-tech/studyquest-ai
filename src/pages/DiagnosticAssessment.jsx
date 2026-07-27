@@ -1,136 +1,164 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
-import { getActiveStudentId } from "@/lib/rewardSystem";
+import { useStudentData } from "@/hooks/useStudentData";
 import {
-  DIAGNOSTIC_MODULES,
-  PASS_THRESHOLD,
-  getMasteryLevel,
-  getResultLevel,
+  DIAGNOSTIC_MODULES_META,
   getMasteryEmoji,
   getMasteryLabel,
-} from "@/lib/diagnosticQuestions";
+} from "@/lib/diagnosticQuestionBank";
+import {
+  getScreeningQuestions,
+  analyzeScreeningResults,
+  getInvestigationQuestions,
+  calculateSkillProfiles,
+  generateLearningPath,
+  calculateModuleResult,
+} from "@/lib/adaptiveDiagnostic";
 import DiagnosticQuestion from "@/components/diagnostic/DiagnosticQuestion";
-import { Loader2, CheckCircle2, Trophy, X, ChevronRight, PartyPopper } from "lucide-react";
+import { Loader2, CheckCircle2, Trophy, X, ChevronRight, PartyPopper, Search, Brain } from "lucide-react";
 import confetti from "canvas-confetti";
+
+// Map question bank format to component-expected format
+function mapQuestionForComponent(q) {
+  return {
+    id: q.question_id,
+    type: q.question_type,
+    question: q.question_content.question,
+    display: q.question_content.display,
+    options: q.question_content.options,
+    correct: q.question_content.correct,
+    _meta: {
+      question_id: q.question_id,
+      subject: q.subject,
+      skill: q.skill,
+      sub_skill: q.sub_skill,
+      difficulty: q.difficulty,
+      layer: q.layer,
+    },
+  };
+}
 
 export default function DiagnosticAssessment() {
   const navigate = useNavigate();
+  const { studentId } = useStudentData();
 
   const [phase, setPhase] = useState("module_intro");
   const [moduleIndex, setModuleIndex] = useState(0);
-  const [levelIndex, setLevelIndex] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const [currentLevelScores, setCurrentLevelScores] = useState([]);
-  const [allModuleResults, setAllModuleResults] = useState({});
-  const [lastLevelScore, setLastLevelScore] = useState(null);
+  const [currentQuestions, setCurrentQuestions] = useState([]);
+  const [currentLayer, setCurrentLayer] = useState("screening");
 
-  const levelAnswersRef = useRef([]);
+  const allResponsesRef = useRef([]);
   const uploadedImagesRef = useRef([]);
+  const [moduleResults, setModuleResults] = useState({});
+  const [lastModuleResult, setLastModuleResult] = useState(null);
+  const [weakSkillCount, setWeakSkillCount] = useState(0);
 
-  const currentModule = DIAGNOSTIC_MODULES[moduleIndex];
-  const currentLevel = currentModule.levels[levelIndex];
-  const currentQuestion = currentLevel.questions[questionIndex];
+  const currentModule = DIAGNOSTIC_MODULES_META[moduleIndex];
+  const currentQuestion = currentQuestions[questionIndex];
+
+  // ==========================================
+  // ADAPTIVE FLOW LOGIC
+  // ==========================================
+
+  const startModule = useCallback(() => {
+    const screening = getScreeningQuestions(currentModule.id);
+    const mapped = screening.map(mapQuestionForComponent);
+    setCurrentQuestions(mapped);
+    setCurrentLayer("screening");
+    setQuestionIndex(0);
+    setPhase("questioning");
+  }, [currentModule]);
 
   const handleAnswer = (isCorrect, metadata = {}) => {
-    levelAnswersRef.current.push(isCorrect);
+    const qMeta = currentQuestion?._meta || {};
+
+    allResponsesRef.current.push({
+      question_id: qMeta.question_id,
+      subject: qMeta.subject,
+      skill: qMeta.skill,
+      sub_skill: qMeta.sub_skill,
+      is_correct: isCorrect,
+      answer: metadata.answer || "",
+      layer: currentLayer,
+      image_url: metadata.imageUrl || null,
+    });
 
     if (metadata.imageUrl) {
       uploadedImagesRef.current.push({
-        skill: currentLevel.skill,
-        skillDisplayName: currentLevel.skillDisplayName,
-        category: currentModule.id,
-        level: currentLevel.level,
+        skill: qMeta.skill,
+        subject: qMeta.subject,
+        layer: currentLayer,
         imageUrl: metadata.imageUrl,
         target: metadata.target || "",
-        question: metadata.question || "",
+        question: metadata.question || currentQuestion?.question || "",
       });
     }
 
-    if (levelAnswersRef.current.length < currentLevel.questions.length) {
-      setQuestionIndex((prev) => prev + 1);
+    if (questionIndex + 1 < currentQuestions.length) {
+      setQuestionIndex(questionIndex + 1);
     } else {
-      const correctInLevel = levelAnswersRef.current.filter(Boolean).length;
-      levelAnswersRef.current = [];
-      handleLevelComplete(correctInLevel);
+      handleLayerComplete();
     }
   };
 
-  const handleLevelComplete = (correctInLevel) => {
-    const totalQuestions = currentLevel.questions.length;
-    const scorePercent = Math.round((correctInLevel / totalQuestions) * 100);
-    const passed = scorePercent >= PASS_THRESHOLD * 100;
+  const handleLayerComplete = () => {
+    if (currentLayer === "screening") {
+      const moduleResponses = allResponsesRef.current.filter(
+        (r) => r.subject === currentModule.id && r.layer === "screening"
+      );
+      const analysis = analyzeScreeningResults(moduleResponses, currentModule.id);
 
-    const levelScore = {
-      level: currentLevel.level,
-      skill: currentLevel.skill,
-      skillDisplayName: currentLevel.skillDisplayName,
-      score: scorePercent,
-      mastery: getMasteryLevel(scorePercent),
-      passed,
-      category: currentModule.id,
-    };
+      if (analysis.weakSkills.length > 0) {
+        setWeakSkillCount(analysis.weakSkills.length);
+        const investigation = getInvestigationQuestions(analysis.weakSkills, currentModule.id);
 
-    const newLevelScores = [...currentLevelScores, levelScore];
-    setCurrentLevelScores(newLevelScores);
-    setLastLevelScore(levelScore);
+        if (investigation.length > 0) {
+          const mapped = investigation.map(mapQuestionForComponent);
+          setCurrentQuestions(mapped);
+          setCurrentLayer("investigation");
+          setQuestionIndex(0);
+          setPhase("investigation_intro");
+          return;
+        }
+      }
 
-    if (passed) {
-      confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
-    }
-
-    if (passed && levelIndex + 1 < currentModule.levels.length) {
-      setPhase("level_complete");
+      finalizeModule();
     } else {
-      finalizeModule(newLevelScores);
+      finalizeModule();
     }
   };
 
-  const finalizeModule = (levelScores) => {
-    const levelsPassed = levelScores.filter((ls) => ls.passed).length;
-    const resultLevel = getResultLevel(levelsPassed, currentModule.maxResultLevel);
-    const totalCorrect = levelScores.reduce((sum, ls) => {
-      const levelData = currentModule.levels.find((l) => l.level === ls.level);
-      const qCount = levelData?.questions.length || 4;
-      return sum + Math.round((ls.score / 100) * qCount);
-    }, 0);
-    const totalAnswered = levelScores.reduce((sum, ls) => {
-      const levelData = currentModule.levels.find((l) => l.level === ls.level);
-      return sum + (levelData?.questions.length || 4);
-    }, 0);
-    const avgScore = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
-
-    const moduleResult = {
-      level: resultLevel,
-      mastery: getMasteryLevel(avgScore),
-      levelScores,
-      description: currentModule.levelDescriptions[resultLevel],
-    };
-
-    setAllModuleResults((prev) => ({
-      ...prev,
-      [currentModule.id]: moduleResult,
-    }));
-
-    setPhase("module_complete");
-  };
-
-  const handleContinueToNextLevel = () => {
-    setLevelIndex((prev) => prev + 1);
-    setQuestionIndex(0);
+  const startInvestigation = () => {
     setPhase("questioning");
   };
 
+  const finalizeModule = () => {
+    const moduleResponses = allResponsesRef.current.filter(
+      (r) => r.subject === currentModule.id
+    );
+    const moduleProfiles = calculateSkillProfiles(moduleResponses);
+    const result = calculateModuleResult(currentModule.id, moduleProfiles);
+
+    setModuleResults((prev) => ({ ...prev, [currentModule.id]: result }));
+    setLastModuleResult(result);
+    setPhase("module_complete");
+
+    if (result.mastery === "strong" || result.score >= 75) {
+      confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
+    }
+  };
+
   const handleNextModule = () => {
-    if (moduleIndex + 1 < DIAGNOSTIC_MODULES.length) {
-      setModuleIndex((prev) => prev + 1);
-      setLevelIndex(0);
+    if (moduleIndex + 1 < DIAGNOSTIC_MODULES_META.length) {
+      setModuleIndex(moduleIndex + 1);
       setQuestionIndex(0);
-      setCurrentLevelScores([]);
-      setLastLevelScore(null);
+      setCurrentQuestions([]);
+      setWeakSkillCount(0);
       setPhase("module_intro");
     } else {
       saveResults();
@@ -141,45 +169,22 @@ export default function DiagnosticAssessment() {
     setSaving(true);
     setPhase("saving");
     try {
-      const studentId = await getActiveStudentId();
+      const allResponses = allResponsesRef.current;
+      const skillProfiles = calculateSkillProfiles(allResponses);
+      const learningPath = generateLearningPath(skillProfiles);
 
-      const skillDetails = [];
-      for (const moduleId of ["membaca", "menulis", "mengira"]) {
-        const mod = DIAGNOSTIC_MODULES.find((m) => m.id === moduleId);
-        const result = allModuleResults[moduleId];
-        if (result) {
-          result.levelScores.forEach((ls) => {
-            skillDetails.push({
-              category: moduleId,
-              skill: ls.skill,
-              skillDisplayName: ls.skillDisplayName,
-              score: ls.score,
-              mastery: ls.mastery,
-              level: ls.level,
-              recommendation: mod.levelRecommendations[ls.level] || "",
-            });
-          });
-        }
+      const finalModuleResults = {};
+      for (const mod of DIAGNOSTIC_MODULES_META) {
+        finalModuleResults[mod.id] = calculateModuleResult(mod.id, skillProfiles);
       }
 
-      const allScores = skillDetails.map((s) => s.score);
-      const totalScore =
-        allScores.length > 0
-          ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
-          : 0;
-
-      const results = {
-        membaca: allModuleResults.membaca || { level: 1, mastery: "developing" },
-        menulis: allModuleResults.menulis || { level: 1, mastery: "developing" },
-        mengira: allModuleResults.mengira || { level: 1, mastery: "developing" },
-        totalScore,
-        skillDetails,
-        uploadedImages: uploadedImagesRef.current,
-      };
-
-      const response = await base44.functions.invoke("saveDiagnosticResult", {
+      const response = await base44.functions.invoke("runDiagnosticAnalysis", {
         student_id: studentId,
-        results,
+        responses: allResponses,
+        skill_profiles: skillProfiles,
+        learning_path: learningPath,
+        uploaded_images: uploadedImagesRef.current,
+        module_results: finalModuleResults,
       });
 
       if (response.data?.success) {
@@ -188,8 +193,10 @@ export default function DiagnosticAssessment() {
           navigate(`/diagnostic/result/${response.data.session_id}`, {
             state: {
               analysis: response.data.analysis,
-              results,
-              totalScore,
+              learningPath: response.data.learning_path,
+              skillProfiles: response.data.skill_profiles,
+              moduleResults: response.data.module_results,
+              overallScore: response.data.overall_score,
             },
           });
         }, 1500);
@@ -201,8 +208,6 @@ export default function DiagnosticAssessment() {
       navigate("/dashboard");
     }
   };
-
-  const moduleResult = allModuleResults[currentModule.id];
 
   // ==========================================
   // RENDER
@@ -230,6 +235,12 @@ export default function DiagnosticAssessment() {
     );
   }
 
+  const moduleGradient = currentModule.id === "membaca"
+    ? "from-emerald-500 to-green-500"
+    : currentModule.id === "menulis"
+    ? "from-blue-500 to-indigo-500"
+    : "from-amber-500 to-orange-500";
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-900 via-green-900 to-stone-950 font-body text-stone-100 pb-24">
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
@@ -242,7 +253,7 @@ export default function DiagnosticAssessment() {
             <X className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            {DIAGNOSTIC_MODULES.map((mod, i) => (
+            {DIAGNOSTIC_MODULES_META.map((mod, i) => (
               <div
                 key={mod.id}
                 className={`h-2.5 rounded-full transition-all ${
@@ -252,7 +263,7 @@ export default function DiagnosticAssessment() {
             ))}
           </div>
           <span className="text-xs font-black text-stone-400">
-            {moduleIndex + 1}/{DIAGNOSTIC_MODULES.length}
+            {moduleIndex + 1}/{DIAGNOSTIC_MODULES_META.length}
           </span>
         </div>
 
@@ -263,8 +274,9 @@ export default function DiagnosticAssessment() {
           </div>
           <p className="text-xs sm:text-sm font-bold text-emerald-200 leading-snug">
             {phase === "module_intro" && `Mari kita mulakan Modul ${currentModule.title}! Suku akan bantu kamu.`}
-            {phase === "questioning" && `Kamu sedang di Tahap ${currentLevel.level}: ${currentLevel.title}. Kamu boleh buat!`}
-            {phase === "level_complete" && `Tabik! Kamu lulus Tahap ${currentLevel.level}! Seterusnya lebih menarik!`}
+            {phase === "questioning" && currentLayer === "screening" && `Saringan Kemahiran! Jawab soalan dengan tenang ya.`}
+            {phase === "investigation_intro" && `Suku jumpa beberapa kemahiran yang perlu diterokai! Mari siasat bersama!`}
+            {phase === "questioning" && currentLayer === "investigation" && `Siasatan Kemahiran! Suku beri soalan yang lebih khusus.`}
             {phase === "module_complete" && `Bagus! Kamu dah selesaikan Modul ${currentModule.title}.`}
           </p>
         </div>
@@ -285,27 +297,66 @@ export default function DiagnosticAssessment() {
                 <p className="text-sm text-stone-400 mt-1">{currentModule.subtitle}</p>
               </div>
               <div className="bg-stone-800/60 rounded-2xl p-4 space-y-2">
-                <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Tahap yang akan diuji:</p>
-                {currentModule.levels.map((lvl) => (
-                  <div key={lvl.level} className="flex items-center gap-2 text-left">
-                    <span className="text-sm">{lvl.title}</span>
-                    <span className="text-[10px] text-stone-500">— {lvl.description}</span>
+                <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Kemahiran yang akan diterokai:</p>
+                {currentModule.skills.map((skill) => (
+                  <div key={skill} className="flex items-center gap-2 text-left">
+                    <span className="text-sm">{currentModule.skillDisplayNames[skill]}</span>
                   </div>
                 ))}
               </div>
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3">
+                <p className="text-[11px] text-amber-200 font-bold">
+                  🧠 Suku akan mulakan dengan Saringan ringkas, kemudian beri soalan khas jika perlu!
+                </p>
+              </div>
               <button
-                onClick={() => setPhase("questioning")}
-                className={`w-full h-13 py-3.5 bg-gradient-to-r ${currentModule.id === "membaca" ? "from-emerald-500 to-green-500" : currentModule.id === "menulis" ? "from-blue-500 to-indigo-500" : "from-amber-500 to-orange-500"} text-stone-950 font-black text-base rounded-2xl border-b-4 border-black/30 active:translate-y-1 transition-all`}
+                onClick={startModule}
+                className={`w-full py-3.5 bg-gradient-to-r ${moduleGradient} text-stone-950 font-black text-base rounded-2xl border-b-4 border-black/30 active:translate-y-1 transition-all`}
               >
                 Mula Modul {currentModule.title}! 🚀
               </button>
             </motion.div>
           )}
 
-          {/* QUESTIONING */}
-          {phase === "questioning" && (
+          {/* INVESTIGATION INTRO */}
+          {phase === "investigation_intro" && (
             <motion.div
-              key={`q-${moduleIndex}-${levelIndex}`}
+              key={`inv-${moduleIndex}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-stone-900/80 rounded-3xl p-6 border-2 border-amber-500/40 shadow-xl text-center space-y-4"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              >
+                <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/20 border-2 border-amber-400/40 flex items-center justify-center">
+                  <Search className="w-8 h-8 text-amber-400" />
+                </div>
+              </motion.div>
+              <div>
+                <h2 className="text-lg font-black text-white">Siasatan Kemahiran</h2>
+                <p className="text-sm text-stone-400 mt-1">
+                  Suku jumpa {weakSkillCount} kemahiran yang perlu diterokai lebih mendalam.
+                  Mari buat beberapa soalan khusus!
+                </p>
+              </div>
+              <button
+                onClick={startInvestigation}
+                className={`w-full py-3.5 bg-gradient-to-r ${moduleGradient} text-stone-950 font-black text-base rounded-2xl border-b-4 border-black/30 active:translate-y-1 transition-all flex items-center justify-center gap-2`}
+              >
+                <Brain className="w-5 h-5" />
+                Mula Siasatan!
+              </button>
+            </motion.div>
+          )}
+
+          {/* QUESTIONING */}
+          {phase === "questioning" && currentQuestion && (
+            <motion.div
+              key={`q-${moduleIndex}-${questionIndex}-${currentLayer}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -313,54 +364,32 @@ export default function DiagnosticAssessment() {
             >
               <div className="mb-4 text-center">
                 <span className="text-[10px] font-black text-stone-500 uppercase tracking-widest">
-                  {currentModule.icon} {currentModule.title} · Tahap {currentLevel.level}
+                  {currentModule.icon} {currentModule.title} · {currentLayer === "screening" ? "Saringan" : "Siasatan"}
                 </span>
-                <p className="text-sm font-bold text-stone-300 mt-0.5">{currentLevel.title}</p>
+                <p className="text-sm font-bold text-stone-300 mt-0.5">
+                  Soalan {questionIndex + 1} / {currentQuestions.length}
+                </p>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 bg-stone-800 rounded-full mb-4 overflow-hidden">
+                <motion.div
+                  className={`h-full bg-gradient-to-r ${moduleGradient}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${((questionIndex + 1) / currentQuestions.length) * 100}%` }}
+                />
               </div>
               <DiagnosticQuestion
                 key={currentQuestion.id}
                 question={currentQuestion}
                 questionNumber={questionIndex + 1}
-                totalQuestions={currentLevel.questions.length}
+                totalQuestions={currentQuestions.length}
                 onAnswerNext={handleAnswer}
               />
             </motion.div>
           )}
 
-          {/* LEVEL COMPLETE */}
-          {phase === "level_complete" && (
-            <motion.div
-              key={`level-${moduleIndex}-${levelIndex}`}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-stone-900/80 rounded-3xl p-8 border-2 border-emerald-500/40 shadow-xl text-center space-y-4"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              >
-                <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto" />
-              </motion.div>
-              <h2 className="text-xl font-black text-white">Tahap {currentLevel.level} Lulus! 🎉</h2>
-              <p className="text-sm text-stone-400">
-                Skor: {lastLevelScore?.score}% ({lastLevelScore?.mastery === "strong" ? "Cemerlang!" : "Bagus!"})
-              </p>
-              {levelIndex + 1 < currentModule.levels.length && (
-                <button
-                  onClick={handleContinueToNextLevel}
-                  className="w-full h-13 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-base rounded-2xl border-b-4 border-emerald-700 active:translate-y-1 transition-all flex items-center justify-center gap-2"
-                >
-                  Teruskan ke Tahap {currentLevel.level + 1}
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              )}
-            </motion.div>
-          )}
-
           {/* MODULE COMPLETE */}
-          {phase === "module_complete" && moduleResult && (
+          {phase === "module_complete" && lastModuleResult && (
             <motion.div
               key={`module-${moduleIndex}`}
               initial={{ opacity: 0, y: 20 }}
@@ -373,35 +402,30 @@ export default function DiagnosticAssessment() {
                 <h2 className="text-xl font-black text-white">Modul {currentModule.title} Selesai!</h2>
               </div>
 
-              <div className={`bg-gradient-to-br ${currentModule.id === "membaca" ? "from-emerald-600 to-green-700" : currentModule.id === "menulis" ? "from-blue-600 to-indigo-700" : "from-amber-600 to-orange-700"} rounded-2xl p-5 text-center border-2 ${currentModule.id === "membaca" ? "border-emerald-400/40" : currentModule.id === "menulis" ? "border-blue-400/40" : "border-amber-400/40"}`}>
-                <div className="text-3xl mb-1">{getMasteryEmoji(moduleResult.mastery)}</div>
+              <div className={`bg-gradient-to-br ${moduleGradient} rounded-2xl p-5 text-center border-2 ${currentModule.borderColor}`}>
+                <div className="text-3xl mb-1">{getMasteryEmoji(lastModuleResult.mastery)}</div>
                 <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Tahap {currentModule.title}</p>
-                <p className="text-3xl font-black text-white mt-1">{moduleResult.level}/{currentModule.maxResultLevel}</p>
-                <p className="text-sm font-bold text-white/90 mt-1">{moduleResult.description}</p>
-                <p className="text-xs text-white/60 mt-1">{getMasteryLabel(moduleResult.mastery)}</p>
+                <p className="text-3xl font-black text-white mt-1">{lastModuleResult.level}/{currentModule.levelMax}</p>
+                <p className="text-sm font-bold text-white/90 mt-1">{getMasteryLabel(lastModuleResult.mastery)}</p>
+                <p className="text-xs text-white/60 mt-1">Skor: {lastModuleResult.score}%</p>
               </div>
 
-              {/* Skill breakdown */}
-              <div className="space-y-2">
-                <p className="text-xs font-black text-stone-400 uppercase tracking-wider">Ringkasan Kemahiran:</p>
-                {moduleResult.levelScores.map((ls, i) => (
-                  <div key={i} className="flex items-center justify-between bg-stone-800/50 rounded-xl p-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{getMasteryEmoji(ls.mastery)}</span>
-                      <span className="text-xs font-bold text-stone-300">{ls.skillDisplayName}</span>
-                    </div>
-                    <span className="text-xs font-black text-stone-400">{ls.score}%</span>
-                  </div>
-                ))}
-              </div>
+              {weakSkillCount > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-amber-400 shrink-0" />
+                  <p className="text-[11px] text-amber-200 font-bold">
+                    Suku beri {weakSkillCount} soalan siasatan untuk kenal pasti kemahiran kamu dengan lebih tepat!
+                  </p>
+                </div>
+              )}
 
               <button
                 onClick={handleNextModule}
-                className="w-full h-13 py-3.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-base rounded-2xl border-b-4 border-amber-700 active:translate-y-1 transition-all flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-base rounded-2xl border-b-4 border-amber-700 active:translate-y-1 transition-all flex items-center justify-center gap-2"
               >
-                {moduleIndex + 1 < DIAGNOSTIC_MODULES.length ? (
+                {moduleIndex + 1 < DIAGNOSTIC_MODULES_META.length ? (
                   <>
-                    Teruskan ke Modul {DIAGNOSTIC_MODULES[moduleIndex + 1].title}
+                    Teruskan ke Modul {DIAGNOSTIC_MODULES_META[moduleIndex + 1].title}
                     <ChevronRight className="w-5 h-5" />
                   </>
                 ) : (
