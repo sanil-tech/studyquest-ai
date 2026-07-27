@@ -48,6 +48,9 @@ export default function LessonResources() {
   const [showPasteJson, setShowPasteJson] = useState(false);
   const [pastedJson, setPastedJson] = useState("");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [modularTopics, setModularTopics] = useState([]);
+  const [selectedModularTopicId, setSelectedModularTopicId] = useState("");
+  const [isGeneratingModular, setIsGeneratingModular] = useState(false);
 
   useEffect(() => {
     const semakAksesAdmin = async () => {
@@ -58,7 +61,7 @@ export default function LessonResources() {
 
         const peranan = me.app_role;
         if (peranan === "admin" || peranan === "teacher" || peranan === "parent" || me.is_admin === true) {
-          setHasAccess(true); muatTurunSenaraiLesson(); 
+          setHasAccess(true); muatTurunSenaraiLesson(); muatTurunSenaraiTopic();
         } else {
           toast({ title: "Akses Disekat! 🛑", variant: "destructive" }); navigate("/dashboard"); 
         }
@@ -311,6 +314,46 @@ export default function LessonResources() {
     }
   };
 
+  const muatTurunSenaraiTopic = async () => {
+    try {
+      const topics = await base44.entities.Topic.list('-created_date', 100);
+      setModularTopics(topics || []);
+    } catch (err) {
+      console.error("Gagal memuatkan topik:", err);
+    }
+  };
+
+  const handleGenerateModularContent = async () => {
+    if (!selectedModularTopicId) {
+      toast({ title: "Pilih topik dahulu", variant: "destructive" });
+      return;
+    }
+    const sahkan = window.confirm(
+      `Jana semua kandungan AI modular untuk topik ini?\n\nIni akan menjana ke entiti modular: Nota, Peta Minda, Soalan Kuiz, Flashcard, Permainan, Panduan Guru, dan Maklum Balas.\n\nKandungan sedia ada akan ditimpa.`
+    );
+    if (!sahkan) return;
+
+    setIsGeneratingModular(true);
+    try {
+      const res = await base44.functions.invoke("generateModularLessonContent", {
+        topic_id: selectedModularTopicId,
+        force: true,
+      });
+      if (res.data?.success) {
+        toast({
+          title: "Kandungan Modular Dijana! 🎉",
+          description: `Kandungan modular berjaya dijana dan disimpan ke entiti berasingan.`,
+        });
+      } else {
+        toast({ title: "Ralat", description: res.data?.error || "Gagal menjana.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Ralat Sistem", description: err.message, variant: "destructive" });
+    } finally {
+      setIsGeneratingModular(false);
+    }
+  };
+
   if (checkingAuth) return (<div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>);
 
   return (
@@ -325,6 +368,18 @@ export default function LessonResources() {
           <button type="button" onClick={() => tukarModBorang("edit")} className={`px-4 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 ${borangMod === "edit" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500"}`}><Edit3 className="w-3.5 h-3.5 text-amber-500" /> Edit / Padam</button>
         </div>
       </div>
+
+      <Card className="p-4 bg-purple-50/30 border border-purple-200/60 rounded-2xl shadow-2xs space-y-3">
+        <label className="text-xs font-black text-purple-800 uppercase flex items-center gap-1.5 mb-1"><Sparkles className="w-4 h-4 animate-pulse" /> Jana Kandungan AI Modular (Sistem Baru)</label>
+        <p className="text-[11px] text-slate-500 font-medium">Jana SEMUA aset pelajaran (Nota, Peta Minda, Kuiz, Flashcard, Permainan, Panduan Guru) ke entiti modular berasingan dalam satu panggilan AI.</p>
+        <select value={selectedModularTopicId} onChange={(e) => setSelectedModularTopicId(e.target.value)} className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-bold text-slate-700 shadow-sm">
+          <option value="">-- Pilih Topik dari Pangkalan Data --</option>
+          {modularTopics.map(t => (<option key={t.id} value={t.id}>{t.name} (ID: {t.id})</option>))}
+        </select>
+        <Button type="button" onClick={handleGenerateModularContent} disabled={isGeneratingModular || !selectedModularTopicId} className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-2 disabled:opacity-50">
+          {isGeneratingModular ? <><Loader2 className="w-4 h-4 animate-spin" /> Menjana Kandungan Modular...</> : <><Sparkles className="w-4 h-4" /> Jana Kandungan AI Modular</>}
+        </Button>
+      </Card>
 
       {borangMod === "edit" && (
         <Card className="p-4 bg-amber-50/30 border border-amber-200/60 rounded-2xl shadow-2xs space-y-3">
