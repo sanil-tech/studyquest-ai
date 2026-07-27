@@ -95,14 +95,18 @@ Deno.serve(async (req) => {
       linked_student_ids: updatedLinked
     }).catch(() => null);
 
-    // 5. Delete Child profile & associated gamification records if child account
+    // 5. Clean up Child's associated gamification records & deactivate account
+    //    (User entity itself cannot be deleted on the platform, so we deactivate it)
     if (targetChild && targetChild.is_child_account) {
-      const [wallets, progressList, sessions, rewards, rewardRequests] = await Promise.all([
+      const [wallets, progressList, sessions, rewards, rewardRequests, gameProgress, activityLogs, quizAttempts] = await Promise.all([
         db.entities.Wallet.filter({ student_id: child_id }).catch(() => []),
         db.entities.Progress.filter({ student_id: child_id }).catch(() => []),
         db.entities.StudySession.filter({ student_id: child_id }).catch(() => []),
         db.entities.Reward.filter({ student_id: child_id }).catch(() => []),
         db.entities.RewardRequest.filter({ student_id: child_id }).catch(() => []),
+        db.entities.GameProgress.filter({ student_id: child_id }).catch(() => []),
+        db.entities.ActivityLog.filter({ student_id: child_id }).catch(() => []),
+        db.entities.QuizAttempt.filter({ student_id: child_id }).catch(() => []),
       ]);
 
       for (const w of wallets) await db.entities.Wallet.delete(w.id).catch(() => null);
@@ -110,8 +114,22 @@ Deno.serve(async (req) => {
       for (const s of sessions) await db.entities.StudySession.delete(s.id).catch(() => null);
       for (const r of rewards) await db.entities.Reward.delete(r.id).catch(() => null);
       for (const rr of rewardRequests) await db.entities.RewardRequest.delete(rr.id).catch(() => null);
+      for (const gp of gameProgress) await db.entities.GameProgress.delete(gp.id).catch(() => null);
+      for (const al of activityLogs) await db.entities.ActivityLog.delete(al.id).catch(() => null);
+      for (const qa of quizAttempts) await db.entities.QuizAttempt.delete(qa.id).catch(() => null);
 
-      await db.entities.User.delete(child_id).catch(() => null);
+      // Deactivate the child account (cannot delete User entity on platform)
+      await db.entities.User.update(child_id, {
+        linked_parent_id: null,
+        is_child_account: false,
+        is_active: false,
+        child_login_pin: null,
+        education_level: null,
+        school_year: null,
+        selected_avatar: null,
+        avatar_emoji: null,
+        nickname: null,
+      }).catch(() => null);
     } else if (targetChild) {
       await db.entities.User.update(child_id, {
         linked_parent_id: null
