@@ -25,7 +25,7 @@ export function getScreeningQuestions(subject) {
   if (!moduleMeta) return [];
 
   const subjectQuestions = QUESTION_BANK.filter(
-    (q) => q.subject === subject && q.layer === "screening" && q.question_type === "mcq"
+    (q) => q.subject === subject && q.layer === "screening"
   );
 
   const selected = [];
