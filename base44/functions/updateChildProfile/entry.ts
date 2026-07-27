@@ -140,6 +140,18 @@ Deno.serve(async (req) => {
     if (body.date_of_birth || body.dateOfBirth) {
       updateFields.date_of_birth = String(body.date_of_birth || body.dateOfBirth);
     }
+    if (body.state !== undefined && body.state !== null) {
+      updateFields.state = String(body.state).trim();
+    }
+    if (body.district !== undefined && body.district !== null) {
+      updateFields.district = String(body.district).trim();
+    }
+    if (body.class_name !== undefined && body.class_name !== null) {
+      updateFields.class_name = String(body.class_name).trim();
+    }
+    if (body.country !== undefined && body.country !== null) {
+      updateFields.country = String(body.country).trim();
+    }
 
     if (Object.keys(updateFields).length === 0) {
       return Response.json(

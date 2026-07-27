@@ -23,6 +23,22 @@ function AvatarBubble({ entry, size = "w-14 h-14" }) {
   );
 }
 
+const SCOPES = [
+  { id: "global", label: "Global", emoji: "🌍" },
+  { id: "friends", label: "Rakan Kelas", emoji: "👥" },
+  { id: "school", label: "Sekolah", emoji: "🏫" },
+  { id: "district", label: "Kawasan", emoji: "📍" },
+  { id: "state", label: "Negeri", emoji: "🗺️" },
+];
+
+const SCOPE_LABELS = {
+  global: "Global",
+  friends: "Rakan Kelas",
+  school: "Sekolah",
+  district: "Kawasan",
+  state: "Negeri",
+};
+
 function LeaderboardRow({ entry, isMe }) {
   return (
     <motion.div
@@ -56,12 +72,14 @@ export default function Leaderboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("xp");
+  const [scope, setScope] = useState("global");
   const { studentId } = useStudentData();
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
+      setLoading(true);
       try {
-        const response = await base44.functions.invoke("fetchLeaderboard", {});
+        const response = await base44.functions.invoke("fetchLeaderboard", { scope, student_id: studentId });
         setData(response?.data || response);
       } catch (err) {
         console.error("Leaderboard fetch error:", err);
@@ -70,7 +88,7 @@ export default function Leaderboard() {
       }
     };
     fetchLeaderboard();
-  }, []);
+  }, [scope, studentId]);
 
   if (loading) {
     return (
@@ -83,6 +101,12 @@ export default function Leaderboard() {
 
   const board = tab === "xp" ? data?.leaderboard : data?.streakboard;
   const myId = studentId || data?.my_entry?.student_id;
+  const filterInfo = data?.filter_info || {};
+  const hasScopeData = scope === "school" ? !!filterInfo.school
+    : scope === "state" ? !!filterInfo.state
+    : scope === "district" ? !!filterInfo.district
+    : scope === "friends" ? !!filterInfo.school
+    : true;
   const top3 = (board || []).slice(0, 3);
   const rest = (board || []).slice(3);
 
@@ -96,6 +120,21 @@ export default function Leaderboard() {
         </div>
         <h1 className="text-2xl md:text-3xl font-black text-stone-800">Siapa Juara Hutan Ilmu?</h1>
         <p className="text-sm text-stone-500 mt-1">Bandingkan kemajuan kamu dengan rakan-rakan lain!</p>
+      </div>
+
+      {/* Scope Selector */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {SCOPES.map(s => (
+          <button
+            key={s.id}
+            onClick={() => setScope(s.id)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full font-bold text-xs whitespace-nowrap transition-all shrink-0 ${
+              scope === s.id ? "bg-indigo-500 text-white shadow-md" : "bg-white text-stone-500 border border-stone-200 hover:bg-stone-50"
+            }`}
+          >
+            <span>{s.emoji}</span> {s.label}
+          </button>
+        ))}
       </div>
 
       {/* My Rank Card */}
@@ -141,8 +180,14 @@ export default function Leaderboard() {
 
       {(!board || board.length === 0) ? (
         <div className="text-center py-16">
-          <div className="text-5xl mb-3">🌱</div>
-          <p className="font-bold text-stone-500">Belum ada juara lagi. Jadilah yang pertama!</p>
+          <div className="text-5xl mb-3">{scope === "global" ? "🌱" : "📋"}</div>
+          <p className="font-bold text-stone-500">
+            {scope === "global"
+              ? "Belum ada juara lagi. Jadilah yang pertama!"
+              : !hasScopeData
+              ? "Lengkapkan profil sekolah dan lokasi kamu untuk lihat carta ini!"
+              : "Tiada pelajar lain dalam kategori ini lagi."}
+          </p>
         </div>
       ) : (
         <>
@@ -186,7 +231,7 @@ export default function Leaderboard() {
 
           {/* Total count */}
           <p className="text-center text-xs text-stone-400 font-bold pt-2">
-            {data?.total_students || board.length} pelajar dalam carta
+            {data?.total_students || board.length} pelajar{scope !== "global" ? ` dalam ${SCOPE_LABELS[scope] || scope}` : ""} dalam carta
           </p>
         </>
       )}

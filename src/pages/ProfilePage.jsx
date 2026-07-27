@@ -62,6 +62,7 @@ export default function ProfilePage() {
     date_of_birth: "", 
     country: "Malaysia", 
     state: "",
+    district: "",
   });
 
   const [avatarMode, setAvatarMode] = useState("emoji");
@@ -113,6 +114,7 @@ export default function ProfilePage() {
       date_of_birth: profileUser.date_of_birth || "",
       country: profileUser.country || "Malaysia",
       state: profileUser.state || "",
+      district: profileUser.district || "",
     });
   }, [data, hookLoading, studentUser, hookStudentId]);
 
@@ -232,6 +234,10 @@ export default function ProfilePage() {
         school_name: formData.school_name || "",
         gender: formData.gender || "",
         date_of_birth: formData.date_of_birth || "",
+        state: formData.state || "",
+        district: formData.district || "",
+        class_name: formData.class_name || "",
+        country: formData.country || "Malaysia",
       };
 
       if (childId) {
@@ -256,6 +262,10 @@ export default function ProfilePage() {
           school_name: formData.school_name,
           gender: formData.gender,
           date_of_birth: formData.date_of_birth,
+          state: formData.state,
+          district: formData.district,
+          class_name: formData.class_name,
+          country: formData.country || "Malaysia",
         });
         const updatedMe = await base44.auth.me();
         setUser(updatedMe);

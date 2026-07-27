@@ -6,18 +6,33 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Fetch all Progress records sorted by total_xp descending (service role for cross-user reads)
-    const allProgress = await base44.asServiceRole.entities.Progress.list('-total_xp', 100);
+    // Parse request body
+    let body = {};
+    try { body = await req.json(); } catch {}
+    const scope = body.scope || 'global';
 
-    // Fetch all Users to get names and avatars (service role bypasses RLS)
-    const allUsers = await base44.asServiceRole.entities.User.list(undefined, 200);
+    // Determine the "current student" — passed student_id (parent mode) or logged-in user
+    const currentStudentId = body.student_id || user.id;
+
+    // Fetch all Progress records sorted by total_xp descending (service role for cross-user reads)
+    const allProgress = await base44.asServiceRole.entities.Progress.list('-total_xp', 200);
+
+    // Fetch all Users to get names, avatars, and location data (service role bypasses RLS)
+    const allUsers = await base44.asServiceRole.entities.User.list(undefined, 300);
     const userMap = {};
     for (const u of allUsers) {
       userMap[u.id] = u;
     }
 
+    // Get the current student's profile for scope filtering
+    const myProfile = userMap[currentStudentId] || user;
+    const mySchool = myProfile.school_name;
+    const myYear = myProfile.school_year;
+    const myState = myProfile.state;
+    const myDistrict = myProfile.district;
+
     // Build leaderboard entries — only include students with user records
-    const leaderboard = allProgress
+    let leaderboard = allProgress
       .filter(p => userMap[p.student_id])
       .map(p => {
         const u = userMap[p.student_id];
@@ -30,9 +45,31 @@ Deno.serve(async (req) => {
           level: p.level || 1,
           streak_days: p.streak_days || 0,
           total_study_time: p.total_study_time || 0,
+          school_name: u.school_name || null,
+          school_year: u.school_year || null,
+          state: u.state || null,
+          district: u.district || null,
         };
       })
       .sort((a, b) => b.total_xp - a.total_xp);
+
+    // Apply scope filter
+    if (scope === 'school' && mySchool) {
+      leaderboard = leaderboard.filter(e => e.school_name === mySchool);
+    } else if (scope === 'state' && myState) {
+      leaderboard = leaderboard.filter(e => e.state === myState);
+    } else if (scope === 'district' && myDistrict) {
+      leaderboard = leaderboard.filter(e => e.district === myDistrict);
+    } else if (scope === 'friends') {
+      // Classmates: same school + same year
+      if (mySchool) {
+        leaderboard = leaderboard.filter(e =>
+          e.school_name === mySchool && (!myYear || e.school_year === myYear)
+        );
+      } else {
+        leaderboard = [];
+      }
+    }
 
     // Assign ranks
     leaderboard.forEach((entry, idx) => { entry.rank = idx + 1; });
@@ -40,14 +77,21 @@ Deno.serve(async (req) => {
     // Build streak-sorted copy
     const streakboard = [...leaderboard].sort((a, b) => b.streak_days - a.streak_days);
 
-    // Find current user's entry
-    const myEntry = leaderboard.find(e => e.student_id === user.id) || null;
+    // Find current student's entry
+    const myEntry = leaderboard.find(e => e.student_id === currentStudentId) || null;
 
     return Response.json({
       leaderboard,
       streakboard,
       my_entry: myEntry,
       total_students: leaderboard.length,
+      scope,
+      filter_info: {
+        school: mySchool || null,
+        school_year: myYear || null,
+        state: myState || null,
+        district: myDistrict || null,
+      },
     });
   } catch (error) {
     console.error('fetchLeaderboard error:', error);

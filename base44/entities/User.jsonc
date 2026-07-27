@@ -36,6 +36,22 @@
     "school_name": {
       "type": "string"
     },
+    "class_name": {
+      "type": "string",
+      "description": "Nama kelas pelajar cth. 1A, 3B"
+    },
+    "state": {
+      "type": "string",
+      "description": "Negeri di Malaysia cth. Selangor, Johor, Pulau Pinang"
+    },
+    "district": {
+      "type": "string",
+      "description": "Kawasan/Daerah cth. Petaling, Gombak, Johor Bahru"
+    },
+    "country": {
+      "type": "string",
+      "default": "Malaysia"
+    },
     "gender": {
       "type": "string"
     },

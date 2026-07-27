@@ -166,16 +166,50 @@ export default function ProfileForm({ user, editing, formData, setFormData, isSt
             </div>
 
             <div>
-              <Label className="text-xs text-muted-foreground">Negeri/Wilayah</Label>
+              <Label className="text-xs text-muted-foreground">Negeri</Label>
+              {editing ? (
+                <Select
+                  value={formData.state}
+                  onValueChange={(v) => setFormData(prev => ({ ...prev, state: v }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Pilih negeri" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Johor">Johor</SelectItem>
+                    <SelectItem value="Kedah">Kedah</SelectItem>
+                    <SelectItem value="Kelantan">Kelantan</SelectItem>
+                    <SelectItem value="Melaka">Melaka</SelectItem>
+                    <SelectItem value="Negeri Sembilan">Negeri Sembilan</SelectItem>
+                    <SelectItem value="Pahang">Pahang</SelectItem>
+                    <SelectItem value="Pulau Pinang">Pulau Pinang</SelectItem>
+                    <SelectItem value="Perak">Perak</SelectItem>
+                    <SelectItem value="Perlis">Perlis</SelectItem>
+                    <SelectItem value="Sabah">Sabah</SelectItem>
+                    <SelectItem value="Sarawak">Sarawak</SelectItem>
+                    <SelectItem value="Selangor">Selangor</SelectItem>
+                    <SelectItem value="Terengganu">Terengganu</SelectItem>
+                    <SelectItem value="W.P. Kuala Lumpur">W.P. Kuala Lumpur</SelectItem>
+                    <SelectItem value="W.P. Putrajaya">W.P. Putrajaya</SelectItem>
+                    <SelectItem value="W.P. Labuan">W.P. Labuan</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm font-medium mt-1">{user?.state || "Tidak ditetapkan"}</p>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-xs text-muted-foreground">Kawasan/Daerah</Label>
               {editing ? (
                 <Input
-                  value={formData.state}
-                  onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
-                  placeholder="Negeri atau wilayah"
+                  value={formData.district}
+                  onChange={(e) => setFormData(prev => ({ ...prev, district: e.target.value }))}
+                  placeholder="Cth: Petaling, Gombak"
                   className="mt-1"
                 />
               ) : (
-                <p className="text-sm font-medium mt-1">{user?.state || "Tidak ditetapkan"}</p>
+                <p className="text-sm font-medium mt-1">{user?.district || "Tidak ditetapkan"}</p>
               )}
             </div>
           </div>
