@@ -1,5 +1,4 @@
-// base44/functions/createChildAccount/entry.ts
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 // Helper function to hash 4-digit PINs
 const hashPin = (pin: string) => {
@@ -16,7 +15,7 @@ const generateStudentId = () => {
   return id;
 };
 
-Deno.serve(async (req) => {
+export default async function(req: Request): Promise<Response> {
   const resHeaders = {
     "content-type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -30,7 +29,6 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
-    const db = base44.asServiceRole || base44;
 
     // 1. Verify parent authentication session
     const authUser = await base44.auth.me().catch(() => null);
@@ -40,6 +38,8 @@ Deno.serve(async (req) => {
         { status: 200, headers: resHeaders }
       );
     }
+
+    const db = base44.asServiceRole;
 
     // Safely retrieve parent record from User entity
     const parentDbRecord = await db.entities.User.get(authUser.id).catch(() => null);
@@ -78,10 +78,45 @@ Deno.serve(async (req) => {
     const studentId = generateStudentId();
     const virtualEmail = `${cleanNick}.${parentId.substring(0, 6)}.${randomDigits}@studyquest.com`;
 
-    // 4. Create Student User record in database
-    const newStudent = await db.entities.User.create({
+    // 4. Create User record via auth.register (creates an unverified User record immediately).
+    //    entities.User.create() silently fails to persist for the built-in User entity.
+    //    inviteUser only sends an email — the User record is not created until the invitee accepts.
+    //    auth.register creates the User record now; the childLogin function bypasses standard auth
+    //    (looks up by username + PIN), so email verification is not needed for PIN-based login.
+    const registerPassword = `SQchild_${pin}_${randomDigits}!2026`;
+    try {
+      await base44.auth.register({ email: virtualEmail, password: registerPassword });
+    } catch (regErr: any) {
+      console.error("auth.register error:", regErr);
+      return Response.json(
+        { success: false, error: "Gagal menjana akaun murid. Sila cuba lagi." },
+        { status: 200, headers: resHeaders }
+      );
+    }
+
+    // 5. Look up the newly created User record by email using service role
+    let newStudent: any = null;
+    try {
+      const matchingUsers = await db.entities.User.filter({ email: virtualEmail });
+      if (matchingUsers && matchingUsers.length > 0) {
+        newStudent = matchingUsers[0];
+      }
+    } catch (lookupErr: any) {
+      console.error("User lookup error:", lookupErr);
+    }
+
+    if (!newStudent || !newStudent.id) {
+      return Response.json(
+        { success: false, error: "Pelayan gagal menjana rekod murid baharu di pangkalan data." },
+        { status: 200, headers: resHeaders }
+      );
+    }
+
+    const newStudentId = newStudent.id;
+
+    // 6. Update the User record with all student-specific fields
+    await db.entities.User.update(newStudentId, {
       app_role: "student",
-      email: virtualEmail,
       nickname: nickname,
       full_name: fullName,
       username: generatedUsername,
@@ -104,20 +139,10 @@ Deno.serve(async (req) => {
       interests: body.interests || [],
       status: "active"
     }).catch((err: any) => {
-      console.error("User.create Error:", err);
-      return null;
+      console.error("User.update error:", err);
     });
 
-    if (!newStudent || !newStudent.id) {
-      return Response.json(
-        { success: false, error: "Pelayan gagal menjana rekod murid baharu di pangkalan data." },
-        { status: 200, headers: resHeaders }
-      );
-    }
-
-    const newStudentId = newStudent.id;
-
-    // 5. Create ParentChildRelationship with embedded profile
+    // 7. Create ParentChildRelationship with embedded profile
     await db.entities.ParentChildRelationship.create({
       parent_id: parentId,
       child_id: newStudentId,
@@ -136,30 +161,30 @@ Deno.serve(async (req) => {
       console.warn("ParentChildRelationship create note:", err);
     });
 
- // 6. Create approved LinkRequest record with embedded student_profile
- await db.entities.LinkRequest.create({
-   student_id: newStudentId,
-   student_name: nickname,
-   student_username: generatedUsername,
-   student_email: virtualEmail,
-   parent_id: parentId,
-   parent_email: parentEmail,
-   parent_name: parentName,
-   initiated_by: "parent",
-   status: "approved",
-   student_profile: {
-     full_name: fullName,
-     nickname: nickname,
-     education_level: educationLevel,
-     selected_avatar: selectedAvatar,
-     username: generatedUsername,
-     student_id: studentId
-   }
- }).catch((err: any) => {
-   console.warn("LinkRequest creation note:", err);
- });
+    // 8. Create approved LinkRequest record with embedded student_profile
+    await db.entities.LinkRequest.create({
+      student_id: newStudentId,
+      student_name: nickname,
+      student_username: generatedUsername,
+      student_email: virtualEmail,
+      parent_id: parentId,
+      parent_email: parentEmail,
+      parent_name: parentName,
+      initiated_by: "parent",
+      status: "approved",
+      student_profile: {
+        full_name: fullName,
+        nickname: nickname,
+        education_level: educationLevel,
+        selected_avatar: selectedAvatar,
+        username: generatedUsername,
+        student_id: studentId
+      }
+    }).catch((err: any) => {
+      console.warn("LinkRequest creation note:", err);
+    });
 
-    // 7. Link child ID to parent user record
+    // 9. Link child ID to parent user record
     const currentLinked = Array.isArray(parent.linked_student_ids) ? parent.linked_student_ids : [];
     if (!currentLinked.includes(newStudentId)) {
       await db.entities.User.update(parentId, {
@@ -167,7 +192,7 @@ Deno.serve(async (req) => {
       }).catch(() => null);
     }
 
-    // 8. Initialize Wallet and Progress
+    // 10. Initialize Wallet and Progress
     await db.entities.Wallet.create({ student_id: newStudentId, balance: 0 }).catch(() => null);
     await db.entities.Progress.create({
       student_id: newStudentId,
@@ -199,4 +224,4 @@ Deno.serve(async (req) => {
       { status: 200, headers: resHeaders }
     );
   }
-});
+}
