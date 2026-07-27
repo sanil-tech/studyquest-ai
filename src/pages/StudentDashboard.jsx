@@ -14,6 +14,7 @@ import moment from "moment";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 import RecommendationCard from "@/components/student/RecommendationCard";
 import { useViewMode } from "@/lib/ViewModeContext";
+import { useAuth } from "@/lib/AuthContext";
 
 // Subject Worlds Data
 const SUBJECT_WORLDS = [
@@ -93,6 +94,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { returnToParentMode } = useViewMode();
+  const { user: authUser } = useAuth();
   
   const [dashboardState, setDashboardState] = useState({
     user: null,
@@ -110,7 +112,9 @@ export default function StudentDashboard() {
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
-      const currentUser = await base44.auth.me();
+      const currentUser = authUser || await base44.auth.me().catch(() => null);
+
+      if (!currentUser) throw new Error("No user");
 
       const activeChildId = currentUser.app_role === "parent" 
         ? localStorage.getItem("active_child_session") 
