@@ -1,5 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
+function sanitizeTextForTTS(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/[^\p{L}\p{N}\s.,?!'()-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -15,6 +23,9 @@ export default async function(req: Request): Promise<Response> {
       );
     }
 
+    // Sanitize text — remove emojis and irrelevant symbols before TTS
+    const cleanText = sanitizeTextForTTS(target_text);
+
     // 1. Check if audio already exists in cache
     const existing = await db.entities.DiagnosticAudioCache.filter({ question_id });
     if (existing && existing.length > 0 && existing[0].audio_url) {
@@ -27,7 +38,7 @@ export default async function(req: Request): Promise<Response> {
 
     // 2. Generate TTS audio (only once per question — cached for all students)
     const ttsResult = await base44.integrations.Core.GenerateSpeech({
-      text: target_text,
+      text: cleanText,
       voice: 'river',
       language_code: 'ms',
     });
@@ -42,7 +53,7 @@ export default async function(req: Request): Promise<Response> {
     await db.entities.DiagnosticAudioCache.create({
       question_id,
       audio_url,
-      target_text,
+      target_text: cleanText,
       module_id: module_id || '',
     });
 
