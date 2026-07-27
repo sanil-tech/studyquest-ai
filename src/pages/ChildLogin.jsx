@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import AuthLayout from "@/components/AuthLayout";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function ChildLogin() {
-  const navigate = useNavigate();
   const { checkUserAuth } = useAuth();
   const [usernameInput, setUsernameInput] = useState("");
   const [pin, setPin] = useState(""); 
@@ -59,12 +58,8 @@ export default function ChildLogin() {
       localStorage.setItem("active_student_id", loggedStudent.id);
       localStorage.setItem("active_student_name", loggedStudent.nickname || loggedStudent.full_name || "Pelajar");
 
-      // Refresh Auth Context and navigate
-      if (typeof checkUserAuth === "function") {
-        await checkUserAuth();
-      }
-
-      navigate("/dashboard");
+      // Hard redirect so the AuthProvider re-initializes from localStorage
+      window.location.href = "/dashboard";
 
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
