@@ -139,7 +139,7 @@ export default function AppLayout() {
     );
   };
 
-  const SwitchModeButton = ({ compact = false }) => {
+  const renderSwitchModeButton = (compact = false) => {
     if (!isParent) return null;
 
     if (isChildMode) {
@@ -204,7 +204,7 @@ export default function AppLayout() {
 
           {/* Mode switch button at bottom of sidebar */}
           <div className="mt-4 pt-4 border-t-2 border-orange-100">
-            <SwitchModeButton />
+            {renderSwitchModeButton()}
           </div>
         </div>
       </aside>
@@ -240,7 +240,7 @@ export default function AppLayout() {
         </nav>
 
         <div className="p-4 border-t-2 border-orange-100">
-          <SwitchModeButton />
+          {renderSwitchModeButton()}
         </div>
       </aside>
 
@@ -284,7 +284,7 @@ export default function AppLayout() {
 
             {/* Compact switch button for mobile header */}
             <div className="md:hidden">
-              <SwitchModeButton compact />
+              {renderSwitchModeButton(true)}
             </div>
 
             <Link to="/profile" className="flex items-center gap-3 group md:hover:bg-orange-50 md:p-1.5 md:pr-4 md:rounded-full transition-colors">
