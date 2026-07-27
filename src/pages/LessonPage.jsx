@@ -336,6 +336,7 @@ export default function LessonPage() {
   const [notesContent, setNotesContent] = useState("");
   const [notesImage, setNotesImage] = useState(""); 
   const [infographicUrl, setInfographicUrl] = useState("");
+  const [subtopics, setSubtopics] = useState([]);
 
   const [activeTab, setActiveTab] = useState("map"); 
   const [progressState, setProgressState] = useState({ 
@@ -428,6 +429,7 @@ export default function LessonPage() {
           }
           setRawBankQuestions(safeJsonParse(foundBank.questions_json, []));
           setStoredMindmap(safeJsonParse(foundBank.mindmap_json, []));
+          setSubtopics(safeJsonParse(foundBank.subtopics_json, []));
         }
 
         const cachedSessions = await base44.entities.StudySession.filter(
@@ -759,6 +761,15 @@ export default function LessonPage() {
               <h1 className="text-sm sm:text-base font-black text-white mt-1 flex items-center gap-1.5">
                 <Compass className="w-4 h-4 text-amber-400"/> {topic?.name}
               </h1>
+              {subtopics.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {subtopics.map((st, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 bg-white/10 text-amber-200 border border-amber-400/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      <BookOpen className="w-2.5 h-2.5"/> {st}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
