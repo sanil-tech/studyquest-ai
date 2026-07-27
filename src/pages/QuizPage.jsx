@@ -2,80 +2,96 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Loader2, Eraser, PenTool, Image as ImageIcon, Lightbulb } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
+  Eraser,
+  PenTool,
+  Lightbulb,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { getActiveStudentId, awardCoinsAndXP } from "@/lib/rewardSystem";
+import QuizModeHeader from "@/components/quiz/QuizModeHeader";
 
 const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
-  const canvasRef = useRef(null); 
+  const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas) {
-      const ctx = canvas.getContext("2d"); 
-      ctx.lineCap = "round"; 
-      ctx.lineJoin = "round"; 
-      ctx.lineWidth = 12; 
-      ctx.strokeStyle = "#059669"; 
-      ctx.fillStyle = "#ffffff"; 
+      const ctx = canvas.getContext("2d");
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 12;
+      ctx.strokeStyle = "#059669";
+      ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
   }, []);
 
-  const getCoordinates = (e) => { 
-    const canvas = canvasRef.current; 
-    const rect = canvas.getBoundingClientRect(); 
-    if (e.touches && e.touches.length > 0) { 
-      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top }; 
-    } 
-    return { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY }; 
+  const getCoordinates = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    if (e.touches && e.touches.length > 0) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top,
+      };
+    }
+    return { x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY };
   };
 
-  const startDrawing = (e) => { 
-    e.preventDefault(); 
-    const { x, y } = getCoordinates(e); 
-    const ctx = canvasRef.current.getContext("2d"); 
-    ctx.beginPath(); 
-    ctx.moveTo(x, y); 
-    setIsDrawing(true); 
+  const startDrawing = (e) => {
+    e.preventDefault();
+    const { x, y } = getCoordinates(e);
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
   };
 
-  const draw = (e) => { 
-    e.preventDefault(); 
-    if (!isDrawing) return; 
-    const { x, y } = getCoordinates(e); 
-    const ctx = canvasRef.current.getContext("2d"); 
-    ctx.lineTo(x, y); 
-    ctx.stroke(); 
+  const draw = (e) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const { x, y } = getCoordinates(e);
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.lineTo(x, y);
+    ctx.stroke();
   };
 
-  const stopDrawing = () => { 
-    if (!isDrawing) return; 
-    const ctx = canvasRef.current.getContext("2d"); 
-    ctx.closePath(); 
-    setIsDrawing(false); 
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.closePath();
+    setIsDrawing(false);
   };
 
-  const clearCanvas = () => { 
-    const canvas = canvasRef.current; 
-    const ctx = canvas.getContext("2d"); 
-    ctx.fillStyle = "#ffffff"; 
-    ctx.fillRect(0, 0, canvas.width, canvas.height); 
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   };
 
-  const handleVerify = () => { 
-    const canvas = canvasRef.current; 
-    const imageDataUrl = canvas.toDataURL("image/jpeg", 0.8); 
-    onVerify(imageDataUrl); 
+  const handleVerify = () => {
+    const canvas = canvasRef.current;
+    const imageDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+    onVerify(imageDataUrl);
   };
 
   return (
     <div className="bg-stone-50 p-4 rounded-2xl border-2 border-dashed border-emerald-200 flex flex-col items-center space-y-4">
       <div className="text-center w-full">
-        <p className="text-sm font-bold text-emerald-800">Ruangan Menulis 🖍️</p>
-        <p className="text-xs text-stone-500">Tulis jawapan anda di bawah dan biarkan AI menyemaknya!</p>
+        <p className="text-sm font-bold text-emerald-800">
+          Ruangan Menulis 🖍️
+        </p>
+        <p className="text-xs text-stone-500">
+          Tulis jawapan anda di bawah dan biarkan AI menyemaknya!
+        </p>
       </div>
 
       <div className="relative border-4 border-emerald-500 rounded-2xl overflow-hidden shadow-inner bg-white">
@@ -95,14 +111,29 @@ const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
       </div>
 
       <div className="flex items-center gap-3 w-full max-w-[320px]">
-        <Button className="flex-1 rounded-xl border-stone-300 text-stone-600 h-10 text-xs font-bold" disabled={isVerifying} onClick={clearCanvas} type="button" variant="outline">
-          <Eraser className="w-4 h-4 mr-1"/> Padam
+        <Button
+          className="flex-1 rounded-xl border-stone-300 text-stone-600 h-10 text-xs font-bold"
+          disabled={isVerifying}
+          onClick={clearCanvas}
+          type="button"
+          variant="outline"
+        >
+          <Eraser className="w-4 h-4 mr-1" /> Padam
         </Button>
-        <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white h-10 text-xs font-black shadow-md" disabled={isVerifying} onClick={handleVerify} type="button">
+        <Button
+          className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white h-10 text-xs font-black shadow-md"
+          disabled={isVerifying}
+          onClick={handleVerify}
+          type="button"
+        >
           {isVerifying ? (
-            <><Loader2 className="w-4 h-4 animate-spin mr-1"/> Semak...</>
+            <>
+              <Loader2 className="w-4 h-4 animate-spin mr-1" /> Semak...
+            </>
           ) : (
-            <><CheckCircle2 className="w-4 h-4 mr-1"/> Hantar Jawapan</>
+            <>
+              <CheckCircle2 className="w-4 h-4 mr-1" /> Hantar Jawapan
+            </>
           )}
         </Button>
       </div>
@@ -138,22 +169,30 @@ export default function QuizPage() {
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-
-  const [inputMode, setInputMode] = useState("mcq"); 
+  const [inputMode, setInputMode] = useState("mcq");
   const [isVerifyingAI, setIsVerifyingAI] = useState(false);
+
+  // Mode-aware states
+  const [quizType, setQuizType] = useState("practice");
+  const [hint, setHint] = useState(null);
+  const [hintLoading, setHintLoading] = useState(false);
+  const [aiEncouragement, setAiEncouragement] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const isPracticeMode = quizType !== "mastery";
+  const isMasteryMode = quizType === "mastery";
 
   useEffect(() => {
     const loadQuiz = async () => {
       try {
         const q = await base44.entities.Quiz.get(quizId);
         setQuiz(q);
-        
+        setQuizType(q?.quiz_type || "practice");
+
         let parsed = safeJsonParse(q.questions_json, []);
 
-        // Apply question limit from URL param (?limit=10 or ?limit=20)
         const limitParam = parseInt(searchParams.get("limit"));
         if (limitParam && limitParam > 0 && parsed.length > limitParam) {
-          // Shuffle and slice to get the requested number of questions
           const shuffled = [...parsed];
           for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -172,9 +211,63 @@ export default function QuizPage() {
     loadQuiz();
   }, [quizId, searchParams]);
 
+  // PRACTICE MODE: AI encouragement after each answer
+  const generateAIEncouragement = async (questionIndex, studentAnswer) => {
+    const q = questions[questionIndex];
+    if (!q) return;
+    const correctAns = q.correct_answer || q.correctAnswer || "";
+    const isCorrect =
+      String(studentAnswer).trim().toLowerCase() ===
+      String(correctAns).trim().toLowerCase();
+
+    setAiLoading(true);
+    setAiEncouragement(null);
+    try {
+      const prompt = isCorrect
+        ? `A Malaysian primary school student correctly answered a quiz question. Question: "${q.question}". Their answer: "${studentAnswer}". Generate a short, warm encouragement in Bahasa Melayu (1-2 sentences) that celebrates their correct answer and briefly reinforces why it's correct. Use friendly, motivating language suitable for children. Example: "Hebat Pengembara! Jawapan kamu betul. 5 + 3 = 8 kerana kita menggabungkan 5 objek dengan 3 objek lagi."`
+        : `A Malaysian primary school student answered a quiz question incorrectly. Question: "${q.question}". Their answer: "${studentAnswer}". Correct answer: "${correctAns}". Generate a warm encouragement in Bahasa Melayu (1-2 sentences) that encourages them not to give up and gives a simple hint to help them understand. Do NOT reveal the correct answer directly. Use friendly, motivating language suitable for children. Example: "Hampir berjaya! Mari kira semula gambar tersebut. Berapa jumlah objek semuanya?"`;
+
+      const result = await base44.integrations.Core.InvokeLLM({ prompt });
+      setAiEncouragement(
+        typeof result === "string" ? result : String(result)
+      );
+    } catch (e) {
+      console.error("AI encouragement error:", e);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // PRACTICE MODE: Hint request
+  const requestHint = async () => {
+    const q = questions[currentQ];
+    if (!q) return;
+
+    setHintLoading(true);
+    setHint(null);
+    try {
+      const prompt = `A Malaysian primary school student needs a hint for this question: "${
+        q.question
+      }". Options: ${(q.options || []).join(
+        ", "
+      )}. Generate a helpful hint in Bahasa Melayu (1-2 sentences) that guides them toward the correct answer WITHOUT revealing it directly. Use friendly language suitable for children.`;
+      const result = await base44.integrations.Core.InvokeLLM({ prompt });
+      setHint(typeof result === "string" ? result : String(result));
+    } catch (e) {
+      console.error("Hint error:", e);
+    } finally {
+      setHintLoading(false);
+    }
+  };
+
   const handleAnswer = (index, answer) => {
-    setAnswers(prev => ({ ...prev, [index]: answer }));
+    setAnswers((prev) => ({ ...prev, [index]: answer }));
     setShowExplanation(true);
+
+    // Practice mode: get AI encouragement; Mastery mode: no AI help
+    if (isPracticeMode) {
+      generateAIEncouragement(index, answer);
+    }
   };
 
   const verifyHandwritingWithAI = async (imageDataUrl) => {
@@ -184,10 +277,10 @@ export default function QuizPage() {
       const targetAns = q?.correct_answer || q?.correctAnswer || "";
 
       const promptMsg = `Look at this handwritten image of a primary school student. Is the written text matching "${targetAns}"? Answer strictly YES or NO, followed by detected text.`;
-      
+
       const res = await base44.integrations.Core.InvokeLLM({
         prompt: promptMsg,
-        file_urls: [imageDataUrl]
+        file_urls: [imageDataUrl],
       });
 
       const resStr = String(res).toLowerCase();
@@ -195,7 +288,9 @@ export default function QuizPage() {
         handleAnswer(currentQ, targetAns);
         alert("✨ AI mengesahkan jawapan tulisan tangan anda TEPAT!");
       } else {
-        alert(`AI mengesahkan tulisan anda belum tepat. Jawapan dijangka: ${targetAns}`);
+        alert(
+          `AI mengesahkan tulisan anda belum tepat. Jawapan dijangka: ${targetAns}`
+        );
       }
     } catch (e) {
       alert("AI sibuk sebentar. Sila guna pilihan butang.");
@@ -205,81 +300,242 @@ export default function QuizPage() {
     }
   };
 
-  // 🔥 SUBMIT QUIZ RESULTS UNDER ACTIVE STUDENT ID
+  const goToQuestion = (index) => {
+    setCurrentQ(index);
+    setInputMode("mcq");
+    setShowExplanation(!!answers[index]);
+    setHint(null);
+    setAiEncouragement(null);
+  };
+
+  // MODE-AWARE SUBMIT
   const handleSubmit = async () => {
-    if (questions.length === 0) return; 
+    if (questions.length === 0) return;
     setSubmitted(true);
 
     try {
       const studentId = await getActiveStudentId();
       if (!studentId) throw new Error("Pengguna tidak dikesan");
 
-      let correct = 0; 
-      questions.forEach((q, i) => { 
-        const targetAns = q.correct_answer || q.correctAnswer || ""; 
-        if (String(answers[i] || "").trim().toLowerCase() === String(targetAns).trim().toLowerCase()) correct++; 
+      let correct = 0;
+      questions.forEach((q, i) => {
+        const targetAns = q.correct_answer || q.correctAnswer || "";
+        if (
+          String(answers[i] || "")
+            .trim()
+            .toLowerCase() ===
+          String(targetAns).trim().toLowerCase()
+        )
+          correct++;
       });
 
       const score = Math.round((correct / questions.length) * 100);
-      let coins = correct * 10; 
-      if (score === 100) coins += 50; 
-      const xpEarned = correct * 5;
-      
-      let feedbackResult = "Syabas atas usaha anda!";
-      try { 
-        feedbackResult = await base44.integrations.Core.InvokeLLM({ 
-          prompt: `Student scored ${score}% on quiz "${quiz?.topic_name}". warm friendly teacher feedback.` 
-        }); 
-      } catch(e){}
 
-      // 1. Cipta Percubaan Kuiz
-      const attempt = await base44.entities.QuizAttempt.create({ 
-        student_id: studentId, 
-        quiz_id: quizId, 
-        topic_name: quiz?.topic_name || "Topik", 
-        subject_name: quiz?.subject_name || "Subjek", 
-        answers_json: JSON.stringify(answers), 
-        score, 
-        coins_earned: coins, 
+      // Mode-aware rewards
+      let coins = 0;
+      let xpEarned = 0;
+
+      if (isPracticeMode) {
+        // Practice: +50 XP, small coin reward
+        xpEarned = 50;
+        coins = correct * 5;
+      } else {
+        // Mastery: full rewards based on performance
+        coins = correct * 10;
+        if (score === 100) coins += 50;
+        xpEarned = correct * 5;
+      }
+
+      // Generate mode-aware feedback/analysis
+      let feedbackResult = "";
+      let analysisJson = null;
+
+      if (isPracticeMode) {
+        // PRACTICE REPORT
+        try {
+          const practiceAnalysis = await base44.integrations.Core.InvokeLLM({
+            prompt: `Generate a practice report for a Malaysian primary school student who completed a practice quiz.
+Topic: "${quiz?.topic_name}". Subject: "${quiz?.subject_name}". Score: ${score}%. Correct: ${correct}/${questions.length}.
+
+Questions and answers:
+${questions
+              .map(
+                (q, i) =>
+                  `Q: ${q.question}, Student: ${
+                    answers[i] || "no answer"
+                  }, Correct: ${q.correct_answer || q.correctAnswer}`
+              )
+              .join("; ")}
+
+Respond in JSON:
+{
+  "concepts_understood": ["concepts the student understood - in Bahasa Melayu"],
+  "mistakes_made": ["specific mistakes - in Bahasa Melayu"],
+  "recommended_revision": ["recommended revision activities - in Bahasa Melayu"],
+  "summary": "Brief encouraging summary in Bahasa Melayu (1-2 sentences)"
+}`,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                concepts_understood: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                mistakes_made: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                recommended_revision: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                summary: { type: "string" },
+              },
+            },
+          });
+          analysisJson = JSON.stringify(practiceAnalysis);
+          feedbackResult =
+            practiceAnalysis.summary || "Syabas atas usaha anda!";
+        } catch (e) {
+          feedbackResult =
+            "Syabas atas usaha anda! Teruskan berlatih untuk menjadi lebih handal.";
+        }
+      } else {
+        // MASTERY ANALYSIS
+        try {
+          const masteryAnalysis = await base44.integrations.Core.InvokeLLM({
+            prompt: `You are an EdTech assessment specialist for Malaysian KSSR primary education. Analyze this student's mastery assessment results.
+
+Topic: "${quiz?.topic_name}". Subject: "${quiz?.subject_name}". Score: ${score}% (${correct}/${questions.length} correct).
+
+Questions and answers:
+${questions
+              .map((q, i) => {
+                const targetAns = q.correct_answer || q.correctAnswer || "";
+                const isCorrect =
+                  String(answers[i] || "")
+                    .trim()
+                    .toLowerCase() ===
+                  String(targetAns).trim().toLowerCase();
+                return `Q${i + 1}: ${q.question} | Student: ${
+                  answers[i] || "no answer"
+                } | Correct: ${targetAns} | ${
+                  isCorrect ? "CORRECT" : "WRONG"
+                }`;
+              })
+              .join("\n")}
+
+Generate a comprehensive mastery report. Respond in JSON:
+{
+  "mastery_level": "Mastered" (score>=80) | "Developing" (50-79) | "Needs Support" (<50),
+  "strengths": ["areas of strength - in Bahasa Melayu"],
+  "improvements": ["areas needing improvement - in Bahasa Melayu"],
+  "ai_recommendation": "Specific recommendation in Bahasa Melayu based on the wrong answers pattern",
+  "wrong_answer_review": [{"question": "the question text", "their_answer": "student's answer", "correct_answer": "correct answer", "what_went_wrong": "explanation of what went wrong in Bahasa Melayu", "concept_explanation": "correct concept explanation in Bahasa Melayu", "recommended_activity": "specific revision activity in Bahasa Melayu"}],
+  "learning_path": "unlock_next" (score>=80) | "reinforcement" (50-79) | "revision" (<50)
+}`,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                mastery_level: { type: "string" },
+                strengths: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                improvements: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                ai_recommendation: { type: "string" },
+                wrong_answer_review: {
+                  type: "array",
+                  items: { type: "object" },
+                },
+                learning_path: { type: "string" },
+              },
+            },
+          });
+          analysisJson = JSON.stringify(masteryAnalysis);
+          feedbackResult =
+            masteryAnalysis.ai_recommendation ||
+            `Skor anda: ${score}%.`;
+        } catch (e) {
+          feedbackResult = `Skor anda: ${score}%. ${
+            score >= 80
+              ? "Anda telah menguasai topik ini!"
+              : score >= 50
+                ? "Teruskan berlatih untuk lebih baik!"
+                : "Jom ulang kaji topik ini sekali lagi."
+          }`;
+        }
+      }
+
+      // Create QuizAttempt with mode info
+      const attempt = await base44.entities.QuizAttempt.create({
+        student_id: studentId,
+        quiz_id: quizId,
+        topic_name: quiz?.topic_name || "Topik",
+        subject_name: quiz?.subject_name || "Subjek",
+        answers_json: JSON.stringify(answers),
+        score,
+        coins_earned: coins,
         xp_earned: xpEarned,
-        feedback_text: typeof feedbackResult === "object" ? JSON.stringify(feedbackResult) : feedbackResult 
+        feedback_text:
+          typeof feedbackResult === "object"
+            ? JSON.stringify(feedbackResult)
+            : feedbackResult,
+        quiz_type: quizType,
+        analysis_json: analysisJson,
       });
-      const finalAttemptId = Array.isArray(attempt) ? attempt[0]?.id : attempt?.id;
+      const finalAttemptId = Array.isArray(attempt)
+        ? attempt[0]?.id
+        : attempt?.id;
 
-      // 2. Anugerah Daun & XP menggunakan Fail-Safe System
+      // Award coins & XP
       await awardCoinsAndXP(studentId, {
         coins,
         xp: xpEarned,
-        reason: `Kuiz Boss: ${quiz?.topic_name || "Cabaran"}`,
-        referenceId: finalAttemptId
+        reason: isPracticeMode
+          ? `Latihan: ${quiz?.topic_name || "Topik"}`
+          : `Ujian Mahir: ${quiz?.topic_name || "Topik"}`,
+        referenceId: finalAttemptId,
       });
 
-      if (document.fullscreenElement) { 
-        if (document.exitFullscreen) await document.exitFullscreen().catch(()=>{}); 
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen)
+          await document.exitFullscreen().catch(() => {});
       }
       navigate(`/quiz-result/${finalAttemptId}`);
-
-    } catch (err) { 
-      setSubmitted(false); 
-      alert("Gagal menghantar kuiz. Sila cuba sekali lagi."); 
+    } catch (err) {
+      setSubmitted(false);
+      alert("Gagal menghantar kuiz. Sila cuba sekali lagi.");
     }
   };
 
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center py-20 bg-[#FAFAF7] min-h-screen space-y-3">
-      <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-      <p className="text-xs font-bold text-stone-500">Menyediakan kertas soalan Kuiz Boss... ⚔️</p>
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-[#FAFAF7] min-h-screen space-y-3">
+        <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <p className="text-xs font-bold text-stone-500">
+          Menyediakan kertas soalan... ⚔️
+        </p>
+      </div>
+    );
 
-  if (questions.length === 0) return (
-    <div className="p-6 text-center bg-red-50 border border-red-200 rounded-2xl max-w-md mx-auto my-12">
-      <p className="text-sm font-bold text-red-700">Soalan kuiz belum disediakan untuk topik ini.</p>
-      <Button onClick={() => navigate(-1)} className="mt-4 bg-red-600 text-white font-bold rounded-xl text-xs">
-        Kembali
-      </Button>
-    </div>
-  );
+  if (questions.length === 0)
+    return (
+      <div className="p-6 text-center bg-red-50 border border-red-200 rounded-2xl max-w-md mx-auto my-12">
+        <p className="text-sm font-bold text-red-700">
+          Soalan kuiz belum disediakan untuk topik ini.
+        </p>
+        <Button
+          onClick={() => navigate(-1)}
+          className="mt-4 bg-red-600 text-white font-bold rounded-xl text-xs"
+        >
+          Kembali
+        </Button>
+      </div>
+    );
 
   const q = questions[currentQ];
   const selectedAnswer = answers[currentQ];
@@ -287,56 +543,168 @@ export default function QuizPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 bg-[#FAFAF7] min-h-screen font-sans">
+      {/* Header bar */}
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-xl bg-stone-100 text-stone-600 hover:bg-stone-200">
-          <ArrowLeft className="w-4 h-4"/>
+        <button
+          onClick={() => navigate(-1)}
+          className="p-2 rounded-xl bg-stone-100 text-stone-600 hover:bg-stone-200"
+        >
+          <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="text-center">
-          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{quiz?.subject_name}</span>
-          <h1 className="text-xs sm:text-sm font-black text-stone-800">{quiz?.topic_name}</h1>
+          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+            {quiz?.subject_name}
+          </span>
+          <h1 className="text-xs sm:text-sm font-black text-stone-800">
+            {quiz?.topic_name}
+          </h1>
         </div>
         <span className="text-xs font-black bg-amber-100 text-amber-800 px-3 py-1 rounded-full">
           Soalan {currentQ + 1}/{questions.length}
         </span>
       </div>
 
+      {/* Mode-aware banner */}
+      <QuizModeHeader
+        quizType={quizType}
+        currentQ={currentQ}
+        totalQ={questions.length}
+      />
+
+      {/* Hint button (practice only) */}
+      {isPracticeMode && !selectedAnswer && (
+        <div className="flex justify-end">
+          <Button
+            onClick={requestHint}
+            disabled={hintLoading}
+            variant="outline"
+            className="text-xs font-bold border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            {hintLoading ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Lightbulb className="w-4 h-4 mr-1" />
+            )}
+            {hintLoading
+              ? "Suku sedang berfikir..."
+              : hint
+                ? "Petunjuk Lain"
+                : "Minta Petunjuk"}
+          </Button>
+        </div>
+      )}
+
+      {/* Hint display (practice only) */}
+      {isPracticeMode && hint && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4"
+        >
+          <p className="text-xs font-black text-amber-800 flex items-center gap-1.5 mb-1">
+            <Lightbulb className="w-4 h-4 text-amber-500" /> Petunjuk Suku:
+          </p>
+          <p className="text-xs text-stone-700 font-medium">{hint}</p>
+        </motion.div>
+      )}
+
+      {/* Question card */}
       <AnimatePresence mode="wait">
-        <motion.div key={currentQ} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="bg-white p-6 rounded-3xl border-2 border-stone-200 shadow-sm space-y-5">
+        <motion.div
+          key={currentQ}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="bg-white p-6 rounded-3xl border-2 border-stone-200 shadow-sm space-y-5"
+        >
           <h2 className="text-sm sm:text-base font-black text-stone-900 leading-relaxed">
             {currentQ + 1}. {q?.question}
           </h2>
 
+          {/* Input mode toggle */}
           <div className="flex items-center gap-2 border-b pb-3 border-stone-100">
-            <Button onClick={() => setInputMode("mcq")} type="button"
-              className={`h-9 px-3 text-xs font-black rounded-xl ${inputMode === "mcq" ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-600"}`}
+            <Button
+              onClick={() => setInputMode("mcq")}
+              type="button"
+              className={`h-9 px-3 text-xs font-black rounded-xl ${
+                inputMode === "mcq"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-stone-100 text-stone-600"
+              }`}
             >
               Pilihan Butang
             </Button>
-            <Button onClick={() => setInputMode("draw")} type="button"
-              className={`h-9 px-3 text-xs font-black rounded-xl ${inputMode === "draw" ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-600"}`}
+            <Button
+              onClick={() => setInputMode("draw")}
+              type="button"
+              className={`h-9 px-3 text-xs font-black rounded-xl ${
+                inputMode === "draw"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-stone-100 text-stone-600"
+              }`}
             >
-              <PenTool className="w-3.5 h-3.5 mr-1"/> Tulisan Tangan AI
+              <PenTool className="w-3.5 h-3.5 mr-1" /> Tulisan Tangan AI
             </Button>
           </div>
 
-          {inputMode === "draw" ? ( 
-            <DrawingCanvas expectedAnswer={q?.correct_answer || q?.correctAnswer} isVerifying={isVerifyingAI} onVerify={verifyHandwritingWithAI} />
+          {inputMode === "draw" ? (
+            <DrawingCanvas
+              expectedAnswer={q?.correct_answer || q?.correctAnswer}
+              isVerifying={isVerifyingAI}
+              onVerify={verifyHandwritingWithAI}
+            />
           ) : (
             <div className="space-y-2.5">
               {q?.options?.map((option, i) => {
-                const isSelected = String(selectedAnswer || "").toLowerCase() === String(option).toLowerCase();
-                const correctAns = q?.correct_answer || q?.correctAnswer || "";
-                const isCorrect = isSelected && String(correctAns).toLowerCase() === String(option).toLowerCase();
-                const isWrongChoice = isSelected && !isCorrect;
+                const isSelected =
+                  String(selectedAnswer || "").toLowerCase() ===
+                  String(option).toLowerCase();
+
+                // Mode-aware styling
+                let buttonClass =
+                  "border-stone-200 hover:border-emerald-200 hover:bg-stone-50 text-stone-700";
+                let iconClass = "bg-stone-100 text-stone-500";
+                let iconText = String.fromCharCode(65 + i);
+
+                if (isSelected) {
+                  if (isPracticeMode) {
+                    // Practice: show correct/wrong
+                    const correctAns =
+                      q?.correct_answer || q?.correctAnswer || "";
+                    const isCorrect =
+                      String(correctAns).toLowerCase() ===
+                      String(option).toLowerCase();
+
+                    if (isCorrect) {
+                      buttonClass =
+                        "border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold";
+                      iconClass = "bg-emerald-600 text-white";
+                      iconText = "✓";
+                    } else {
+                      buttonClass =
+                        "border-rose-400 bg-rose-50/50 text-rose-900 font-bold";
+                      iconClass = "bg-rose-500 text-white";
+                      iconText = "✗";
+                    }
+                  } else {
+                    // Mastery: just show selected without correct/wrong indication
+                    buttonClass =
+                      "border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold";
+                    iconClass = "bg-emerald-600 text-white";
+                  }
+                }
+
                 return (
-                  <button 
-                    key={i} 
-                    onClick={() => handleAnswer(currentQ, option)} 
-                    disabled={submitted} 
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-transform active:scale-[0.99] text-xs sm:text-sm flex items-center ${isCorrect ? "border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold" : isWrongChoice ? "border-rose-400 bg-rose-50/50 text-rose-900 font-bold" : isSelected ? "border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold" : "border-stone-200 hover:border-emerald-200 hover:bg-stone-50 text-stone-700"}`}
+                  <button
+                    key={i}
+                    onClick={() => handleAnswer(currentQ, option)}
+                    disabled={submitted}
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-transform active:scale-[0.99] text-xs sm:text-sm flex items-center ${buttonClass}`}
                   >
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-black mr-3 shadow-sm shrink-0 ${isCorrect ? "bg-emerald-600 text-white" : isWrongChoice ? "bg-rose-500 text-white" : isSelected ? "bg-emerald-600 text-white" : "bg-stone-100 text-stone-500"}`}>
-                      {isCorrect ? "✓" : isWrongChoice ? "✗" : String.fromCharCode(65 + i)}
+                    <span
+                      className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs font-black mr-3 shadow-sm shrink-0 ${iconClass}`}
+                    >
+                      {iconText}
                     </span>
                     <span className="flex-1">{option}</span>
                   </button>
@@ -345,56 +713,103 @@ export default function QuizPage() {
             </div>
           )}
 
-          {/* EXPLANATION DISPLAY — shown after student answers */}
-          {showExplanation && selectedAnswer && q?.explanation && (
-            <motion.div 
-              initial={{ opacity: 0, y: 5 }} 
+          {/* AI Encouragement (practice only) */}
+          {isPracticeMode && selectedAnswer && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 space-y-1"
+              className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-4 space-y-1"
             >
-              <p className="text-xs font-black text-amber-800 flex items-center gap-1.5">
-                <Lightbulb className="w-4 h-4 text-amber-500" /> Penjelasan Cikgu:
+              <p className="text-xs font-black text-emerald-800 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-500" /> Suku
+                Menggalakkan:
               </p>
-              <p className="text-xs text-stone-700 font-medium leading-relaxed">{q.explanation}</p>
+              {aiLoading ? (
+                <p className="text-xs text-stone-500 italic">
+                  Suku sedang berfikir...
+                </p>
+              ) : (
+                <p className="text-xs text-stone-700 font-medium leading-relaxed">
+                  {aiEncouragement}
+                </p>
+              )}
             </motion.div>
           )}
+
+          {/* Explanation (practice only) */}
+          {isPracticeMode &&
+            showExplanation &&
+            selectedAnswer &&
+            q?.explanation && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 space-y-1"
+              >
+                <p className="text-xs font-black text-amber-800 flex items-center gap-1.5">
+                  <Lightbulb className="w-4 h-4 text-amber-500" /> Penjelasan
+                  Cikgu:
+                </p>
+                <p className="text-xs text-stone-700 font-medium leading-relaxed">
+                  {q.explanation}
+                </p>
+              </motion.div>
+            )}
         </motion.div>
       </AnimatePresence>
 
+      {/* Navigation */}
       <div className="flex items-center gap-3">
-        {currentQ > 0 && ( 
-          <Button onClick={() => { setCurrentQ(currentQ - 1); setInputMode("mcq"); setShowExplanation(!!answers[currentQ - 1]); }}
+        {currentQ > 0 && (
+          <Button
+            onClick={() => goToQuestion(currentQ - 1)}
             variant="outline"
             className="flex-1 rounded-xl h-12 text-xs font-bold border-stone-300 text-stone-600 hover:bg-stone-100"
           >
             Sebelumnya
           </Button>
         )}
-        {currentQ < questions.length - 1 ? ( 
-          <Button onClick={() => { setCurrentQ(currentQ + 1); setInputMode("mcq"); setShowExplanation(!!answers[currentQ + 1]); }}
+        {currentQ < questions.length - 1 ? (
+          <Button
+            onClick={() => goToQuestion(currentQ + 1)}
             disabled={!selectedAnswer}
             className="flex-1 rounded-xl h-12 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white border-0"
           >
             Seterusnya
           </Button>
-        ) : ( 
-          <Button className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md" disabled={!allAnswered || submitted} onClick={handleSubmit}>
+        ) : (
+          <Button
+            className="flex-1 rounded-xl h-12 text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-md"
+            disabled={!allAnswered || submitted}
+            onClick={handleSubmit}
+          >
             {submitted ? (
-              <><Loader2 className="w-4 h-4 animate-spin mr-2"/> Memeriksa...</>
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" /> Memeriksa...
+              </>
+            ) : isMasteryMode ? (
+              "Hantar Ujian ⚔️"
             ) : (
-              "Hantar Kuiz Boss! ⚔️"
+              "Selesaikan Latihan! 🌟"
             )}
           </Button>
         )}
       </div>
 
+      {/* Question dots */}
       <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-        {questions.map((_, i) => ( 
-          <button 
-            key={i} 
-            onClick={() => { setCurrentQ(i); setInputMode("mcq"); setShowExplanation(!!answers[i]); }} 
-            className={`w-3 h-3 rounded-full transition-all ${i === currentQ ? "bg-emerald-600 scale-125 ring-2 ring-emerald-200" : answers[i] ? "bg-emerald-400/50" : "bg-stone-300"}`} 
-          /> 
+        {questions.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goToQuestion(i)}
+            className={`w-3 h-3 rounded-full transition-all ${
+              i === currentQ
+                ? "bg-emerald-600 scale-125 ring-2 ring-emerald-200"
+                : answers[i]
+                  ? "bg-emerald-400/50"
+                  : "bg-stone-300"
+            }`}
+          />
         ))}
       </div>
     </div>

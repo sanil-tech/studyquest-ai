@@ -36,6 +36,19 @@
     "feedback_text": {
       "type": "string",
       "description": "AI feedback on performance"
+    },
+    "quiz_type": {
+      "type": "string",
+      "enum": [
+        "practice",
+        "mastery"
+      ],
+      "default": "practice",
+      "description": "The quiz mode this attempt was taken in"
+    },
+    "analysis_json": {
+      "type": "string",
+      "description": "JSON string of AI analysis (mastery level, strengths, improvements, wrong answer review, learning path)"
     }
   },
   "required": [
