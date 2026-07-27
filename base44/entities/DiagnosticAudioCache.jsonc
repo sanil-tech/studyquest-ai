@@ -1,0 +1,44 @@
+{
+  "name": "DiagnosticAudioCache",
+  "type": "object",
+  "properties": {
+    "question_id": {
+      "type": "string",
+      "description": "ID of the diagnostic question"
+    },
+    "audio_url": {
+      "type": "string",
+      "description": "URL of the generated TTS audio"
+    },
+    "target_text": {
+      "type": "string",
+      "description": "The text that was converted to speech"
+    },
+    "module_id": {
+      "type": "string",
+      "description": "Which 3M module this belongs to (membaca/menulis/mengira)"
+    }
+  },
+  "required": [
+    "question_id",
+    "audio_url"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
