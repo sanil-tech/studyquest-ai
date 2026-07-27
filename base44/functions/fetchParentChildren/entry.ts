@@ -39,9 +39,12 @@ Deno.serve(async (req) => {
       status: 'active'
     }).catch(() => []);
 
+    // Build a map of childId -> embedded profile snapshot for immediate fallback
+    const relProfileMap: Record<string, any> = {};
     relationships.forEach((r: any) => {
-      if (r.child_id && !childIds.includes(r.child_id)) {
-        childIds.push(r.child_id);
+      if (r.child_id) {
+        if (!childIds.includes(r.child_id)) childIds.push(r.child_id);
+        relProfileMap[r.child_id] = r.profile || {};
       }
     });
 
@@ -74,15 +77,18 @@ Deno.serve(async (req) => {
           ]);
 
           const matchedLinkReq = matchedLinks.find((lr: any) => lr.parent_id === parent.id);
+          const relProfile = relProfileMap[childId] || {};
 
           const nicknameReal = 
             childUser?.nickname || 
+            relProfile.nickname ||
             matchedLinkReq?.student_name || 
             childUser?.full_name || 
             "Pelajar";
 
           const usernameReal = 
             childUser?.username || 
+            relProfile.username ||
             matchedLinkReq?.student_username || 
             (nicknameReal ? nicknameReal.toLowerCase() : "student");
 
@@ -102,12 +108,13 @@ Deno.serve(async (req) => {
           return {
             id: childId,
             nickname: nicknameReal,
-            full_name: childUser?.full_name || matchedLinkReq?.student_name || "",
+            full_name: childUser?.full_name || relProfile.full_name || matchedLinkReq?.student_name || "",
             username: usernameReal,
-            student_id: childUser?.student_id || "",
+            student_id: childUser?.student_id || relProfile.student_id || "",
             child_login_pin: pinReal,
-            selected_avatar: childUser?.selected_avatar || "🦖",
-            avatar_emoji: childUser?.avatar_emoji || "🦖",
+            selected_avatar: childUser?.selected_avatar || relProfile.selected_avatar || "🦖",
+            avatar_emoji: childUser?.avatar_emoji || relProfile.selected_avatar || "🦖",
+            education_level: childUser?.education_level || relProfile.education_level || "",
             wallet: activeWallet,
             realProgress,
             latestSession: sortedSessions[0] || {},
