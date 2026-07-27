@@ -57,11 +57,9 @@ export default function AvatarSelector({
                     : "border-stone-200"
                 }`}
               >
-                <img
-                  src={creature.stages[0].imageUrl}
-                  alt={creature.name}
-                  className="w-full aspect-square rounded-xl object-cover mb-2"
-                />
+                <div className="w-full aspect-square rounded-xl bg-white/50 mb-2 flex items-center justify-center text-5xl">
+                  {creature.stages[0].emoji}
+                </div>
                 <p className={`font-black text-sm ${creature.textColor}`}>
                   {creature.name}
                 </p>

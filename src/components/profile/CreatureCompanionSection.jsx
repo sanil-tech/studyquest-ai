@@ -63,8 +63,8 @@ export default function CreatureCompanionSection({ user, xp = 0, targetStudentId
         {/* ═══ Current Creature + Evolution Stage ═══ */}
         <div className={`rounded-2xl p-4 bg-gradient-to-br ${creature.bgGradient} border-2 ${creature.borderColor}`}>
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-2xl bg-white/60 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">
-              <img src={currentStage.imageUrl} alt={creature.name} className="w-full h-full object-cover" />
+            <div className="w-20 h-20 rounded-2xl bg-white/60 overflow-hidden flex items-center justify-center shrink-0 shadow-sm text-5xl">
+              {currentStage.emoji}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -123,11 +123,9 @@ export default function CreatureCompanionSection({ user, xp = 0, targetStudentId
                       : "border-transparent hover:scale-105"
                   } ${saving ? "opacity-50" : ""}`}
                 >
-                  <img
-                    src={c.stages[0].imageUrl}
-                    alt={c.name}
-                    className="w-full aspect-square rounded-xl object-cover mb-1"
-                  />
+                  <div className="w-full aspect-square rounded-xl bg-white/40 mb-1 flex items-center justify-center text-4xl">
+                    {c.stages[2].emoji}
+                  </div>
                   <p className={`font-black text-xs ${c.textColor}`}>{c.name}</p>
                   {isSelected && (
                     <div className="absolute top-1 right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center shadow">
