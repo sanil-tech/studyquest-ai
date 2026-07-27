@@ -15,10 +15,11 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: "Sesi tidak sah. Sila log masuk." }, { status: 401 });
     }
 
-    const role = user.app_role || user.role;
-    const isAdmin = role === "admin" || role === "teacher" || user.is_admin === true;
+    const role = String(user.app_role || user.role || "").toLowerCase();
+    const isAdmin = role === "admin" || role === "teacher" || role === "parent" || user.is_admin === true;
+    console.log("[generateModularLessonContent] user role check:", { app_role: user.app_role, role: user.role, is_admin: user.is_admin, resolved: role, isAdmin });
     if (!isAdmin) {
-      return Response.json({ success: false, error: "Hanya pentadbir/guru dibenarkan." }, { status: 403 });
+      return Response.json({ success: false, error: `Hanya pentadbir/guru dibenarkan. Peranan anda: ${user.app_role || user.role || "tidak diketahui"}` }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
