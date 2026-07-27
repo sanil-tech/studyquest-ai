@@ -335,7 +335,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
       {/* STATS QUICK METRICS */}
       <div className="grid grid-cols-2 gap-2 text-center">
         <div className="p-2 bg-emerald-50/60 border border-emerald-100 rounded-xl">
-          <p className="text-[9px] font-bold text-emerald-700 uppercase">Syiling Daun</p>
+          <p className="text-[9px] font-bold text-emerald-700 uppercase">Syiling Emas</p>
           <p className="text-sm font-black text-emerald-900 flex items-center justify-center gap-1 mt-0.5">
             <Coins className="w-3.5 h-3.5 text-amber-500" /> {currentCoins}
           </p>
