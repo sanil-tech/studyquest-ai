@@ -110,23 +110,6 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
         description: `Profil untuk ${cleanNickname} (ID: ${assignedUsername}) telah berjaya didaftarkan.`,
       });
 
-      // Write the new child into cached_children so it's available immediately
-      try {
-        const cached = JSON.parse(localStorage.getItem("cached_children") || "{}");
-        cached[student.id] = {
-          ...(cached[student.id] || {}),
-          id: student.id,
-          nickname: student.nickname,
-          full_name: student.full_name,
-          username: student.username,
-          student_id: student.student_id,
-          child_login_pin: student.child_login_pin,
-          selected_avatar: student.selected_avatar,
-          education_level: student.education_level,
-        };
-        localStorage.setItem("cached_children", JSON.stringify(cached));
-      } catch {}
-
       resetForm();
       onOpenChange(false);
 
