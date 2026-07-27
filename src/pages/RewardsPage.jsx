@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Gift, Check, Clock, X, Loader2, Sparkles, Lock, Leaf, Sprout } from "lucide-react";
+import { Gift, Check, Clock, X, Loader2, Sparkles, Lock, Coins, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
@@ -28,8 +28,8 @@ export default function RewardsPage() {
     const currentBalance = wallet?.balance || 0;
     if (currentBalance < reward.coin_cost) {
       toast({ 
-        title: "Daun Emas tidak mencukupi! 🍃", 
-        description: `Awak perlukan ${reward.coin_cost} daun untuk hadiah ini. Jom kumpul lagi!`, 
+        title: "Syiling Emas tidak mencukupi! 🪙",
+        description: `Awak perlukan ${reward.coin_cost} syiling untuk hadiah ini. Jom kumpul lagi!`,
         variant: "destructive" 
       });
       return;
@@ -59,7 +59,7 @@ export default function RewardsPage() {
         await base44.entities.Notification.create({
           user_id: reward.parent_id,
           title: "Permintaan Ganjaran Baru! 🎁",
-          message: `${user.nickname || user.full_name || "Anak anda"} telah meminta "${reward.title}" (Kos: ${reward.coin_cost} Daun Emas)`,
+          message: `${user.nickname || user.full_name || "Anak anda"} telah meminta "${reward.title}" (Kos: ${reward.coin_cost} Syiling Emas)`,
           type: "reward_requested",
           reference_id: req.id,
         });
@@ -87,7 +87,7 @@ export default function RewardsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 bg-[#FAFAF7]">
         <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 1.5 }}>
-          <Leaf className="w-12 h-12 text-lime-500" />
+          <Coins className="w-12 h-12 text-lime-500" />
         </motion.div>
         <p className="text-sm font-bold text-lime-700/60 uppercase tracking-widest">Membuka Kedai Otan...</p>
       </div>
@@ -121,19 +121,19 @@ export default function RewardsPage() {
                 <Sparkles className="w-3.5 h-3.5 fill-current" />
                 Kedai Ganjaran
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight drop-shadow-sm">Tebus Daun Emas!</h1>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight drop-shadow-sm">Tebus Syiling Emas!</h1>
               <p className="text-emerald-50 font-medium text-sm sm:text-base mt-1.5 max-w-sm">
-                Tukar daun emas yang dikumpul dari hasil titik peluh belajar kepada hadiah dunia sebenar.
+                Tukar syiling emas yang dikumpul dari hasil titik peluh belajar kepada hadiah dunia sebenar.
               </p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-[1.5rem] p-4 flex items-center gap-4 border border-white/20 shadow-inner shrink-0 self-start sm:self-auto">
               <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-md transform rotate-3">
-                <Leaf className="w-8 h-8 text-lime-500 fill-lime-400/30" />
+                <Coins className="w-8 h-8 text-lime-500 fill-lime-400/30" />
               </div>
               <div>
                 <p className="text-xs font-bold text-emerald-100 uppercase tracking-wide">Baki Akaun</p>
-                <p className="text-2xl font-black tracking-tight">{wallet?.balance || 0} <span className="text-lg font-medium text-lime-200">Daun</span></p>
+                <p className="text-2xl font-black tracking-tight">{wallet?.balance || 0} <span className="text-lg font-medium text-lime-200">Syiling</span></p>
               </div>
             </div>
           </div>
@@ -187,7 +187,7 @@ export default function RewardsPage() {
                         <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-sm border shadow-sm ${
                           canAfford ? "bg-lime-100/50 text-lime-700 border-lime-200" : "bg-stone-50 text-stone-400 border-stone-100"
                         }`}>
-                          <Leaf className="w-4 h-4 text-lime-500 fill-lime-400/30" />
+                          <Coins className="w-4 h-4 text-lime-500 fill-lime-400/30" />
                           {reward.coin_cost}
                         </div>
                       </div>
@@ -216,7 +216,7 @@ export default function RewardsPage() {
                         </span>
                       ) : !canAfford ? (
                         <span className="flex items-center gap-2 justify-center text-xs">
-                          <Lock className="w-4 h-4" /> Kunci (Kurang {reward.coin_cost - currentBalance} Daun)
+                          <Lock className="w-4 h-4" /> Kunci (Kurang {reward.coin_cost - currentBalance} Syiling)
                         </span>
                       ) : (
                         "Tebus Hadiah Ini!"
@@ -243,8 +243,8 @@ export default function RewardsPage() {
                   <div className="min-w-0 pr-3">
                     <p className="text-sm font-bold text-stone-800 truncate">{req.reward_title}</p>
                     <div className="flex items-center gap-1 mt-1 text-xs text-stone-500 font-medium">
-                      <Leaf className="w-3.5 h-3.5 text-lime-500" />
-                      <span>{req.coin_cost} daun</span>
+                      <Coins className="w-3.5 h-3.5 text-lime-500" />
+                      <span>{req.coin_cost} syiling</span>
                     </div>
                   </div>
                   

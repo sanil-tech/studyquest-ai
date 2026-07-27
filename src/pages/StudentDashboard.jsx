@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import {
   BookOpen, Award, Play,
-  UserCheck, UserX, ShieldAlert, Sparkles, Leaf,
+  UserCheck, UserX, ShieldAlert, Sparkles, Coins,
   Sprout, Moon, Compass, Flame, Rocket, Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -312,8 +312,8 @@ export default function StudentDashboard() {
               <span>{progress?.streak_days || 0} Hari</span>
             </div>
             <div className="flex items-center gap-1.5 font-black text-lime-700 bg-lime-100 px-3 py-2 rounded-2xl border-2 border-lime-200 text-sm">
-              <Leaf className="w-5 h-5 text-lime-600 fill-lime-500" />
-              <span>{wallet?.balance || 0} Daun</span>
+              <Coins className="w-5 h-5 text-lime-600 fill-lime-500" />
+              <span>{wallet?.balance || 0} Syiling</span>
             </div>
           </div>
         </div>
