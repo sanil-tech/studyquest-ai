@@ -211,10 +211,10 @@ export default function AppLayout() {
 
       {/* MOBILE SIDEBAR */}
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
+        <div className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
-      <aside className={`md:hidden fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`md:hidden fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-[70] transform transition-transform duration-300 ease-in-out flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b-2 border-orange-100 flex items-center justify-between bg-orange-50/50">
           <span className="font-black text-xl text-orange-700 flex items-center gap-2">🦧 StudyQuest</span>
           <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-orange-600 rounded-xl hover:bg-orange-100 transition-colors">
