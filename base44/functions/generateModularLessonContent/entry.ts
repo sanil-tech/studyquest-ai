@@ -16,7 +16,8 @@ Deno.serve(async (req) => {
     }
 
     const role = user.app_role || user.role;
-    if (role !== "admin" && role !== "teacher") {
+    const isAdmin = role === "admin" || role === "teacher" || user.is_admin === true;
+    if (!isAdmin) {
       return Response.json({ success: false, error: "Hanya pentadbir/guru dibenarkan." }, { status: 403 });
     }
 
