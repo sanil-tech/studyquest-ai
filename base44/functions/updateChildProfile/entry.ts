@@ -1,5 +1,5 @@
 // base44/functions/updateChildProfile/entry.ts
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 Deno.serve(async (req) => {
   const resHeaders = {

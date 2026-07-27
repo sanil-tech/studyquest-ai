@@ -85,7 +85,7 @@ export default async function(req: Request): Promise<Response> {
     //    (looks up by username + PIN), so email verification is not needed for PIN-based login.
     const registerPassword = `SQchild_${pin}_${randomDigits}!2026`;
     try {
-      await base44.auth.register({ email: virtualEmail, password: registerPassword });
+      await base44.auth.register({ email: virtualEmail, password: registerPassword, full_name: fullName });
     } catch (regErr: any) {
       console.error("auth.register error:", regErr);
       return Response.json(
