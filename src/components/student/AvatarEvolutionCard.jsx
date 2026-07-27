@@ -17,7 +17,9 @@ export default function AvatarEvolutionCard({ xp = 0, userName = "Penjelajah" })
 
       {/* Current Stage Spotlight */}
       <div className={`bg-gradient-to-br ${currentStage.bgGradient} rounded-2xl p-5 mb-5 border-2 ${currentStage.borderColor} flex flex-col items-center text-center`}>
-        <AvatarDisplay xp={xp} size="xl" variant="plain" />
+        <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl overflow-hidden shadow-md">
+          <AvatarDisplay xp={xp} size="xl" variant="plain" />
+        </div>
         <h3 className={`text-xl font-black mt-3 ${currentStage.textColor}`}>
           {currentStage.name}
         </h3>
@@ -71,14 +73,18 @@ export default function AvatarEvolutionCard({ xp = 0, userName = "Penjelajah" })
               }`}
             >
               <div
-                className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-xl border-2 ${
+                className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-xl border-2 overflow-hidden ${
                   isUnlocked
-                    ? `bg-gradient-to-br ${stage.bgGradient} ${stage.borderColor}`
+                    ? `${stage.borderColor}`
                     : "bg-stone-100 border-stone-200"
                 } ${isCurrent ? "ring-4 ring-emerald-300 ring-offset-1" : ""}`}
               >
                 {isUnlocked ? (
-                  <span>{stage.emoji}</span>
+                  stage.imageUrl ? (
+                    <img src={stage.imageUrl} alt={stage.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{stage.emoji}</span>
+                  )
                 ) : (
                   <Lock className="w-3.5 h-3.5 text-stone-400" />
                 )}

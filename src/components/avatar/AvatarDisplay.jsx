@@ -21,19 +21,29 @@ export default function AvatarDisplay({ xp = 0, size = "md", showStage = false, 
 
   return (
     <div className="flex flex-col items-center">
-      <div className={`relative ${containerClass}`}>
+      <div className={`relative ${containerClass} overflow-hidden`}>
         {stage.accessory && (
-          <span className={`absolute ${sizes.accessoryPos} ${sizes.accessory} select-none drop-shadow-sm`}>
+          <span className={`absolute ${sizes.accessoryPos} ${sizes.accessory} z-10 select-none drop-shadow-sm`}>
             {stage.accessory}
           </span>
         )}
-        <motion.span
-          className={`${sizes.emoji} select-none`}
-          animate={animate}
-          transition={transition}
-        >
-          {stage.emoji}
-        </motion.span>
+        {stage.imageUrl ? (
+          <motion.img
+            src={stage.imageUrl}
+            alt={stage.name}
+            className="w-full h-full object-cover"
+            animate={animate}
+            transition={transition}
+          />
+        ) : (
+          <motion.span
+            className={`${sizes.emoji} select-none`}
+            animate={animate}
+            transition={transition}
+          >
+            {stage.emoji}
+          </motion.span>
+        )}
       </div>
       {showStage && (
         <div className="text-center mt-1.5">
