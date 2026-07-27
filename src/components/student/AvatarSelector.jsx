@@ -57,8 +57,14 @@ export default function AvatarSelector({
                     : "border-stone-200"
                 }`}
               >
-                <div className="w-full aspect-square rounded-xl bg-white/50 mb-2 flex items-center justify-center text-5xl">
-                  {creature.stages[0].emoji}
+                <div className="relative w-full aspect-square rounded-xl bg-white/50 mb-2 flex items-center justify-center text-5xl overflow-hidden">
+                  <motion.div
+                    className="absolute inset-0 blur-md"
+                    style={{ background: `radial-gradient(circle, ${creature.id === "mat" ? "rgba(99,102,241,0.4)" : creature.id === "lex" ? "rgba(236,72,153,0.4)" : creature.id === "atom" ? "rgba(16,185,129,0.4)" : creature.id === "krono" ? "rgba(245,158,11,0.4)" : creature.id === "atlas" ? "rgba(59,130,246,0.4)" : "rgba(139,92,246,0.4)"} 0%, transparent 70%)` }}
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                  />
+                  <span className="relative z-[1]">{creature.stages[0].emoji}</span>
                 </div>
                 <p className={`font-black text-sm ${creature.textColor}`}>
                   {creature.name}
