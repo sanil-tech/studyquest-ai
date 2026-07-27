@@ -309,7 +309,15 @@ export default function LessonResources() {
         toast({ title: "Ralat", description: res.data?.error || "Gagal menjana.", variant: "destructive" });
       }
     } catch (err) {
-      toast({ title: "Ralat Sistem", description: err.message, variant: "destructive" });
+      const errStr = String(err.message || err);
+      const isQuotaError = errStr.includes("403") || errStr.includes("quota") || errStr.includes("limit") || errStr.includes("credit") || errStr.includes("token");
+      toast({
+        title: isQuotaError ? "Token AI Habis ⚠️" : "Ralat Sistem",
+        description: isQuotaError
+          ? "Kuota AI tamat. Sila gunakan borang manual di bawah untuk cipta lesson resource."
+          : err.message,
+        variant: "destructive",
+      });
     } finally {
       setIsGeneratingAI(false);
     }
@@ -349,7 +357,16 @@ export default function LessonResources() {
         toast({ title: "Ralat", description: res.data?.error || "Gagal menjana.", variant: "destructive" });
       }
     } catch (err) {
-      toast({ title: "Ralat Sistem", description: err.message, variant: "destructive" });
+      const errStr = String(err.message || err);
+      const isQuotaError = errStr.includes("403") || errStr.includes("quota") || errStr.includes("limit") || errStr.includes("credit") || errStr.includes("token");
+      toast({
+        title: isQuotaError ? "Token AI Habis ⚠️" : "Ralat Sistem",
+        description: isQuotaError
+          ? "Kuota AI tamat. Sila gunakan borang manual di bawah untuk cipta lesson resource."
+          : err.message,
+        variant: "destructive",
+      });
+      if (isQuotaError) tukarModBorang("create");
     } finally {
       setIsGeneratingModular(false);
     }
