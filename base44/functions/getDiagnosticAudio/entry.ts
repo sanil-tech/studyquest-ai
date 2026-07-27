@@ -28,7 +28,7 @@ export default async function(req: Request): Promise<Response> {
     // 2. Generate TTS audio (only once per question — cached for all students)
     const ttsResult = await base44.integrations.Core.GenerateSpeech({
       text: target_text,
-      voice: 'sunny',
+      voice: 'river',
       language_code: 'ms',
     });
 
