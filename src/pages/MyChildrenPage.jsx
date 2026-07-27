@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { 
   Users, Flame, Target, Clock, Coins, CheckCircle2, Award, BookOpen, 
   HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2, 
-  Eye, EyeOff, Edit3, Trash2, Key, GraduationCap, UserCheck, ChevronRight
+  Eye, EyeOff, Edit3, Trash2, Key, GraduationCap, UserCheck, ChevronRight, UserPlus
 } from "lucide-react";
 import moment from "moment";
 import { Link, useNavigate } from "react-router-dom";
@@ -26,6 +26,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { getChildDisplayName, getStudentEducationLevel, loadChildrenWithStats } from "@/lib/childUtils";
 import ChildCredentialManager from "@/components/parent/ChildCredentialManager";
+import AddChildModal from "@/components/parent/AddChildModal";
 
 const GRADE_OPTIONS = [
   "Standard 1", "Standard 2", "Standard 3", "Standard 4", "Standard 5", "Standard 6",
@@ -367,6 +368,7 @@ function DetailedChildCard({ child, onOpenReport, onOpenAiAnalysis, onDataUpdate
 export default function MyChildrenPage() {
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   const loadChildren = async () => {
     setLoading(true);
@@ -378,6 +380,32 @@ export default function MyChildrenPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Optimistic update: immediately display the new child card, then re-fetch full stats
+  const handleChildAdded = (student) => {
+    if (!student?.id) return;
+    const optimisticChild = {
+      id: student.id,
+      nickname: student.nickname,
+      full_name: student.full_name,
+      username: student.username,
+      student_id: student.student_id,
+      child_login_pin: student.child_login_pin,
+      selected_avatar: student.selected_avatar,
+      avatar_emoji: student.selected_avatar,
+      education_level: student.education_level,
+      wallet: { balance: 0 },
+      realProgress: { total_xp: 0, streak_days: 0, level: 1 },
+      latestSession: {},
+      allSessions: [],
+      allAttempts: [],
+      quiz: { quiz_score: null },
+    };
+    setChildren((prev) =>
+      prev.some((c) => c.id === student.id) ? prev : [...prev, optimisticChild]
+    );
+    loadChildren();
   };
 
   useEffect(() => {
@@ -404,7 +432,19 @@ export default function MyChildrenPage() {
             Urus profil, tukar tahap persekolahan, dan pantau kemajuan pembelajaran.
           </p>
         </div>
+        <Button
+          onClick={() => setAddModalOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold h-9 flex items-center gap-1.5 shadow-sm"
+        >
+          <UserPlus className="w-4 h-4" /> Tambah Anak
+        </Button>
       </div>
+
+      <AddChildModal
+        open={addModalOpen}
+        onOpenChange={setAddModalOpen}
+        onChildAdded={handleChildAdded}
+      />
 
       {children.length === 0 ? (
         <Card className="p-12 text-center rounded-3xl border-dashed border-2 border-slate-200">
