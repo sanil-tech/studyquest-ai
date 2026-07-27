@@ -108,12 +108,23 @@ export const ViewModeProvider = ({ children }) => {
     navigate("/parent");
   }, [navigate]);
 
+  // Update the selected child profile in-place (e.g. avatar change on ProfilePage)
+  const updateSelectedChildProfile = useCallback((updates) => {
+    setSelectedChildProfile((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...updates };
+      localStorage.setItem(SELECTED_CHILD_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const value = {
     currentUserRole,
     activeViewMode,
     selectedChildProfile,
     enterChildMode,
     returnToParentMode,
+    updateSelectedChildProfile,
   };
 
   return (

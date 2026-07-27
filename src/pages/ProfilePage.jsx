@@ -14,6 +14,8 @@ import ProfileForm from "@/components/profile/ProfileForm";
 import StudentIdSection from "@/components/profile/StudentIdSection";
 import { useStudentData } from "@/hooks/useStudentData";
 import { resolveCssAvatar } from "@/lib/avatarSystem";
+import { useAuth } from "@/lib/AuthContext";
+import { useViewMode } from "@/lib/ViewModeContext";
 
 const FREE_AVATARS = [
   "https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy&backgroundColor=ffdfbf",
@@ -66,6 +68,24 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
   const { data, loading: hookLoading, studentUser, studentId: hookStudentId } = useStudentData();
+  const { checkUserAuth } = useAuth();
+  const { selectedChildProfile, updateSelectedChildProfile } = useViewMode();
+
+  // Helper: refresh header avatar after any avatar change
+  const syncHeaderAvatar = (updatedFields) => {
+    // If parent is in child mode, update the ViewModeContext profile
+    if (selectedChildProfile) {
+      const childUpdates = {};
+      if (updatedFields.profile_picture_url !== undefined) childUpdates.profile_picture_url = updatedFields.profile_picture_url;
+      if (updatedFields.avatar_emoji !== undefined || updatedFields.selected_avatar !== undefined) {
+        childUpdates.avatar = updatedFields.selected_avatar || updatedFields.avatar_emoji || selectedChildProfile.avatar;
+      }
+      updateSelectedChildProfile(childUpdates);
+    } else {
+      // Direct login: refresh AuthContext so the header user updates
+      checkUserAuth();
+    }
+  };
 
   useEffect(() => {
     setLoading(hookLoading);
@@ -112,6 +132,7 @@ export default function ProfilePage() {
         await base44.auth.updateMe({ avatar_emoji: emoji, profile_picture_url: null });
       }
       setUser((prev) => ({ ...prev, avatar_emoji: emoji, selected_avatar: emoji, profile_picture_url: null }));
+      syncHeaderAvatar({ avatar_emoji: emoji, selected_avatar: emoji, profile_picture_url: null });
       toast({ title: "Avatar Ditukar! 🎨", description: "Avatar baharu anda telah disimpan." });
     } catch (err) {
       toast({ title: "Gagal", description: "Sila cuba lagi.", variant: "destructive" });
@@ -134,6 +155,7 @@ export default function ProfilePage() {
         await base44.auth.updateMe({ profile_picture_url: result.file_url, avatar_emoji: null });
       }
       setUser((prev) => ({ ...prev, profile_picture_url: result.file_url, avatar_emoji: null }));
+      syncHeaderAvatar({ profile_picture_url: result.file_url, avatar_emoji: null });
       setAvatarMode("photo");
       toast({ title: "Gambar dimuat naik!", description: "Profil anda telah dikemas kini." });
     } catch (err) {
@@ -155,6 +177,7 @@ export default function ProfilePage() {
         await base44.auth.updateMe({ profile_picture_url: null });
       }
       setUser((prev) => ({ ...prev, profile_picture_url: null }));
+      syncHeaderAvatar({ profile_picture_url: null });
       setAvatarMode("emoji");
     } catch (err) {
       toast({ title: "Gagal", description: "Tidak dapat memadam gambar.", variant: "destructive" });
@@ -174,6 +197,7 @@ export default function ProfilePage() {
         await base44.auth.updateMe({ profile_picture_url: url, avatar_emoji: null });
       }
       setUser((prev) => ({ ...prev, profile_picture_url: url, avatar_emoji: null }));
+      syncHeaderAvatar({ profile_picture_url: url, avatar_emoji: null });
       setAvatarMode("photo");
       toast({ title: "Avatar Ditukar! 🌟", description: "Avatar baru anda kelihatan sangat hebat!" });
     } catch (err) {
