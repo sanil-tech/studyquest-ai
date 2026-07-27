@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { matchesEducationLevel, getStudentEducationLevel } from "@/lib/childUtils";
 import { useStudentData } from "@/hooks/useStudentData";
+import { resolveCssAvatar } from "@/lib/avatarSystem";
 import { 
   ArrowLeft, Compass, TreePine, Sparkles, Play
 } from "lucide-react";
@@ -208,9 +209,24 @@ export default function StudyPage() {
               </p>
             </div>
             
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 p-2 border-4 border-white/40 shadow-inner flex items-center justify-center text-5xl shrink-0">
-              {user?.selected_avatar || user?.avatar_emoji || "🦧"}
-            </div>
+            {(() => {
+              const cssAvatar = resolveCssAvatar(user?.profile_picture_url) || resolveCssAvatar(user?.avatar_emoji) || resolveCssAvatar(user?.selected_avatar);
+              const realPhoto = user?.profile_picture_url && !cssAvatar ? user.profile_picture_url : null;
+              const fallbackEmoji = user?.selected_avatar || user?.avatar_emoji || "🦧";
+              return (
+                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full p-2 border-4 border-white/40 shadow-inner flex items-center justify-center text-5xl shrink-0 ${
+                  cssAvatar ? `bg-gradient-to-br ${cssAvatar.bg}` : "bg-white/20"
+                }`}>
+                  {cssAvatar ? (
+                    <span className="select-none drop-shadow-md">{cssAvatar.emoji}</span>
+                  ) : realPhoto ? (
+                    <img src={realPhoto} alt="Profile" className="w-full h-full object-cover rounded-full" />
+                  ) : (
+                    <span className="select-none">{fallbackEmoji}</span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <div>
@@ -307,7 +323,14 @@ export default function StudyPage() {
         {/* TOPIC CHAPTER ROADMAP */}
         {filteredTopics.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border-4 border-stone-200 max-w-md mx-auto shadow-sm p-6">
-            <span className="text-5xl block mb-4">{user?.selected_avatar || user?.avatar_emoji || "🦧"}</span>
+            {(() => {
+              const cssAvatar = resolveCssAvatar(user?.profile_picture_url) || resolveCssAvatar(user?.avatar_emoji) || resolveCssAvatar(user?.selected_avatar);
+              const realPhoto = user?.profile_picture_url && !cssAvatar ? user.profile_picture_url : null;
+              const fallbackEmoji = user?.selected_avatar || user?.avatar_emoji || "🦧";
+              if (cssAvatar) return <span className="text-5xl block mb-4">{cssAvatar.emoji}</span>;
+              if (realPhoto) return <img src={realPhoto} alt="Profile" className="w-20 h-20 block mb-4 rounded-full object-cover mx-auto" />;
+              return <span className="text-5xl block mb-4">{fallbackEmoji}</span>;
+            })()}
             {hasStudentLevel ? (
               <>
                 <h3 className="font-black text-stone-800 text-lg">Tiada Misi untuk {studentLevelDisplay}</h3>
