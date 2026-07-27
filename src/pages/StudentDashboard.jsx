@@ -18,6 +18,9 @@ import moment from "moment";
 import MissionCard from "@/components/student/MissionCard";
 import AvatarEvolutionCard from "@/components/student/AvatarEvolutionCard";
 import RecommendationCard from "@/components/student/RecommendationCard";
+import AvatarSelector from "@/components/student/AvatarSelector";
+import AvatarShop from "@/components/student/AvatarShop";
+import { parseOwnedItems, parseEquippedItems } from "@/lib/avatarSystem";
 import { useViewMode } from "@/lib/ViewModeContext";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -36,9 +39,14 @@ export default function StudentDashboard() {
     quizzes: [],
     pendingRequests: [],
     diagnosticSession: null,
+    creatureId: "otan",
+    ownedItems: [],
+    equippedItems: {},
   });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+  const [showAvatarShop, setShowAvatarShop] = useState(false);
 
   // Load Dashboard Data
   const loadDashboardData = useCallback(async () => {
@@ -131,6 +139,10 @@ export default function StudentDashboard() {
         }
       }
 
+      const creatureId = studentUser?.selected_creature || "otan";
+      const ownedItems = parseOwnedItems(studentUser?.owned_avatar_items);
+      const equippedItems = parseEquippedItems(studentUser?.equipped_avatar_items);
+
       setDashboardState({
         user: studentUser,
         activeChildId,
@@ -140,6 +152,9 @@ export default function StudentDashboard() {
         quizzes,
         pendingRequests,
         diagnosticSession,
+        creatureId,
+        ownedItems,
+        equippedItems,
       });
 
     } catch (err) {
@@ -180,6 +195,90 @@ export default function StudentDashboard() {
     returnToParentMode();
   };
 
+  const handleSelectCreature = async (newCreatureId) => {
+    try {
+      if (activeChildId) {
+        await base44.functions.invoke("updateChildProfile", {
+          child_id: activeChildId,
+          selected_creature: newCreatureId,
+        });
+      } else {
+        await base44.auth.updateMe({ selected_creature: newCreatureId });
+      }
+      setDashboardState(prev => ({
+        ...prev,
+        creatureId: newCreatureId,
+        user: { ...prev.user, selected_creature: newCreatureId },
+      }));
+      setShowAvatarSelector(false);
+      toast({ title: "Rakan Avatar Dipilih! 🎉", description: "Mula pelihara makhluk kamu!" });
+    } catch (err) {
+      toast({ title: "Gagal menyimpan", description: "Sila cuba lagi.", variant: "destructive" });
+    }
+  };
+
+  const handleBuyItem = async (item) => {
+    const currentBalance = dashboardState.wallet?.balance || 0;
+    if (currentBalance < item.price) {
+      toast({ title: "Syiling Tak Cukup!", description: "Kumpul lebih banyak syiling dulu!", variant: "destructive" });
+      return;
+    }
+    try {
+      if (dashboardState.wallet?.id) {
+        await base44.entities.Wallet.update(dashboardState.wallet.id, {
+          balance: currentBalance - item.price,
+        });
+      }
+      const newOwned = [...dashboardState.ownedItems, item.id];
+      const ownedJson = JSON.stringify(newOwned);
+      if (activeChildId) {
+        await base44.functions.invoke("updateChildProfile", {
+          child_id: activeChildId,
+          owned_avatar_items: ownedJson,
+        });
+      } else {
+        await base44.auth.updateMe({ owned_avatar_items: ownedJson });
+      }
+      setDashboardState(prev => ({
+        ...prev,
+        wallet: { ...prev.wallet, balance: currentBalance - item.price },
+        ownedItems: newOwned,
+      }));
+      toast({ title: "Item Dibeli! 🎉", description: `${item.name} ditambah ke koleksi!` });
+    } catch (err) {
+      toast({ title: "Gagal membeli", description: "Sila cuba lagi.", variant: "destructive" });
+    }
+  };
+
+  const handleEquipItem = async (item) => {
+    try {
+      const current = dashboardState.equippedItems;
+      let newEquipped;
+      if (current[item.slot] === item.id) {
+        const { [item.slot]: _removed, ...rest } = current;
+        newEquipped = rest;
+      } else {
+        newEquipped = { ...current, [item.slot]: item.id };
+      }
+      const equippedJson = JSON.stringify(newEquipped);
+      if (activeChildId) {
+        await base44.functions.invoke("updateChildProfile", {
+          child_id: activeChildId,
+          equipped_avatar_items: equippedJson,
+        });
+      } else {
+        await base44.auth.updateMe({ equipped_avatar_items: equippedJson });
+      }
+      setDashboardState(prev => ({ ...prev, equippedItems: newEquipped }));
+      toast({
+        title: current[item.slot] === item.id ? "Item Ditanggalkan" : "Item Dipakai! ✨",
+        description: item.name,
+      });
+    } catch (err) {
+      toast({ title: "Gagal menyimpan", description: "Sila cuba lagi.", variant: "destructive" });
+    }
+  };
+
   const progressCalculations = useMemo(() => {
     const currentLevel = dashboardState.progress?.level || 1;
     const currentXp = dashboardState.progress?.total_xp || 0;
@@ -216,7 +315,7 @@ export default function StudentDashboard() {
     );
   }
 
-  const { user, progress, wallet, sessions, quizzes, pendingRequests, activeChildId, diagnosticSession } = dashboardState;
+  const { user, progress, wallet, sessions, quizzes, pendingRequests, activeChildId, diagnosticSession, creatureId, ownedItems, equippedItems } = dashboardState;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-lime-50 via-emerald-50 to-teal-50 font-sans pb-24 text-stone-800 selection:bg-lime-200">
@@ -253,6 +352,8 @@ export default function StudentDashboard() {
           level={level}
           xp={xp}
           todayMinutes={todayMinutes}
+          creatureId={creatureId}
+          equippedItems={equippedItems}
           onStart={() => navigate("/lessons")}
         />
 
@@ -353,7 +454,25 @@ export default function StudentDashboard() {
         </AnimatePresence>
 
         {/* ═══ 6. AVATAR EVOLUTION — Visual growth journey ═══ */}
-        <AvatarEvolutionCard xp={xp} userName={user?.nickname || "Penjelajah"} />
+        <AvatarEvolutionCard xp={xp} userName={user?.nickname || "Penjelajah"} creatureId={creatureId} equippedItems={equippedItems} />
+
+        {/* ═══ 6b. AVATAR ACTIONS — Change creature & Shop ═══ */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setShowAvatarSelector(true)}
+            className="bg-white rounded-2xl p-4 border-2 border-stone-200 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-all"
+          >
+            <span className="text-2xl">🐾</span>
+            <span className="text-xs font-black text-stone-700">Tukar Rakan</span>
+          </button>
+          <button
+            onClick={() => setShowAvatarShop(true)}
+            className="bg-gradient-to-r from-amber-400 to-orange-400 rounded-2xl p-4 border-2 border-amber-300 shadow-sm flex flex-col items-center gap-1 active:scale-95 transition-all"
+          >
+            <span className="text-2xl">🛍️</span>
+            <span className="text-xs font-black text-stone-800">Kedai Avatar</span>
+          </button>
+        </div>
 
         {/* ═══ 7. AI RECOMMENDATION ═══ */}
         <RecommendationCard
@@ -455,6 +574,27 @@ export default function StudentDashboard() {
         )}
 
       </div>
+
+      {/* Avatar Selector Modal */}
+      {showAvatarSelector && (
+        <AvatarSelector
+          currentCreature={creatureId}
+          onSelect={handleSelectCreature}
+          onClose={() => setShowAvatarSelector(false)}
+        />
+      )}
+
+      {/* Avatar Shop Modal */}
+      {showAvatarShop && (
+        <AvatarShop
+          walletBalance={wallet?.balance || 0}
+          ownedItems={ownedItems}
+          equippedItems={equippedItems}
+          onBuy={handleBuyItem}
+          onEquip={handleEquipItem}
+          onClose={() => setShowAvatarShop(false)}
+        />
+      )}
     </div>
   );
 }

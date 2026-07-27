@@ -2,25 +2,44 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Lock } from "lucide-react";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
-import { AVATAR_STAGES, getAvatarStage, getStageProgress } from "@/lib/avatarSystem";
+import {
+  getCreatureById,
+  getCreatureStageProgress,
+} from "@/lib/avatarSystem";
 
-export default function AvatarEvolutionCard({ xp = 0, userName = "Penjelajah" }) {
-  const { currentStage, nextStage, percent, xpToNext, isMaxStage } = getStageProgress(xp);
+export default function AvatarEvolutionCard({
+  xp = 0,
+  userName = "Penjelajah",
+  creatureId = "otan",
+  equippedItems = {},
+}) {
+  const creature = getCreatureById(creatureId);
+  const { currentStage, nextStage, percent, xpToNext, isMaxStage } =
+    getCreatureStageProgress(creatureId, xp);
 
   return (
     <div className="bg-white rounded-3xl p-6 border-4 border-emerald-100 shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-2 mb-5">
         <Sparkles className="w-6 h-6 text-emerald-500" />
-        <h2 className="text-lg font-black text-stone-800">Evolusi Avatar Kamu</h2>
+        <h2 className="text-lg font-black text-stone-800">Evolusi {creature.name}</h2>
+        <span className="ml-auto text-xs font-black text-stone-400 bg-stone-100 px-2.5 py-1 rounded-lg">
+          {creature.title}
+        </span>
       </div>
 
       {/* Current Stage Spotlight */}
-      <div className={`bg-gradient-to-br ${currentStage.bgGradient} rounded-2xl p-5 mb-5 border-2 ${currentStage.borderColor} flex flex-col items-center text-center`}>
-        <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl overflow-hidden shadow-md">
-          <AvatarDisplay xp={xp} size="xl" variant="plain" />
-        </div>
-        <h3 className={`text-xl font-black mt-3 ${currentStage.textColor}`}>
+      <div
+        className={`bg-gradient-to-br ${creature.bgGradient} rounded-2xl p-5 mb-5 border-2 ${creature.borderColor} flex flex-col items-center text-center`}
+      >
+        <AvatarDisplay
+          xp={xp}
+          creatureId={creatureId}
+          equippedItems={equippedItems}
+          size="xl"
+          variant="plain"
+        />
+        <h3 className={`text-xl font-black mt-3 ${creature.textColor}`}>
           {currentStage.name}
         </h3>
         <p className="text-sm font-bold text-stone-600 mt-0.5">
@@ -36,7 +55,7 @@ export default function AvatarEvolutionCard({ xp = 0, userName = "Penjelajah" })
               {xpToNext} XP lagi untuk evolve!
             </span>
             <span className="text-xs font-bold text-stone-400">
-              → {nextStage.name} {nextStage.emoji}
+              → {nextStage.name}
             </span>
           </div>
           <div className="h-5 bg-stone-100 rounded-full overflow-hidden border-2 border-stone-200 p-0.5">
@@ -54,14 +73,14 @@ export default function AvatarEvolutionCard({ xp = 0, userName = "Penjelajah" })
             ✨ Tahap Maksimum Tercapai! ✨
           </p>
           <p className="text-xs font-bold text-amber-600 mt-0.5">
-            {userName} adalah Legenda Rimba!
+            {userName} adalah legenda sejati!
           </p>
         </div>
       )}
 
       {/* Evolution Stages Row */}
       <div className="flex justify-between items-end gap-1 overflow-x-auto pb-2">
-        {AVATAR_STAGES.map((stage, index) => {
+        {creature.stages.map((stage) => {
           const isUnlocked = xp >= stage.xpRequired;
           const isCurrent = stage.stage === currentStage.stage;
 
@@ -73,17 +92,21 @@ export default function AvatarEvolutionCard({ xp = 0, userName = "Penjelajah" })
               }`}
             >
               <div
-                className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-xl border-2 overflow-hidden ${
+                className={`relative w-10 h-10 rounded-xl flex items-center justify-center border-2 overflow-hidden ${
                   isUnlocked
-                    ? `${stage.borderColor}`
+                    ? creature.borderColor
                     : "bg-stone-100 border-stone-200"
                 } ${isCurrent ? "ring-4 ring-emerald-300 ring-offset-1" : ""}`}
               >
                 {isUnlocked ? (
                   stage.imageUrl ? (
-                    <img src={stage.imageUrl} alt={stage.name} className="w-full h-full object-cover" />
+                    <img
+                      src={stage.imageUrl}
+                      alt={stage.name}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <span>{stage.emoji}</span>
+                    <span className="text-xl">{stage.emoji}</span>
                   )
                 ) : (
                   <Lock className="w-3.5 h-3.5 text-stone-400" />

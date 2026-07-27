@@ -125,6 +125,15 @@ Deno.serve(async (req) => {
     if (body.profile_picture_url !== undefined && body.profile_picture_url !== null) {
       updateFields.profile_picture_url = String(body.profile_picture_url);
     }
+    if (body.selected_creature !== undefined && body.selected_creature !== null) {
+      updateFields.selected_creature = String(body.selected_creature);
+    }
+    if (body.owned_avatar_items !== undefined && body.owned_avatar_items !== null) {
+      updateFields.owned_avatar_items = String(body.owned_avatar_items);
+    }
+    if (body.equipped_avatar_items !== undefined && body.equipped_avatar_items !== null) {
+      updateFields.equipped_avatar_items = String(body.equipped_avatar_items);
+    }
     if (body.gender !== undefined && body.gender !== null) {
       updateFields.gender = String(body.gender);
     }

@@ -3,11 +3,11 @@ import { motion } from "framer-motion";
 import { Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
-import { getAvatarStage } from "@/lib/avatarSystem";
+import { getCreatureStage } from "@/lib/avatarSystem";
 
-export default function MissionCard({ user, level, xp, todayMinutes, onStart }) {
+export default function MissionCard({ user, level, xp, todayMinutes, onStart, creatureId = "otan", equippedItems = {} }) {
   const hasStudiedToday = todayMinutes > 0;
-  const avatarStage = getAvatarStage(xp);
+  const avatarStage = getCreatureStage(creatureId, xp);
 
   return (
     <motion.div
@@ -19,8 +19,8 @@ export default function MissionCard({ user, level, xp, todayMinutes, onStart }) 
       <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-5">
         <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
           <div className="relative shrink-0">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 p-1.5 border-4 border-white/40 flex items-center justify-center">
-              <AvatarDisplay xp={xp} size="lg" variant="plain" />
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 p-1.5 border-4 border-white/40 flex items-center justify-center overflow-hidden">
+              <AvatarDisplay xp={xp} creatureId={creatureId} equippedItems={equippedItems} fill variant="plain" />
             </div>
             <span className="absolute -bottom-1 -right-1 bg-amber-400 text-stone-900 font-black text-xs px-2.5 py-1 rounded-full border-2 border-white shadow-sm">
               Lv. {level}

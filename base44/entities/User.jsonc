@@ -51,6 +51,19 @@
     "profile_picture_url": {
       "type": "string"
     },
+    "selected_creature": {
+      "type": "string",
+      "description": "ID of the student's chosen creature companion (otan, pyro, aqua)",
+      "default": "otan"
+    },
+    "owned_avatar_items": {
+      "type": "string",
+      "description": "JSON array of owned avatar item IDs from the shop"
+    },
+    "equipped_avatar_items": {
+      "type": "string",
+      "description": "JSON object mapping slot to item ID for equipped avatar items"
+    },
     "preferred_language": {
       "type": "string",
       "default": "ms"
