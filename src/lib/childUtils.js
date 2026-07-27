@@ -1,6 +1,30 @@
 // src/lib/childUtils.js
 import { base44 } from "@/api/base44Client";
 
+/** Safely read and parse a localStorage JSON key; never throws. */
+const safeReadCache = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+/** Safely write a JSON value to localStorage; never throws. */
+const safeWriteCache = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+};
+
+/** Safely convert a date-like field to a timestamp for sorting; never throws. */
+const safeTimestamp = (val) => {
+  if (!val) return 0;
+  const t = new Date(val).getTime();
+  return isNaN(t) ? 0 : t;
+};
+
 /**
  * Returns the best display name for a child profile.
  */
@@ -185,7 +209,7 @@ export const loadChildrenWithStats = async () => {
     }
   } catch {}
 
-  const cachedChildren = JSON.parse(localStorage.getItem("cached_children") || "{}");
+  const cachedChildren = safeReadCache("cached_children");
   if (childIds.length === 0 && Object.keys(cachedChildren).length > 0) {
     childIds = Object.keys(cachedChildren);
   }
@@ -237,15 +261,15 @@ export const loadChildrenWithStats = async () => {
         let latestSession = {};
         if (studySessionRes && studySessionRes.length > 0) {
           allSessions = [...studySessionRes].sort(
-            (a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0)
+            (a, b) => safeTimestamp(b.updated_at || b.created_at) - safeTimestamp(a.updated_at || a.created_at)
           );
-          latestSession = allSessions[0];
+          latestSession = allSessions[0] || {};
         }
 
         let realProgress = { total_xp: 0, streak_days: 0, level: 1 };
         if (progressRes && progressRes.length > 0) {
           realProgress = [...progressRes].sort(
-            (a, b) => new Date(b.updated_at || b.last_study_date || 0) - new Date(a.updated_at || a.last_study_date || 0)
+            (a, b) => safeTimestamp(b.updated_at || b.last_study_date) - safeTimestamp(a.updated_at || a.last_study_date)
           )[0];
         }
 
@@ -255,7 +279,7 @@ export const loadChildrenWithStats = async () => {
         let allAttempts = [];
         if (attemptsRes && attemptsRes.length > 0) {
           allAttempts = [...attemptsRes].sort(
-            (a, b) => new Date(b.created_at || b.updated_at || 0) - new Date(a.created_at || a.updated_at || 0)
+            (a, b) => safeTimestamp(b.created_at || b.updated_at) - safeTimestamp(a.created_at || a.updated_at)
           );
           latestQuizScore = allAttempts[0]?.score ?? null;
         }
@@ -291,7 +315,7 @@ export const loadChildrenWithStats = async () => {
     })
   );
 
-  localStorage.setItem("cached_children", JSON.stringify(cachedChildren));
+  safeWriteCache("cached_children", cachedChildren);
 
   return kids.filter(Boolean);
 };
