@@ -14,6 +14,10 @@
       "type": "string",
       "description": "Subject name"
     },
+    "subtopics_json": {
+      "type": "string",
+      "description": "JSON string array of subtopic names (optional, if applicable to this topic)"
+    },
     "questions_json": {
       "type": "string",
       "description": "JSON string of quiz questions array"

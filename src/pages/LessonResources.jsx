@@ -40,6 +40,8 @@ export default function LessonResources() {
   const [questions, setQuestions] = useState([
     { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["", "", "", ""], correctAnswer: "A", explanation: "" }
   ]);
+  const [subtopics, setSubtopics] = useState([]);
+  const [newSubtopic, setNewSubtopic] = useState("");
   const jsonFileInputRef = useRef(null);
   
   // 🌟 BARU: STATE UNTUK FUNGSI COPY-PASTE JSON
@@ -173,7 +175,11 @@ export default function LessonResources() {
     if (lesson) {
       setTopicId(lesson.id); setTitle(lesson.topic_name || ""); setSubtitle(lesson.subject_name || "");
       setInfographicUrl(lesson.infographic_url || ""); setInfographicPreview(lesson.infographic_url || ""); setInfographicFile(null);
-      setYoutubeUrl(lesson.video_url || ""); 
+      setYoutubeUrl(lesson.video_url || "");
+      try {
+        const parsedSubtopics = typeof lesson.subtopics_json === "object" ? lesson.subtopics_json : JSON.parse(lesson.subtopics_json || "[]");
+        setSubtopics(Array.isArray(parsedSubtopics) ? parsedSubtopics : []);
+      } catch { setSubtopics([]); }
 
       const rawNotes = lesson.notes_content || "";
       if (rawNotes) {
@@ -202,9 +208,11 @@ export default function LessonResources() {
     }
   };
 
-  const resetSemuaMedanBorang = () => { setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setNotes(""); setNoteImageUrl(""); setNoteImageFile(null); setNoteImagePreview(""); setInfographicUrl(""); setInfographicFile(null); setInfographicPreview(""); setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); };
+  const resetSemuaMedanBorang = () => { setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setNotes(""); setNoteImageUrl(""); setNoteImageFile(null); setNoteImagePreview(""); setInfographicUrl(""); setInfographicFile(null); setInfographicPreview(""); setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); setSubtopics([]); setNewSubtopic(""); };
   const tukarModBorang = (modBaru) => { setBorangMod(modBaru); setSelectedLessonId(""); resetSemuaMedanBorang(); if (modBaru === "edit") muatTurunSenaraiLesson(); };
   const handleAddQuestion = () => setQuestions([...questions, { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
+  const handleAddSubtopic = () => { const val = newSubtopic.trim(); if (!val) return; setSubtopics([...subtopics, val]); setNewSubtopic(""); };
+  const handleRemoveSubtopic = (index) => setSubtopics(subtopics.filter((_, i) => i !== index));
   const handleRemoveQuestion = (index) => setQuestions(questions.filter((_, i) => i !== index));
   const handleQuestionChange = (index, field, value) => { const updated = [...questions]; updated[index][field] = value; setQuestions(updated); };
   const handleOptionChange = (qIndex, optIndex, value) => { const updated = [...questions]; if(!updated[qIndex].options) updated[qIndex].options = ["", "", "", ""]; updated[qIndex].options[optIndex] = value; setQuestions(updated); };
@@ -252,7 +260,8 @@ export default function LessonResources() {
         video_url: youtubeUrl.trim(),              
         notes_content: payloadFormatJSON, 
         infographic_url: serverInfographicUrl || null, 
-        questions_json: JSON.stringify(susunanSoalanKuiz) 
+        questions_json: JSON.stringify(susunanSoalanKuiz),
+        subtopics_json: JSON.stringify(subtopics) 
       };
 
       if (borangMod === "create") {
@@ -339,6 +348,36 @@ export default function LessonResources() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">ID Unik Topik*</label><input type="text" required value={topicId} onChange={(e) => setTopicId(e.target.value)} disabled={borangMod === "edit"} className="w-full px-3 py-2 border rounded-xl text-xs font-bold bg-slate-50" /></div>
               <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Tajuk Utama Modul*</label><input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
+            </div>
+
+            {/* 🌟 SUBTOPIK (Pilihan, jika berkenaan) */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-emerald-500" /> Subtopik (Pilihan — jika berkenaan)</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newSubtopic}
+                  onChange={(e) => setNewSubtopic(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddSubtopic(); } }}
+                  placeholder="cth: Penambahan, Penolakan, Pendaraban..."
+                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                />
+                <Button type="button" size="sm" onClick={handleAddSubtopic} className="h-9 px-3 bg-emerald-600 text-white rounded-xl text-xs font-bold gap-1 shrink-0">
+                  <Plus className="w-3.5 h-3.5" /> Tambah
+                </Button>
+              </div>
+              {subtopics.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {subtopics.map((st, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold">
+                      {st}
+                      <button type="button" onClick={() => handleRemoveSubtopic(i)} className="text-rose-500 hover:text-rose-700">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
 
