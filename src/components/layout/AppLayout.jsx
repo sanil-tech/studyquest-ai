@@ -20,7 +20,7 @@ const parentNav = [
   { path: "/parent/children", icon: Users, label: "Anak" },
   { path: "/parent/rewards", icon: Gift, label: "Ganjaran" },
   { path: "/parent/approvals", icon: CheckSquare, label: "Lulus" },
-  { path: "/profile", icon: User, label: "Profil" },
+  { path: "/parent/profile", icon: User, label: "Profil" },
 ];
 
 export default function AppLayout() {
