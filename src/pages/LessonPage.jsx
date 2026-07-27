@@ -19,7 +19,7 @@ import {
   BookOpen,
   Brain,
   Zap,
-  X,
+  ChevronLeft,
   Gamepad2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -750,7 +750,7 @@ export default function LessonPage() {
               onClick={() => navigate(`/study/${subjectId}`)} 
               className="p-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-2xl transition-all border border-stone-600 active:scale-95"
             >
-              <X className="w-5 h-5"/>
+              <ChevronLeft className="w-5 h-5"/>
             </button>
             <div>
               <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${worldTheme.badgeBg}`}>
@@ -793,8 +793,7 @@ export default function LessonPage() {
         <AnimatePresence mode="wait">
           {activeTab === "map" && (
             <motion.div key="map" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <div className="bg-stone-900/80 rounded-3xl p-6 border-2 border-stone-800 shadow-xl">
-                <LessonProgress
+              <LessonProgress
                   steps={{
                     video: progressState.video_completed,
                     lesson: progressState.lesson_completed,
@@ -811,7 +810,6 @@ export default function LessonPage() {
                     if (key === "quiz") setActiveTab("quiz");
                   }}
                 />
-              </div>
             </motion.div>
           )}
 
