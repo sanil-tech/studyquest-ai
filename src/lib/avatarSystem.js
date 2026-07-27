@@ -13,6 +13,7 @@ export const CREATURES = [
     bgGradient: "from-indigo-100 to-blue-100",
     borderColor: "border-indigo-300",
     textColor: "text-indigo-700",
+    imageUrl: "https://media.base44.com/images/public/6a3f271e41dc4ee0d0d5abdf/8f8d9b0dd_generated_image.png",
     description: "Burung hantu bijak yang menguasai nombor dan logik. Setiap soal matematik membuatnya semakin bijak!",
     stages: [
       { stage: 1, name: "Telur Mat", xpRequired: 0, emoji: "🥚", description: "Telur bijak menanti di sarang pokok nombor.", animation: "bounce" },
@@ -37,6 +38,7 @@ export const CREATURES = [
     bgGradient: "from-pink-100 to-rose-100",
     borderColor: "border-pink-300",
     textColor: "text-pink-700",
+    imageUrl: "https://media.base44.com/images/public/6a3f271e41dc4ee0d0d5abdf/fd809905a_generated_image.png",
     description: "Rubah yang bijak dan pantas. Menguasai perkataan dan cerita Inggeris dengan setiap pelajaran!",
     stages: [
       { stage: 1, name: "Telur Lex", xpRequired: 0, emoji: "🥚", description: "Telur rubah tersembunyi di rak buku lama.", animation: "bounce" },
@@ -61,6 +63,7 @@ export const CREATURES = [
     bgGradient: "from-emerald-100 to-teal-100",
     borderColor: "border-emerald-300",
     textColor: "text-emerald-700",
+    imageUrl: "https://media.base44.com/images/public/6a3f271e41dc4ee0d0d5abdf/916bbea18_generated_image.png",
     description: "Tikus makmal yang sentiasa ingin tahu. Setiap eksperimen menjadikannya saintis yang lebih hebat!",
     stages: [
       { stage: 1, name: "Telur Atom", xpRequired: 0, emoji: "🥚", description: "Telur tikus makmal di belakang tabung uji.", animation: "bounce" },
@@ -85,6 +88,7 @@ export const CREATURES = [
     bgGradient: "from-amber-100 to-yellow-100",
     borderColor: "border-amber-300",
     textColor: "text-amber-700",
+    imageUrl: "https://media.base44.com/images/public/6a3f271e41dc4ee0d0d5abdf/b94af0be0_generated_image.png",
     description: "Penyu kuno yang menyimpan memori semua zaman. Setiap fakta sejarah menguatkan cengkerangnya!",
     stages: [
       { stage: 1, name: "Telur Krono", xpRequired: 0, emoji: "🥚", description: "Telur penyu kuno di runtuhan kuil.", animation: "bounce" },
@@ -109,6 +113,7 @@ export const CREATURES = [
     bgGradient: "from-blue-100 to-cyan-100",
     borderColor: "border-blue-300",
     textColor: "text-blue-700",
+    imageUrl: "https://media.base44.com/images/public/6a3f271e41dc4ee0d0d5abdf/0d9224b7e_generated_image.png",
     description: "Helang yang suka meneroka. Setiap tempat baharu di dunia mengembangkan sayapnya lebih luas!",
     stages: [
       { stage: 1, name: "Telur Atlas", xpRequired: 0, emoji: "🥚", description: "Telur helang di puncak gunung tertinggi.", animation: "bounce" },
@@ -133,6 +138,7 @@ export const CREATURES = [
     bgGradient: "from-violet-100 to-purple-100",
     borderColor: "border-violet-300",
     textColor: "text-violet-700",
+    imageUrl: "https://media.base44.com/images/public/6a3f271e41dc4ee0d0d5abdf/1a4f2c870_generated_image.png",
     description: "Harimau bangsawan yang menjaga bahasa Melayu. Setiap pantun dan sajak menguatkan roar-nya!",
     stages: [
       { stage: 1, name: "Telur Sastera", xpRequired: 0, emoji: "🥚", description: "Telur harimau di gua sastera kuno.", animation: "bounce" },

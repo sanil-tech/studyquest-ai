@@ -99,9 +99,9 @@ export default function AvatarEvolutionCard({
                 } ${isCurrent ? "ring-4 ring-emerald-300 ring-offset-1" : ""}`}
               >
                 {isUnlocked ? (
-                  stage.imageUrl ? (
+                  stage.stage >= 4 && creature.imageUrl ? (
                     <img
-                      src={stage.imageUrl}
+                      src={creature.imageUrl}
                       alt={stage.name}
                       className="w-full h-full object-cover"
                     />

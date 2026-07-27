@@ -63,16 +63,26 @@ export default function CreatureCompanionSection({ user, xp = 0, targetStudentId
         {/* ═══ Current Creature + Evolution Stage ═══ */}
         <div className={`rounded-2xl p-4 bg-gradient-to-br ${creature.bgGradient} border-2 ${creature.borderColor}`}>
           <div className="flex items-center gap-4">
-            <div className="relative w-20 h-20 rounded-2xl bg-white/60 overflow-hidden flex items-center justify-center shrink-0 shadow-sm text-5xl">
+            <div className="relative w-20 h-20 rounded-2xl bg-white/60 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">
               <motion.div
                 className="absolute inset-0 blur-lg"
                 style={{ background: `radial-gradient(circle, ${creature.id === "mat" ? "rgba(99,102,241,0.5)" : creature.id === "lex" ? "rgba(236,72,153,0.5)" : creature.id === "atom" ? "rgba(16,185,129,0.5)" : creature.id === "krono" ? "rgba(245,158,11,0.5)" : creature.id === "atlas" ? "rgba(59,130,246,0.5)" : "rgba(139,92,246,0.5)"} 0%, transparent 70%)` }}
                 animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.7, 0.4] }}
                 transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
               />
-              <motion.span className="relative z-[1] drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]" animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}>
-                {currentStage.emoji}
-              </motion.span>
+              {creature.imageUrl ? (
+                <motion.img
+                  src={creature.imageUrl}
+                  alt={creature.name}
+                  className="relative z-[1] w-full h-full object-cover"
+                  animate={{ scale: [1, 1.05, 1] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                />
+              ) : (
+                <motion.span className="relative z-[1] text-5xl" animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}>
+                  {currentStage.emoji}
+                </motion.span>
+              )}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -131,14 +141,18 @@ export default function CreatureCompanionSection({ user, xp = 0, targetStudentId
                       : "border-transparent hover:scale-105"
                   } ${saving ? "opacity-50" : ""}`}
                 >
-                  <div className="relative w-full aspect-square rounded-xl bg-white/40 mb-1 flex items-center justify-center text-4xl overflow-hidden">
+                  <div className="relative w-full aspect-square rounded-xl bg-white/40 mb-1 flex items-center justify-center overflow-hidden">
                     <motion.div
                       className="absolute inset-0 blur-md"
                       style={{ background: `radial-gradient(circle, ${c.id === "mat" ? "rgba(99,102,241,0.4)" : c.id === "lex" ? "rgba(236,72,153,0.4)" : c.id === "atom" ? "rgba(16,185,129,0.4)" : c.id === "krono" ? "rgba(245,158,11,0.4)" : c.id === "atlas" ? "rgba(59,130,246,0.4)" : "rgba(139,92,246,0.4)"} 0%, transparent 70%)` }}
                       animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
                       transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
                     />
-                    <span className="relative z-[1]">{c.stages[2].emoji}</span>
+                    {c.imageUrl ? (
+                      <img src={c.imageUrl} alt={c.name} className="relative z-[1] w-full h-full object-cover" />
+                    ) : (
+                      <span className="relative z-[1] text-4xl">{c.stages[2].emoji}</span>
+                    )}
                   </div>
                   <p className={`font-black text-xs ${c.textColor}`}>{c.name}</p>
                   {isSelected && (
