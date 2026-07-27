@@ -23,12 +23,14 @@ export default function ChildLogin() {
 
     try {
       const inputVal = usernameInput.trim();
-      
+
       if (!inputVal) {
-        throw new Error("Sila masukkan Username atau ID Murid anda.");
+        setError("Sila masukkan Username atau ID Murid anda.");
+        return;
       }
       if (!pin || pin.length < 4) {
-        throw new Error("PIN mestilah sekurang-kurangnya 4 digit.");
+        setError("PIN mestilah sekurang-kurangnya 4 digit.");
+        return;
       }
 
       // Invoke childLogin backend function
@@ -38,7 +40,8 @@ export default function ChildLogin() {
       });
 
       if (!response.data?.success || !response.data?.user) {
-        throw new Error(response.data?.error || "Username atau PIN tidak sah. Sila semak semula.");
+        setError(response.data?.error || "Username atau PIN tidak sah. Sila semak semula.");
+        return;
       }
 
       const loggedStudent = response.data.user;
@@ -65,14 +68,7 @@ export default function ChildLogin() {
 
     } catch (err) {
       console.error("Ralat Log Masuk Anak:", err);
-      
-      // Safely extract human-readable error from server response or fallback
-      const serverMessage = 
-        err?.response?.data?.error || 
-        err?.data?.error || 
-        (err instanceof Error && !err.message.includes("status code") ? err.message : null);
-
-      setError(serverMessage || "Username atau PIN salah. Sila semak semula.");
+      setError("Username atau PIN salah. Sila cuba semula.");
     } finally {
       setLoading(false);
     }
