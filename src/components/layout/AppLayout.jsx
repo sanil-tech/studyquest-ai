@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { useViewMode } from "@/lib/ViewModeContext";
-import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound } from "lucide-react";
+import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound, Moon } from "lucide-react";
 import { resolveCssAvatar } from "@/lib/avatarSystem";
 
 const studentNav = [
@@ -143,12 +143,12 @@ export default function AppLayout() {
       return (
         <button
           onClick={returnToParentMode}
-          className={`flex items-center gap-1.5 font-bold text-rose-600 bg-rose-50 rounded-xl border border-rose-200 transition-all active:scale-95 ${
+          className={`flex items-center gap-1.5 font-bold text-indigo-600 bg-indigo-50 rounded-xl border border-indigo-200 transition-all active:scale-95 ${
             compact ? "px-2.5 py-1.5 text-[10px]" : "px-4 py-3 text-xs w-full"
           }`}
         >
-          <LogOut className={compact ? "w-3 h-3" : "w-4 h-4"} />
-          {compact ? "Keluar" : "Kembali ke Mod Ibu Bapa"}
+          <Moon className={compact ? "w-3 h-3" : "w-4 h-4"} />
+          {compact ? "Selesai 🌙" : "Tamat Pengembaraan Hari Ini 🌙"}
         </button>
       );
     }

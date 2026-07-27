@@ -9,7 +9,7 @@ import { base44 } from "@/api/base44Client";
 import {
   BookOpen, Award, Play,
   UserCheck, UserX, ShieldAlert, Sparkles, Leaf,
-  Sprout, LogOut, Compass, Flame, Rocket, Star
+  Sprout, Moon, Compass, Flame, Rocket, Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -305,9 +305,9 @@ export default function StudentDashboard() {
             {activeChildId && (
               <button
                 onClick={handleExitChildMode}
-                className="flex items-center gap-1 font-bold text-rose-600 bg-rose-50 px-3 py-2 rounded-xl border border-rose-200 text-xs active:scale-95 transition-transform"
+                className="flex items-center gap-1 font-bold text-indigo-600 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-200 text-xs active:scale-95 transition-transform"
               >
-                <LogOut className="w-4 h-4" /> Keluar
+                <Moon className="w-4 h-4" /> Selesai 🌙
               </button>
             )}
           </div>
