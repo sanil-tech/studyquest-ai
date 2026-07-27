@@ -353,8 +353,13 @@ export default function LessonPage() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [savedQuizProgress, setSavedQuizProgress] = useState(null);
   
-  const studyStartRef = useRef(null);
+  const sessionStartRef = useRef(Date.now());
   const sessionRef = useRef(null);
+
+  // 📊 Real-time study time tracking helper
+  const getElapsedMinutes = useCallback(() => {
+    return Math.max(1, Math.round((Date.now() - sessionStartRef.current) / 60000));
+  }, []);
 
   useEffect(() => { 
     sessionRef.current = sessionId; 
@@ -451,7 +456,7 @@ export default function LessonPage() {
         console.error("Gagal memuat turun data:", err);
       } finally { 
         if (isMounted) { 
-          studyStartRef.current = Date.now(); 
+          sessionStartRef.current = Date.now(); 
           setLoading(false); 
         } 
       }
@@ -463,10 +468,35 @@ export default function LessonPage() {
 
   const recordStudyTime = async () => { 
     const sId = sessionRef.current; 
-    if (!sId || !studyStartRef.current) return; 
-    const mins = Math.max(1, Math.round((Date.now() - studyStartRef.current) / 60000)); 
-    try { await base44.entities.StudySession.update(sId, { duration_minutes: mins }); } catch (err) {} 
+    if (!sId) return; 
+    try { await base44.entities.StudySession.update(sId, { duration_minutes: getElapsedMinutes() }); } catch (err) {} 
   };
+
+  // 📊 Real-time periodic study time update (every 60 seconds)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const sId = sessionRef.current;
+      if (!sId) return;
+      try {
+        await base44.entities.StudySession.update(sId, { duration_minutes: getElapsedMinutes() });
+      } catch (err) {}
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [getElapsedMinutes]);
+
+  // 📊 Record final study time on unmount and page exit
+  useEffect(() => {
+    const handleExit = () => {
+      const sId = sessionRef.current;
+      if (!sId) return;
+      base44.entities.StudySession.update(sId, { duration_minutes: getElapsedMinutes() }).catch(() => {});
+    };
+    window.addEventListener('beforeunload', handleExit);
+    return () => {
+      window.removeEventListener('beforeunload', handleExit);
+      handleExit();
+    };
+  }, [getElapsedMinutes]);
 
   const triggerConfetti = () => confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
 
@@ -528,7 +558,7 @@ export default function LessonPage() {
           topic_id: topicId, 
           topic_name: topic?.name, 
           subject_name: subject?.name, 
-          duration_minutes: 0, 
+          duration_minutes: getElapsedMinutes(), 
           ...progressState, 
           video_completed: true, 
           current_stage: "lesson", 
@@ -554,7 +584,7 @@ export default function LessonPage() {
     }
     await updateStageProgress("video", "lesson", 10); 
     setActiveTab("map");
-  }, [progressState, subjectId, topicId, topic, subject, updateStageProgress]);
+  }, [progressState, subjectId, topicId, topic, subject, updateStageProgress, getElapsedMinutes]);
 
   const handleLessonStageCompleted = async () => {
     setStatus(p => ({ ...p, lesson: true }));
@@ -579,7 +609,7 @@ export default function LessonPage() {
           topic_id: topicId, 
           topic_name: topic?.name, 
           subject_name: subject?.name, 
-          duration_minutes: 0, 
+          duration_minutes: getElapsedMinutes(), 
           ...nextStatePayload 
         });
         const validId = Array.isArray(newSession) ? newSession[0]?.id : newSession?.id; 
