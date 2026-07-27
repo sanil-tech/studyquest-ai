@@ -10,6 +10,10 @@ function resolveStudentId(authUser) {
   if (!authUser) return null;
 
   if (authUser.app_role === "parent") {
+    // If parent is in parent_mode (not child mode), don't resolve a student ID
+    const viewMode = localStorage.getItem("studyquest_view_mode");
+    if (viewMode === "parent_mode") return null;
+
     return (
       localStorage.getItem("active_child_session") ||
       localStorage.getItem("selected_child_id") ||

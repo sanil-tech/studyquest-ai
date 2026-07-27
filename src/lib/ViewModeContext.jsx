@@ -42,9 +42,19 @@ export const ViewModeProvider = ({ children }) => {
   });
 
   // Auto-switch to parent_mode when the user navigates to any /parent route
+  // Also clears legacy child session keys so student-specific hooks (useStudentData)
+  // don't accidentally load the child's data while in parent mode.
   useEffect(() => {
     if (location.pathname.startsWith(PARENT_ROUTE_PREFIX)) {
-      setActiveViewMode((prev) => (prev !== "parent_mode" ? "parent_mode" : prev));
+      setActiveViewMode((prev) => {
+        if (prev !== "parent_mode") {
+          setSelectedChildProfile(null);
+          localStorage.removeItem(SELECTED_CHILD_KEY);
+          LEGACY_CHILD_KEYS.forEach((k) => localStorage.removeItem(k));
+          return "parent_mode";
+        }
+        return prev;
+      });
     }
   }, [location.pathname]);
 
