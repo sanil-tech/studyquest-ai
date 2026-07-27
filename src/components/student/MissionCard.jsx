@@ -3,9 +3,11 @@ import { motion } from "framer-motion";
 import { Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
+import { getAvatarStage } from "@/lib/avatarSystem";
 
 export default function MissionCard({ user, level, xp, todayMinutes, onStart }) {
   const hasStudiedToday = todayMinutes > 0;
+  const avatarStage = getAvatarStage(xp);
 
   return (
     <motion.div
@@ -28,7 +30,11 @@ export default function MissionCard({ user, level, xp, todayMinutes, onStart }) 
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">
               {user?.nickname || "Penjelajah"}!
             </h1>
-            <p className="text-emerald-100 font-medium mt-0.5 text-sm">
+            <div className="inline-flex items-center gap-1.5 bg-white/20 px-2.5 py-0.5 rounded-full mt-1">
+              <span className="text-sm">{avatarStage.emoji}</span>
+              <span className="text-xs font-black uppercase tracking-wide">{avatarStage.name}</span>
+            </div>
+            <p className="text-emerald-100 font-medium mt-1.5 text-sm">
               {hasStudiedToday
                 ? `Hebat! ${todayMinutes} minit hari ini 🎉`
                 : "Misi hari ini menunggu kamu!"}
