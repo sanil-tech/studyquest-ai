@@ -1,0 +1,118 @@
+{
+  "name": "Friendship",
+  "type": "object",
+  "properties": {
+    "requester_id": {
+      "type": "string",
+      "description": "ID of the student who sent the friend request"
+    },
+    "addressee_id": {
+      "type": "string",
+      "description": "ID of the student who received the friend request"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "declined"
+      ],
+      "default": "pending",
+      "description": "Status of the friendship"
+    },
+    "requester_profile": {
+      "type": "object",
+      "description": "Snapshot of the requester's profile",
+      "properties": {
+        "nickname": {
+          "type": "string"
+        },
+        "avatar_emoji": {
+          "type": "string"
+        },
+        "profile_picture_url": {
+          "type": "string"
+        }
+      }
+    },
+    "addressee_profile": {
+      "type": "object",
+      "description": "Snapshot of the addressee's profile",
+      "properties": {
+        "nickname": {
+          "type": "string"
+        },
+        "avatar_emoji": {
+          "type": "string"
+        },
+        "profile_picture_url": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "requester_id",
+    "addressee_id",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.requester_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.requester_id": "{{user.id}}"
+        },
+        {
+          "data.addressee_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.requester_id": "{{user.id}}"
+        },
+        {
+          "data.addressee_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.requester_id": "{{user.id}}"
+        },
+        {
+          "data.addressee_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

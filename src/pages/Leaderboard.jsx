@@ -25,7 +25,7 @@ function AvatarBubble({ entry, size = "w-14 h-14" }) {
 
 const SCOPES = [
   { id: "global", label: "Global", emoji: "🌍" },
-  { id: "friends", label: "Rakan Kelas", emoji: "👥" },
+  { id: "friends", label: "Rakan", emoji: "👥" },
   { id: "school", label: "Sekolah", emoji: "🏫" },
   { id: "district", label: "Kawasan", emoji: "📍" },
   { id: "state", label: "Negeri", emoji: "🗺️" },
@@ -33,7 +33,7 @@ const SCOPES = [
 
 const SCOPE_LABELS = {
   global: "Global",
-  friends: "Rakan Kelas",
+  friends: "Rakan",
   school: "Sekolah",
   district: "Kawasan",
   state: "Negeri",
@@ -105,7 +105,6 @@ export default function Leaderboard() {
   const hasScopeData = scope === "school" ? !!filterInfo.school
     : scope === "state" ? !!filterInfo.state
     : scope === "district" ? !!filterInfo.district
-    : scope === "friends" ? !!filterInfo.school
     : true;
   const top3 = (board || []).slice(0, 3);
   const rest = (board || []).slice(3);
@@ -184,6 +183,8 @@ export default function Leaderboard() {
           <p className="font-bold text-stone-500">
             {scope === "global"
               ? "Belum ada juara lagi. Jadilah yang pertama!"
+              : scope === "friends"
+              ? "Tambah rakan untuk lihat kedudukan kamu di kalangan rakan-rakan!"
               : !hasScopeData
               ? "Lengkapkan profil sekolah dan lokasi kamu untuk lihat carta ini!"
               : "Tiada pelajar lain dalam kategori ini lagi."}

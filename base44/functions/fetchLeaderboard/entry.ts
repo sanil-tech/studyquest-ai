@@ -61,14 +61,15 @@ Deno.serve(async (req) => {
     } else if (scope === 'district' && myDistrict) {
       leaderboard = leaderboard.filter(e => e.district === myDistrict);
     } else if (scope === 'friends') {
-      // Classmates: same school + same year
-      if (mySchool) {
-        leaderboard = leaderboard.filter(e =>
-          e.school_name === mySchool && (!myYear || e.school_year === myYear)
-        );
-      } else {
-        leaderboard = [];
-      }
+      // Actual friends from Friendship entity
+      const asRequester = await base44.asServiceRole.entities.Friendship.filter({ requester_id: currentStudentId, status: 'accepted' }).catch(() => []);
+      const asAddressee = await base44.asServiceRole.entities.Friendship.filter({ addressee_id: currentStudentId, status: 'accepted' }).catch(() => []);
+      const friendIds = [
+        ...(asRequester || []).map(f => f.addressee_id),
+        ...(asAddressee || []).map(f => f.requester_id),
+        currentStudentId,
+      ];
+      leaderboard = leaderboard.filter(e => friendIds.includes(e.student_id));
     }
 
     // Assign ranks

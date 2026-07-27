@@ -60,6 +60,7 @@ const ChildSelectionPage = React.lazy(() => import('@/pages/ChildSelectionPage')
 // Lazy-loaded Extra Pages
 const Leaderboard = React.lazy(() => import('@/pages/Leaderboard'));
 const Achievements = React.lazy(() => import('@/pages/Achievements'));
+const Friends = React.lazy(() => import('@/pages/Friends'));
 const ParentTips = React.lazy(() => import('@/pages/ParentTips'));
 
 // Lazy-loaded Admin Pages
@@ -148,6 +149,7 @@ const AuthenticatedApp = () => {
 
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/achievements" element={<Achievements />} />
+                <Route path="/friends" element={<Friends />} />
 
                 {/* Diagnostic Routes */}
                 <Route path="/diagnostic" element={<DiagnosticIntro />} />
