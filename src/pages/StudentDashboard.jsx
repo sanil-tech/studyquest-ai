@@ -664,6 +664,24 @@ export default function StudentDashboard() {
 
         </div>
 
+        {/* ═══ 10. END JOURNEY — Prominent kid-friendly exit ═══ */}
+        {activeChildId && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleExitChildMode}
+            className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 rounded-3xl p-6 text-white shadow-lg border-b-4 border-indigo-800 flex items-center justify-center gap-3"
+          >
+            <Moon className="w-7 h-7" />
+            <div className="text-center">
+              <p className="text-lg font-black">Tamat Pengembaraan Hari Ini</p>
+              <p className="text-xs font-bold text-indigo-100 mt-0.5">Klik untuk kembali kepada Ibu Bapa 🌙</p>
+            </div>
+          </motion.button>
+        )}
+
       </div>
     </div>
   );
