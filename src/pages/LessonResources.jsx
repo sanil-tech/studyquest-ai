@@ -309,11 +309,14 @@ export default function LessonResources() {
         toast({ title: "Ralat", description: res.data?.error || "Gagal menjana.", variant: "destructive" });
       }
     } catch (err) {
-      const errStr = String(err.message || err);
-      const isQuotaError = errStr.includes("403") || errStr.includes("quota") || errStr.includes("limit") || errStr.includes("credit") || errStr.includes("token");
+      const errStr = String(err.message || err).toLowerCase();
+      const isTimeout = errStr.includes("timeout") || errStr.includes("timed out") || errStr.includes("aborted") || errStr.includes("network");
+      const isQuotaError = !isTimeout && (errStr.includes("403") || errStr.includes("quota") || errStr.includes("credit limit") || errStr.includes("insufficient"));
       toast({
-        title: isQuotaError ? "Token AI Habis ⚠️" : "Ralat Sistem",
-        description: isQuotaError
+        title: isTimeout ? "Panggilan Lama / Timeout ⏳" : isQuotaError ? "Token AI Habis ⚠️" : "Ralat Sistem",
+        description: isTimeout
+          ? "Penjanaan mengambil masa terlalu lama. Kandungan mungkin masih sedang diproses di server. Tunggu sebentar dan segarkan halaman, atau gunakan borang manual."
+          : isQuotaError
           ? "Kuota AI tamat. Sila gunakan borang manual di bawah untuk cipta lesson resource."
           : err.message,
         variant: "destructive",
@@ -357,16 +360,18 @@ export default function LessonResources() {
         toast({ title: "Ralat", description: res.data?.error || "Gagal menjana.", variant: "destructive" });
       }
     } catch (err) {
-      const errStr = String(err.message || err);
-      const isQuotaError = errStr.includes("403") || errStr.includes("quota") || errStr.includes("limit") || errStr.includes("credit") || errStr.includes("token");
+      const errStr = String(err.message || err).toLowerCase();
+      const isTimeout = errStr.includes("timeout") || errStr.includes("timed out") || errStr.includes("aborted") || errStr.includes("network");
+      const isQuotaError = !isTimeout && (errStr.includes("403") || errStr.includes("quota") || errStr.includes("credit limit") || errStr.includes("insufficient"));
       toast({
-        title: isQuotaError ? "Token AI Habis ⚠️" : "Ralat Sistem",
-        description: isQuotaError
+        title: isTimeout ? "Panggilan Lama / Timeout ⏳" : isQuotaError ? "Token AI Habis ⚠️" : "Ralat Sistem",
+        description: isTimeout
+          ? "Penjanaan mengambil masa terlalu lama. Kandungan mungkin masih sedang diproses di server. Tunggu sebentar dan segarkan halaman, atau gunakan borang manual."
+          : isQuotaError
           ? "Kuota AI tamat. Sila gunakan borang manual di bawah untuk cipta lesson resource."
           : err.message,
         variant: "destructive",
       });
-      if (isQuotaError) tukarModBorang("create");
     } finally {
       setIsGeneratingModular(false);
     }
