@@ -8,13 +8,15 @@ import { motion } from "framer-motion";
 import {
   CREATURES, getCreatureById, getCreatureStageProgress,
 } from "@/lib/avatarSystem";
-import { Check, Loader2, Sparkles, Star } from "lucide-react";
+import { Check, Loader2, Sparkles, Star, BookOpen } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
+import CreatureStoryModal from "@/components/profile/CreatureStoryModal";
 
 export default function CreatureCompanionSection({ user, xp = 0, targetStudentId, onCreatureChanged }) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [showStory, setShowStory] = useState(false);
 
   const currentCreatureId = user?.selected_creature || "otan";
   const creature = getCreatureById(currentCreatureId);
@@ -45,9 +47,17 @@ export default function CreatureCompanionSection({ user, xp = 0, targetStudentId
   return (
     <Card className="border-orange-100 shadow-sm rounded-2xl overflow-hidden bg-white">
       <CardContent className="p-6 space-y-5">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-emerald-500" />
-          <h3 className="text-sm font-bold text-slate-700">Rakan Makhluk</h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-emerald-500" />
+            <h3 className="text-sm font-bold text-slate-700">Rakan Makhluk</h3>
+          </div>
+          <button
+            onClick={() => setShowStory(true)}
+            className="flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl transition-colors"
+          >
+            <BookOpen className="w-3.5 h-3.5" /> Kisah
+          </button>
         </div>
 
         {/* ═══ Current Creature + Evolution Stage ═══ */}
@@ -135,6 +145,8 @@ export default function CreatureCompanionSection({ user, xp = 0, targetStudentId
           )}
         </div>
       </CardContent>
+
+      <CreatureStoryModal open={showStory} onClose={() => setShowStory(false)} />
     </Card>
   );
 }
