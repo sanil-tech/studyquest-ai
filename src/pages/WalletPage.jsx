@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Leaf, 
+  Coins, 
   ArrowUpRight, 
   ArrowDownRight, 
   Clock, 
@@ -20,6 +20,7 @@ export default function WalletPage() {
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [studentName, setStudentName] = useState("Penjelajah");
+  const [currentPage, setCurrentPage] = useState(1);
   const { data, loading, studentUser } = useStudentData();
 
   useEffect(() => {
@@ -40,13 +41,19 @@ export default function WalletPage() {
           <Sparkles className="w-12 h-12 text-emerald-500" />
         </motion.div>
         <p className="text-sm font-black text-emerald-800 tracking-wide">
-          Otan sedang mengira Daun Emas...
+          Otan sedang mengira Syiling Emas...
         </p>
       </div>
     );
   }
 
   const currentBalance = wallet?.balance || 0;
+  const pageSize = 5;
+  const totalPages = Math.ceil(transactions.length / pageSize);
+  const paginatedTransactions = transactions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="min-h-screen bg-[#F4F9F4] font-sans pb-24 pt-6 text-stone-800 selection:bg-lime-200">
@@ -63,14 +70,14 @@ export default function WalletPage() {
           <div className="absolute -right-10 -top-10 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
           <div className="absolute -left-12 -bottom-12 w-36 h-36 bg-lime-300/20 rounded-full blur-xl pointer-events-none" />
           <div className="absolute right-4 bottom-[-20px] text-[140px] select-none opacity-10 font-black pointer-events-none transform -rotate-12">
-            🍃
+          🪙
           </div>
           
           <div className="relative z-10 flex flex-col items-center">
             {/* Header Badge */}
             <div className="flex items-center gap-1.5 mb-3 bg-lime-400 text-green-950 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider shadow-sm">
               <Sparkles className="w-4 h-4 fill-current" />
-              Kantung Daun Emas
+              Kantung Syiling Emas
             </div>
             
             <p className="text-emerald-100 text-xs font-black uppercase tracking-widest mt-1">
@@ -86,12 +93,12 @@ export default function WalletPage() {
                 animate={{ rotate: [0, 15, -10, 0] }}
                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
               >
-                <Leaf className="w-12 h-12 sm:w-14 sm:h-14 text-lime-300 fill-lime-400 drop-shadow-md" />
+                <Coins className="w-12 h-12 sm:w-14 sm:h-14 text-lime-300 fill-lime-400 drop-shadow-md" />
               </motion.div>
             </div>
 
             <p className="text-xs sm:text-sm font-bold text-emerald-100 mt-4 bg-white/15 px-5 py-2.5 rounded-2xl backdrop-blur-md border border-white/20 shadow-sm max-w-md">
-              Kumpul Daun Emas daripada Misi & Kuiz untuk menebus ganjaran hebat! 🎁
+              Kumpul Syiling Emas daripada Misi & Kuiz untuk menebus ganjaran hebat! 🎁
             </p>
           </div>
         </motion.div>
@@ -101,7 +108,7 @@ export default function WalletPage() {
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xl font-black text-stone-800 flex items-center gap-2">
               <TrendingUp className="w-6 h-6 text-emerald-600" />
-              <span>Sejarah Kutipan Daun</span>
+              <span>Sejarah Kutipan Syiling</span>
             </h2>
             <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 shadow-xs">
               {transactions.length} Rekod
@@ -111,16 +118,16 @@ export default function WalletPage() {
           {transactions.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-3xl border-4 border-stone-200 shadow-sm max-w-md mx-auto p-6">
               <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-stone-200">
-                <Leaf className="w-8 h-8 text-stone-400" />
+                <Coins className="w-8 h-8 text-stone-400" />
               </div>
               <h3 className="font-black text-stone-800 text-lg">Kantung Masih Kosong!</h3>
               <p className="text-stone-500 text-xs sm:text-sm font-bold mt-1 max-w-xs mx-auto">
-                Belum ada daun dikutip. Jom selesaikan cabaran kuiz dan bacaan nota untuk mula mengisi kantung anda! 🚀
+                Belum ada syiling dikutip. Jom selesaikan cabaran kuiz dan bacaan nota untuk mula mengisi kantung anda! 🚀
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {transactions.map((tx, i) => {
+              {paginatedTransactions.map((tx, i) => {
                 const isEarn = tx.type === "earn" || (tx.amount && tx.amount > 0);
                 
                 return (
@@ -164,11 +171,33 @@ export default function WalletPage() {
                         : "bg-rose-100 text-rose-900 border-rose-300"
                     }`}>
                       <span>{isEarn ? "+" : "-"}{Math.abs(tx.amount || 0)}</span>
-                      <Leaf className={`w-4 h-4 ${isEarn ? "text-lime-600 fill-lime-500" : "text-rose-500 fill-rose-400"}`} />
+                      <Coins className={`w-4 h-4 ${isEarn ? "text-lime-600 fill-lime-500" : "text-rose-500 fill-rose-400"}`} />
                     </div>
                   </motion.div>
                 );
               })}
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 rounded-xl font-bold text-sm bg-white border-2 border-stone-200 text-stone-600 disabled:opacity-40 disabled:cursor-not-allowed hover:border-emerald-300 hover:text-emerald-700 transition-all active:scale-95"
+                  >
+                    ← Sebelum
+                  </button>
+                  <span className="text-xs font-black text-stone-500 bg-stone-100 px-3 py-2 rounded-xl">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 rounded-xl font-bold text-sm bg-white border-2 border-stone-200 text-stone-600 disabled:opacity-40 disabled:cursor-not-allowed hover:border-emerald-300 hover:text-emerald-700 transition-all active:scale-95"
+                  >
+                    Seterus →
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
