@@ -107,10 +107,7 @@ export default function StudyPage() {
                 studentUser = fetchedChild;
               }
             } catch (e) {
-              const cachedChildStr = localStorage.getItem("active_child");
-              if (cachedChildStr) {
-                try { studentUser = JSON.parse(cachedChildStr); } catch (err) {}
-              }
+              // No localStorage fallback — child profile must come from DB only
             }
           }
         }
@@ -152,19 +149,20 @@ export default function StudyPage() {
     load();
   }, [subjectId, querySubject]);
 
-  // 🔥 STRICT TOPIC FILTERING
+  // 🔥 STRICT TOPIC FILTERING — Only show topics matching the student's year level
+  const studentLevel = getStudentEducationLevel(user);
+  const hasStudentLevel = Boolean(studentLevel);
+
   const filteredTopics = useMemo(() => {
-    if (!topics || !user) return topics || [];
+    if (!topics || !user) return [];
     
-    // Extract student level (e.g. "Standard 1", "Tahun 1", "Form 2")
-    const studentLevel = getStudentEducationLevel(user);
-    
-    if (!studentLevel) {
-      return topics; // Show all topics as fallback if student profile has no level specified
+    // If student has no education level set, show NOTHING (not all topics)
+    if (!hasStudentLevel) {
+      return [];
     }
     
     return topics.filter(t => matchesEducationLevel(studentLevel, t.form_level));
-  }, [topics, user]);
+  }, [topics, user, hasStudentLevel, studentLevel]);
 
   const handleSelectSubject = async (sub) => {
     setSelectedSubject(sub);
@@ -180,7 +178,7 @@ export default function StudyPage() {
   };
 
   const studentFirstName = user?.nickname || (user?.full_name ? user.full_name.split(" ")[0] : "Penjelajah");
-  const studentLevelDisplay = getStudentEducationLevel(user) || "Semua Tahap";
+  const studentLevelDisplay = studentLevel || "Tahap Belum Ditetapkan";
 
   const getWorldConfig = (subObj) => {
     if (!subObj) return SUBJECT_WORLDS_CONFIG.default;
@@ -333,10 +331,21 @@ export default function StudyPage() {
         {filteredTopics.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border-4 border-stone-200 max-w-md mx-auto shadow-sm p-6">
             <span className="text-5xl block mb-4">{user?.selected_avatar || user?.avatar_emoji || "🦧"}</span>
-            <h3 className="font-black text-stone-800 text-lg">Tiada Misi untuk {studentLevelDisplay}</h3>
-            <p className="text-stone-500 text-xs sm:text-sm max-w-xs mx-auto mt-2 font-bold">
-              Belum ada bab disediakan untuk tahap {studentLevelDisplay} bagi subjek ini.
-            </p>
+            {hasStudentLevel ? (
+              <>
+                <h3 className="font-black text-stone-800 text-lg">Tiada Misi untuk {studentLevelDisplay}</h3>
+                <p className="text-stone-500 text-xs sm:text-sm max-w-xs mx-auto mt-2 font-bold">
+                  Belum ada bab disediakan untuk tahap {studentLevelDisplay} bagi subjek ini.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="font-black text-stone-800 text-lg">Tahap Belum Ditetapkan</h3>
+                <p className="text-stone-500 text-xs sm:text-sm max-w-xs mx-auto mt-2 font-bold">
+                  Sila tetapkan tahap persekolahan dalam profil untuk melihat misi yang sesuai.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-4 relative">
