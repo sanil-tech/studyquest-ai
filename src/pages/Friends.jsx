@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
-import { Search, UserPlus, Check, X, Loader2, Users, UserMinus, Clock, Inbox } from "lucide-react";
+import { Search, UserPlus, Check, X, Loader2, Users, UserMinus, Clock, Inbox, Eye } from "lucide-react";
 import { useStudentData } from "@/hooks/useStudentData";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import FriendProfileModal from "@/components/student/FriendProfileModal";
 
 function AvatarBubble({ entry, size = "w-12 h-12" }) {
   if (entry.profile_picture_url) {
@@ -28,6 +29,7 @@ export default function Friends() {
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [tab, setTab] = useState("friends");
+  const [selectedFriend, setSelectedFriend] = useState(null);
   const { studentId } = useStudentData();
   const { toast } = useToast();
 
@@ -237,13 +239,16 @@ export default function Friends() {
         ) : (
           <div className="space-y-2">
             {friends.map(f => (
-              <motion.div key={f.friendship_id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 p-3 bg-white border border-stone-100 rounded-2xl">
+              <motion.div key={f.friendship_id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 p-3 bg-white border border-stone-100 rounded-2xl hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer" onClick={() => setSelectedFriend(f)}>
                 <AvatarBubble entry={f} size="w-10 h-10" />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-stone-800 truncate text-sm">{f.nickname}</p>
                   <p className="text-xs text-emerald-500">Rakan ✓</p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => handleRemove(f.friendship_id)} disabled={actionLoading} className="text-red-400 hover:bg-red-50 hover:text-red-600 rounded-xl">
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedFriend(f); }} className="text-indigo-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl">
+                  <Eye className="w-4 h-4" />
+                </Button>
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleRemove(f.friendship_id); }} disabled={actionLoading} className="text-red-400 hover:bg-red-50 hover:text-red-600 rounded-xl">
                   <UserMinus className="w-4 h-4" />
                 </Button>
               </motion.div>
@@ -301,6 +306,12 @@ export default function Friends() {
           )}
         </div>
       )}
+
+      <FriendProfileModal
+        friend={selectedFriend}
+        open={!!selectedFriend}
+        onOpenChange={(v) => { if (!v) setSelectedFriend(null); }}
+      />
     </div>
   );
 }

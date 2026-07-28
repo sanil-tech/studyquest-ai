@@ -212,6 +212,69 @@ Deno.serve(async (req) => {
       }, { status: 200, headers: resHeaders });
     }
 
+    // ACTION: View friend's profile (achievements, avatar, badges)
+    if (action === 'view_profile') {
+      const friendStudentId = body.friend_id || body.student_id_to_view;
+      if (!friendStudentId) {
+        return Response.json({ success: false, error: 'ID rakan tidak ditemui.' }, { status: 200, headers: resHeaders });
+      }
+
+      // Verify friendship exists and is accepted
+      const asRequester = await db.entities.Friendship.filter({ requester_id: activeStudentId, addressee_id: friendStudentId }).catch(() => []);
+      const asAddressee = await db.entities.Friendship.filter({ requester_id: friendStudentId, addressee_id: activeStudentId }).catch(() => []);
+      const allLinks = [...(asRequester || []), ...(asAddressee || [])];
+      const isFriend = allLinks.some(f => f.status === 'accepted');
+
+      if (!isFriend) {
+        return Response.json({ success: false, error: 'Anda hanya boleh melihat profil rakan yang sah.' }, { status: 200, headers: resHeaders });
+      }
+
+      // Fetch friend's data in parallel
+      const [friendUser, progressList, walletList, quizAttempts, sessions, gameProgress] = await Promise.all([
+        db.entities.User.get(friendStudentId).catch(() => null),
+        db.entities.Progress.filter({ student_id: friendStudentId }).catch(() => []),
+        db.entities.Wallet.filter({ student_id: friendStudentId }).catch(() => []),
+        db.entities.QuizAttempt.filter({ student_id: friendStudentId }).catch(() => []),
+        db.entities.StudySession.filter({ student_id: friendStudentId }).catch(() => []),
+        db.entities.GameProgress.filter({ student_id: friendStudentId }).catch(() => []),
+      ]);
+
+      const progress = progressList?.[0] || {};
+      const wallet = walletList?.[0] || {};
+
+      // Count this friend's friends for the social achievement
+      const friendAsRequester = await db.entities.Friendship.filter({ requester_id: friendStudentId, status: 'accepted' }).catch(() => []);
+      const friendAsAddressee = await db.entities.Friendship.filter({ addressee_id: friendStudentId, status: 'accepted' }).catch(() => []);
+      const friendsCount = (friendAsRequester?.length || 0) + (friendAsAddressee?.length || 0);
+
+      return Response.json({
+        success: true,
+        user: {
+          id: friendUser?.id,
+          nickname: friendUser?.nickname || friendUser?.full_name || 'Pelajar',
+          username: friendUser?.username || null,
+          avatar_emoji: friendUser?.avatar_emoji || friendUser?.selected_avatar || '🧑',
+          profile_picture_url: friendUser?.profile_picture_url || null,
+          school_name: friendUser?.school_name || null,
+          school_year: friendUser?.school_year || null,
+          state: friendUser?.state || null,
+          district: friendUser?.district || null,
+          selected_creature: friendUser?.selected_creature || null,
+        },
+        progress: {
+          level: progress.level || 1,
+          total_xp: progress.total_xp || 0,
+          streak_days: progress.streak_days || 0,
+          total_study_time: progress.total_study_time || 0,
+        },
+        wallet: { balance: wallet.balance || 0 },
+        quizAttempts: quizAttempts || [],
+        sessions: sessions || [],
+        games: gameProgress || [],
+        friends: new Array(friendsCount),
+      }, { status: 200, headers: resHeaders });
+    }
+
     return Response.json({ success: false, error: 'Tindakan tidak dikenali.' }, { status: 200, headers: resHeaders });
 
   } catch (error) {
