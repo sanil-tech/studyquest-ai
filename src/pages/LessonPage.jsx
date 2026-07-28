@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { getActiveStudentId } from "@/lib/rewardSystem";
 import { processReward } from "@/lib/rewardEngine";
 import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
@@ -22,7 +23,8 @@ import {
   ChevronLeft,
   Gamepad2,
   Layers,
-  MapPin
+  MapPin,
+  Wand2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -263,7 +265,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     return (
       <div className="p-8 text-center bg-stone-900/80 border-4 border-dashed border-amber-500/40 rounded-3xl">
         <p className="text-amber-200 font-black text-sm">🎬 Video taklimat belum disediakan untuk topik ini.</p>
-        <Button className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-2xl px-6 py-3 text-sm mt-4 border-b-4 border-amber-700 active:translate-y-1 transition-all" onClick={onCompleted}>
+        <Button className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-2xl px-6 py-3 text-sm mt-4 border-b-4 border-amber-700 active:translate-y-1 transition-all" onClick="{onCompleted}">
           Teruskan Misi! 🚀
         </Button>
       </div>
@@ -297,7 +299,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
             <Tv className="w-5 h-5 text-emerald-400 animate-pulse shrink-0"/> 
             Tonton video dan tekan butang untuk mengutip +10 XP & Daun!
           </p>
-          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-emerald-700 active:translate-y-1 transition-all" onClick={onCompleted}>
+          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-emerald-700 active:translate-y-1 transition-all" onClick="{onCompleted}">
             Selesai & Ambil +10 XP 🔥
           </Button>
         </div>
@@ -309,6 +311,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
 export default function LessonPage() {
   const { subjectId, topicId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth(); // Auth context for user role check
   
   const [subject, setSubject] = useState(null);
   const [topic, setTopic] = useState(null);
@@ -329,6 +332,8 @@ export default function LessonPage() {
   const [subtopics, setSubtopics] = useState([]);
 
   const [activeTab, setActiveTab] = useState("map"); 
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false); // AI generation loading state
+
   const [progressState, setProgressState] = useState({ 
     video_completed: false, 
     lesson_completed: false, 
@@ -346,6 +351,45 @@ export default function LessonPage() {
   
   const sessionStartRef = useRef(Date.now());
   const sessionRef = useRef(null);
+
+  // Helper to load topic content
+  const loadContent = useCallback(async () => {
+    try {
+      const contentRes = await base44.functions.invoke('getLessonContent', { topic_id: topicId });
+      const content = contentRes.data;
+
+      if (content && content.source !== "none") {
+        setActualQuizId(content.quiz_id || content.lesson_id || "");
+        setVideoUrl(content.video_url || "");
+        setInfographicUrl(content.infographic_url || "");
+        
+        if (content.notes_content) {
+          setNotesContent(content.notes_content.text || "");
+          setNotesImage(content.notes_content.image || "");
+        }
+        setRawBankQuestions(safeJsonParse(content.questions_json, []));
+        setStoredMindmap(safeJsonParse(content.mindmap_json, []));
+        setSubtopics(safeJsonParse(content.subtopics_json, []));
+      }
+    } catch (err) {
+      console.error("Gagal memuat kandungan pelajaran:", err);
+    }
+  }, [topicId]);
+
+  // Admin function to trigger AI lesson content generation
+  const handleGenerateAIContent = async () => {
+    setIsGeneratingContent(true);
+    try {
+      await base44.functions.invoke('generateLessonContent', { topic_id: topicId });
+      await loadContent(); // Reload lesson content dynamically
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    } catch (err) {
+      console.error("Gagal menjana kandungan AI:", err);
+      alert("⚠️ Ralat semasa menjana kandungan. Sila cuba lagi.");
+    } finally {
+      setIsGeneratingContent(false);
+    }
+  };
 
   const getElapsedMinutes = useCallback(() => {
     return Math.max(1, Math.round((Date.now() - sessionStartRef.current) / 60000));
@@ -393,21 +437,8 @@ export default function LessonPage() {
           try { setSavedQuizProgress(JSON.parse(savedData)); } catch(e) {}
         }
 
-        const contentRes = await base44.functions.invoke('getLessonContent', { topic_id: topicId });
-        const content = contentRes.data;
-
-        if (content && content.source !== "none" && isMounted) {
-          setActualQuizId(content.quiz_id || content.lesson_id || "");
-          setVideoUrl(content.video_url || "");
-          setInfographicUrl(content.infographic_url || "");
-          
-          if (content.notes_content) {
-            setNotesContent(content.notes_content.text || "");
-            setNotesImage(content.notes_content.image || "");
-          }
-          setRawBankQuestions(safeJsonParse(content.questions_json, []));
-          setStoredMindmap(safeJsonParse(content.mindmap_json, []));
-          setSubtopics(safeJsonParse(content.subtopics_json, []));
+        if (isMounted) {
+          await loadContent();
         }
 
         const cachedSessions = await base44.entities.StudySession.filter(
@@ -443,7 +474,7 @@ export default function LessonPage() {
 
     initializeLesson();
     return () => { isMounted = false; };
-  }, [subjectId, topicId]);
+  }, [subjectId, topicId, loadContent]);
 
   const recordStudyTime = async () => { 
     const sId = sessionRef.current; 
@@ -724,6 +755,9 @@ export default function LessonPage() {
     }
   };
 
+  const isAdmin = user?.role === "admin";
+  const isContentEmpty = !notesContent && rawBankQuestions.length === 0;
+
   return (
     <div className={`min-h-screen ${worldTheme.bgGradient} font-sans text-stone-100 pb-24 px-4 py-6 selection:bg-amber-400 selection:text-stone-900`}>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -760,6 +794,41 @@ export default function LessonPage() {
             <Leaf className="w-4 h-4 fill-stone-950"/> {progressState.xp_earned} XP
           </div>
         </div>
+
+        {/* ADMIN AI LESSON GENERATOR BANNER */}
+        {isAdmin && (
+          <div className="bg-amber-950/80 border-2 border-amber-500/50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/20 border border-amber-400/30 rounded-xl">
+                <Wand2 className="w-5 h-5 text-amber-400 animate-pulse"/>
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+                  Panel Pentadbir
+                </span>
+                <p className="text-xs sm:text-sm font-bold text-stone-200 mt-0.5">
+                  {isContentEmpty 
+                    ? "Kandungan pelajaran topik ini masih kosong." 
+                    : "Kandungan pelajaran sedia ada. Anda boleh menjana semula jika perlu."}
+                </p>
+              </div>
+            </div>
+
+            <Button className="w-full sm:w-auto bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-amber-700 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 shrink-0 shadow-md" disabled="{isGeneratingContent}" onClick="{handleGenerateAIContent}">
+              {isGeneratingContent ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-stone-950"/>
+                  <span>Menjana Kandungan AI...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 fill-stone-950"/>
+                  <span>{isContentEmpty ? "Jana Kandungan Pelajaran AI 🚀" : "Jana Semula Kandungan AI ✨"}</span>
+                </>
+              )}
+            </Button>
+          </div>
+        )}
 
         {/* QUICK STAGE SWITCHER NAVIGATION BAR */}
         <div className="bg-stone-900/80 border border-stone-700/60 rounded-2xl p-2 flex items-center justify-around overflow-x-auto gap-1 shadow-md backdrop-blur-sm">
@@ -839,16 +908,7 @@ export default function LessonPage() {
         <AnimatePresence mode="wait">
           {activeTab === "map" && (
             <motion.div key="map" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <LessonProgress
-                steps={{
-                  video: progressState.video_completed,
-                  lesson: progressState.lesson_completed,
-                  flashcard: progressState.flashcard_completed,
-                  mindmap: progressState.mindmap_completed,
-                  games: progressState.games_completed,
-                  quiz: progressState.quiz_completed
-                }}
-                onStepClick={(key) => {
+              <LessonProgress flashcard: games: lesson: mindmap: onStepClick="{(key)" quiz: steps="{{" true true, video: }}> {
                   if (!key) return;
                   if (key === "video") setActiveTab("video");
                   if (key === "lesson") setActiveTab("lesson");
@@ -866,14 +926,14 @@ export default function LessonPage() {
             <motion.div key="video" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Tv className="w-5 h-5 text-emerald-400"/> Langkah 1: Taklimat Video
+                  <Tv className="w-5 h-5 text-emerald-400"/> Taklimat Video
                 </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Kembali ke Peta 🗺️
                 </Button>
               </div>
 
-              <YouTubeLesson videoUrl={videoUrl || topic?.video_url} onCompleted={handleVideoStageCompleted} isCompleted={progressState.video_completed} />
+              <YouTubeLesson isCompleted="{progressState.video_completed}" onCompleted="{handleVideoStageCompleted}" topic?.video_url} videoUrl="{videoUrl" ||/>
             </motion.div>
           )}
 
@@ -882,12 +942,12 @@ export default function LessonPage() {
             <motion.div key="lesson" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-amber-400"/> Langkah 2: Nota Khazanah
+                  <BookOpen className="w-5 h-5 text-amber-400"/> Nota Khazanah
                 </h3>
                 
                 <div className="flex items-center gap-2">
                   {notesContent && (
-                    <Button onClick={() => urusSuaraNota(notesContent)}
+                    <Button onClick="{()"> urusSuaraNota(notesContent)}
                       className={`h-10 px-4 rounded-xl font-black text-xs ${
                         isSpeaking ? "bg-rose-500 hover:bg-rose-600 text-white" : "bg-amber-400 hover:bg-amber-300 text-stone-950"
                       }`}
@@ -896,7 +956,7 @@ export default function LessonPage() {
                       {isSpeaking ? "Berhenti" : "Baca Nota"}
                     </Button>
                   )}
-                  <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                  <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                     Peta 🗺️
                   </Button>
                 </div>
@@ -907,20 +967,40 @@ export default function LessonPage() {
                 <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} />
               </div>
 
-              <Button onClick={handleLessonStageCompleted} className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}>
+              <Button ${worldTheme.accentColor} active:translate-y-1 border-b-4 border-black/40 className="{`w-full" font-black h-14 onClick="{handleLessonStageCompleted}" rounded-2xl text-base transition-all`}>
                 Selesai Hadam Nota! 🎒
               </Button>
             </motion.div>
           )}
 
-          {/* STAGE 3: MIND MAP */}
+          {/* STAGE 3: FLASHCARDS */}
+          {activeTab === "flashcard" && (
+            <motion.div key="flashcard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
+                <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-cyan-400"/> Kad Imbasan (Flashcards)
+                </h3>
+                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                  Peta 🗺️
+                </Button>
+              </div>
+
+              {flashcards?.length > 0 ? (
+                <Flashcards cards="{flashcards}"/>
+              ) : (
+                <p className="text-center text-xs text-stone-400 py-8">Sedang menyediakan kad imbasan...</p>
+              )}
+            </motion.div>
+          )}
+
+          {/* STAGE 4: MIND MAP */}
           {activeTab === "mindmap" && (
             <motion.div key="mindmap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-purple-400"/> Langkah 4: Peta Minda
+                  <Brain className="w-5 h-5 text-purple-400"/> Peta Minda
                 </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Peta 🗺️
                 </Button>
               </div>
@@ -929,11 +1009,11 @@ export default function LessonPage() {
                 {infographicUrl ? (
                   <img src={infographicUrl} alt="Mindmap" className="max-h-[50vh] object-contain rounded-xl shadow-md" />
                 ) : (
-                  <MindMap mindMap={{ central_topic: topic?.name || "Topik Utama", branches: mindMap || [] }} />
+                  <MindMap "Topik Utama", [] branches: central_topic: mindMap topic?.name || }}/>
                 )}
               </div>
 
-              <Button onClick={() => updateStageProgress("mindmap", "games", 15).then(() => setActiveTab("map"))}
+              <Button onClick="{()"> updateStageProgress("mindmap", "games", 15).then(() => setActiveTab("map"))}
                 className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
               >
                 Teruskan ke Permainan! 🎮
@@ -946,9 +1026,9 @@ export default function LessonPage() {
             <motion.div key="games" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Gamepad2 className="w-5 h-5 text-emerald-400"/> Langkah 5: Permainan Edukatif
+                  <Gamepad2 className="w-5 h-5 text-emerald-400"/> Permainan Edukatif
                 </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Peta 🗺️
                 </Button>
               </div>
@@ -958,15 +1038,14 @@ export default function LessonPage() {
                 <p className="text-xs sm:text-sm text-stone-300 font-bold">
                   Bermain sambil belajar, Pengembara Muda! Pilih permainan untuk menguatkan pemahaman kamu.
                 </p>
-                <Button
-                  onClick={() => navigate(`/games/${subjectId}/${topicId}`)}
+                <Button onClick="{()"> navigate(`/games/${subjectId}/${topicId}`)}
                   className={`h-12 px-8 ${worldTheme.accentColor} font-black text-sm rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
                 >
                   🎮 Mula Bermain!
                 </Button>
               </div>
 
-              <Button onClick={() => updateStageProgress("games", "quiz", 10).then(() => setActiveTab("map"))}
+              <Button onClick="{()"> updateStageProgress("games", "quiz", 10).then(() => setActiveTab("map"))}
                 className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
               >
                 Sedia untuk Cabaran Boss! ⚔️
@@ -984,7 +1063,7 @@ export default function LessonPage() {
               {savedQuizProgress && (
                 <div className="mb-6 p-4 bg-stone-900/80 border-2 border-emerald-400/40 border-dashed rounded-2xl">
                   <p className="text-xs font-black text-emerald-300 mb-2">Misi cabaran terdahulu dikesan!</p>
-                  <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, savedQuizProgress.quizType || "practice", true)}
+                  <Button onClick="{()"> runQuizGeneration(savedQuizProgress.limit, savedQuizProgress.quizType || "practice", true)}
                     className="w-full h-12 bg-teal-500 hover:bg-teal-400 text-stone-950 font-black rounded-xl flex items-center justify-center gap-2 border-b-4 border-teal-700"
                   >
                     <Play className="w-4 h-4 fill-stone-950"/> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
@@ -993,7 +1072,7 @@ export default function LessonPage() {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
-                <Button onClick={() => runQuizGeneration(10, "practice")}
+                <Button onClick="{()"> runQuizGeneration(10, "practice")}
                   disabled={status.quiz}
                   className="h-auto py-4 bg-[#fca326] hover:bg-[#f59e0b] text-stone-950 font-black text-sm rounded-2xl shadow-lg border-b-4 border-[#d97706] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1"
                 >
@@ -1004,7 +1083,7 @@ export default function LessonPage() {
                     </>
                   )}
                 </Button>
-                <Button onClick={() => runQuizGeneration(20, "mastery")}
+                <Button onClick="{()"> runQuizGeneration(20, "mastery")}
                   disabled={status.quiz}
                   className="h-auto py-4 bg-[#f57f20] hover:bg-[#ea580c] text-stone-950 font-black text-sm rounded-2xl shadow-lg border-b-4 border-[#c2410c] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1"
                 >
