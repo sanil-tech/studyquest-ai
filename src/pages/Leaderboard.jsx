@@ -39,30 +39,36 @@ const SCOPE_LABELS = {
   state: "Negeri",
 };
 
-function LeaderboardRow({ entry, isMe }) {
+function LeaderboardRow({ entry, isMe, showStreak }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
-        isMe ? "bg-emerald-50 border-2 border-emerald-300 shadow-sm" : "bg-white border border-stone-100 hover:shadow-sm"
+        isMe ? "bg-gradient-to-r from-emerald-500 to-teal-500 border-2 border-emerald-400 shadow-lg" : "bg-white border border-stone-100 hover:shadow-sm"
       }`}
     >
       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm shrink-0 ${
-        entry.rank <= 3 ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-500"
+        isMe ? "bg-white/20 text-white" : entry.rank <= 3 ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-500"
       }`}>
         {entry.rank}
       </div>
       <AvatarBubble entry={entry} size="w-10 h-10" />
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-stone-800 truncate text-sm">
-          {entry.name} {isMe && <span className="text-emerald-600 text-xs">(Anda)</span>}
+        <p className={`font-bold truncate text-sm ${isMe ? "text-white" : "text-stone-800"}`}>
+          {entry.name} {isMe && <span className="text-emerald-50 text-xs">(Anda)</span>}
         </p>
-        <p className="text-xs text-stone-400">Tahap {entry.level}</p>
+        <p className={`text-xs ${isMe ? "text-emerald-50" : "text-stone-400"}`}>
+          Tahap {entry.level}{showStreak ? ` · ${entry.streak_days} hari 🔥` : ""}
+        </p>
       </div>
       <div className="text-right shrink-0">
-        <p className="font-black text-orange-600 text-sm">{entry.total_xp.toLocaleString()}</p>
-        <p className="text-[10px] text-stone-400 uppercase font-bold">XP</p>
+        <p className={`font-black text-sm ${isMe ? "text-white" : "text-orange-600"}`}>
+          {showStreak ? `${entry.streak_days} hari` : entry.total_xp.toLocaleString()}
+        </p>
+        <p className={`text-[10px] uppercase font-bold ${isMe ? "text-emerald-50" : "text-stone-400"}`}>
+          {showStreak ? "Streak" : "XP"}
+        </p>
       </div>
     </motion.div>
   );
@@ -106,8 +112,8 @@ export default function Leaderboard() {
     : scope === "state" ? !!filterInfo.state
     : scope === "district" ? !!filterInfo.district
     : true;
-  const top3 = (board || []).slice(0, 3);
-  const rest = (board || []).slice(3);
+  const top10 = (board || []).slice(0, 10);
+  const myEntryInTop10 = top10.some(e => e.student_id === myId);
 
   return (
     <div className="space-y-6 pb-4">
@@ -135,27 +141,6 @@ export default function Leaderboard() {
           </button>
         ))}
       </div>
-
-      {/* My Rank Card */}
-      {data?.my_entry && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-3xl p-5 text-white shadow-lg flex items-center gap-4"
-        >
-          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-black text-xl">
-            #{data.my_entry.rank}
-          </div>
-          <div className="flex-1">
-            <p className="font-black text-lg">{data.my_entry.name}</p>
-            <p className="text-emerald-50 text-sm">Tahap {data.my_entry.level} · {data.my_entry.streak_days} hari streak 🔥</p>
-          </div>
-          <div className="text-right">
-            <p className="font-black text-2xl">{data.my_entry.total_xp.toLocaleString()}</p>
-            <p className="text-emerald-50 text-xs uppercase font-bold">XP Kamu</p>
-          </div>
-        </motion.div>
-      )}
 
       {/* Tabs */}
       <div className="flex gap-2 bg-white p-1.5 rounded-2xl border border-stone-200 shadow-sm">
@@ -192,43 +177,39 @@ export default function Leaderboard() {
         </div>
       ) : (
         <>
-          {/* Podium */}
-          {top3.length >= 3 && (
-            <div className="flex items-end justify-center gap-2 md:gap-4 mb-4">
-              {top3.map((entry, idx) => {
-                const style = PODIUM_STYLES[idx];
-                const isMe = entry.student_id === myId;
-                return (
-                  <motion.div
-                    key={entry.student_id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.15 }}
-                    className={`flex flex-col items-center ${style.order} flex-1 max-w-[140px]`}
-                  >
-                    <div className="text-3xl mb-1">{style.medal}</div>
-                    <AvatarBubble entry={entry} />
-                    <p className={`font-black text-sm mt-2 text-center truncate w-full ${isMe ? "text-emerald-600" : "text-stone-700"}`}>
-                      {entry.name}
-                    </p>
-                    <p className={`text-xs font-bold ${style.text}`}>
-                      {tab === "xp" ? `${entry.total_xp.toLocaleString()} XP` : `${entry.streak_days} hari 🔥`}
-                    </p>
-                    <div className={`bg-gradient-to-t ${style.gradient} ${style.height} w-full rounded-t-2xl mt-2 border-t-4 ${style.border} flex items-center justify-center`}>
-                      <span className="text-2xl font-black text-white drop-shadow">{entry.rank}</span>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Remaining entries */}
+          {/* Top 10 Standard List */}
           <div className="space-y-2">
-            {rest.map(entry => (
-              <LeaderboardRow key={entry.student_id} entry={entry} isMe={entry.student_id === myId} />
+            {top10.map(entry => (
+              <LeaderboardRow key={entry.student_id} entry={entry} isMe={entry.student_id === myId} showStreak={tab === "streak"} />
             ))}
           </div>
+
+          {/* Floating My Rank Card — only if outside top 10 */}
+          {data?.my_entry && !myEntryInTop10 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-3xl p-5 text-white shadow-lg flex items-center gap-4 mt-2"
+            >
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center font-black text-xl">
+                #{data.my_entry.rank}
+              </div>
+              <div className="flex-1">
+                <p className="font-black text-lg">{data.my_entry.name}</p>
+                <p className="text-emerald-50 text-sm">
+                  Tahap {data.my_entry.level} · {tab === "streak" ? `${data.my_entry.streak_days} hari 🔥` : `${data.my_entry.total_xp.toLocaleString()} XP`}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="font-black text-2xl">
+                  {tab === "streak" ? `${data.my_entry.streak_days} hari` : data.my_entry.total_xp.toLocaleString()}
+                </p>
+                <p className="text-emerald-50 text-xs uppercase font-bold">
+                  {tab === "streak" ? "Streak Kamu" : "XP Kamu"}
+                </p>
+              </div>
+            </motion.div>
+          )}
 
           {/* Total count */}
           <p className="text-center text-xs text-stone-400 font-bold pt-2">
