@@ -44,7 +44,7 @@ export default function LessonResources() {
   const [newSubtopic, setNewSubtopic] = useState("");
   const jsonFileInputRef = useRef(null);
   
-  // 🌟 BARU: STATE UNTUK FUNGSI COPY-PASTE JSON
+  // State for copy-paste JSON functionality
   const [showPasteJson, setShowPasteJson] = useState(false);
   const [pastedJson, setPastedJson] = useState("");
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -62,33 +62,50 @@ export default function LessonResources() {
 
         const peranan = me.app_role;
         if (peranan === "admin" || peranan === "teacher" || peranan === "parent" || me.is_admin === true) {
-          setHasAccess(true); muatTurunSenaraiLesson(); muatTurunSenaraiTopic();
+          setHasAccess(true); 
+          muatTurunSenaraiLesson(); 
+          muatTurunSenaraiTopic();
         } else {
-          toast({ title: "Akses Disekat! 🛑", variant: "destructive" }); navigate("/dashboard"); 
+          toast({ title: "Akses Disekat! 🛑", variant: "destructive" }); 
+          navigate("/dashboard"); 
         }
-      } catch (err) { navigate("/login"); } finally { setCheckingAuth(false); }
+      } catch (err) { 
+        navigate("/login"); 
+      } finally { 
+        setCheckingAuth(false); 
+      }
     };
     semakAksesAdmin();
   }, [navigate, toast]);
 
   const kompresFailGambarUlu = (file) => {
     return new Promise((resolve) => {
-      const reader = new FileReader(); reader.readAsDataURL(file);
+      const reader = new FileReader(); 
+      reader.readAsDataURL(file);
       reader.onload = (event) => {
-        const img = new Image(); img.src = event.target.result;
+        const img = new Image(); 
+        img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          let width = img.width; let height = img.height;
+          let width = img.width; 
+          let height = img.height;
           const MAX_WIDTH = 1200; 
-          if (width > MAX_WIDTH) { height = Math.round((height * MAX_WIDTH) / width); width = MAX_WIDTH; }
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext("2d"); ctx.drawImage(img, 0, 0, width, height);
+          if (width > MAX_WIDTH) { 
+            height = Math.round((height * MAX_WIDTH) / width); 
+            width = MAX_WIDTH; 
+          }
+          canvas.width = width; 
+          canvas.height = height;
+          const ctx = canvas.getContext("2d"); 
+          ctx.drawImage(img, 0, 0, width, height);
           
           const isPNG = file.type === "image/png";
           const mimeType = isPNG ? "image/png" : "image/jpeg";
           const extension = isPNG ? ".png" : ".jpg";
 
-          canvas.toBlob((blob) => { resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, { type: mimeType, lastModified: Date.now() })); }, mimeType, isPNG ? undefined : 0.75); 
+          canvas.toBlob((blob) => { 
+            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + extension, { type: mimeType, lastModified: Date.now() })); 
+          }, mimeType, isPNG ? undefined : 0.75); 
         };
       };
     });
@@ -96,7 +113,8 @@ export default function LessonResources() {
 
   const uploadKeServerRasmi = async (file) => {
     const mampat = await kompresFailGambarUlu(file);
-    const formData = new FormData(); formData.append("file", mampat);
+    const formData = new FormData(); 
+    formData.append("file", mampat);
     const cubaanSintaks = [
       async () => await base44.integrations.UploadFile.upload({ file: mampat }),
       async () => await base44.integrations.UploadFile.execute({ file: mampat }),
@@ -115,28 +133,43 @@ export default function LessonResources() {
     throw new Error("Kuota integrasi pelayan penuh.");
   };
 
-  const kendaliPilihanInfographic = (e) => { const file = e.target.files[0]; if (!file) return; setInfographicFile(file); setInfographicPreview(URL.createObjectURL(file)); };
-  const kendaliPilihanNoteImage = (e) => { const file = e.target.files[0]; if (!file) return; setNoteImageFile(file); setNoteImagePreview(URL.createObjectURL(file)); };
-  const kendaliPilihanGambarSoalan = (index, file) => { if (!file) return; const updated = [...questions]; updated[index].questionFile = file; updated[index].questionPreview = URL.createObjectURL(file); setQuestions(updated); };
+  const kendaliPilihanInfographic = (e) => { 
+    const file = e.target.files[0]; 
+    if (!file) return; 
+    setInfographicFile(file); 
+    setInfographicPreview(URL.createObjectURL(file)); 
+  };
+  
+  const kendaliPilihanNoteImage = (e) => { 
+    const file = e.target.files[0]; 
+    if (!file) return; 
+    setNoteImageFile(file); 
+    setNoteImagePreview(URL.createObjectURL(file)); 
+  };
+  
+  const kendaliPilihanGambarSoalan = (index, file) => { 
+    if (!file) return; 
+    const updated = [...questions]; 
+    updated[index].questionFile = file; 
+    updated[index].questionPreview = URL.createObjectURL(file); 
+    setQuestions(updated); 
+  };
 
-  // FUNGSI 1: BACA JSON DARI FAIL (YANG LAMA)
   const handleJSONFileUpload = (e) => {
-    const file = e.target.files[0]; if (!file) return;
+    const file = e.target.files[0]; 
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => { prosesDataJSONMentah(event.target.result); };
     reader.readAsText(file);
   };
 
-  // 🌟 FUNGSI 2: BACA JSON DARI COPY-PASTE (YANG BARU)
   const handlePasteJSON = () => {
     if (!pastedJson.trim()) return toast({ title: "Kotak Kosong!", variant: "destructive" });
     prosesDataJSONMentah(pastedJson);
   };
 
-  // ENJIN PEMPROSES JSON (Dikongsi untuk Fail & Paste)
   const prosesDataJSONMentah = (jsonString) => {
     try {
-      // Bersihkan string dari format markdown ```json jika ada
       let cleanString = jsonString.trim();
       if (cleanString.startsWith("```json")) {
         cleanString = cleanString.replace(/^```json/, "").replace(/```$/, "").trim();
@@ -160,7 +193,6 @@ export default function LessonResources() {
       setQuestions(importedQuestions);
       toast({ title: "Import Berjaya Selesai! 🎉", description: `${importedQuestions.length} soalan disusun.` });
       
-      // Tutup panel paste selepas berjaya
       setShowPasteJson(false);
       setPastedJson("");
       if (jsonFileInputRef.current) jsonFileInputRef.current.value = "";
@@ -169,16 +201,29 @@ export default function LessonResources() {
     }
   };
 
-  const muatTurunSenaraiLesson = async () => { setIsLoadingList(true); try { setLessonsList(await base44.entities.Quiz.filter({}) || []); } catch (err) {} finally { setIsLoadingList(false); } };
+  const muatTurunSenaraiLesson = async () => { 
+    setIsLoadingList(true); 
+    try { 
+      setLessonsList(await base44.entities.Quiz.filter({}) || []); 
+    } catch (err) {} 
+    finally { 
+      setIsLoadingList(false); 
+    } 
+  };
 
   const handlePilihLesson = (e) => {
-    const idPilihan = e.target.value; setSelectedLessonId(idPilihan);
+    const idPilihan = e.target.value; 
+    setSelectedLessonId(idPilihan);
     if (!idPilihan) { resetSemuaMedanBorang(); return; }
 
     const lesson = lessonsList.find(l => l.id === idPilihan);
     if (lesson) {
-      setTopicId(lesson.id); setTitle(lesson.topic_name || ""); setSubtitle(lesson.subject_name || "");
-      setInfographicUrl(lesson.infographic_url || ""); setInfographicPreview(lesson.infographic_url || ""); setInfographicFile(null);
+      setTopicId(lesson.id); 
+      setTitle(lesson.topic_name || ""); 
+      setSubtitle(lesson.subject_name || "");
+      setInfographicUrl(lesson.infographic_url || ""); 
+      setInfographicPreview(lesson.infographic_url || ""); 
+      setInfographicFile(null);
       setYoutubeUrl(lesson.video_url || "");
       try {
         const parsedSubtopics = typeof lesson.subtopics_json === "object" ? lesson.subtopics_json : JSON.parse(lesson.subtopics_json || "[]");
@@ -212,8 +257,14 @@ export default function LessonResources() {
     }
   };
 
-  const resetSemuaMedanBorang = () => { setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setNotes(""); setNoteImageUrl(""); setNoteImageFile(null); setNoteImagePreview(""); setInfographicUrl(""); setInfographicFile(null); setInfographicPreview(""); setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); setSubtopics([]); setNewSubtopic(""); };
-  const tukarModBorang = (modBaru) => { setBorangMod(modBaru); setSelectedLessonId(""); resetSemuaMedanBorang(); if (modBaru === "edit") muatTurunSenaraiLesson(); };
+  const resetSemuaMedanBorang = () => { 
+    setTopicId(""); setTitle(""); setSubtitle(""); setYoutubeUrl(""); setNotes(""); setNoteImageUrl(""); setNoteImageFile(null); setNoteImagePreview(""); setInfographicUrl(""); setInfographicFile(null); setInfographicPreview(""); setQuestions([{ questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]); setSubtopics([]); setNewSubtopic(""); 
+  };
+  
+  const tukarModBorang = (modBaru) => { 
+    setBorangMod(modBaru); setSelectedLessonId(""); resetSemuaMedanBorang(); if (modBaru === "edit") muatTurunSenaraiLesson(); 
+  };
+  
   const handleAddQuestion = () => setQuestions([...questions, { questionText: "", questionImageUrl: "", questionFile: null, questionPreview: "", options: ["","","",""], correctAnswer: "A", explanation: "" }]);
   const handleAddSubtopic = () => { const val = newSubtopic.trim(); if (!val) return; setSubtopics([...subtopics, val]); setNewSubtopic(""); };
   const handleRemoveSubtopic = (index) => setSubtopics(subtopics.filter((_, i) => i !== index));
@@ -234,7 +285,7 @@ export default function LessonResources() {
       let serverNoteImageUrl = noteImageUrl;
       if (noteImageFile) {
         try { serverNoteImageUrl = await uploadKeServerRasmi(noteImageFile); } catch (uploadError) {
-          alert(`🛑 AMBAR SEKATAN:\nAkaun Base44 anda tiada kuota muat naik fail.\nSila padam fail pilihan dan gunakan 'Pautan URL Gambar Alternatif' (Contoh: ImgBB / Google Drive Direct).`);
+          alert(`🛑 GAMBAR SEKATAN:\nAkaun Base44 anda tiada kuota muat naik fail.\nSila padam fail pilihan dan gunakan 'Pautan URL Gambar Alternatif' (Contoh: ImgBB / Google Drive Direct).`);
           setIsSaving(false); return;
         }
       }
@@ -281,29 +332,27 @@ export default function LessonResources() {
     } catch (err) { alert("❌ RALAT DATABASE KRITIKAL: " + err.message); } finally { setIsSaving(false); }
   };
 
-  // ✅ "Generate Once, Store, Reuse" — Bulk AI content generation
+  // 🌟 SECOND AI BUTTON: Updated to use generateModularLessonContent logic (same as the first button)
   const handleGenerateAIContent = async () => {
     if (!selectedLessonId) {
       toast({ title: "Pilih topik dahulu", variant: "destructive" });
       return;
     }
     const sahkan = window.confirm(
-      `Jana semua kandungan AI untuk topik ini?\n\nIni akan menjana: Nota, Peta Minda, Penjelasan AI, Kesilapan Biasa, Pustaka Maklum Balas, Soalan Kuiz, dan Permainan Pendidikan.\n\nSemua soalan dan permainan akan berdasarkan nota pelajaran topik ini.\n\nKandungan sedia ada akan ditimpa.`
+      `Jana semua kandungan AI modular untuk topik ini?\n\nIni akan menjana ke entiti modular: Nota, Peta Minda, Soalan Kuiz, Flashcard, Permainan, Panduan Guru, dan Maklum Balas.\n\nKandungan sedia ada akan ditimpa.`
     );
     if (!sahkan) return;
 
     setIsGeneratingAI(true);
     try {
-      const res = await base44.functions.invoke("generateLessonContent", {
-        quiz_id: selectedLessonId,
-        topic_name: title,
-        subject_name: subtitle,
+      const res = await base44.functions.invoke("generateModularLessonContent", {
+        topic_id: selectedLessonId,
         force: true,
       });
       if (res.data?.success) {
         toast({
-          title: "Kandungan AI Dijana! 🎉",
-          description: `Versi ${res.data.content_version} — ${res.data.generated?.quiz_questions || 0} soalan, ${res.data.generated?.games_created || 0} permainan, ${res.data.generated?.feedback_messages || 0} maklum balas disimpan.`,
+          title: "Kandungan Modular Dijana! 🎉",
+          description: `Kandungan modular berjaya dijana dan disimpan ke entiti berasingan.`,
         });
       } else {
         toast({ title: "Ralat", description: res.data?.error || "Gagal menjana.", variant: "destructive" });
@@ -335,6 +384,7 @@ export default function LessonResources() {
     }
   };
 
+  // 🌟 FIRST AI BUTTON: Modular content generation
   const handleGenerateModularContent = async () => {
     if (!selectedModularTopicId) {
       toast({ title: "Pilih topik dahulu", variant: "destructive" });
@@ -392,6 +442,7 @@ export default function LessonResources() {
         </div>
       </div>
 
+      {/* TOP CARD: First AI Generation Button */}
       <Card className="p-4 bg-purple-50/30 border border-purple-200/60 rounded-2xl shadow-2xs space-y-3">
         <label className="text-xs font-black text-purple-800 uppercase flex items-center gap-1.5 mb-1"><Sparkles className="w-4 h-4 animate-pulse" /> Jana Kandungan AI Modular (Sistem Baru)</label>
         <p className="text-[11px] text-slate-500 font-medium">Jana SEMUA aset pelajaran (Nota, Peta Minda, Kuiz, Flashcard, Permainan, Panduan Guru) ke entiti modular berasingan dalam satu panggilan AI.</p>
@@ -437,6 +488,7 @@ export default function LessonResources() {
         </Button>
       </Card>
 
+      {/* BOTTOM CARD: Second AI Generation Button */}
       {borangMod === "edit" && (
         <Card className="p-4 bg-amber-50/30 border border-amber-200/60 rounded-2xl shadow-2xs space-y-3">
           <label className="text-xs font-black text-amber-800 uppercase flex items-center gap-1.5 mb-1"><Search className="w-4 h-4" /> Pilih Topik Semasa Untuk Disunting</label>
@@ -446,7 +498,7 @@ export default function LessonResources() {
           </select>
           {selectedLessonId && (
             <Button type="button" onClick={handleGenerateAIContent} disabled={isGeneratingAI} className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-2">
-              {isGeneratingAI ? <><Loader2 className="w-4 h-4 animate-spin" /> Menjana Kandungan AI...</> : <><Sparkles className="w-4 h-4" /> Jana Semua Kandungan AI (Nota, Kuiz, Peta Minda)</>}
+              {isGeneratingAI ? <><Loader2 className="w-4 h-4 animate-spin" /> Menjana Kandungan Modular...</> : <><Sparkles className="w-4 h-4" /> Jana Kandungan AI Modular</>}
             </Button>
           )}
         </Card>
@@ -461,7 +513,6 @@ export default function LessonResources() {
               <div className="sm:col-span-2 space-y-1"><label className="text-[10px] font-bold text-slate-500 uppercase">Tajuk Utama Modul*</label><input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium" /></div>
             </div>
 
-            {/* 🌟 SUBTOPIK (Pilihan, jika berkenaan) */}
             <div className="space-y-2 pt-2 border-t border-slate-100">
               <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-emerald-500" /> Subtopik (Pilihan — jika berkenaan)</label>
               <div className="flex gap-2">
@@ -526,32 +577,24 @@ export default function LessonResources() {
             {infographicPreview && (<div className="mt-2 p-2 bg-slate-50 border border-dashed rounded-xl max-w-xs"><img src={infographicPreview} alt="Preview" className="w-full h-auto rounded-lg max-h-32 object-contain bg-white" /><button type="button" onClick={() => { setInfographicFile(null); setInfographicPreview(""); setInfographicUrl(""); }} className="text-[9px] font-bold text-rose-500 mt-1">Buang Fail</button></div>)}
           </Card>
 
-          {/* 🌟 SEKSYEN KUIZ DENGAN PANEL COPY PASTE JSON */}
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-1 gap-4">
               <h3 className="text-sm font-black text-slate-800 flex items-center gap-1.5 uppercase text-[12px]"><HelpCircle className="w-4 h-4 text-emerald-600" /> 5. Set Kuiz Objektif ({questions.length})</h3>
               
               <div className="flex flex-wrap bg-slate-100/60 p-1.5 rounded-xl border border-slate-200 gap-2 shadow-inner">
                 <input type="file" accept=".json,application/json" ref={jsonFileInputRef} onChange={handleJSONFileUpload} className="hidden" />
-                
-                {/* Butang Lama: File Upload */}
                 <Button type="button" size="sm" onClick={() => jsonFileInputRef.current?.click()} className="h-9 text-[11px] bg-slate-800 text-white rounded-xl font-bold gap-1.5">
                   <FileJson className="w-4 h-4 text-amber-400" /> Fail .JSON
                 </Button>
-                
-                {/* 🌟 Butang Baru: Paste Text */}
                 <Button type="button" size="sm" onClick={() => setShowPasteJson(!showPasteJson)} className="h-9 text-[11px] bg-indigo-600 text-white rounded-xl font-bold gap-1.5">
                   <FileText className="w-3.5 h-3.5" /> Tampal Teks
                 </Button>
-                
-                {/* Butang Lama: Manual */}
                 <Button type="button" size="sm" onClick={handleAddQuestion} className="h-9 text-[11px] bg-emerald-600 text-white rounded-xl font-bold">
                   <Plus className="w-3.5 h-3.5 mr-1" /> Tambah Manual
                 </Button>
               </div>
             </div>
 
-            {/* 🌟 PANEL TERSEMBUNYI UNTUK PASTE JSON */}
             <AnimatePresence>
               {showPasteJson && (
                 <motion.div initial={{opacity:0, height:0}} animate={{opacity:1, height:'auto'}} exit={{opacity:0, height:0}} className="p-4 bg-indigo-50/50 border-2 border-indigo-200 rounded-2xl space-y-3 shadow-inner">
@@ -573,7 +616,6 @@ export default function LessonResources() {
               )}
             </AnimatePresence>
 
-            {/* RENDERING KAD SOALAN */}
             {questions.map((q, qIndex) => (
               <Card key={qIndex} className="p-5 bg-white border border-emerald-100/60 rounded-2xl space-y-4 relative">
                 <div className="flex justify-between items-center border-b pb-2">
