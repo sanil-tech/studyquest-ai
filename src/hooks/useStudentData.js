@@ -50,9 +50,10 @@ export function useStudentData() {
         student_id: studentId,
       });
 
-      if (res.data?.success) {
-        setData(res.data);
-        setStudentUser(res.data.user || authUser);
+      const resPayload = res?.data || res;
+      if (resPayload?.success) {
+        setData(resPayload);
+        setStudentUser(resPayload.user || authUser);
       } else {
         setData(null);
         setStudentUser(authUser);

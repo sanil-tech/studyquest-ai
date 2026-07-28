@@ -91,32 +91,52 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setLoading(hookLoading);
-    if (!data || !studentUser) return;
 
-    const profileUser = data.user || studentUser;
+    // Primary path: useStudentData returned full data
+    if (data && data.user) {
+      const profileUser = data.user;
+      setUser(profileUser);
+      setTargetStudentId(hookStudentId);
+      setProgress(data.progress || { level: 1, total_xp: 0 });
+      setWallet(data.wallet || { balance: 0 });
+      setTotalQuizzes(data.quizAttempts?.length || 0);
 
-    setUser(profileUser);
-    setTargetStudentId(hookStudentId);
-    setProgress(data.progress || { level: 1, total_xp: 0 });
-    setWallet(data.wallet || { balance: 0 });
-    setTotalQuizzes(data.quizAttempts?.length || 0);
+      const eduLevel = profileUser.education_level || profileUser.school_year || "";
+      setFormData({
+        full_name: profileUser.full_name || "",
+        nickname: profileUser.nickname || "",
+        school_year: eduLevel,
+        education_level: eduLevel,
+        school_name: profileUser.school_name || "",
+        class_name: profileUser.class_name || "",
+        gender: profileUser.gender || "",
+        date_of_birth: profileUser.date_of_birth || "",
+        country: profileUser.country || "Malaysia",
+        state: profileUser.state || "",
+        district: profileUser.district || "",
+      });
+      return;
+    }
 
-    const eduLevel = profileUser.education_level || profileUser.school_year || "";
+    // Fallback: if useStudentData failed but parent is in child mode, use selectedChildProfile
+    if (!data && selectedChildProfile?.id) {
+      const childId = selectedChildProfile.id;
+      setTargetStudentId(childId);
+      setUser(selectedChildProfile);
+      setProgress({ level: 1, total_xp: 0 });
+      setWallet({ balance: 0 });
+      setTotalQuizzes(0);
 
-    setFormData({
-      full_name: profileUser.full_name || "",
-      nickname: profileUser.nickname || "",
-      school_year: eduLevel,
-      education_level: eduLevel,
-      school_name: profileUser.school_name || "",
-      class_name: profileUser.class_name || "",
-      gender: profileUser.gender || "",
-      date_of_birth: profileUser.date_of_birth || "",
-      country: profileUser.country || "Malaysia",
-      state: profileUser.state || "",
-      district: profileUser.district || "",
-    });
-  }, [data, hookLoading, studentUser, hookStudentId]);
+      const eduLevel = selectedChildProfile.education_level || "";
+      setFormData((prev) => ({
+        ...prev,
+        full_name: prev.full_name || selectedChildProfile.name || "",
+        nickname: prev.nickname || selectedChildProfile.name || "",
+        education_level: eduLevel,
+        school_year: eduLevel,
+      }));
+    }
+  }, [data, hookLoading, studentUser, hookStudentId, selectedChildProfile]);
 
   const handleLogout = () => {
     localStorage.clear();

@@ -66,6 +66,7 @@ export default async function(req: Request): Promise<Response> {
       date_of_birth: childUser?.date_of_birth || "",
       country: childUser?.country || "Malaysia",
       state: childUser?.state || "",
+      district: childUser?.district || "",
       student_id: childUser?.student_id || "",
     };
 
