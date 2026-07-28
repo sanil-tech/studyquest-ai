@@ -3,8 +3,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // Auth optional — child PIN login has no Base44 token
+    const authUser = await base44.auth.me().catch(() => null);
 
     const body = await req.json();
     const { image_url, target_text, skill, sub_skill, question_id, student_id } = body;
@@ -72,7 +72,7 @@ PANDUAN PENTING:
     const result = {
       success: true,
       question_id,
-      student_id: student_id || user.id,
+      student_id: student_id || (authUser ? authUser.id : null),
       image_url,
       target_text,
       letter_recognition: aiAnalysis?.letter_recognition ?? 0,

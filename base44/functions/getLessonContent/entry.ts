@@ -12,11 +12,7 @@ import {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) {
-      return Response.json({ error: "Sesi tidak sah." }, { status: 401 });
-    }
-
+    // Auth optional — child PIN login has no Base44 token
     const body = await req.json().catch(() => ({}));
     const topicId = body.topic_id;
     const quizId = body.quiz_id;
