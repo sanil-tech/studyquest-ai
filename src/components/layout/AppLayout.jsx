@@ -139,6 +139,14 @@ export default function AppLayout() {
     );
   };
 
+  const handleLogout = async () => {
+    try {
+      await base44.auth.logout("/login");
+    } catch {
+      window.location.href = "/login";
+    }
+  };
+
   const renderSwitchModeButton = (compact = false) => {
     if (!isParent) return null;
 
@@ -229,8 +237,15 @@ export default function AppLayout() {
           </div>
 
           {/* Mode switch button at bottom of sidebar */}
-          <div className="mt-4 pt-4 border-t-2 border-orange-100">
+          <div className="mt-4 pt-4 border-t-2 border-orange-100 space-y-2">
             {renderSwitchModeButton()}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-4 px-4 py-3 rounded-2xl font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all w-full"
+            >
+              <LogOut className="w-5 h-5" />
+              Log Keluar
+            </button>
           </div>
         </div>
       </aside>
@@ -289,8 +304,15 @@ export default function AppLayout() {
           )}
         </div>
 
-        <div className="p-4 border-t-2 border-orange-100">
+        <div className="p-4 border-t-2 border-orange-100 space-y-2">
           {renderSwitchModeButton()}
+          <button
+            onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }}
+            className="flex items-center gap-4 px-4 py-3 rounded-2xl font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all w-full"
+          >
+            <LogOut className="w-5 h-5" />
+            Log Keluar
+          </button>
         </div>
       </aside>
 
