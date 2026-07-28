@@ -20,7 +20,9 @@ import {
   Brain,
   Zap,
   ChevronLeft,
-  Gamepad2
+  Gamepad2,
+  ArrowRight,
+  HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -131,18 +133,6 @@ const shuffleArray = (array) => {
     [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
   }
   return newArr;
-};
-
-const bersihkanTeksPadanan = (str) => {
-  return str
-    ? str
-        .toLowerCase()
-        .replace(/dan/g, "")
-        .replace(/&/g, "")
-        .replace(/misi\s*\d+/g, "")
-        .replace(/[^a-z0-9]/g, "")
-        .trim()
-    : "";
 };
 
 const bersihkanTeksUntukSuara = (text) => {
@@ -269,18 +259,20 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     return (match && match[1].length === 11) ? match[1] : null;
   }, [videoUrl]);
 
+  // Passable Video Stage logic: Allow student to proceed directly if video is absent
   if (!videoId) {
     return (
-      <div className="p-8 text-center bg-stone-900/80 border-4 border-dashed border-amber-500/40 rounded-3xl">
-        <p className="text-amber-200 font-black text-sm">🎬 Video taklimat belum disediakan untuk topik ini.</p>
-        <Button className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-2xl px-6 py-3 text-sm mt-4 border-b-4 border-amber-700 active:translate-y-1 transition-all" onClick={onCompleted}>
+      <div className="p-8 text-center bg-stone-900/80 border-4 border-dashed border-amber-500/40 rounded-3xl space-y-3">
+        <p className="text-amber-200 font-black text-sm sm:text-base">🎬 Video taklimat belum disediakan untuk topik ini.</p>
+        <p className="text-stone-400 text-xs font-bold">Jangan risau! Anda boleh terus menerokai nota dan tugasan seterusnya.</p>
+        <Button className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-2xl px-6 py-3 text-sm mt-2 border-b-4 border-amber-700 active:translate-y-1 transition-all" onClick="{onCompleted}">
           Teruskan Misi! 🚀
         </Button>
       </div>
     );
   }
 
-  const secureEmbedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+  const secureEmbedUrl = `[https://www.youtube.com/embed/$](https://www.youtube.com/embed/$){videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
 
   return (
     <div className="space-y-4 w-full">
@@ -307,7 +299,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
             <Tv className="w-5 h-5 text-emerald-400 animate-pulse shrink-0"/> 
             Tonton video dan tekan butang untuk mengutip +10 XP & Daun!
           </p>
-          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-emerald-700 active:translate-y-1 transition-all" onClick={onCompleted}>
+          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-emerald-700 active:translate-y-1 transition-all" onClick="{onCompleted}">
             Selesai & Ambil +10 XP 🔥
           </Button>
         </div>
@@ -369,7 +361,6 @@ export default function LessonPage() {
   const worldTheme = useMemo(() => {
     if (!subjectId && !subject?.name) return WORLD_THEMES.default;
     const key = (subject?.name || subjectId || "").toLowerCase();
-    // Map subject names to world theme keys (handles Malay/English subject names)
     const THEME_ALIASES = {
       science: ["science", "sains"],
       math: ["math", "matematik"],
@@ -446,7 +437,7 @@ export default function LessonPage() {
         }
       } catch (err) {
         console.error("Gagal memuat turun data:", err);
-      } finally { 
+      } font-black { 
         if (isMounted) { 
           sessionStartRef.current = Date.now(); 
           setLoading(false); 
@@ -464,7 +455,6 @@ export default function LessonPage() {
     try { await base44.entities.StudySession.update(sId, { duration_minutes: getElapsedMinutes() }); } catch (err) {} 
   };
 
-  // 📊 Real-time periodic study time update (every 60 seconds)
   useEffect(() => {
     const interval = setInterval(async () => {
       const sId = sessionRef.current;
@@ -476,7 +466,6 @@ export default function LessonPage() {
     return () => clearInterval(interval);
   }, [getElapsedMinutes]);
 
-  // 📊 Record final study time on unmount and page exit
   useEffect(() => {
     const handleExit = () => {
       const sId = sessionRef.current;
@@ -492,7 +481,6 @@ export default function LessonPage() {
 
   const triggerConfetti = () => confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
 
-  // 🔥 MENGEMAS KINI KEMAJUAN STAJ + MEMBERI DAUN & XP TERUS KEPADA ANAK
   const updateStageProgress = useCallback(async (stageId, nextStage, rewardAmount) => {
     let currentSessionId = sessionRef.current;
     let nextState;
@@ -531,7 +519,7 @@ export default function LessonPage() {
         console.error("Gagal mengemaskini pangkalan data:", error);
       }
     }
-  }, [topic]);
+  }, [topic, subject, topicId]);
 
   const handleVideoStageCompleted = useCallback(async () => {
     if (progressState.video_completed) { 
@@ -648,12 +636,10 @@ export default function LessonPage() {
   const loadMindMapOnDemand = async () => { 
     setActiveTab("mindmap"); 
     if (mindMap?.length > 0 || infographicUrl) return; 
-    // ✅ OPTIMIZATION: Use stored mindmap first — zero AI tokens
     if (storedMindmap?.length > 0) {
       setMindMap(storedMindmap);
       return;
     }
-    // Fallback: generate via AI only if no stored content exists
     setStatus(p => ({ ...p, mindmap: true })); 
     try { 
       const res = await trackedInvokeLLM({ 
@@ -784,6 +770,7 @@ export default function LessonPage() {
               {activeTab === "video" && "Tonton taklimat video ini untuk memahami konsep asas terlebih dahulu."}
               {activeTab === "lesson" && "Baca nota khazanah ini. Tekan butang pembesar suara untuk mendengar sebutan!"}
               {activeTab === "mindmap" && "Ini gambaran keseluruhan topik menerusi Peta Minda!"}
+              {activeTab === "flashcard" && "Uji ingatan pantas anda menggunakan kad imbasan khazanah ini!"}
               {activeTab === "games" && "Bermain sambil belajar! Pilih permainan untuk menguatkan pemahaman kamu."}
               {activeTab === "quiz" && "Sedia untuk bertarung dalam Cabaran Boss untuk mengutip XP penuh?"}
             </p>
@@ -794,180 +781,192 @@ export default function LessonPage() {
         <AnimatePresence mode="wait">
           {activeTab === "map" && (
             <motion.div key="map" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <LessonProgress
-                  steps={{
-                    video: progressState.video_completed,
-                    lesson: progressState.lesson_completed,
-                    flashcard: progressState.flashcard_completed,
-                    mindmap: progressState.mindmap_completed,
-                    quiz: progressState.quiz_completed
-                  }}
-                  onStepClick={(key) => {
-                    if (!key) return;
-                    if (key === "video") setActiveTab("video");
-                    if (key === "lesson") setActiveTab("lesson");
-                    if (key === "mindmap") loadMindMapOnDemand();
-                    if (key === "games") setActiveTab("games");
-                    if (key === "quiz") setActiveTab("quiz");
-                  }}
-                />
+              <LessonProgress flashcard: lesson: mindmap: onStepClick="{(key)" progressState.flashcard_completed, progressState.lesson_completed, progressState.mindmap_completed, progressState.quiz_completed progressState.video_completed, quiz: steps="{{" video: }}> {
+                  if (!key) return;
+                  if (key === "video") setActiveTab("video");
+                  if (key === "lesson") setActiveTab("lesson");
+                  if (key === "flashcard") loadFlashcardsOnDemand();
+                  if (key === "mindmap") loadMindMapOnDemand();
+                  if (key === "games") setActiveTab("games");
+                  if (key === "quiz") setActiveTab("quiz");
+                }}
+              />
             </motion.div>
           )}
 
           {/* STAGE 1: VIDEO */}
           {activeTab === "video" && (
             <motion.div key="video" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
-              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
-                <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Tv className="w-5 h-5 text-emerald-400"/> Langkah 1: Taklimat Video
-                </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
-                  Kembali ke Peta 🗺️
+              <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+                <h2 className="text-base font-black text-amber-300 flex items-center gap-2">
+                  <Tv className="w-5 h-5 text-amber-400"/> Staj 1: Taklimat Video
+                </h2>
+                <Button className="text-xs text-stone-400 hover:text-white" onClick="{()" variant="ghost"> setActiveTab("map")}>
+                  Kembali ke Peta
                 </Button>
               </div>
 
-              <YouTubeLesson videoUrl={videoUrl || topic?.video_url} onCompleted={handleVideoStageCompleted} isCompleted={progressState.video_completed} />
+              <YouTubeLesson isCompleted="{progressState.video_completed}" onCompleted="{handleVideoStageCompleted}" videoUrl="{videoUrl}"/>
             </motion.div>
           )}
 
-          {/* STAGE 2: LESSON NOTES */}
+          {/* STAGE 2: LESSON / NOTA */}
           {activeTab === "lesson" && (
-            <motion.div key="lesson" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
-              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
-                <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-amber-400"/> Langkah 2: Nota Khazanah
-                </h3>
-                
+            <motion.div key="lesson" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-6">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+                <h2 className="text-base font-black text-lime-400 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-lime-400"/> Staj 2: Nota Khazanah
+                </h2>
                 <div className="flex items-center gap-2">
-                  {notesContent && (
-                    <Button onClick={() => urusSuaraNota(notesContent)}
-                      className={`h-10 px-4 rounded-xl font-black text-xs ${
-                        isSpeaking ? "bg-rose-500 hover:bg-rose-600 text-white" : "bg-amber-400 hover:bg-amber-300 text-stone-950"
-                      }`}
-                    >
-                      {isSpeaking ? <VolumeX className="w-4 h-4 mr-1"/> : <Volume2 className="w-4 h-4 mr-1"/>}
-                      {isSpeaking ? "Berhenti" : "Baca Nota"}
-                    </Button>
-                  )}
-                  <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
-                    Peta 🗺️
+                  <Button onClick="{()" size="sm"> urusSuaraNota(notesContent)} 
+                    className={`${isSpeaking ? "bg-red-500 hover:bg-red-600" : "bg-indigo-600 hover:bg-indigo-500"} text-white font-bold rounded-xl text-xs gap-1`}
+                  >
+                    {isSpeaking ? <VolumeX className="w-4 h-4"/> : <Volume2 className="w-4 h-4"/>}
+                    {isSpeaking ? "Hentikan Suara" : "Dengar Nota"}
+                  </Button>
+                  <Button className="text-xs text-stone-400 hover:text-white" onClick="{()" variant="ghost"> setActiveTab("map")}>
+                    Peta
                   </Button>
                 </div>
               </div>
 
-              <div className="max-h-[60vh] overflow-y-auto p-5 border border-stone-800 rounded-2xl bg-black/40 leading-relaxed">
-                {notesImage && <img src={notesImage} className="w-full max-w-md mx-auto rounded-2xl mb-5 shadow-md border border-stone-700" alt="Nota" />}
-                <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} />
-              </div>
+              {notesImage && (
+                <div className="w-full flex justify-center">
+                  <img src={notesImage} alt="Nota Visual" className="max-h-72 rounded-2xl border-2 border-stone-700 shadow-md object-cover" />
+                </div>
+              )}
 
-              <Button onClick={handleLessonStageCompleted} className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}>
-                Selesai Hadam Nota! 🎒
-              </Button>
+              <div 
+                className="prose prose-invert max-w-none text-stone-200 text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent || "Nota belum tersedia untuk topik ini.") }} 
+              />
+
+              <div className="pt-4 border-t border-stone-800 flex justify-end">
+                <Button className="bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black rounded-xl px-6 py-3 text-xs border-b-4 border-emerald-700 active:translate-y-1 transition-all" disabled="{status.lesson}" onClick="{handleLessonStageCompleted}">
+                  {status.lesson ? <Loader2 className="w-4 h-4 animate-spin"/> : "Fahami & Ambil +15 XP 🚀"}
+                </Button>
+              </div>
             </motion.div>
           )}
 
-          {/* STAGE 3: MIND MAP */}
+          {/* STAGE 3: FLASHCARDS */}
+          {activeTab === "flashcard" && (
+            <motion.div key="flashcard" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+                <h2 className="text-base font-black text-cyan-300 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-cyan-400"/> Kad Imbasan Pantas
+                </h2>
+                <Button className="text-xs text-stone-400 hover:text-white" onClick="{()" variant="ghost"> setActiveTab("map")}>
+                  Kembali ke Peta
+                </Button>
+              </div>
+
+              {flashcards ? (
+                <Flashcards cards="{flashcards}" onComplete="{()"> updateStageProgress("flashcard", "mindmap", 10)} />
+              ) : (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mx-auto"/>
+                  <p className="text-xs text-stone-400 mt-2 font-bold">Menyediakan kad imbasan...</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* STAGE 4: MINDMAP */}
           {activeTab === "mindmap" && (
-            <motion.div key="mindmap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
-              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
-                <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-purple-400"/> Langkah 4: Peta Minda
-                </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
-                  Peta 🗺️
+            <motion.div key="mindmap" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+                <h2 className="text-base font-black text-pink-300 flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-pink-400"/> Peta Minda Interaktif
+                </h2>
+                <Button className="text-xs text-stone-400 hover:text-white" onClick="{()" variant="ghost"> setActiveTab("map")}>
+                  Kembali ke Peta
                 </Button>
               </div>
 
-              <div className="min-h-[40vh] bg-black/40 rounded-2xl p-4 border border-stone-800 flex items-center justify-center">
-                {infographicUrl ? (
-                  <img src={infographicUrl} alt="Mindmap" className="max-h-[50vh] object-contain rounded-xl shadow-md" />
-                ) : (
-                  <MindMap mindMap={{ central_topic: topic?.name || "Topik Utama", branches: mindMap || [] }} />
-                )}
-              </div>
+              {infographicUrl ? (
+                <div className="w-full flex justify-center">
+                  <img src={infographicUrl} alt="Peta Minda Visual" className="w-full max-w-xl rounded-2xl border-2 border-stone-700 shadow-lg" />
+                </div>
+              ) : status.mindmap ? (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 text-pink-400 animate-spin mx-auto"/>
+                  <p className="text-xs text-stone-400 mt-2 font-bold">Membina Peta Minda Misi...</p>
+                </div>
+              ) : mindMap ? (
+                <MindMap data="{mindMap}"/>
+              ) : (
+                <p className="text-center text-stone-400 text-xs">Peta Minda belum tersedia.</p>
+              )}
 
-              <Button onClick={() => updateStageProgress("mindmap", "games", 15).then(() => setActiveTab("map"))}
-                className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
-              >
-                Teruskan ke Permainan! 🎮
-              </Button>
-            </motion.div>
-          )}
-
-          {/* STAGE 5: PRACTICE GAMES */}
-          {activeTab === "games" && (
-            <motion.div key="games" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
-              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
-                <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Gamepad2 className="w-5 h-5 text-emerald-400"/> Langkah 5: Permainan Edukatif
-                </h3>
-                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
-                  Peta 🗺️
-                </Button>
-              </div>
-
-              <div className="text-center py-6 space-y-4">
-                <div className="text-5xl mb-2">🎮</div>
-                <p className="text-xs sm:text-sm text-stone-300 font-bold">
-                  Bermain sambil belajar, Pengembara Muda! Pilih permainan untuk menguatkan pemahaman kamu.
-                </p>
-                <Button
-                  onClick={() => navigate(`/games/${subjectId}/${topicId}`)}
-                  className={`h-12 px-8 ${worldTheme.accentColor} font-black text-sm rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
+              <div className="pt-4 border-t border-stone-800 flex justify-end">
+                <Button onClick="{()"> { updateStageProgress("mindmap", "quiz", 10); setActiveTab("map"); }}
+                  className="bg-pink-500 hover:bg-pink-400 text-stone-950 font-black rounded-xl px-6 py-3 text-xs border-b-4 border-pink-700 active:translate-y-1 transition-all"
                 >
-                  🎮 Mula Bermain!
+                  Teruskan Misi +10 XP 🌟
                 </Button>
               </div>
-
-              <Button onClick={() => updateStageProgress("games", "quiz", 10).then(() => setActiveTab("map"))}
-                className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
-              >
-                Sedia untuk Cabaran Boss! ⚔️
-              </Button>
             </motion.div>
           )}
 
-          {/* STAGE 6: BOSS QUIZ */}
+          {/* STAGE 5: BOSS QUIZ */}
           {activeTab === "quiz" && (
-            <motion.div key="quiz" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-amber-950 via-stone-900 to-amber-900 rounded-3xl p-8 border-4 border-amber-500/40 shadow-2xl text-center">
-              <Trophy className="w-14 h-14 text-amber-400 mx-auto mb-3 animate-bounce"/>
-              <h3 className="text-2xl font-black text-amber-200 mb-1">⚔️ Cabaran Boss Padu</h3>
-              <p className="text-xs sm:text-sm text-stone-300 font-bold mb-6">Masa untuk membuktikan ilmu anda! Pilih tahap cabaran anda.</p>
-              
+            <motion.div key="quiz" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-6">
+              <div className="flex items-center justify-between border-b border-stone-800 pb-4">
+                <h2 className="text-base font-black text-amber-400 flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-400"/> Arena Pertarungan Boss Kuiz
+                </h2>
+                <Button className="text-xs text-stone-400 hover:text-white" onClick="{()" variant="ghost"> setActiveTab("map")}>
+                  Kembali ke Peta
+                </Button>
+              </div>
+
               {savedQuizProgress && (
-                <div className="mb-6 p-4 bg-stone-900/80 border-2 border-emerald-400/40 border-dashed rounded-2xl">
-                  <p className="text-xs font-black text-emerald-300 mb-2">Misi cabaran terdahulu dikesan!</p>
-                  <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, savedQuizProgress.quizType || "practice", true)}
-                    className="w-full h-12 bg-teal-500 hover:bg-teal-400 text-stone-950 font-black rounded-xl flex items-center justify-center gap-2 border-b-4 border-teal-700"
+                <div className="bg-amber-950/80 border-2 border-amber-500/50 p-4 rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-black text-amber-300">Cabaran Terhenti Dikesan!</p>
+                    <p className="text-[11px] text-amber-200/80">Anda mempunyai kemajuan kuiz yang belum selesai.</p>
+                  </div>
+                  <Button onClick="{()"> runQuizGeneration(savedQuizProgress.limit, savedQuizProgress.quizType, true)}
+                    className="bg-amber-400 hover:bg-amber-300 text-stone-950 font-black text-xs rounded-xl px-4 py-2"
                   >
-                    <Play className="w-4 h-4 fill-stone-950"/> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
+                    Sambung 🚀
                   </Button>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
-                <Button onClick={() => runQuizGeneration(10, "practice")}
-                  disabled={status.quiz}
-                  className="h-auto py-4 bg-[#fca326] hover:bg-[#f59e0b] text-stone-950 font-black text-sm rounded-2xl shadow-lg border-b-4 border-[#d97706] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1"
-                >
-                  {status.quiz ? "Menyediakan..." : (
-                    <>
-                      <span className="flex items-center gap-1.5">⚡ Misi Kilat (10 Soalan)</span>
-                      <span className="text-[10px] font-bold text-stone-800/70">Latihan • Bantuan AI Suku</span>
-                    </>
-                  )}
-                </Button>
-                <Button onClick={() => runQuizGeneration(20, "mastery")}
-                  disabled={status.quiz}
-                  className="h-auto py-4 bg-[#f57f20] hover:bg-[#ea580c] text-stone-950 font-black text-sm rounded-2xl shadow-lg border-b-4 border-[#c2410c] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1"
-                >
-                  {status.quiz ? "Menyediakan..." : (
-                    <>
-                      <span className="flex items-center gap-1.5">⚔️ Lawan Boss (20 Soalan)</span>
-                      <span className="text-[10px] font-bold text-stone-800/70">Ujian • XP & Daun Bonus</span>
-                    </>
-                  )}
-                </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-stone-800/80 border border-stone-700 p-5 rounded-2xl space-y-3 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      Latihan Mod Pengukuhan
+                    </span>
+                    <h3 className="text-sm font-black text-white mt-2">Kuiz Cabaran Latihan</h3>
+                    <p className="text-xs text-stone-400 mt-1">Uji kefahaman asas dengan 5 soalan pilihan pantas.</p>
+                  </div>
+                  <Button onClick="{()"> runQuizGeneration(5, "practice")} 
+                    disabled={status.quiz}
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black rounded-xl text-xs py-2.5 border-b-4 border-emerald-700"
+                  >
+                    {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : "Mula Latihan (5 Soalan)"}
+                  </Button>
+                </div>
+
+                <div className="bg-stone-800/80 border border-stone-700 p-5 rounded-2xl space-y-3 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-500/30">
+                      Cabaran Boss Penuh
+                    </span>
+                    <h3 className="text-sm font-black text-white mt-2">Cabaran Penuh Misi</h3>
+                    <p className="text-xs text-stone-400 mt-1">Gunakan seluruh ilmu anda untuk menguasai 10 soalan penuh!</p>
+                  </div>
+                  <Button onClick="{()"> runQuizGeneration(10, "challenge")} 
+                    disabled={status.quiz}
+                    className="w-full bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-xl text-xs py-2.5 border-b-4 border-amber-700"
+                  >
+                    {status.quiz ? <Loader2 className="w-4 h-4 animate-spin mx-auto"/> : "Pertarungan Boss (10 Soalan)"}
+                  </Button>
+                </div>
               </div>
             </motion.div>
           )}
