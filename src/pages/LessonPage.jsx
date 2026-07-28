@@ -839,16 +839,16 @@ export default function LessonPage() {
         <AnimatePresence mode="wait">
           {activeTab === "map" && (
             <motion.div key="map" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <LessonProgress (UNLOCKED) */ /* ALL ARE AS PASSED STEPS TRUE flashcard: games: lesson: mindmap: onStepClick="{(key)" quiz: steps="{{" true true, video: }} ✅> {
-                    if (!key) return;
-                    if (key === "video") setActiveTab("video");
-                    if (key === "lesson") setActiveTab("lesson");
-                    if (key === "flashcard") loadFlashcardsOnDemand();
-                    if (key === "mindmap") loadMindMapOnDemand();
-                    if (key === "games") setActiveTab("games");
-                    if (key === "quiz") setActiveTab("quiz");
-                  }}
-                />
+              <LessonProgress flashcard: games: lesson: mindmap: onStepClick="{(key)" quiz: steps="{{" true true, video: }}> {
+                  if (!key) return;
+                  if (key === "video") setActiveTab("video");
+                  if (key === "lesson") setActiveTab("lesson");
+                  if (key === "flashcard") loadFlashcardsOnDemand();
+                  if (key === "mindmap") loadMindMapOnDemand();
+                  if (key === "games") setActiveTab("games");
+                  if (key === "quiz") setActiveTab("quiz");
+                }}
+              />
             </motion.div>
           )}
 
