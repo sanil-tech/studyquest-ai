@@ -21,6 +21,11 @@ export default function Home() {
     );
   }
 
+  // Admin — go to Admin Dashboard
+  if (user?.role === "admin" || user?.app_role === "admin") {
+    return <Navigate to="/admin" replace />;
+  }
+
   // No role set — go to RoleSetup
   if (!user?.app_role || !["student", "parent"].includes(user.app_role)) {
     return <Navigate to="/role-setup" replace />;

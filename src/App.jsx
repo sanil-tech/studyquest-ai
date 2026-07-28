@@ -18,6 +18,7 @@ import { ViewModeProvider } from '@/lib/ViewModeContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 // Admin Page Imports
+import AdminDashboard from "@/pages/AdminDashboard";
 import LessonResources from "@/pages/LessonResources";
 import EditLessonResources from "@/pages/EditLessonResources";
 
@@ -113,6 +114,7 @@ const AuthenticatedApp = () => {
 
           {/* Admin-only routes */}
           <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/textbooks" element={<TextbookUpload />} />
             <Route path="/admin/lesson-resources" element={<LessonResources />} />
             <Route path="/admin/edit-lesson" element={<EditLessonResources />} />
