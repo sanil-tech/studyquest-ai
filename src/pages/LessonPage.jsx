@@ -263,7 +263,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
     return (
       <div className="p-8 text-center bg-stone-900/80 border-4 border-dashed border-amber-500/40 rounded-3xl">
         <p className="text-amber-200 font-black text-sm">🎬 Video taklimat belum disediakan untuk topik ini.</p>
-        <Button className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-2xl px-6 py-3 text-sm mt-4 border-b-4 border-amber-700 active:translate-y-1 transition-all" onClick="{onCompleted}">
+        <Button className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-black rounded-2xl px-6 py-3 text-sm mt-4 border-b-4 border-amber-700 active:translate-y-1 transition-all" onClick={onCompleted}>
           Teruskan Misi! 🚀
         </Button>
       </div>
@@ -297,7 +297,7 @@ function YouTubeLesson({ videoUrl, onCompleted, isCompleted }) {
             <Tv className="w-5 h-5 text-emerald-400 animate-pulse shrink-0"/> 
             Tonton video dan tekan butang untuk mengutip +10 XP & Daun!
           </p>
-          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-emerald-700 active:translate-y-1 transition-all" onClick="{onCompleted}">
+          <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-xs rounded-xl px-5 h-11 border-b-4 border-emerald-700 active:translate-y-1 transition-all" onClick={onCompleted}>
             Selesai & Ambil +10 XP 🔥
           </Button>
         </div>
