@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getDistrictsForState } from "@/lib/malaysiaDistricts";
 
 const GENDER_LABELS = {
   male: "Lelaki",
@@ -170,7 +171,7 @@ export default function ProfileForm({ user, editing, formData, setFormData, isSt
               {editing ? (
                 <Select
                   value={formData.state}
-                  onValueChange={(v) => setFormData(prev => ({ ...prev, state: v }))}
+                  onValueChange={(v) => setFormData(prev => ({ ...prev, state: v, district: "" }))}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Pilih negeri" />
@@ -202,12 +203,20 @@ export default function ProfileForm({ user, editing, formData, setFormData, isSt
             <div>
               <Label className="text-xs text-muted-foreground">Kawasan/Daerah</Label>
               {editing ? (
-                <Input
+                <Select
                   value={formData.district}
-                  onChange={(e) => setFormData(prev => ({ ...prev, district: e.target.value }))}
-                  placeholder="Cth: Petaling, Gombak"
-                  className="mt-1"
-                />
+                  onValueChange={(v) => setFormData(prev => ({ ...prev, district: v }))}
+                  disabled={!formData.state}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder={formData.state ? "Pilih kawasan" : "Pilih negeri dahulu"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getDistrictsForState(formData.state).map(d => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
                 <p className="text-sm font-medium mt-1">{user?.district || "Tidak ditetapkan"}</p>
               )}
