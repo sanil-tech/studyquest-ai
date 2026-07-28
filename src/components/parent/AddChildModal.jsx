@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, UserPlus, Sparkles, Key, GraduationCap, Check } from "lucide-react";
+import { Loader2, UserPlus, Sparkles, Key, GraduationCap, Check, Info } from "lucide-react";
 
 // Grade options matching StudyQuest standards
 const GRADE_OPTIONS = [
@@ -180,6 +180,12 @@ export default function AddChildModal({ open, onOpenChange, onChildAdded }) {
                   </button>
                 );
               })}
+            </div>
+            <div className="flex items-start gap-1.5 mt-1.5 p-2 bg-amber-50/60 border border-amber-100 rounded-xl">
+              <Info className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-600 font-medium leading-relaxed">
+                Avatar ini adalah sementara — anak anda boleh menukarnanya kemudian dari profil mereka.
+              </p>
             </div>
           </div>
 
