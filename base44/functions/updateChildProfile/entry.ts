@@ -5,14 +5,8 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
 
-    // 1. Authenticate user session
+    // Try to authenticate via Base44 auth token (works for parents & regular users)
     const authUser = await base44.auth.me().catch(() => null);
-    if (!authUser || !authUser.id) {
-      return Response.json(
-        { success: false, error: 'Sesi log masuk tidak ditemui. Sila log masuk semula.' },
-        { status: 401 }
-      );
-    }
 
     const body = await req.json().catch(() => ({}));
 
@@ -24,8 +18,25 @@ Deno.serve(async (req) => {
 
     let requestedId = rawId ? String(rawId).trim() : "";
 
-    if (!requestedId && authUser.app_role === "student") {
+    // If no child_id provided but user is a student, use their own ID
+    if (!requestedId && authUser && authUser.app_role === "student") {
       requestedId = authUser.id;
+    }
+
+    // For child PIN-login (no Base44 token), optionally verify PIN
+    if (!authUser && body.verify_pin) {
+      const pinUser = await db.entities.User.get(requestedId).catch(() => null);
+      if (pinUser) {
+        const pinMatch =
+          (pinUser.child_login_pin && String(pinUser.child_login_pin).trim() === String(body.verify_pin)) ||
+          (pinUser.pin_hash && pinUser.pin_hash === btoa(unescape(encodeURIComponent(`SQ_PIN_SALT_${body.verify_pin}_2026`))));
+        if (!pinMatch) {
+          return Response.json(
+            { success: false, error: 'PIN tidak sah. Pengesahan gagal.' },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     let targetUser: any = null;
@@ -48,7 +59,7 @@ Deno.serve(async (req) => {
     }
 
     // LOOKUP TIER 4: Fallback for Parent Account Links
-    if (!targetUser && authUser.app_role === "parent") {
+    if (!targetUser && authUser && authUser.app_role === "parent") {
       const rels = await db.entities.ParentChildRelationship.filter({
         parent_id: authUser.id,
         status: "active"
@@ -69,26 +80,28 @@ Deno.serve(async (req) => {
 
     const actualChildId = targetUser.id;
 
-    // 2. Authorize
-    let isAuthorized = authUser.id === actualChildId || authUser.app_role === "parent";
+    // Authorize: if authUser exists, check relationship; if not (child PIN login), trust child_id
+    if (authUser) {
+      let isAuthorized = authUser.id === actualChildId || authUser.app_role === "parent";
 
-    if (!isAuthorized) {
-      const rels = await db.entities.ParentChildRelationship.filter({
-        parent_id: authUser.id,
-        child_id: actualChildId
-      }).catch(() => []);
+      if (!isAuthorized) {
+        const rels = await db.entities.ParentChildRelationship.filter({
+          parent_id: authUser.id,
+          child_id: actualChildId
+        }).catch(() => []);
 
-      if (rels && rels.length > 0) isAuthorized = true;
+        if (rels && rels.length > 0) isAuthorized = true;
+      }
+
+      if (!isAuthorized) {
+        return Response.json(
+          { success: false, error: 'Anda tidak mempunyai kebenaran untuk mengemaskini profil ini.' },
+          { status: 403 }
+        );
+      }
     }
 
-    if (!isAuthorized) {
-      return Response.json(
-        { success: false, error: 'Anda tidak mempunyai kebenaran untuk mengemaskini profil ini.' },
-        { status: 403 }
-      );
-    }
-
-    // 3. Build sanitized update payload
+    // Build sanitized update payload
     const updateFields: Record<string, any> = {};
 
     if (body.nickname !== undefined && body.nickname !== null && String(body.nickname).trim() !== "") {
@@ -148,10 +161,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. Update User record
+    // Update User record
     const updatedUser = await db.entities.User.update(actualChildId, updateFields);
 
-    // 5. Isolated Sync: ParentChildRelationship
+    // Sync: ParentChildRelationship
     try {
       const matchingRels = await db.entities.ParentChildRelationship.filter({ child_id: actualChildId }).catch(() => []);
       for (const rel of matchingRels) {
@@ -172,7 +185,7 @@ Deno.serve(async (req) => {
       console.warn('ParentChildRelationship profile sync skipped:', relErr);
     }
 
-    // 6. Isolated Sync: LinkRequest
+    // Sync: LinkRequest
     try {
       const linkRequests = await db.entities.LinkRequest.filter({ student_id: actualChildId }).catch(() => []);
       for (const lr of linkRequests) {
