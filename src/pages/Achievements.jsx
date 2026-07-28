@@ -2,19 +2,20 @@ import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Lock, Check } from "lucide-react";
 import { useStudentData } from "@/hooks/useStudentData";
-import { ACHIEVEMENT_CATEGORIES, evaluateAchievements, buildStatsFromData } from "@/lib/achievements";
+import { ACHIEVEMENT_CATEGORIES, ACHIEVEMENT_TIERS, evaluateAchievements, buildStatsFromData } from "@/lib/achievements";
 
 function AchievementCard({ achievement, index }) {
-  const { earned, progress, current, target } = achievement;
+  const { earned, progress, current, target, tier } = achievement;
+  const tierStyle = ACHIEVEMENT_TIERS[tier] || ACHIEVEMENT_TIERS.bronze;
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ delay: Math.min(index * 0.03, 0.5) }}
       className={`relative rounded-2xl p-4 border-2 transition-all ${
         earned
-          ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 shadow-md"
+          ? `bg-gradient-to-br ${tierStyle.bg} ${tierStyle.border} shadow-md`
           : "bg-stone-50 border-stone-200"
       }`}
     >
@@ -24,7 +25,12 @@ function AchievementCard({ achievement, index }) {
         </div>
       )}
 
-      <div className={`text-4xl mb-2 text-center ${earned ? "" : "grayscale opacity-40"}`}>
+      {/* Tier badge */}
+      <div className={`absolute top-2 left-2 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wide ${earned ? `${tierStyle.color} bg-white/60` : "text-stone-300"}`}>
+        {tierStyle.label}
+      </div>
+
+      <div className={`text-4xl mb-2 mt-3 text-center ${earned ? "" : "grayscale opacity-40"}`}>
         {earned ? achievement.icon : "🔒"}
       </div>
 
@@ -94,7 +100,7 @@ export default function Achievements() {
             <p className="text-sm font-bold text-orange-50 uppercase tracking-wide">Lencana Diperoleh</p>
             <p className="text-4xl font-black mt-1">{earnedCount} <span className="text-2xl text-orange-100">/ {evaluated.length}</span></p>
           </div>
-          <div className="text-6xl">{earnedCount >= 10 ? "🏆" : earnedCount >= 5 ? "🌟" : earnedCount >= 1 ? "⭐" : "🌱"}</div>
+          <div className="text-6xl">{earnedCount >= 60 ? "🗿" : earnedCount >= 40 ? "👑" : earnedCount >= 20 ? "🏆" : earnedCount >= 10 ? "🌟" : earnedCount >= 5 ? "⭐" : earnedCount >= 1 ? "🌱" : "🌰"}</div>
         </div>
         <div className="mt-3 h-3 bg-white/20 rounded-full overflow-hidden">
           <motion.div
