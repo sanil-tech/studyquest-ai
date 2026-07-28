@@ -839,7 +839,16 @@ export default function LessonPage() {
         <AnimatePresence mode="wait">
           {activeTab === "map" && (
             <motion.div key="map" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <LessonProgress flashcard: games: lesson: mindmap: onStepClick="{(key)" quiz: steps="{{" true true, video: }}> {
+              <LessonProgress
+                steps={{
+                  video: progressState.video_completed,
+                  lesson: progressState.lesson_completed,
+                  flashcard: progressState.flashcard_completed,
+                  mindmap: progressState.mindmap_completed,
+                  games: progressState.games_completed,
+                  quiz: progressState.quiz_completed
+                }}
+                onStepClick={(key) => {
                   if (!key) return;
                   if (key === "video") setActiveTab("video");
                   if (key === "lesson") setActiveTab("lesson");
@@ -857,14 +866,14 @@ export default function LessonPage() {
             <motion.div key="video" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Tv className="w-5 h-5 text-emerald-400"/> Taklimat Video
+                  <Tv className="w-5 h-5 text-emerald-400"/> Langkah 1: Taklimat Video
                 </h3>
-                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Kembali ke Peta 🗺️
                 </Button>
               </div>
 
-              <YouTubeLesson isCompleted="{progressState.video_completed}" onCompleted="{handleVideoStageCompleted}" topic?.video_url} videoUrl="{videoUrl" ||/>
+              <YouTubeLesson videoUrl={videoUrl || topic?.video_url} onCompleted={handleVideoStageCompleted} isCompleted={progressState.video_completed} />
             </motion.div>
           )}
 
@@ -873,12 +882,12 @@ export default function LessonPage() {
             <motion.div key="lesson" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-amber-400"/> Nota Khazanah
+                  <BookOpen className="w-5 h-5 text-amber-400"/> Langkah 2: Nota Khazanah
                 </h3>
                 
                 <div className="flex items-center gap-2">
                   {notesContent && (
-                    <Button onClick="{()"> urusSuaraNota(notesContent)}
+                    <Button onClick={() => urusSuaraNota(notesContent)}
                       className={`h-10 px-4 rounded-xl font-black text-xs ${
                         isSpeaking ? "bg-rose-500 hover:bg-rose-600 text-white" : "bg-amber-400 hover:bg-amber-300 text-stone-950"
                       }`}
@@ -887,7 +896,7 @@ export default function LessonPage() {
                       {isSpeaking ? "Berhenti" : "Baca Nota"}
                     </Button>
                   )}
-                  <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                  <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                     Peta 🗺️
                   </Button>
                 </div>
@@ -898,40 +907,20 @@ export default function LessonPage() {
                 <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} />
               </div>
 
-              <Button ${worldTheme.accentColor} active:translate-y-1 border-b-4 border-black/40 className="{`w-full" font-black h-14 onClick="{handleLessonStageCompleted}" rounded-2xl text-base transition-all`}>
+              <Button onClick={handleLessonStageCompleted} className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}>
                 Selesai Hadam Nota! 🎒
               </Button>
             </motion.div>
           )}
 
-          {/* STAGE 3: FLASHCARDS */}
-          {activeTab === "flashcard" && (
-            <motion.div key="flashcard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
-              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
-                <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-cyan-400"/> Kad Imbasan (Flashcards)
-                </h3>
-                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
-                  Peta 🗺️
-                </Button>
-              </div>
-
-              {flashcards?.length > 0 ? (
-                <Flashcards cards="{flashcards}"/>
-              ) : (
-                <p className="text-center text-xs text-stone-400 py-8">Sedang menyediakan kad imbasan...</p>
-              )}
-            </motion.div>
-          )}
-
-          {/* STAGE 4: MIND MAP */}
+          {/* STAGE 3: MIND MAP */}
           {activeTab === "mindmap" && (
             <motion.div key="mindmap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-purple-400"/> Peta Minda
+                  <Brain className="w-5 h-5 text-purple-400"/> Langkah 4: Peta Minda
                 </h3>
-                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Peta 🗺️
                 </Button>
               </div>
@@ -940,11 +929,11 @@ export default function LessonPage() {
                 {infographicUrl ? (
                   <img src={infographicUrl} alt="Mindmap" className="max-h-[50vh] object-contain rounded-xl shadow-md" />
                 ) : (
-                  <MindMap "Topik Utama", [] branches: central_topic: mindMap topic?.name || }}/>
+                  <MindMap mindMap={{ central_topic: topic?.name || "Topik Utama", branches: mindMap || [] }} />
                 )}
               </div>
 
-              <Button onClick="{()"> updateStageProgress("mindmap", "games", 15).then(() => setActiveTab("map"))}
+              <Button onClick={() => updateStageProgress("mindmap", "games", 15).then(() => setActiveTab("map"))}
                 className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
               >
                 Teruskan ke Permainan! 🎮
@@ -957,9 +946,9 @@ export default function LessonPage() {
             <motion.div key="games" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-900/90 rounded-3xl p-6 border-2 border-stone-800 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-stone-800 pb-3">
                 <h3 className="text-base font-black text-amber-300 flex items-center gap-2">
-                  <Gamepad2 className="w-5 h-5 text-emerald-400"/> Permainan Edukatif
+                  <Gamepad2 className="w-5 h-5 text-emerald-400"/> Langkah 5: Permainan Edukatif
                 </h3>
-                <Button onClick="{()"> setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
+                <Button onClick={() => setActiveTab("map")} variant="outline" className="border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold rounded-xl text-xs">
                   Peta 🗺️
                 </Button>
               </div>
@@ -969,14 +958,15 @@ export default function LessonPage() {
                 <p className="text-xs sm:text-sm text-stone-300 font-bold">
                   Bermain sambil belajar, Pengembara Muda! Pilih permainan untuk menguatkan pemahaman kamu.
                 </p>
-                <Button onClick="{()"> navigate(`/games/${subjectId}/${topicId}`)}
+                <Button
+                  onClick={() => navigate(`/games/${subjectId}/${topicId}`)}
                   className={`h-12 px-8 ${worldTheme.accentColor} font-black text-sm rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
                 >
                   🎮 Mula Bermain!
                 </Button>
               </div>
 
-              <Button onClick="{()"> updateStageProgress("games", "quiz", 10).then(() => setActiveTab("map"))}
+              <Button onClick={() => updateStageProgress("games", "quiz", 10).then(() => setActiveTab("map"))}
                 className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}
               >
                 Sedia untuk Cabaran Boss! ⚔️
@@ -994,7 +984,7 @@ export default function LessonPage() {
               {savedQuizProgress && (
                 <div className="mb-6 p-4 bg-stone-900/80 border-2 border-emerald-400/40 border-dashed rounded-2xl">
                   <p className="text-xs font-black text-emerald-300 mb-2">Misi cabaran terdahulu dikesan!</p>
-                  <Button onClick="{()"> runQuizGeneration(savedQuizProgress.limit, savedQuizProgress.quizType || "practice", true)}
+                  <Button onClick={() => runQuizGeneration(savedQuizProgress.limit, savedQuizProgress.quizType || "practice", true)}
                     className="w-full h-12 bg-teal-500 hover:bg-teal-400 text-stone-950 font-black rounded-xl flex items-center justify-center gap-2 border-b-4 border-teal-700"
                   >
                     <Play className="w-4 h-4 fill-stone-950"/> Sambung Misi (Soalan {savedQuizProgress.questionIndex + 1})
@@ -1003,7 +993,7 @@ export default function LessonPage() {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
-                <Button onClick="{()"> runQuizGeneration(10, "practice")}
+                <Button onClick={() => runQuizGeneration(10, "practice")}
                   disabled={status.quiz}
                   className="h-auto py-4 bg-[#fca326] hover:bg-[#f59e0b] text-stone-950 font-black text-sm rounded-2xl shadow-lg border-b-4 border-[#d97706] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1"
                 >
@@ -1014,7 +1004,7 @@ export default function LessonPage() {
                     </>
                   )}
                 </Button>
-                <Button onClick="{()"> runQuizGeneration(20, "mastery")}
+                <Button onClick={() => runQuizGeneration(20, "mastery")}
                   disabled={status.quiz}
                   className="h-auto py-4 bg-[#f57f20] hover:bg-[#ea580c] text-stone-950 font-black text-sm rounded-2xl shadow-lg border-b-4 border-[#c2410c] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1"
                 >
