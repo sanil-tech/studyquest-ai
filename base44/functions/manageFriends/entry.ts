@@ -14,15 +14,18 @@ Deno.serve(async (req) => {
 
   try {
     const base44 = createClientFromRequest(req);
-    const authUser = await base44.auth.me();
-    if (!authUser) {
-      return Response.json({ success: false, error: 'Sesi log masuk tidak ditemui.' }, { status: 200, headers: resHeaders });
-    }
+    const db = base44.asServiceRole || base44;
+
+    // Try auth token (parents/regular users); fall back to student_id for child PIN login
+    const authUser = await base44.auth.me().catch(() => null);
 
     const body = await req.json().catch(() => ({}));
     const action = body.action;
-    const activeStudentId = body.student_id || authUser.id;
-    const db = base44.asServiceRole || base44;
+    const activeStudentId = body.student_id || (authUser ? authUser.id : null);
+
+    if (!activeStudentId) {
+      return Response.json({ success: false, error: 'Sesi log masuk tidak ditemui. Sila log masuk semula.' }, { status: 200, headers: resHeaders });
+    }
 
     // ACTION: Search for students
     if (action === 'search') {

@@ -3,33 +3,38 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    const db = base44.asServiceRole || base44;
+
+    // Try auth token (parents/regular users); fall back to student_id for child PIN login
+    const authUser = await base44.auth.me().catch(() => null);
 
     // Parse request body
     let body = {};
     try { body = await req.json(); } catch {}
     const scope = body.scope || 'global';
 
-    // Determine the "current student" — passed student_id (parent mode) or logged-in user
-    const currentStudentId = body.student_id || user.id;
+    // Determine the "current student" — passed student_id (child PIN login / parent mode) or logged-in user
+    const currentStudentId = body.student_id || (authUser ? authUser.id : null);
+    if (!currentStudentId) {
+      return Response.json({ error: 'ID pelajar diperlukan.' }, { status: 400 });
+    }
 
     // Fetch all Progress records sorted by total_xp descending (service role for cross-user reads)
-    const allProgress = await base44.asServiceRole.entities.Progress.list('-total_xp', 200);
+    const allProgress = await db.entities.Progress.list('-total_xp', 200);
 
     // Fetch all Users to get names, avatars, and location data (service role bypasses RLS)
-    const allUsers = await base44.asServiceRole.entities.User.list(undefined, 300);
+    const allUsers = await db.entities.User.list(undefined, 300);
     const userMap = {};
     for (const u of allUsers) {
       userMap[u.id] = u;
     }
 
     // Get the current student's profile for scope filtering
-    const myProfile = userMap[currentStudentId] || user;
-    const mySchool = myProfile.school_name;
-    const myYear = myProfile.school_year;
-    const myState = myProfile.state;
-    const myDistrict = myProfile.district;
+    const myProfile = userMap[currentStudentId] || authUser;
+    const mySchool = myProfile?.school_name;
+    const myYear = myProfile?.school_year;
+    const myState = myProfile?.state;
+    const myDistrict = myProfile?.district;
 
     // Build leaderboard entries — only include students with user records
     let leaderboard = allProgress
@@ -62,8 +67,8 @@ Deno.serve(async (req) => {
       leaderboard = leaderboard.filter(e => e.district === myDistrict);
     } else if (scope === 'friends') {
       // Actual friends from Friendship entity
-      const asRequester = await base44.asServiceRole.entities.Friendship.filter({ requester_id: currentStudentId, status: 'accepted' }).catch(() => []);
-      const asAddressee = await base44.asServiceRole.entities.Friendship.filter({ addressee_id: currentStudentId, status: 'accepted' }).catch(() => []);
+      const asRequester = await db.entities.Friendship.filter({ requester_id: currentStudentId, status: 'accepted' }).catch(() => []);
+      const asAddressee = await db.entities.Friendship.filter({ addressee_id: currentStudentId, status: 'accepted' }).catch(() => []);
       const friendIds = [
         ...(asRequester || []).map(f => f.addressee_id),
         ...(asAddressee || []).map(f => f.requester_id),
