@@ -1,18 +1,6 @@
-// base44/functions/updateChildProfile/entry.ts
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 Deno.serve(async (req) => {
-  const resHeaders = {
-    "content-type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
-
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: resHeaders });
-  }
-
   try {
     const base44 = createClientFromRequest(req);
     const db = base44.asServiceRole || base44;
@@ -22,7 +10,7 @@ Deno.serve(async (req) => {
     if (!authUser || !authUser.id) {
       return Response.json(
         { success: false, error: 'Sesi log masuk tidak ditemui. Sila log masuk semula.' },
-        { status: 200, headers: resHeaders }
+        { status: 401 }
       );
     }
 
@@ -75,7 +63,7 @@ Deno.serve(async (req) => {
     if (!targetUser || !targetUser.id) {
       return Response.json(
         { success: false, error: 'Profil murid tidak ditemui di pangkalan data.' },
-        { status: 200, headers: resHeaders }
+        { status: 404 }
       );
     }
 
@@ -96,7 +84,7 @@ Deno.serve(async (req) => {
     if (!isAuthorized) {
       return Response.json(
         { success: false, error: 'Anda tidak mempunyai kebenaran untuk mengemaskini profil ini.' },
-        { status: 200, headers: resHeaders }
+        { status: 403 }
       );
     }
 
@@ -156,7 +144,7 @@ Deno.serve(async (req) => {
     if (Object.keys(updateFields).length === 0) {
       return Response.json(
         { success: false, error: 'Tiada maklumat baharu dihantar untuk dikemaskini.' },
-        { status: 200, headers: resHeaders }
+        { status: 400 }
       );
     }
 
@@ -211,13 +199,13 @@ Deno.serve(async (req) => {
       success: true,
       message: 'Profil anak berjaya dikemaskini!',
       user: updatedUser
-    }, { status: 200, headers: resHeaders });
+    });
 
   } catch (error: any) {
     console.error('UpdateChildProfile Exception:', error);
     return Response.json(
       { success: false, error: error.message || 'Gagal mengemaskini profil anak di pangkalan data.' },
-      { status: 200, headers: resHeaders }
+      { status: 500 }
     );
   }
 });

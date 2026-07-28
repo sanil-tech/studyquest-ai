@@ -180,6 +180,10 @@ export default function ChildProfilePage() {
         school_name: formData.school_name,
         gender: formData.gender,
         date_of_birth: formData.date_of_birth,
+        state: formData.state || "",
+        district: formData.district || "",
+        class_name: formData.class_name || "",
+        country: formData.country || "Malaysia",
       });
 
       const resPayload = response?.data || response;
