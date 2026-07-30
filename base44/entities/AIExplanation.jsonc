@@ -13,6 +13,27 @@
     "explanation": {
       "type": "string",
       "description": "AI-generated explanation of the concept"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion (links to specific content version)"
+    },
+    "example": {
+      "type": "string",
+      "description": "Concrete example illustrating the concept"
+    },
+    "analogy": {
+      "type": "string",
+      "description": "Child-friendly analogy for the concept"
+    },
+    "language": {
+      "type": "string",
+      "default": "ms",
+      "description": "Language code e.g. 'ms' (Bahasa Melayu) or 'en' (English)"
+    },
+    "age_group": {
+      "type": "string",
+      "description": "Target age group e.g. '6-8', '9-11', '12-17'"
     }
   },
   "required": [

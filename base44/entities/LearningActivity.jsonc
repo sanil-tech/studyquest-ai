@@ -25,6 +25,50 @@
     "instructions": {
       "type": "string",
       "description": "Child-friendly instructions in Bahasa Melayu"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion (links to specific content version)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of this activity"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Difficulty level of this activity"
+    },
+    "age_range": {
+      "type": "string",
+      "description": "Target age range e.g. '6-8', '9-11', '12-17'"
+    },
+    "learning_objective": {
+      "type": "string",
+      "description": "Learning objective this activity addresses"
+    },
+    "reward_xp": {
+      "type": "number",
+      "default": 15,
+      "description": "XP awarded on completion"
+    },
+    "reward_coin": {
+      "type": "number",
+      "default": 3,
+      "description": "Coins awarded on completion"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published"
+      ],
+      "default": "draft",
+      "description": "Activity lifecycle status"
     }
   },
   "required": [

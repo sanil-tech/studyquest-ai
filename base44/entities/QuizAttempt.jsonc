@@ -8,7 +8,7 @@
     },
     "quiz_id": {
       "type": "string",
-      "description": "ID of the quiz"
+      "description": "ID of the quiz (kept for backward compatibility)"
     },
     "topic_name": {
       "type": "string"
@@ -49,6 +49,32 @@
     "analysis_json": {
       "type": "string",
       "description": "JSON string of AI analysis (mastery level, strengths, improvements, wrong answer review, learning path)"
+    },
+    "assessment_id": {
+      "type": "string",
+      "description": "ID of the Assessment this attempt belongs to (new Phase 2)"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the LessonVersion studied (for reporting accuracy)"
+    },
+    "mistakes_json": {
+      "type": "string",
+      "description": "JSON string of detailed wrong-answer breakdown"
+    },
+    "ai_feedback": {
+      "type": "string",
+      "description": "AI-generated mastery feedback"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the attempt was started"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the attempt was completed"
     }
   },
   "required": [

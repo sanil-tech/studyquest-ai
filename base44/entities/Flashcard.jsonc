@@ -4,7 +4,7 @@
   "properties": {
     "lesson_id": {
       "type": "string",
-      "description": "ID of the parent Lesson"
+      "description": "ID of the parent Lesson (kept for backward compatibility)"
     },
     "topic_id": {
       "type": "string",
@@ -22,6 +22,35 @@
       "type": "number",
       "default": 0,
       "description": "Display ordering"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion (links to specific content version)"
+    },
+    "front_text": {
+      "type": "string",
+      "description": "Alias of front for clarity in CMS"
+    },
+    "back_text": {
+      "type": "string",
+      "description": "Alias of back for clarity in CMS"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "URL of an image for visual flashcards (optional)"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Additional explanation for the flashcard answer"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Difficulty level of this flashcard"
     }
   },
   "required": [

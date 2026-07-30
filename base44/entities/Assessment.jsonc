@@ -1,0 +1,126 @@
+{
+  "name": "Assessment",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Assessment title"
+    },
+    "assessment_type": {
+      "type": "string",
+      "enum": [
+        "practice",
+        "mastery",
+        "diagnostic",
+        "exam"
+      ],
+      "default": "practice",
+      "description": "Type of assessment"
+    },
+    "lesson_id": {
+      "type": "string",
+      "description": "Optional ID of the parent Lesson"
+    },
+    "topic_id": {
+      "type": "string",
+      "description": "Optional ID of the parent Topic"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "Optional ID of the parent Subject"
+    },
+    "level_id": {
+      "type": "string",
+      "description": "Optional ID of the parent Level"
+    },
+    "number_of_questions": {
+      "type": "number",
+      "default": 5,
+      "description": "Number of questions in this assessment"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "default": "medium",
+      "description": "Overall difficulty level"
+    },
+    "difficulty_range": {
+      "type": "string",
+      "description": "Granular difficulty range e.g. '1-3' mapping to Question difficulty_level"
+    },
+    "time_limit_minutes": {
+      "type": "number",
+      "description": "Optional time limit in minutes"
+    },
+    "passing_score": {
+      "type": "number",
+      "default": 80,
+      "description": "Score percentage needed to pass"
+    },
+    "allow_hint": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether students can request hints"
+    },
+    "show_explanation": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether explanations are shown after answering"
+    },
+    "allow_retry": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether students can retry this assessment"
+    },
+    "reward_xp": {
+      "type": "number",
+      "default": 20,
+      "description": "XP awarded on completion"
+    },
+    "reward_coin": {
+      "type": "number",
+      "default": 5,
+      "description": "Coins awarded on completion"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Assessment lifecycle status"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User ID of admin/teacher who created this assessment"
+    }
+  },
+  "required": [
+    "title",
+    "assessment_type"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

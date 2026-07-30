@@ -17,6 +17,18 @@
     "explanation": {
       "type": "string",
       "description": "Explanation of why the correction is right"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion (links to specific content version)"
+    },
+    "mistake_pattern": {
+      "type": "string",
+      "description": "Categorized pattern name for this type of mistake"
+    },
+    "recommended_activity": {
+      "type": "string",
+      "description": "Suggested remediation activity to address this mistake"
     }
   },
   "required": [
