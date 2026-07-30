@@ -132,7 +132,7 @@ export default function ContentHierarchy({ onSelect }) {
       >
         <option value="">— Pilih —</option>
         {items.map((item) => (
-          <option key={item.id} value={item.id}>{item[displayField] || item.name || `v${item.version_number}`}</option>
+          <option key={item.id} value={item.id}>{item[displayField] || item.name || item.topic_name || (item.version_number ? `v${item.version_number}` : `Pelajaran ${item.id?.slice(-4) || ""}`)}</option>
         ))}
       </select>
     </div>
@@ -148,7 +148,7 @@ export default function ContentHierarchy({ onSelect }) {
         {stage("Tahap", selected.level, levels, "level")}
         {stage("Subjek", selected.subject, subjects, "subject")}
         {stage("Topik", selected.topic, topics, "topic")}
-        {stage("Pelajaran", selected.lesson, lessons, "lesson")}
+        {stage("Pelajaran", selected.lesson, lessons, "lesson", "topic_name")}
         {stage("Versi", selected.version, versions, "version", "version_number")}
       </div>
       {selected.topic && lessons.length === 0 && (
