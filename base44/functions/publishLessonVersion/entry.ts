@@ -1,6 +1,11 @@
 // base44/functions/publishLessonVersion/entry.ts
 // Validates lesson completeness and publishes a LessonVersion.
 // Students can ONLY access published LessonVersions.
+//
+// AI CONTENT SAFETY RULE:
+//   Publishing a new version NEVER overwrites existing published content.
+//   The previously published LessonVersion is preserved as "archived".
+//   Example: v1 published → generate v2 draft → approve → publish v2 → v1 archived.
 
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
 
@@ -82,18 +87,37 @@ export default async function(req: Request): Promise<Response> {
     const completedCount = Object.values(checks).filter(Boolean).length;
     const completionPercentage = Math.round((completedCount / 5) * 100);
 
-    // 6. Publish LessonVersion
-    const publishedAt = new Date().toISOString();
+    // 6. ARCHIVE any previously published version of this Lesson (Safety Rule)
+    //    AI content must never overwrite existing published content.
+    //    The old published version is preserved as "archived"; the new version becomes published.
+    const archivedAt = new Date().toISOString();
+    const previousPublished = await base44.asServiceRole.entities.LessonVersion.filter({
+      lesson_id: lessonVersion.lesson_id,
+      status: "published",
+    });
+    const toArchive = previousPublished.filter((v: any) => v.id !== lesson_version_id);
+
+    if (toArchive.length > 0) {
+      await base44.asServiceRole.entities.LessonVersion.bulkUpdate(
+        toArchive.map((v: any) => ({
+          id: v.id,
+          status: "archived",
+          review_status: "archived",
+        }))
+      );
+    }
+
+    // 7. Publish the new LessonVersion
     await base44.asServiceRole.entities.LessonVersion.update(lesson_version_id, {
       status: "published",
       review_status: "published",
-      published_at: publishedAt,
+      published_at: archivedAt,
       content_completion_percentage: completionPercentage,
       last_reviewed_by: user.id,
-      last_reviewed_at: publishedAt,
+      last_reviewed_at: archivedAt,
     });
 
-    // 7. Update parent Lesson
+    // 8. Update parent Lesson pointer
     await base44.asServiceRole.entities.Lesson.update(lessonVersion.lesson_id, {
       content_status: "published",
       published_version_id: lesson_version_id,
@@ -106,7 +130,8 @@ export default async function(req: Request): Promise<Response> {
       lesson_version_id,
       lesson_id: lessonVersion.lesson_id,
       completion_percentage: completionPercentage,
-      published_at: publishedAt,
+      published_at: archivedAt,
+      archived_versions: toArchive.map((v: any) => v.id),
     });
   } catch (error: any) {
     console.error("publishLessonVersion error:", error);
