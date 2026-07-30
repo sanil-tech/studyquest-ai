@@ -54,12 +54,49 @@ export default async function(req: Request): Promise<Response> {
     };
 
     if (content_type === "lesson_notes") {
+      let markdown = "";
+      let voiceScript = "";
+      // New structured student-note format
+      if (content.concept_explanation || Array.isArray(content.key_points)) {
+        const parts: string[] = [];
+        if (content.title) parts.push(`# ${content.title}`);
+        if (content.learning_goal) parts.push(`\n## 🎯 Matlamat Pembelajaran\n${content.learning_goal}`);
+        if (Array.isArray(content.key_points) && content.key_points.length) {
+          parts.push(`\n## 🔑 Fakta Utama\n${content.key_points.map((p: string) => `- ${p}`).join("\n")}`);
+        }
+        if (content.concept_explanation) parts.push(`\n## 📖 Penjelasan Konsep\n${content.concept_explanation}`);
+        if (Array.isArray(content.examples) && content.examples.length) {
+          parts.push(`\n## ✅ Contoh`);
+          content.examples.forEach((ex: any, i: number) => {
+            parts.push(`\n### Contoh ${i + 1}\n**Soalan:** ${ex.problem || ""}\n\n**Jawapan:** ${ex.solution || ""}`);
+          });
+        }
+        if (Array.isArray(content.visual_suggestions) && content.visual_suggestions.length) {
+          parts.push(`\n## 🖼️ Cadangan Visual\n${content.visual_suggestions.map((v: string) => `- ${v}`).join("\n")}`);
+        }
+        if (content.memory_tips) parts.push(`\n## 💡 Tip Ingatan\n${content.memory_tips}`);
+        if (content.mini_activity) parts.push(`\n## 🎮 Aktiviti Mini\n${content.mini_activity}`);
+        if (Array.isArray(content.quick_check) && content.quick_check.length) {
+          parts.push(`\n## ✔️ Semakan Pantas`);
+          content.quick_check.forEach((q: any, i: number) => {
+            parts.push(`\n${i + 1}. ${q.question || ""}${q.answer ? `\n   *Jawapan:* ${q.answer}` : ""}`);
+          });
+        }
+        markdown = parts.join("\n");
+        // Build a simple TTS script from the note sections
+        voiceScript = [content.title, content.learning_goal, ...(content.key_points || []), content.concept_explanation]
+          .filter(Boolean).join(". ");
+      } else {
+        // Legacy format fallback
+        markdown = content.notes_markdown || "";
+        voiceScript = content.voice_script || "";
+      }
       createdRecords = await base44.asServiceRole.entities.LessonContent.create({
         lesson_version_id,
         content_type: "notes",
-        title: "Nota Pelajaran (AI)",
-        content_markdown: content.notes_markdown || "",
-        voice_script: content.voice_script || "",
+        title: content.title || "Nota Pelajaran (AI)",
+        content_markdown: markdown,
+        voice_script: voiceScript,
         sort_order: 0,
         created_by: user.id,
         status: "draft",

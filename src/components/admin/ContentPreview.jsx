@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import {
   BookOpen, Volume2, Layers, HelpCircle, Gamepad2, GraduationCap,
   Network, Video, Lightbulb, AlertTriangle, FileText, CheckCircle2,
+  Target, KeyRound, Image as ImageIcon,
 } from "lucide-react";
 
 const Section = ({ icon: Icon, title, children }) => (
@@ -46,13 +47,62 @@ export default function ContentPreview({ contentType, content }) {
     case "lesson_notes":
       return (
         <>
-          <Section icon={BookOpen} title="Nota Pelajaran">
-            <Card><MarkdownBody content={c.notes_markdown} /></Card>
-          </Section>
-          {c.voice_script && (
-            <Section icon={Volume2} title="Skrip Suara (TTS)">
-              <div className="p-3 rounded-lg bg-sky-50 border border-sky-100 text-sm text-sky-900 whitespace-pre-wrap">
-                {c.voice_script}
+          {c.title && <h3 className="text-lg font-heading font-bold text-primary mb-3">{c.title}</h3>}
+          {c.learning_goal && (
+            <Section icon={Target} title="Matlamat Pembelajaran">
+              <p className="text-sm bg-emerald-50 p-3 rounded-lg border border-emerald-100">{c.learning_goal}</p>
+            </Section>
+          )}
+          {Array.isArray(c.key_points) && c.key_points.length > 0 && (
+            <Section icon={KeyRound} title="Fakta Utama">
+              <ul className="list-disc list-inside text-sm space-y-1 ml-1">
+                {c.key_points.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
+            </Section>
+          )}
+          {c.concept_explanation && (
+            <Section icon={BookOpen} title="Penjelasan Konsep">
+              <Card><MarkdownBody content={c.concept_explanation} /></Card>
+            </Section>
+          )}
+          {Array.isArray(c.examples) && c.examples.length > 0 && (
+            <Section icon={CheckCircle2} title={`Contoh (${c.examples.length})`}>
+              <div className="space-y-2">
+                {c.examples.map((ex, i) => (
+                  <Card key={i}>
+                    <p className="text-sm font-semibold mb-1">{i + 1}. {ex.problem}</p>
+                    <p className="text-sm text-emerald-700"><span className="font-bold">Jawapan:</span> {ex.solution}</p>
+                  </Card>
+                ))}
+              </div>
+            </Section>
+          )}
+          {Array.isArray(c.visual_suggestions) && c.visual_suggestions.length > 0 && (
+            <Section icon={ImageIcon} title="Cadangan Visual">
+              <ul className="list-disc list-inside text-sm space-y-1 ml-1 text-muted-foreground">
+                {c.visual_suggestions.map((v, i) => <li key={i}>{v}</li>)}
+              </ul>
+            </Section>
+          )}
+          {c.memory_tips && (
+            <Section icon={Lightbulb} title="Tip Ingatan">
+              <p className="text-sm bg-amber-50 p-3 rounded-lg border border-amber-100 italic">{c.memory_tips}</p>
+            </Section>
+          )}
+          {c.mini_activity && (
+            <Section icon={Gamepad2} title="Aktiviti Mini">
+              <p className="text-sm bg-purple-50 p-3 rounded-lg border border-purple-100">{c.mini_activity}</p>
+            </Section>
+          )}
+          {Array.isArray(c.quick_check) && c.quick_check.length > 0 && (
+            <Section icon={HelpCircle} title={`Semakan Pantas (${c.quick_check.length})`}>
+              <div className="space-y-2">
+                {c.quick_check.map((q, i) => (
+                  <Card key={i}>
+                    <p className="text-sm font-semibold mb-1">{i + 1}. {q.question}</p>
+                    {q.answer && <p className="text-xs text-emerald-700"><span className="font-bold">Jawapan:</span> {q.answer}</p>}
+                  </Card>
+                ))}
               </div>
             </Section>
           )}

@@ -8,10 +8,39 @@ const CONTENT_SCHEMAS: Record<string, any> = {
   lesson_notes: {
     type: "object",
     properties: {
-      notes_markdown: { type: "string", description: "Lesson notes in Markdown" },
-      voice_script: { type: "string", description: "TTS narration script" },
+      title: { type: "string", description: "Engaging student-friendly title" },
+      learning_goal: { type: "string", description: "What the student will learn today, answering 'Apa yang saya akan belajar hari ini?'" },
+      key_points: { type: "array", items: { type: "string" }, description: "Most important knowledge points" },
+      concept_explanation: { type: "string", description: "Step-by-step concept explanation in Markdown" },
+      examples: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            problem: { type: "string" },
+            solution: { type: "string" },
+          },
+          required: ["problem", "solution"],
+        },
+        description: "Worked examples",
+      },
+      visual_suggestions: { type: "array", items: { type: "string" }, description: "Suggestions for diagrams, illustrations, tables, number lines, mind maps" },
+      memory_tips: { type: "string", description: "Easy ways to remember concepts" },
+      mini_activity: { type: "string", description: "A small interactive challenge" },
+      quick_check: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            question: { type: "string" },
+            answer: { type: "string" },
+          },
+          required: ["question"],
+        },
+        description: "3-5 questions to check understanding",
+      },
     },
-    required: ["notes_markdown"],
+    required: ["title", "learning_goal", "key_points", "concept_explanation"],
   },
   video_script: {
     type: "object",
@@ -163,6 +192,90 @@ Jenis kandungan yang dijana: ${contentType}`;
   return base + context + instruction;
 };
 
+const buildLessonNotesPrompt = (topicName: string, subjectName: string, levelName: string, customContext?: string) => {
+  const isPrimary = /tahun/i.test(levelName);
+  const stage = isPrimary ? "KSSR" : "KSSM";
+  const levelLabel = isPrimary ? "Sekolah Rendah" : "Sekolah Menengah";
+
+  const ageGuidance = isPrimary
+    ? `Adaptasi untuk pelajar sekolah rendah:
+- Gunakan Bahasa Melayu yang mudah dan ringkas
+- Ayat pendek
+- Penjelasan visual
+- Contoh kehidupan harian
+- Nada mesra dan periang
+- Gaya pengembaraan StudyQuest yang menyeronokkan bila sesuai`
+    : `Adaptasi untuk pelajar sekolah menengah:
+- Gunakan bahasa akademik yang jelas
+- Terangkan konsep secara mendalam
+- Sertakan formula, definisi dan penaakulan
+- Hubungkan konsep dengan aplikasi kehidupan sebenar`;
+
+  return `Anda ialah StudyQuest AI Learning Content Creator.
+
+Tugas anda ialah menukarkan kandungan kurikulum Malaysia (${stage} - ${levelLabel}) menjadi nota pembelajaran mesra pelajar.
+
+Output BUKAN rancangan pengajaran guru.
+Output akan dipaparkan terus kepada pelajar di dalam aplikasi pembelajaran StudyQuest.
+
+================================================
+
+INPUT:
+Tahap Pendidikan: ${stage} (${levelLabel})
+Tingkatan/Tahun: ${levelName}
+Subjek: ${subjectName}
+Topik: ${topicName}${customContext ? `\nRujukan / Standard Pembelajaran:\n${customContext}` : ""}
+
+================================================
+
+KEPERLUAN NOTA PEMBELAJARAN PELAJAR:
+
+Cipta nota yang membantu pelajar memahami, mengingat dan mengaplikasi konsep.
+
+${ageGuidance}
+
+================================================
+
+JANA dalam format JSON berikut:
+{
+  "title": "",
+  "learning_goal": "",
+  "key_points": [],
+  "examples": [{"problem":"","solution":""}],
+  "visual_suggestions": [],
+  "memory_tips": "",
+  "mini_activity": "",
+  "quick_check": [{"question":"","answer":""}]
+}
+
+================================================
+
+PERATURAN KANDUNGAN:
+
+1. Title — Tajuk menarik mesra pelajar.
+2. Learning Goal — Terangkan: "Apa yang saya akan belajar hari ini?"
+3. Key Points — Ringkasan pengetahuan paling penting.
+4. Concept Explanation (medan "concept_explanation") — Terangkan langkah demi langkah.
+   ${isPrimary ? "Gunakan contoh mudah." : "Sertakan: Definisi, Peraturan, Formula, Penaakulan."}
+5. Examples — Contoh penyelesaian terbimbing.
+6. Visual Suggestions — Cadang: rajah, ilustrasi, jadual, garis nombor, peta minda.
+7. Memory Tips — Cara mudah untuk mengingat konsep.
+8. Mini Activity — Cabaran interaktif kecil.
+9. Quick Check — 3-5 soalan untuk semak pemahaman.
+
+================================================
+
+JANGAN sertakan:
+- Arahan guru
+- Tempoh pelajaran
+- Pengurusan kelas
+- Strategi pengajaran
+- Refleksi guru
+- Nota penilaian guru
+
+Output mesti rasa seperti jurnal pembelajaran peribadi pelajar.`;
+};
+
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -233,7 +346,9 @@ export default async function(req: Request): Promise<Response> {
             .replace(/\{topic\}/g, topicName)
             .replace(/\{subject\}/g, subjectName)
             .replace(/\{level\}/g, levelName)
-        : buildPrompt(content_type, topicName, subjectName, levelName, prompt_context);
+        : (content_type === "lesson_notes"
+          ? buildLessonNotesPrompt(topicName, subjectName, levelName, prompt_context)
+          : buildPrompt(content_type, topicName, subjectName, levelName, prompt_context));
 
       // 6. Call InvokeLLM — use gpt_5_mini (NOT Gemini)
       const aiResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
