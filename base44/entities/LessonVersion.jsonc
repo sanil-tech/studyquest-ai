@@ -49,6 +49,32 @@
       "type": "string",
       "format": "date-time",
       "description": "When this version was published"
+    },
+    "content_completion_percentage": {
+      "type": "number",
+      "default": 0,
+      "description": "Auto-calculated lesson package completion (0-100)"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "review",
+        "approved",
+        "published",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Review workflow status for publishing control"
+    },
+    "last_reviewed_by": {
+      "type": "string",
+      "description": "User ID of the admin who last reviewed this version"
+    },
+    "last_reviewed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this version was last reviewed"
     }
   },
   "required": [

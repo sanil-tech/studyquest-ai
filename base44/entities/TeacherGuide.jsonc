@@ -49,6 +49,24 @@
     "assessment_notes": {
       "type": "string",
       "description": "Notes on how to assess student understanding"
+    },
+    "created_source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "ai_generated"
+      ],
+      "default": "manual",
+      "description": "Whether this guide was created manually or by AI"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin who approved this guide for publishing"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this guide was approved"
     }
   },
   "required": [

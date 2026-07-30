@@ -1,0 +1,88 @@
+{
+  "name": "AIContentRequest",
+  "type": "object",
+  "properties": {
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion"
+    },
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson (denormalized for quick lookup)"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "lesson_notes",
+        "video_script",
+        "flashcards",
+        "questions",
+        "activity",
+        "teacher_guide",
+        "mindmap",
+        "worksheet",
+        "explanation"
+      ],
+      "description": "Type of AI content requested"
+    },
+    "prompt_context": {
+      "type": "string",
+      "description": "Context/prompt provided to the AI for generation"
+    },
+    "generated_content": {
+      "type": "string",
+      "description": "The generated content from AI (JSON string for structured content)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "requested",
+        "generating",
+        "completed",
+        "approved",
+        "rejected",
+        "failed"
+      ],
+      "default": "requested",
+      "description": "Lifecycle status of this AI request"
+    },
+    "generated_by": {
+      "type": "string",
+      "description": "User ID of admin who triggered generation"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "description": "User ID of admin who reviewed the generated content"
+    },
+    "review_notes": {
+      "type": "string",
+      "description": "Notes from the reviewer (approval/rejection reasons)"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this content was approved"
+    }
+  },
+  "required": [
+    "content_type"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
