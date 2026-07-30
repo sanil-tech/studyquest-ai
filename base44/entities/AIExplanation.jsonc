@@ -34,6 +34,24 @@
     "age_group": {
       "type": "string",
       "description": "Target age group e.g. '6-8', '9-11', '12-17'"
+    },
+    "created_source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "ai_generated"
+      ],
+      "default": "manual",
+      "description": "Whether this explanation was created manually or by AI"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin who approved this explanation for publishing"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this explanation was approved"
     }
   },
   "required": [

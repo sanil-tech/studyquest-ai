@@ -117,6 +117,52 @@ export default async function(req: Request): Promise<Response> {
       last_reviewed_at: archivedAt,
     });
 
+    // 7b. Promote all content entities linked to this version from draft → published
+    //     This ensures students can ONLY access content that belongs to a published version.
+    const publishedStatus = { status: "published" as const };
+    await Promise.all([
+      base44.asServiceRole.entities.LessonContent.updateMany(
+        { lesson_version_id, status: "draft" },
+        { $set: publishedStatus }
+      ).catch((e: any) => console.error("LessonContent promote:", e)),
+      base44.asServiceRole.entities.Flashcard.updateMany(
+        { lesson_version_id, status: "draft" },
+        { $set: publishedStatus }
+      ).catch((e: any) => console.error("Flashcard promote:", e)),
+      base44.asServiceRole.entities.QuestionBank.updateMany(
+        { lesson_version_id, status: "draft" },
+        { $set: publishedStatus }
+      ).catch((e: any) => console.error("QuestionBank promote:", e)),
+      base44.asServiceRole.entities.LearningActivity.updateMany(
+        { lesson_version_id, status: "draft" },
+        { $set: publishedStatus }
+      ).catch((e: any) => console.error("LearningActivity promote:", e)),
+    ]);
+
+    // 7c. Archive content from previously published versions (status: published → archived)
+    if (toArchive.length > 0) {
+      const archivedVersionIds = toArchive.map((v: any) => v.id);
+      const archivedStatus = { status: "archived" as const };
+      await Promise.all([
+        base44.asServiceRole.entities.LessonContent.updateMany(
+          { lesson_version_id: { $in: archivedVersionIds }, status: "published" },
+          { $set: archivedStatus }
+        ).catch((e: any) => console.error("LessonContent archive:", e)),
+        base44.asServiceRole.entities.Flashcard.updateMany(
+          { lesson_version_id: { $in: archivedVersionIds }, status: "published" },
+          { $set: archivedStatus }
+        ).catch((e: any) => console.error("Flashcard archive:", e)),
+        base44.asServiceRole.entities.QuestionBank.updateMany(
+          { lesson_version_id: { $in: archivedVersionIds }, status: "published" },
+          { $set: archivedStatus }
+        ).catch((e: any) => console.error("QuestionBank archive:", e)),
+        base44.asServiceRole.entities.LearningActivity.updateMany(
+          { lesson_version_id: { $in: archivedVersionIds }, status: "published" },
+          { $set: archivedStatus }
+        ).catch((e: any) => console.error("LearningActivity archive:", e)),
+      ]);
+    }
+
     // 8. Update parent Lesson pointer
     await base44.asServiceRole.entities.Lesson.update(lessonVersion.lesson_id, {
       content_status: "published",
