@@ -136,6 +136,31 @@ export default async function(req: Request): Promise<Response> {
         status: "draft",
         ...commonFields,
       });
+    } else if (content_type === "infographic") {
+      const parts: string[] = [];
+      if (content.title) parts.push(`# ${content.title}`);
+      if (content.summary) parts.push(`\n## 📌 Ringkasan\n${content.summary}`);
+      if (Array.isArray(content.key_takeaways) && content.key_takeaways.length) {
+        parts.push(`\n## ⭐ Pengajaran Utama\n${content.key_takeaways.map((t: string) => `- ${t}`).join("\n")}`);
+      }
+      if (content.visual_layout) parts.push(`\n## 🎨 Susun Atur Visual\n${content.visual_layout}`);
+      if (Array.isArray(content.sections) && content.sections.length) {
+        parts.push(`\n## 📊 Bahagian Infografik`);
+        content.sections.forEach((s: any, i: number) => {
+          parts.push(`\n### ${i + 1}. ${s.heading}\n${s.content || ""}`);
+        });
+      }
+      const infographicMarkdown = parts.length ? parts.join("\n") : JSON.stringify(content);
+      createdRecords = await base44.asServiceRole.entities.LessonContent.create({
+        lesson_version_id,
+        content_type: "infographic",
+        title: content.title || "Infografik (AI)",
+        content_markdown: infographicMarkdown,
+        sort_order: 4,
+        created_by: user.id,
+        status: "draft",
+        ...commonFields,
+      });
     } else if (content_type === "flashcards") {
       const cards = content.flashcards || [];
       if (cards.length === 0) {

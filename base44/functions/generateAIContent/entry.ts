@@ -128,6 +128,28 @@ const CONTENT_SCHEMAS: Record<string, any> = {
     },
     required: ["branches"],
   },
+  infographic: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Tajuk infografik" },
+      summary: { type: "string", description: "Ringkasan kesimpulan utama pelajaran" },
+      key_takeaways: { type: "array", items: { type: "string" }, description: "3-5 pengajaran utama" },
+      visual_layout: { type: "string", description: "Cadangan susun atur visual (peta minda, aliran, jadual, rajah)" },
+      sections: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            heading: { type: "string" },
+            content: { type: "string" },
+          },
+          required: ["heading", "content"],
+        },
+        description: "Bahagian infografik",
+      },
+    },
+    required: ["title", "summary", "key_takeaways"],
+  },
   worksheet: {
     type: "object",
     properties: {
@@ -284,6 +306,33 @@ JANGAN sertakan:
 Output mesti rasa seperti jurnal pembelajaran peribadi pelajar.`;
 };
 
+const buildInfographicPrompt = (topicName: string, subjectName: string, levelName: string, customContext?: string) => {
+  return `Anda ialah StudyQuest AI Content Creator untuk infografik pembelajaran KSSR/KSSM Malaysia.
+
+Tugas: Cipta infografik ringkasan untuk bahagian KESIMPULAN atau PETA MINDA pelajaran.
+
+INPUT:
+Tahap: ${levelName}
+Subjek: ${subjectName}
+Topik: ${topicName}${customContext ? `\nKonteks: ${customContext}` : ""}
+
+KEPERLUAN INFOGRAFIK:
+1. Meringkaskan keseluruhan pelajaran dalam bentuk visual yang mudah difahami pelajar.
+2. Sertakan 3-5 pengajaran utama (key takeaways) yang paling penting.
+3. Cadangkan susun atur visual (peta minda, aliran, jadual, rajah) yang sesuai.
+4. Bahagikan kepada seksyen jelas dengan tajuk dan kandungan ringkas.
+5. Gunakan Bahasa Melayu mesra pelajar. Boleh gunakan placeholder {{nama}} untuk personalisasi.
+
+JANA dalam format JSON:
+{
+  "title": "",
+  "summary": "Ringkasan satu perenggan",
+  "key_takeaways": [],
+  "visual_layout": "Cadangan susun atur visual",
+  "sections": [{"heading":"","content":""}]
+}`;
+};
+
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -356,6 +405,8 @@ export default async function(req: Request): Promise<Response> {
             .replace(/\{level\}/g, levelName)
         : (content_type === "lesson_notes"
           ? buildLessonNotesPrompt(topicName, subjectName, levelName, prompt_context)
+          : content_type === "infographic"
+          ? buildInfographicPrompt(topicName, subjectName, levelName, prompt_context)
           : buildPrompt(content_type, topicName, subjectName, levelName, prompt_context));
 
       // 6. Call InvokeLLM — use gpt_5_mini (NOT Gemini)

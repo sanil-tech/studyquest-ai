@@ -6,6 +6,7 @@ import ContentHierarchy from "@/components/admin/ContentHierarchy";
 import CompletenessDashboard from "@/components/admin/CompletenessDashboard";
 import AIGenerationPanel from "@/components/admin/AIGenerationPanel";
 import LessonVideoField from "@/components/admin/LessonVideoField";
+import ManualContentPanel from "@/components/admin/ManualContentPanel";
 import { BookOpen, Loader2, Send, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -128,6 +129,17 @@ export default function AdminContentStudio() {
               lessonVersionId={selectedVersion}
               onRequestComplete={fetchCompleteness}
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedVersion && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Kemasukan Manual (Backup AI)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ManualContentPanel lessonVersionId={selectedVersion} onSaveComplete={fetchCompleteness} />
           </CardContent>
         </Card>
       )}

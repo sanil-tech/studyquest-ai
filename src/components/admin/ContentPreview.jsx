@@ -220,6 +220,28 @@ export default function ContentPreview({ contentType, content }) {
         </Section>
       );
 
+    case "infographic":
+      return (
+        <Section icon={ImageIcon} title="Infografik">
+          <Card>
+            {c.title && <h5 className="text-sm font-bold text-primary mb-2">{c.title}</h5>}
+            {c.summary && <p className="text-sm bg-emerald-50 p-2 rounded border border-emerald-100 mb-2">{c.summary}</p>}
+            {Array.isArray(c.key_takeaways) && c.key_takeaways.length > 0 && (
+              <ul className="list-disc list-inside text-sm space-y-1 mb-2">
+                {c.key_takeaways.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            )}
+            {c.visual_layout && <p className="text-xs text-muted-foreground italic mb-2">🎨 {c.visual_layout}</p>}
+            {Array.isArray(c.sections) && c.sections.map((s, i) => (
+              <div key={i} className="mt-2 pt-2 border-t border-slate-100">
+                <p className="text-sm font-semibold text-primary">{s.heading}</p>
+                <p className="text-sm">{s.content}</p>
+              </div>
+            ))}
+          </Card>
+        </Section>
+      );
+
     case "explanation":
       return (
         <Section icon={Lightbulb} title={`Penjelasan AI (${c.explanations?.length || 0})`}>

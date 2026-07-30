@@ -14,6 +14,7 @@ const CONTENT_TYPES = [
   { key: "common_mistakes", label: "Kesilapan Biasa", icon: "⚠️" },
   { key: "video_script", label: "Skrip Video", icon: "🎬" },
   { key: "mindmap", label: "Peta Minda", icon: "🧠" },
+  { key: "infographic", label: "Infografik", icon: "📊" },
 ];
 
 export default function AIGenerationPanel({ lessonVersionId, onRequestComplete }) {
