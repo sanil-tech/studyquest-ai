@@ -14,8 +14,9 @@ export default async function(req: Request): Promise<Response> {
       return Response.json({ success: false, error: "Sesi tidak sah." }, { status: 401 });
     }
 
-    const role = String(user.app_role || user.role || "").toLowerCase();
-    if (role !== "admin" && role !== "teacher" && user.is_admin !== true) {
+    const builtInRole = String(user.role || "").toLowerCase();
+    const appRole = String(user.app_role || "").toLowerCase();
+    if (builtInRole !== "admin" && appRole !== "admin" && appRole !== "teacher" && user.is_admin !== true) {
       return Response.json({ success: false, error: "Hanya pentadbir/guru dibenarkan." }, { status: 403 });
     }
 
