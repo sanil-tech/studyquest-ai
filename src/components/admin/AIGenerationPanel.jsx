@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2, CheckCircle, XCircle, RefreshCw, Eye } from "lucide-react";
@@ -22,6 +22,29 @@ export default function AIGenerationPanel({ lessonVersionId, onRequestComplete }
   const [reviewContent, setReviewContent] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
 
+  // Load any previously generated (completed, not yet reviewed) requests for this version
+  // so an admin who navigates away and returns can resume review without regenerating.
+  const loadPending = useCallback(async () => {
+    if (!lessonVersionId) { setPendingRequests([]); setReviewContent(null); return; }
+    try {
+      const reqs = await base44.entities.AIContentRequest.filter({
+        lesson_version_id: lessonVersionId,
+        status: "completed",
+      });
+      const parsed = reqs.map((r) => {
+        let content = r.generated_content;
+        try { content = JSON.parse(r.generated_content); } catch { /* keep raw */ }
+        return { request_id: r.id, content_type: r.content_type, generated_content: content, created_date: r.created_date };
+      }).sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0));
+      setPendingRequests(parsed);
+      setReviewContent(parsed[0] || null);
+    } catch (err) {
+      console.error("Load pending AI requests:", err);
+    }
+  }, [lessonVersionId]);
+
+  useEffect(() => { loadPending(); }, [loadPending]);
+
   const handleGenerate = async (contentType) => {
     setGenerating(contentType);
     try {
@@ -30,11 +53,13 @@ export default function AIGenerationPanel({ lessonVersionId, onRequestComplete }
         content_type: contentType,
       });
       if (res.data?.success) {
-        setReviewContent({
+        const newReq = {
           request_id: res.data.request_id,
           content_type: contentType,
           generated_content: res.data.generated_content,
-        });
+        };
+        setReviewContent(newReq);
+        setPendingRequests((prev) => [newReq, ...prev.filter((p) => p.request_id !== newReq.request_id)]);
         onRequestComplete?.();
       } else {
         alert(res.data?.error || "Gagal menjana kandungan.");
@@ -53,7 +78,7 @@ export default function AIGenerationPanel({ lessonVersionId, onRequestComplete }
       if (editedContent) payload.edited_content = editedContent;
       const res = await base44.functions.invoke("approveAIContent", payload);
       if (res.data?.success) {
-        setReviewContent(null);
+        await loadPending();
         onRequestComplete?.();
       } else {
         alert(res.data?.error || "Gagal meluluskan.");
@@ -72,7 +97,7 @@ export default function AIGenerationPanel({ lessonVersionId, onRequestComplete }
         status: "rejected",
         reviewed_by: "admin",
       });
-      setReviewContent(null);
+      await loadPending();
       onRequestComplete?.();
     } catch (err) {
       alert("Ralat: " + (err.message || "Gagal menolak."));
@@ -157,6 +182,24 @@ export default function AIGenerationPanel({ lessonVersionId, onRequestComplete }
       <p className="text-xs text-muted-foreground">
         ⚠️ Semua kandungan AI disimpan sebagai <strong>draft</strong>. Pelulusan admin diperlukan sebelum penerbitan.
       </p>
+      {pendingRequests.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs text-muted-foreground self-center mr-1">Draf tersimpan:</span>
+          {pendingRequests.map((r) => {
+            const info = CONTENT_TYPES.find((t) => t.key === r.content_type);
+            const active = reviewContent?.request_id === r.request_id;
+            return (
+              <button
+                key={r.request_id}
+                onClick={() => setReviewContent(r)}
+                className={`text-xs px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors ${active ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:bg-accent"}`}
+              >
+                <span>{info?.icon}</span> {info?.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {renderReviewContent()}
     </div>
   );
