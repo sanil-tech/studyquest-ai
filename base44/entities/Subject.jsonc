@@ -13,9 +13,40 @@
     "color": {
       "type": "string",
       "description": "Hex color for subject card"
+    },
+    "curriculum_id": {
+      "type": "string",
+      "description": "ID of the Curriculum this subject belongs to (optional \u2014 if subject spans curricula)"
+    },
+    "level_id": {
+      "type": "string",
+      "description": "ID of the Level (optional \u2014 if subject spans levels, leave empty)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this subject is active"
     }
   },
   "required": [
     "name"
-  ]
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

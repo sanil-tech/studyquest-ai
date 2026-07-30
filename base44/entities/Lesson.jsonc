@@ -25,15 +25,16 @@
     "version": {
       "type": "number",
       "default": 1,
-      "description": "Content version number"
+      "description": "Current content version number"
     },
     "content_status": {
       "type": "string",
       "enum": [
         "draft",
         "ai_generated",
-        "reviewed",
-        "published"
+        "under_review",
+        "published",
+        "archived"
       ],
       "default": "draft",
       "description": "Content lifecycle status"
@@ -49,6 +50,10 @@
     "published_version": {
       "type": "number",
       "description": "The version number that is currently published"
+    },
+    "published_version_id": {
+      "type": "string",
+      "description": "ID of the currently published LessonVersion record"
     }
   },
   "required": [

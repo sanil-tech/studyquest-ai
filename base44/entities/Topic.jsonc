@@ -25,7 +25,11 @@
         "Tingkatan 4",
         "Tingkatan 5"
       ],
-      "description": "Tahap persekolahan Malaysia \u2014 Tahun 1-6 (sekolah rendah, KSSR) atau Tingkatan 1-5 (sekolah menengah, KSSM)"
+      "description": "(Deprecated \u2014 use level_id) Tahap persekolahan Malaysia \u2014 Tahun 1-6 (sekolah rendah, KSSR) atau Tingkatan 1-5 (sekolah menengah, KSSM)"
+    },
+    "level_id": {
+      "type": "string",
+      "description": "ID of the Level (replaces form_level)"
     }
   },
   "required": [

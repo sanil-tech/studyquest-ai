@@ -1,0 +1,53 @@
+{
+  "name": "EducationStage",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Stage name (e.g. Preschool, Primary, Secondary)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of this education stage"
+    },
+    "age_min": {
+      "type": "number",
+      "description": "Minimum age for this stage"
+    },
+    "age_max": {
+      "type": "number",
+      "description": "Maximum age for this stage"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Display ordering"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this stage is active"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
