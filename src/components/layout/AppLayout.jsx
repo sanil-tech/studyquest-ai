@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { useViewMode } from "@/lib/ViewModeContext";
-import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound, Moon, User, Crown, Award, Lightbulb } from "lucide-react";
+import { Home, BookOpen, Trophy, Wallet, Bell, Users, Gift, CheckSquare, Menu, X, ChevronLeft, LogOut, UserRound, Moon, User, Crown, Award, Lightbulb, Map } from "lucide-react";
 import BottomNav from "@/components/layout/BottomNav";
 import { resolveCssAvatar } from "@/lib/avatarSystem";
 
@@ -69,7 +69,7 @@ export default function AppLayout() {
   // and prevent students from accessing parent pages
   useEffect(() => {
     if (!user) return;
-    const studentPaths = ["/dashboard", "/study", "/quiz", "/wallet", "/rewards", "/lessons", "/lesson", "/leaderboard", "/achievements", "/friends"];
+    const studentPaths = ["/dashboard", "/study", "/quiz", "/wallet", "/rewards", "/lessons", "/lesson", "/leaderboard", "/achievements", "/friends", "/missions"];
     const parentPaths = ["/parent"];
 
     const onStudentPath = studentPaths.some(p => location.pathname.startsWith(p));
@@ -227,8 +227,12 @@ export default function AppLayout() {
                   <Users className={`w-5 h-5 ${location.pathname === "/friends" ? "text-white" : "text-slate-400"}`} />
                   Rakan
                 </Link>
-              </>
-            ) : (
+                <Link to="/missions" className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/missions" ? "bg-orange-500 text-white shadow-md" : "text-slate-500 hover:bg-orange-50 hover:text-orange-600"}`}>
+                  <Map className={`w-5 h-5 ${location.pathname === "/missions" ? "text-white" : "text-slate-400"}`} />
+                  Misi
+                </Link>
+                </>
+                ) : (
               <Link to="/parent-tips" className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/parent-tips" ? "bg-indigo-500 text-white shadow-md" : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}>
                 <Lightbulb className={`w-5 h-5 ${location.pathname === "/parent-tips" ? "text-white" : "text-slate-400"}`} />
                 Tips Ibu Bapa
@@ -294,6 +298,10 @@ export default function AppLayout() {
               <Link to="/friends" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/friends" ? "bg-orange-500 text-white" : "text-slate-500 hover:bg-orange-50 hover:text-orange-600"}`}>
                 <Users className="w-5 h-5 text-slate-400" />
                 Rakan
+              </Link>
+              <Link to="/missions" onClick={() => setIsMobileMenuOpen(false)} className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold transition-all ${location.pathname === "/missions" ? "bg-orange-500 text-white" : "text-slate-500 hover:bg-orange-50 hover:text-orange-600"}`}>
+                <Map className="w-5 h-5 text-slate-400" />
+                Misi
               </Link>
             </>
           ) : (

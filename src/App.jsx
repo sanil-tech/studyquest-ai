@@ -63,6 +63,7 @@ const Leaderboard = React.lazy(() => import('@/pages/Leaderboard'));
 const Achievements = React.lazy(() => import('@/pages/Achievements'));
 const Friends = React.lazy(() => import('@/pages/Friends'));
 const ParentTips = React.lazy(() => import('@/pages/ParentTips'));
+const Missions = React.lazy(() => import('@/pages/Missions'));
 
 // Lazy-loaded Admin Pages
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
@@ -154,6 +155,7 @@ const AuthenticatedApp = () => {
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/achievements" element={<Achievements />} />
                 <Route path="/friends" element={<Friends />} />
+                <Route path="/missions" element={<Missions />} />
 
                 {/* Diagnostic Routes */}
                 <Route path="/diagnostic" element={<DiagnosticIntro />} />
