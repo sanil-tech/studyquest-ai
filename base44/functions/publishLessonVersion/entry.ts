@@ -168,6 +168,7 @@ export default async function(req: Request): Promise<Response> {
       content_status: "published",
       published_version_id: lesson_version_id,
       published_version: lessonVersion.version_number,
+      video_url: lessonVersion.video_url || "",
     });
 
     return Response.json({

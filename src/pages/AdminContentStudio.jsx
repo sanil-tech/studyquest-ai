@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ContentHierarchy from "@/components/admin/ContentHierarchy";
 import CompletenessDashboard from "@/components/admin/CompletenessDashboard";
 import AIGenerationPanel from "@/components/admin/AIGenerationPanel";
+import LessonVideoField from "@/components/admin/LessonVideoField";
 import { BookOpen, Loader2, Send, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -102,6 +103,17 @@ export default function AdminContentStudio() {
             ) : (
               <CompletenessDashboard completeness={completeness} />
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedVersion && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Media & Video</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LessonVideoField lessonVersionId={selectedVersion} />
           </CardContent>
         </Card>
       )}
