@@ -1,0 +1,79 @@
+{
+  "name": "AIPromptTemplate",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Template name e.g. 'Generate Mathematics Year 1 Notes'"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "lesson_notes",
+        "video_script",
+        "flashcards",
+        "questions",
+        "activity",
+        "teacher_guide",
+        "mindmap",
+        "worksheet",
+        "explanation",
+        "common_mistakes"
+      ],
+      "description": "Type of content this template generates"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Subject this template is optimized for (optional, for targeted prompts)"
+    },
+    "level": {
+      "type": "string",
+      "description": "Education level this template is optimized for (optional)"
+    },
+    "prompt_template": {
+      "type": "string",
+      "description": "The prompt text with {topic}, {subject}, {level} placeholders"
+    },
+    "language": {
+      "type": "string",
+      "default": "ms",
+      "description": "Output language code e.g. 'ms' or 'en'"
+    },
+    "age_group": {
+      "type": "string",
+      "description": "Target age group e.g. '6-8', '9-11', '12-17'"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active",
+      "description": "Whether this template is available for use"
+    }
+  },
+  "required": [
+    "name",
+    "content_type",
+    "prompt_template"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

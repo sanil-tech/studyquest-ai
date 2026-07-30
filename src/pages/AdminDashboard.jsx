@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import {
-  BookOpen, Edit3, FileText, Crown, Loader2, LogOut, Users, Brain, ClipboardList, TrendingUp, Plus, ArrowRight
+  BookOpen, Edit3, FileText, Crown, Loader2, LogOut, Users, Brain, ClipboardList, TrendingUp, Plus, ArrowRight, Sparkles
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -146,6 +146,14 @@ export default function AdminDashboard() {
         <div>
           <h3 className="text-sm font-black text-stone-700 mb-3 px-1">Alat Pengurusan</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <ToolCard
+              icon={Sparkles}
+              title="Content Studio (AI)"
+              description="Jana, semak, dan terbitkan kandungan pelajaran dengan bantuan AI."
+              to="/admin/content-studio"
+              color="bg-gradient-to-br from-violet-500 to-purple-600"
+              navigate={navigate}
+            />
             <ToolCard
               icon={Plus}
               title="Cipta Kandungan Pelajaran"

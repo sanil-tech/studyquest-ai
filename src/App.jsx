@@ -67,6 +67,7 @@ const ParentTips = React.lazy(() => import('@/pages/ParentTips'));
 // Lazy-loaded Admin Pages
 const TextbookUpload = React.lazy(() => import('@/pages/TextbookUpload'));
 const AdminPremiumAccess = React.lazy(() => import('@/pages/AdminPremiumAccess'));
+const AdminContentStudio = React.lazy(() => import('@/pages/AdminContentStudio'));
 
 // ============================================================================
 // LOADING SPINNER
@@ -119,6 +120,7 @@ const AuthenticatedApp = () => {
             <Route path="/admin/lesson-resources" element={<LessonResources />} />
             <Route path="/admin/edit-lesson" element={<EditLessonResources />} />
             <Route path="/admin/premium-access" element={<AdminPremiumAccess />} />
+            <Route path="/admin/content-studio" element={<AdminContentStudio />} />
           </Route>
 
           {/* Shared layout routes */}
