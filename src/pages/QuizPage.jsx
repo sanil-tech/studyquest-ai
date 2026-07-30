@@ -18,6 +18,7 @@ import { processReward } from "@/lib/rewardEngine";
 import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
 import QuizModeHeader from "@/components/quiz/QuizModeHeader";
 import { saveQuizSession, getQuizSession, clearQuizSession } from "@/lib/sessionCache";
+import { getStudentDisplayName, personalize } from "@/lib/personalize";
 
 const DrawingCanvas = ({ onVerify, expectedAnswer, isVerifying }) => {
   const canvasRef = useRef(null);
@@ -183,6 +184,7 @@ export default function QuizPage() {
   const [aiLoading, setAiLoading] = useState(false);
   // ✅ Pre-generated content (loaded once from DB — reused, no AI calls)
   const [feedbackLibrary, setFeedbackLibrary] = useState([]);
+  const [studentName, setStudentName] = useState("");
 
   const isPracticeMode = quizType !== "mastery";
   const isMasteryMode = quizType === "mastery";
@@ -190,6 +192,7 @@ export default function QuizPage() {
   useEffect(() => {
     const loadQuiz = async () => {
       try {
+        getStudentDisplayName().then(setStudentName).catch(() => {});
         const contentRes = await base44.functions.invoke('getLessonContent', { quiz_id: quizId });
         const q = contentRes.data;
         setQuiz(q);
@@ -261,9 +264,10 @@ export default function QuizPage() {
     setAiLoading(true);
     setAiEncouragement(null);
     try {
+      const nameClause = studentName ? ` The student's name is ${studentName}. Address them by name warmly.` : "";
       const prompt = isCorrect
-        ? `A Malaysian primary school student correctly answered a quiz question. Question: "${q.question}". Their answer: "${studentAnswer}". Generate a short, warm encouragement in Bahasa Melayu (1-2 sentences) that celebrates their correct answer. Use friendly, motivating language suitable for children.`
-        : `A Malaysian primary school student answered a quiz question incorrectly. Question: "${q.question}". Their answer: "${studentAnswer}". Correct answer: "${correctAns}". Generate a warm encouragement in Bahasa Melayu (1-2 sentences) that encourages them not to give up and gives a simple hint. Do NOT reveal the correct answer directly. Use friendly, motivating language suitable for children.`;
+        ? `A Malaysian primary school student correctly answered a quiz question. Question: "${q.question}". Their answer: "${studentAnswer}". Generate a short, warm encouragement in Bahasa Melayu (1-2 sentences) that celebrates their correct answer. Use friendly, motivating language suitable for children.${nameClause}`
+        : `A Malaysian primary school student answered a quiz question incorrectly. Question: "${q.question}". Their answer: "${studentAnswer}". Correct answer: "${correctAns}". Generate a warm encouragement in Bahasa Melayu (1-2 sentences) that encourages them not to give up and gives a simple hint. Do NOT reveal the correct answer directly. Use friendly, motivating language suitable for children.${nameClause}`;
 
       const result = await trackedInvokeLLM({ prompt }, "encouragement", quiz?.topic_name);
       setAiEncouragement(typeof result === "string" ? result : String(result));
@@ -404,7 +408,7 @@ export default function QuizPage() {
         try {
           const practiceAnalysis = await trackedInvokeLLM({
             prompt: `Generate a practice report for a Malaysian primary school student who completed a practice quiz.
-Topic: "${quiz?.topic_name}". Subject: "${quiz?.subject_name}". Score: ${score}%. Correct: ${correct}/${questions.length}.
+Topic: "${quiz?.topic_name}". Subject: "${quiz?.subject_name}". Score: ${score}%. Correct: ${correct}/${questions.length}. Student name: ${studentName || "kawan"}.
 
 Questions and answers:
 ${questions
@@ -455,7 +459,7 @@ Respond in JSON:
           const masteryAnalysis = await trackedInvokeLLM({
             prompt: `You are an EdTech assessment specialist for Malaysian KSSR primary education. Analyze this student's mastery assessment results.
 
-Topic: "${quiz?.topic_name}". Subject: "${quiz?.subject_name}". Score: ${score}% (${correct}/${questions.length} correct).
+Topic: "${quiz?.topic_name}". Subject: "${quiz?.subject_name}". Score: ${score}% (${correct}/${questions.length} correct). Student name: ${studentName || "kawan"}.
 
 Questions and answers:
 ${questions
@@ -774,7 +778,7 @@ Generate a comprehensive mastery report. Respond in JSON:
                 </p>
               ) : (
                 <p className="text-xs text-stone-700 font-medium leading-relaxed">
-                  {aiEncouragement}
+                  {personalize(aiEncouragement, studentName)}
                 </p>
               )}
             </motion.div>

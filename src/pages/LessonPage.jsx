@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { getActiveStudentId } from "@/lib/rewardSystem";
 import { processReward } from "@/lib/rewardEngine";
 import { trackedInvokeLLM } from "@/lib/aiUsageTracker";
+import { personalize, getStudentDisplayName } from "@/lib/personalize";
 import {
   Tv,
   CheckCircle2,
@@ -343,6 +344,7 @@ export default function LessonPage() {
   const [status, setStatus] = useState({ lesson: false, flashcards: false, mindmap: false, quiz: false });
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [savedQuizProgress, setSavedQuizProgress] = useState(null);
+  const [studentName, setStudentName] = useState("");
   
   const sessionStartRef = useRef(Date.now());
   const sessionRef = useRef(null);
@@ -378,14 +380,16 @@ export default function LessonPage() {
     const initializeLesson = async () => {
       try {
         const studentId = await getActiveStudentId();
-        const [sub, top] = await Promise.all([
+        const [sub, top, displayName] = await Promise.all([
           base44.entities.Subject.get(subjectId),
-          base44.entities.Topic.get(topicId)
+          base44.entities.Topic.get(topicId),
+          getStudentDisplayName(),
         ]);
 
         if (!isMounted) return;
         setSubject(sub); 
         setTopic(top);
+        setStudentName(displayName);
 
         const checkpointKey = `studyquest_checkpoint_${studentId}_${topicId}`;
         const savedData = localStorage.getItem(checkpointKey);
@@ -693,7 +697,7 @@ export default function LessonPage() {
       setIsSpeaking(false);
       return;
     }
-    const teksBersih = bersihkanTeksUntukSuara(teksNota);
+    const teksBersih = bersihkanTeksUntukSuara(personalize(teksNota, studentName));
     const sebutan = new SpeechSynthesisUtterance(teksBersih);
     const isEnglish = subject?.name?.toLowerCase()?.includes("english");
     sebutan.lang = isEnglish ? "en-MY" : "ms-MY";
@@ -904,7 +908,7 @@ export default function LessonPage() {
 
               <div className="max-h-[60vh] overflow-y-auto p-5 border border-stone-800 rounded-2xl bg-black/40 leading-relaxed">
                 {notesImage && <img src={notesImage} className="w-full max-w-md mx-auto rounded-2xl mb-5 shadow-md border border-stone-700" alt="Nota" />}
-                <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(notesContent) }} />
+                <div dangerouslySetInnerHTML={{ __html: parseMarkdownToHTML(personalize(notesContent, studentName)) }} />
               </div>
 
               <Button onClick={handleLessonStageCompleted} className={`w-full h-14 ${worldTheme.accentColor} font-black text-base rounded-2xl border-b-4 border-black/40 active:translate-y-1 transition-all`}>

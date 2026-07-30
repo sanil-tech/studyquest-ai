@@ -265,6 +265,14 @@ PERATURAN KANDUNGAN:
 
 ================================================
 
+PERSONALISASI:
+Gunakan placeholder {{nama}} untuk merujuk kepada pelajar secara peribadi.
+- Title: boleh sertakan "{{nama}}" sekali (cth: "Hai {{nama}}! Mari Kita...").
+- Learning Goal & Mini Activity: boleh panggil "{{nama}}" supaya nota terasa mesra.
+JANGAN gantikan {{nama}} dengan nama sebenar. Biarkan placeholder {{nama}} apa adanya.
+
+================================================
+
 JANGAN sertakan:
 - Arahan guru
 - Tempoh pelajaran
