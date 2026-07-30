@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2, CheckCircle, XCircle, RefreshCw, Eye } from "lucide-react";
+import ContentPreview from "@/components/admin/ContentPreview";
 
 const CONTENT_TYPES = [
   { key: "lesson_notes", label: "Nota Pelajaran", icon: "📝" },
@@ -93,8 +94,8 @@ export default function AIGenerationPanel({ lessonVersionId, onRequestComplete }
           </h4>
           <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">Draft</span>
         </div>
-        <div className="max-h-64 overflow-y-auto p-3 bg-white rounded-lg border text-xs font-mono whitespace-pre-wrap">
-          {JSON.stringify(generated_content, null, 2)}
+        <div className="max-h-[28rem] overflow-y-auto p-3 bg-white rounded-lg border">
+          <ContentPreview contentType={content_type} content={generated_content} />
         </div>
         <div className="flex gap-2 mt-3">
           <Button
