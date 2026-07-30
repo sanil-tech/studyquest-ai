@@ -25,21 +25,24 @@ export default function ContentHierarchy({ onSelect }) {
   }, []);
 
   useEffect(() => {
-    if (!selected.curriculum) { setLevels([]); return; }
+    if (!selected.curriculum) { setLevels([]); setSubjects([]); return; }
     base44.entities.Level.filter({ curriculum_id: selected.curriculum }).then(setLevels).catch(() => {});
+    // Subjects are global (not tied to curriculum/level) — load all
+    base44.entities.Subject.list().then(setSubjects).catch(() => {});
     setSelected(prev => ({ ...prev, level: "", subject: "", topic: "", lesson: "", version: "" }));
   }, [selected.curriculum]);
 
   useEffect(() => {
-    if (!selected.curriculum) { setSubjects([]); return; }
-    base44.entities.Subject.filter({ curriculum_id: selected.curriculum }).then(setSubjects).catch(() => {});
-  }, [selected.curriculum]);
-
-  useEffect(() => {
     if (!selected.subject) { setTopics([]); return; }
-    base44.entities.Topic.filter({ subject_id: selected.subject }).then(setTopics).catch(() => {});
+    // Topics use form_level (string) matching the Level name, not level_id
+    const selectedLevel = levels.find(l => l.id === selected.level);
+    const filter = { subject_id: selected.subject };
+    if (selectedLevel) {
+      filter.form_level = selectedLevel.name;
+    }
+    base44.entities.Topic.filter(filter).then(setTopics).catch(() => {});
     setSelected(prev => ({ ...prev, topic: "", lesson: "", version: "" }));
-  }, [selected.subject]);
+  }, [selected.subject, selected.level]);
 
   useEffect(() => {
     if (!selected.topic) { setLessons([]); return; }
