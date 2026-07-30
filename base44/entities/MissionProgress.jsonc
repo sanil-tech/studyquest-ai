@@ -1,0 +1,102 @@
+{
+  "name": "MissionProgress",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "mission_id": {
+      "type": "string",
+      "description": "ID of the Mission"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "locked",
+        "available",
+        "in_progress",
+        "completed",
+        "mastered"
+      ],
+      "default": "available",
+      "description": "Student's progress status for this mission"
+    },
+    "current_step_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Order of the step the student is currently on"
+    },
+    "steps_completed_json": {
+      "type": "string",
+      "description": "JSON array of completed step orders (e.g. [0, 1, 2])"
+    },
+    "xp_earned": {
+      "type": "number",
+      "default": 0,
+      "description": "Total XP earned from this mission"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the student started this mission"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the student completed this mission"
+    }
+  },
+  "required": [
+    "student_id",
+    "mission_id"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

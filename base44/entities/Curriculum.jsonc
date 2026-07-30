@@ -1,0 +1,49 @@
+{
+  "name": "Curriculum",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Curriculum name (e.g. KSSR Semakan, KSSM)"
+    },
+    "education_stage_id": {
+      "type": "string",
+      "description": "ID of the parent EducationStage"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of this curriculum"
+    },
+    "version": {
+      "type": "string",
+      "description": "Curriculum version label (e.g. 2017, 2023 Semakan)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this curriculum is active"
+    }
+  },
+  "required": [
+    "name",
+    "education_stage_id"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

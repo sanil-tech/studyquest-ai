@@ -1,0 +1,78 @@
+{
+  "name": "Transaction",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "earn",
+        "spend"
+      ],
+      "description": "Transaction type"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Coin amount"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Reason for transaction"
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "Related quiz attempt or reward request ID"
+    }
+  },
+  "required": [
+    "student_id",
+    "type",
+    "amount",
+    "reason"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}",
+            "$exists": true
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

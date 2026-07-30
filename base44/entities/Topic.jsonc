@@ -1,0 +1,45 @@
+{
+  "name": "Topic",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Topic name"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID of the parent subject"
+    },
+    "form_level": {
+      "type": "string",
+      "enum": [
+        "Tahun 1",
+        "Tahun 2",
+        "Tahun 3",
+        "Tahun 4",
+        "Tahun 5",
+        "Tahun 6",
+        "Tingkatan 1",
+        "Tingkatan 2",
+        "Tingkatan 3",
+        "Tingkatan 4",
+        "Tingkatan 5"
+      ],
+      "description": "(Deprecated \u2014 use level_id) Tahap persekolahan Malaysia \u2014 Tahun 1-6 (sekolah rendah, KSSR) atau Tingkatan 1-5 (sekolah menengah, KSSM)"
+    },
+    "level_id": {
+      "type": "string",
+      "description": "ID of the Level (replaces form_level)"
+    }
+  },
+  "required": [
+    "name",
+    "subject_id"
+  ],
+  "rls": {
+    "read": true,
+    "create": true,
+    "update": true,
+    "delete": true
+  }
+}

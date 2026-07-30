@@ -1,0 +1,101 @@
+{
+  "name": "Mission",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Mission name (e.g. 'Misi 1: Pengenalan Nombor')"
+    },
+    "description": {
+      "type": "string",
+      "description": "Mission description shown to students"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID of the Subject this mission belongs to"
+    },
+    "level_id": {
+      "type": "string",
+      "description": "ID of the Level (e.g. Year 1) this mission targets"
+    },
+    "mission_type": {
+      "type": "string",
+      "enum": [
+        "chapter",
+        "daily",
+        "weekly",
+        "special_event"
+      ],
+      "default": "chapter",
+      "description": "Type of mission \u2014 chapter = story-driven curriculum quest"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Ordering within the same subject + level"
+    },
+    "prerequisite_mission_id": {
+      "type": "string",
+      "description": "ID of the mission that must be completed before this one unlocks"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji icon for the mission (e.g. \ud83c\udf0a, \ud83d\udd25, \u2b50)"
+    },
+    "color": {
+      "type": "string",
+      "description": "Hex color for the mission card"
+    },
+    "reward_xp": {
+      "type": "number",
+      "default": 50,
+      "description": "XP awarded for completing this mission"
+    },
+    "reward_coin": {
+      "type": "number",
+      "default": 10,
+      "description": "Coins awarded for completing this mission"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this mission is active"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Mission lifecycle status \u2014 only published missions are visible to students"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User ID of admin who created this mission"
+    }
+  },
+  "required": [
+    "name",
+    "subject_id"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

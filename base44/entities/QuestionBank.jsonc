@@ -1,0 +1,193 @@
+{
+  "name": "QuestionBank",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson (now optional \u2014 questions are reusable across lessons)"
+    },
+    "topic_id": {
+      "type": "string",
+      "description": "ID of the parent Topic (for topic-level queries)"
+    },
+    "subtopic_id": {
+      "type": "string",
+      "description": "ID of the parent Subtopic (optional)"
+    },
+    "question_id": {
+      "type": "string",
+      "description": "Unique question identifier within this bank"
+    },
+    "question": {
+      "type": "string",
+      "description": "The question text"
+    },
+    "question_image_url": {
+      "type": "string",
+      "description": "URL of an accompanying image (optional)"
+    },
+    "correct_answer": {
+      "type": "string",
+      "description": "The correct answer (label e.g. 'A' or full text)"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Explanation of the correct answer"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Difficulty level"
+    },
+    "tp_code": {
+      "type": "string",
+      "description": "Tunjuk Performa (TP) code this question maps to"
+    },
+    "standard_pembelajaran": {
+      "type": "string",
+      "description": "KSSR/KSSM Standard Pembelajaran code"
+    },
+    "keywords_json": {
+      "type": "string",
+      "description": "JSON array of keywords for this question"
+    },
+    "textbook_reference": {
+      "type": "string",
+      "description": "Reference to source textbook page/section"
+    },
+    "quiz_type": {
+      "type": "string",
+      "enum": [
+        "pre_quiz",
+        "lesson_quiz",
+        "practice",
+        "daily",
+        "weekly",
+        "tournament",
+        "boss_battle",
+        "time_attack",
+        "adventure"
+      ],
+      "default": "practice",
+      "description": "Which quiz type this question is best suited for"
+    },
+    "curriculum_id": {
+      "type": "string",
+      "description": "ID of the Curriculum this question belongs to"
+    },
+    "level_id": {
+      "type": "string",
+      "description": "ID of the Level this question belongs to"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID of the Subject this question belongs to"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "Optional ID of the LessonVersion (for version-specific questions)"
+    },
+    "question_type": {
+      "type": "string",
+      "enum": [
+        "mcq",
+        "true_false",
+        "fill_blank",
+        "short_answer"
+      ],
+      "description": "Type of question"
+    },
+    "options_json": {
+      "type": "string",
+      "description": "JSON string of options for MCQ (inline storage; QuestionOption still used for structured)"
+    },
+    "hint": {
+      "type": "string",
+      "description": "Progressive hint for students"
+    },
+    "difficulty_level": {
+      "type": "number",
+      "description": "Granular difficulty scale 1-5"
+    },
+    "cognitive_level": {
+      "type": "string",
+      "enum": [
+        "remember",
+        "understand",
+        "apply",
+        "analyze",
+        "evaluate",
+        "create"
+      ],
+      "description": "Bloom's taxonomy cognitive level"
+    },
+    "skill_tag": {
+      "type": "string",
+      "description": "Specific skill tag e.g. 'addition', 'vowel_recognition'"
+    },
+    "curriculum_standard": {
+      "type": "string",
+      "description": "Curriculum standard code (alias for standard_pembelajaran)"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User ID of admin or 'AI' if generated"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Question lifecycle status"
+    },
+    "created_source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "ai_generated"
+      ],
+      "default": "manual",
+      "description": "Whether this question was created manually or by AI"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin who approved this question for publishing"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this question was approved"
+    }
+  },
+  "required": [
+    "question_id",
+    "question",
+    "correct_answer",
+    "difficulty"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "name": "KnowledgeBaseItem",
+  "type": "object",
+  "properties": {
+    "textbook_id": {
+      "type": "string",
+      "description": "ID of the source Textbook"
+    },
+    "chapter_id": {
+      "type": "string",
+      "description": "ID of the parent Chapter (optional)"
+    },
+    "topic_id": {
+      "type": "string",
+      "description": "ID of the parent Topic (optional)"
+    },
+    "subtopic_id": {
+      "type": "string",
+      "description": "ID of the parent Subtopic (optional)"
+    },
+    "item_type": {
+      "type": "string",
+      "enum": [
+        "standard_kandungan",
+        "standard_pembelajaran",
+        "definition",
+        "example",
+        "exercise",
+        "diagram_ref",
+        "key_term"
+      ],
+      "description": "Type of knowledge extracted from the textbook"
+    },
+    "content": {
+      "type": "string",
+      "description": "The extracted content text"
+    },
+    "page_reference": {
+      "type": "string",
+      "description": "Page number or section reference in the source PDF"
+    }
+  },
+  "required": [
+    "textbook_id",
+    "item_type",
+    "content"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

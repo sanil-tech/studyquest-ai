@@ -1,0 +1,80 @@
+{
+  "name": "Lesson",
+  "type": "object",
+  "properties": {
+    "topic_id": {
+      "type": "string",
+      "description": "ID of the parent Topic"
+    },
+    "subtopic_id": {
+      "type": "string",
+      "description": "ID of the parent Subtopic (optional, for subtopic-level lessons)"
+    },
+    "subject_name": {
+      "type": "string",
+      "description": "Denormalized subject name for quick display"
+    },
+    "topic_name": {
+      "type": "string",
+      "description": "Denormalized topic name for quick display"
+    },
+    "video_url": {
+      "type": "string",
+      "description": "YouTube video URL for the lesson intro"
+    },
+    "version": {
+      "type": "number",
+      "default": 1,
+      "description": "Current content version number"
+    },
+    "content_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ai_generated",
+        "under_review",
+        "published",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Content lifecycle status"
+    },
+    "generated_by": {
+      "type": "string",
+      "description": "User ID of the admin/teacher who generated this content"
+    },
+    "source_textbook_version": {
+      "type": "string",
+      "description": "Version reference to the source textbook/knowledge base"
+    },
+    "published_version": {
+      "type": "number",
+      "description": "The version number that is currently published"
+    },
+    "published_version_id": {
+      "type": "string",
+      "description": "ID of the currently published LessonVersion record"
+    }
+  },
+  "required": [
+    "topic_id"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

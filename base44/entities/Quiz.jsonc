@@ -1,0 +1,161 @@
+{
+  "name": "Quiz",
+  "type": "object",
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "ID of the study session (Optional for admin global template)"
+    },
+    "topic_name": {
+      "type": "string",
+      "description": "Topic name"
+    },
+    "subject_name": {
+      "type": "string",
+      "description": "Subject name"
+    },
+    "subtopics_json": {
+      "type": "string",
+      "description": "JSON string array of subtopic names (optional, if applicable to this topic)"
+    },
+    "questions_json": {
+      "type": "string",
+      "description": "JSON string of quiz questions array"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "default": "medium"
+    },
+    "num_questions": {
+      "type": "number",
+      "default": 5
+    },
+    "quiz_type": {
+      "type": "string",
+      "enum": [
+        "practice",
+        "mastery"
+      ],
+      "default": "practice",
+      "description": "Practice = guided learning with AI support; Mastery = formal evaluation with no AI help"
+    },
+    "ai_support": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether AI encouragement and hints are available during the quiz"
+    },
+    "allow_hint": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether students can request AI hints"
+    },
+    "show_explanation": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether explanations are shown after each answer"
+    },
+    "allow_retry": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether students can retry the quiz"
+    },
+    "show_answer_after_submit": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether correct answers are revealed only after full submission (mastery mode)"
+    },
+    "generate_analysis": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to generate AI mastery analysis after submission (mastery mode)"
+    },
+    "video_url": {
+      "type": "string",
+      "description": "URL of the YouTube lesson video"
+    },
+    "notes_content": {
+      "type": "string",
+      "description": "Full text content of the lesson notes"
+    },
+    "infographic_url": {
+      "type": "string",
+      "description": "URL of the mind map infographic image"
+    },
+    "mindmap_json": {
+      "type": "string",
+      "description": "JSON string of AI-generated mindmap branches [{label, children}]. Generated once, reused for all students."
+    },
+    "feedback_library_json": {
+      "type": "string",
+      "description": "JSON string of pre-generated feedback messages [{type, message}]. Reused instead of calling AI per answer."
+    },
+    "ai_explanations_json": {
+      "type": "string",
+      "description": "JSON string of AI explanations for key concepts [{concept, explanation}]. Used for RAG-based tutor."
+    },
+    "common_mistakes_json": {
+      "type": "string",
+      "description": "JSON string of common student mistakes [{mistake, correction, explanation}]. Used for pre-generated feedback."
+    },
+    "voice_script": {
+      "type": "string",
+      "description": "AI-generated narration script for text-to-speech. Generated once, reused."
+    },
+    "voice_audio_url": {
+      "type": "string",
+      "description": "URL of generated TTS audio file. Generated once, reused for all students."
+    },
+    "lesson_content_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ai_generated",
+        "reviewed",
+        "published"
+      ],
+      "default": "draft",
+      "description": "Content lifecycle status: draft \u2192 ai_generated \u2192 reviewed \u2192 published"
+    },
+    "content_version": {
+      "type": "number",
+      "default": 1,
+      "description": "Content version for tracking updates"
+    },
+    "last_generated_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When AI content was last generated"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin/teacher who approved the content"
+    }
+  },
+  "required": [
+    "topic_name",
+    "questions_json"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "name": "LearningActivity",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "activity_type": {
+      "type": "string",
+      "enum": [
+        "matching",
+        "sorting",
+        "word_builder",
+        "sequence",
+        "simulation",
+        "puzzle"
+      ],
+      "description": "Type of learning activity"
+    },
+    "activity_data_json": {
+      "type": "string",
+      "description": "JSON string of activity-specific data (pairs, items, words, etc.)"
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Child-friendly instructions in Bahasa Melayu"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion (links to specific content version)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of this activity"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Difficulty level of this activity"
+    },
+    "age_range": {
+      "type": "string",
+      "description": "Target age range e.g. '6-8', '9-11', '12-17'"
+    },
+    "learning_objective": {
+      "type": "string",
+      "description": "Learning objective this activity addresses"
+    },
+    "reward_xp": {
+      "type": "number",
+      "default": 15,
+      "description": "XP awarded on completion"
+    },
+    "reward_coin": {
+      "type": "number",
+      "default": 3,
+      "description": "Coins awarded on completion"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published"
+      ],
+      "default": "draft",
+      "description": "Activity lifecycle status"
+    },
+    "created_source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "ai_generated"
+      ],
+      "default": "manual",
+      "description": "Whether this activity was created manually or by AI"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin who approved this activity for publishing"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this activity was approved"
+    }
+  },
+  "required": [
+    "lesson_id",
+    "activity_type"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

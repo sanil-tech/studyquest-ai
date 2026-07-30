@@ -1,0 +1,45 @@
+{
+  "name": "AssessmentQuestion",
+  "type": "object",
+  "properties": {
+    "assessment_id": {
+      "type": "string",
+      "description": "ID of the parent Assessment"
+    },
+    "question_id": {
+      "type": "string",
+      "description": "ID of the linked QuestionBank record"
+    },
+    "order": {
+      "type": "number",
+      "description": "Display/sequence order of this question in the assessment"
+    },
+    "marks": {
+      "type": "number",
+      "default": 1,
+      "description": "Weight for scoring"
+    }
+  },
+  "required": [
+    "assessment_id",
+    "question_id"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

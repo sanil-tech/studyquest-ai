@@ -1,0 +1,97 @@
+{
+  "name": "Flashcard",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson (kept for backward compatibility)"
+    },
+    "topic_id": {
+      "type": "string",
+      "description": "ID of the parent Topic (for topic-level queries)"
+    },
+    "front": {
+      "type": "string",
+      "description": "Front of the flashcard (question/prompt)"
+    },
+    "back": {
+      "type": "string",
+      "description": "Back of the flashcard (answer/definition)"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Display ordering"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion (links to specific content version)"
+    },
+    "front_text": {
+      "type": "string",
+      "description": "Alias of front for clarity in CMS"
+    },
+    "back_text": {
+      "type": "string",
+      "description": "Alias of back for clarity in CMS"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "URL of an image for visual flashcards (optional)"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Additional explanation for the flashcard answer"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Difficulty level of this flashcard"
+    },
+    "created_source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "ai_generated"
+      ],
+      "default": "manual",
+      "description": "Whether this flashcard was created manually or by AI"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin who approved this flashcard for publishing"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this flashcard was approved"
+    }
+  },
+  "required": [
+    "lesson_id",
+    "front",
+    "back"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

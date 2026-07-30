@@ -1,0 +1,113 @@
+{
+  "name": "DiagnosticResponse",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "ID of the BasicDiagnosticSession"
+    },
+    "question_id": {
+      "type": "string",
+      "description": "ID of the question from the question bank"
+    },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "membaca",
+        "menulis",
+        "mengira"
+      ],
+      "description": "Which 3M module"
+    },
+    "skill": {
+      "type": "string",
+      "description": "Skill being tested"
+    },
+    "sub_skill": {
+      "type": "string",
+      "description": "Sub-skill being tested"
+    },
+    "answer": {
+      "type": "string",
+      "description": "Student's answer (text, transcript, or image URL)"
+    },
+    "is_correct": {
+      "type": "boolean",
+      "description": "Whether the answer was correct (null for image_upload pending AI review)"
+    },
+    "score": {
+      "type": "number",
+      "default": 0,
+      "description": "Score for this response: 1=correct, 0=incorrect, 0.5=partial"
+    },
+    "layer": {
+      "type": "string",
+      "enum": [
+        "screening",
+        "investigation"
+      ],
+      "description": "Which layer this response was from"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Uploaded image URL (for image_upload question type)"
+    },
+    "ai_reviewed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether AI has reviewed this response (for image uploads)"
+    }
+  },
+  "required": [
+    "student_id",
+    "session_id",
+    "question_id",
+    "subject",
+    "skill"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

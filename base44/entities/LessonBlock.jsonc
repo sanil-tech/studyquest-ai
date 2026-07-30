@@ -1,0 +1,48 @@
+{
+  "name": "LessonBlock",
+  "description": "Flexible, ordered content block belonging to a LessonVersion",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique block ID"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "Foreign key linking to LessonVersion entity"
+    },
+    "learning_standard_id": {
+      "type": "string",
+      "description": "Optional DSKP SP code reference (e.g., SP 1.1.1)"
+    },
+    "block_type": {
+      "type": "string",
+      "enum": [
+        "TEXT_MARKDOWN",
+        "VIDEO_EMBED",
+        "MIND_MAP",
+        "AUDIO_TTS",
+        "FLASHCARD_DECK",
+        "INTERACTIVE_GAME"
+      ],
+      "description": "Determines how the block is rendered in the UI"
+    },
+    "title": {
+      "type": "string",
+      "description": "Optional section header title"
+    },
+    "order_number": {
+      "type": "number",
+      "description": "Sequential sorting index (0, 1, 2...)"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Type-specific structured JSON content (markdown text, video URL, mind map branches, or game items)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "published", "archived"],
+      "default": "draft"
+    }
+  },
+  "required": ["lesson_version_id", "block_type", "order_number", "payload"]
+}

@@ -1,0 +1,102 @@
+{
+  "name": "LessonVersion",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "version_number": {
+      "type": "number",
+      "description": "Version number for this snapshot"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "under_review",
+        "published",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Version lifecycle status"
+    },
+    "notes_content": {
+      "type": "string",
+      "description": "Lesson notes content (markdown) for this version"
+    },
+    "video_url": {
+      "type": "string",
+      "description": "YouTube video URL for this version"
+    },
+    "video_script": {
+      "type": "string",
+      "description": "Video narration script"
+    },
+    "voice_script": {
+      "type": "string",
+      "description": "TTS narration script for notes"
+    },
+    "mindmap_data": {
+      "type": "string",
+      "description": "JSON string of mindmap branches for this version"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User ID of the admin/teacher who created this version"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this version was published"
+    },
+    "content_completion_percentage": {
+      "type": "number",
+      "default": 0,
+      "description": "Auto-calculated lesson package completion (0-100)"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "review",
+        "approved",
+        "published",
+        "archived"
+      ],
+      "default": "draft",
+      "description": "Review workflow status for publishing control"
+    },
+    "last_reviewed_by": {
+      "type": "string",
+      "description": "User ID of the admin who last reviewed this version"
+    },
+    "last_reviewed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this version was last reviewed"
+    }
+  },
+  "required": [
+    "lesson_id",
+    "version_number"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

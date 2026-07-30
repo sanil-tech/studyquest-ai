@@ -1,0 +1,62 @@
+{
+  "name": "AIUsageLog",
+  "type": "object",
+  "properties": {
+    "purpose": {
+      "type": "string",
+      "enum": [
+        "content_generation",
+        "student_interaction",
+        "hint",
+        "encouragement",
+        "quiz_analysis",
+        "tutor",
+        "recommendation"
+      ],
+      "description": "What the AI call was for"
+    },
+    "model": {
+      "type": "string",
+      "description": "Which AI model was used (e.g. automatic, gemini_3_flash, claude_sonnet_4_6)"
+    },
+    "tokens_used": {
+      "type": "number",
+      "default": 0,
+      "description": "Estimated token consumption (prompt + response chars / 4)"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "ID of the user who triggered the AI call"
+    },
+    "topic_name": {
+      "type": "string",
+      "description": "Related topic (if applicable)"
+    },
+    "metadata": {
+      "type": "string",
+      "description": "JSON string with additional context (prompt preview, success status, etc.)"
+    }
+  },
+  "required": [
+    "purpose",
+    "tokens_used"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": null,
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

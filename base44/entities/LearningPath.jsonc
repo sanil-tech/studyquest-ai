@@ -1,0 +1,118 @@
+{
+  "name": "LearningPath",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "ID of the BasicDiagnosticSession that generated this path"
+    },
+    "reading_level": {
+      "type": "string",
+      "enum": [
+        "foundation",
+        "developing",
+        "proficient",
+        "advanced"
+      ],
+      "description": "Overall reading readiness level"
+    },
+    "writing_level": {
+      "type": "string",
+      "enum": [
+        "foundation",
+        "developing",
+        "proficient",
+        "advanced"
+      ],
+      "description": "Overall writing readiness level"
+    },
+    "numeracy_level": {
+      "type": "string",
+      "enum": [
+        "foundation",
+        "developing",
+        "proficient",
+        "advanced"
+      ],
+      "description": "Overall numeracy readiness level"
+    },
+    "reading_starting_point": {
+      "type": "string",
+      "description": "Recommended starting mission for reading"
+    },
+    "writing_starting_point": {
+      "type": "string",
+      "description": "Recommended starting mission for writing"
+    },
+    "numeracy_starting_point": {
+      "type": "string",
+      "description": "Recommended starting mission for numeracy"
+    },
+    "recommended_topics": {
+      "type": "string",
+      "description": "JSON array of recommended topics [{subject, topic, reason, priority}]"
+    },
+    "recommended_games": {
+      "type": "string",
+      "description": "JSON array of recommended game types [{game_type, skill, reason}]"
+    },
+    "overall_recommendation": {
+      "type": "string",
+      "description": "Overall learning path summary"
+    }
+  },
+  "required": [
+    "student_id",
+    "session_id"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

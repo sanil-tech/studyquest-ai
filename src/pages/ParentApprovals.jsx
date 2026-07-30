@@ -1,0 +1,330 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { base44 } from "@/api/base44Client";
+import { Check, X, Coins, Clock, Loader2, Sparkles, MessageCircle, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import moment from "moment";
+import { loadChildrenWithStats, getChildDisplayName } from "@/lib/childUtils";
+
+export default function ParentApprovals() {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(null);
+  const [messages, setMessages] = useState({});
+  const { toast } = useToast();
+
+  // Memuatkan data permintaan ganjaran daripada akaun anak-anak yang terpaut
+  const loadData = useCallback(async () => {
+    try {
+      // Load all linked children using the multi-strategy utility
+      const kids = await loadChildrenWithStats();
+
+      if (kids.length > 0) {
+        const requestsArrays = await Promise.all(
+          kids.map(async (child) => {
+            try {
+              const friendlyName = getChildDisplayName(child);
+              const reqs = await base44.entities.RewardRequest.filter({ student_id: child.id }, "-created_date", 20);
+              
+              return reqs.map(r => ({
+                ...r,
+                _student_name: friendlyName
+              }));
+            } catch (err) {
+              console.error(`Mengabaikan pemuatan permintaan bagi ID ${child.id}:`, err);
+              return [];
+            }
+          })
+        );
+        
+        const allReqs = requestsArrays.flat();
+        allReqs.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+        setRequests(allReqs);
+      } else {
+        setRequests([]);
+      }
+    } catch (err) {
+      console.error("Ralat memuatkan log kelulusan:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { 
+    loadData(); 
+  }, [loadData]);
+
+  // Mengendalikan keputusan ibu bapa (lulus atau tolak)
+  const handleDecision = async (req, decision) => {
+    setProcessing(req.id);
+    try {
+      if (decision === "approved") {
+        const wallets = await base44.entities.Wallet.filter({ student_id: req.student_id });
+        if (wallets.length > 0) {
+          const newBalance = Math.max(0, wallets[0].balance - req.coin_cost);
+          await base44.entities.Wallet.update(wallets[0].id, { balance: newBalance });
+        }
+        
+        await base44.entities.Transaction.create({
+          student_id: req.student_id,
+          type: "spend",
+          amount: req.coin_cost,
+          reason: `Ganjaran diluluskan: ${req.reward_title}`,
+          reference_id: req.id,
+        });
+      }
+
+      await base44.entities.RewardRequest.update(req.id, {
+        status: decision,
+        parent_response_message: messages[req.id] || "",
+      });
+
+      await base44.entities.Notification.create({
+        user_id: req.student_id,
+        title: decision === "approved" ? "Ganjaran Diluluskan! 🎉" : "Ganjaran Ditolak 📋",
+        message: decision === "approved"
+          ? `Tuntutan anda untuk "${req.reward_title}" telah diluluskan! ${req.coin_cost} koin telah ditolak.`
+          : `Tuntutan anda untuk "${req.reward_title}" telah ditolak.${messages[req.id] ? ` Nota: ${messages[req.id]}` : ""}`,
+        type: decision === "approved" ? "reward_approved" : "reward_rejected",
+        reference_id: req.id,
+      });
+
+      toast({ 
+        title: decision === "approved" ? "Ganjaran berjaya diberikan! 🎁" : "Tuntutan telah ditolak.",
+        variant: decision === "approved" ? "default" : "destructive"
+      });
+      
+      setMessages(prev => { const copy = { ...prev }; delete copy[req.id]; return copy; });
+      await loadData();
+    } catch (err) {
+      console.error("Ralat pemprosesan transaksi:", err);
+      toast({ 
+        title: "Ralat Transaksi", 
+        description: "Gagal menyimpan keputusan tuntutan.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        <p className="text-sm font-medium text-slate-500 animate-pulse">Menyemak log kelulusan...</p>
+      </div>
+    );
+  }
+
+  const pending = requests.filter(r => r.status === "pending");
+  const approved = requests.filter(r => r.status === "approved");
+  const rejected = requests.filter(r => r.status === "rejected" || r.status === "declined");
+
+  return (
+    <div className="space-y-8 pb-12 max-w-5xl mx-auto px-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 border border-slate-100 p-6 rounded-3xl shadow-xs">
+        <div>
+          <div className="flex items-center gap-1.5 mb-1 text-xs font-bold uppercase tracking-wider text-indigo-600">
+            <Sparkles className="w-3.5 h-3.5 fill-indigo-100" />
+            Pusat Keputusan
+          </div>
+          <h1 className="text-2xl font-black tracking-tight text-slate-800">Kelulusan Ganjaran ✅</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Semak, sahkan, atau beri ulasan pada hadiah yang dituntut oleh profil anak anda.</p>
+        </div>
+        
+        <div className={`px-4 py-2.5 rounded-2xl border font-bold text-sm shrink-0 shadow-xs ${
+          pending.length > 0 ? "bg-amber-50 text-amber-700 border-amber-200/70" : "bg-slate-100 text-slate-500 border-transparent"
+        }`}>
+          Baki {pending.length} Perkara Perlu Tindakan
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-amber-500" /> Menunggu Semakan
+        </h2>
+
+        {pending.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-3xl border border-slate-100 shadow-sm max-w-md mx-auto">
+            <Check className="w-10 h-10 text-emerald-500 bg-emerald-50 p-2 rounded-full mx-auto mb-3" />
+            <h3 className="font-bold text-slate-700">Peti Masuk Kosong Sepenuhnya!</h3>
+            <p className="text-slate-400 text-xs px-6 mt-1">
+              Tiada tuntutan tertangguh yang memerlukan pengesahan anda buat masa ini.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AnimatePresence>
+              {pending.map((req, i) => (
+                <motion.div
+                  key={req.id}
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:border-slate-200 transition-colors relative group"
+                >
+                  <div>
+                    <div className="flex justify-between items-start mb-3 gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 bg-slate-50 px-2.5 py-0.5 rounded-md border border-slate-100">
+                          👤 {req._student_name}
+                        </span>
+                        <h3 className="font-extrabold text-slate-800 text-base leading-tight mt-2 tracking-tight group-hover:text-indigo-600 transition-colors">
+                          {req.reward_title}
+                        </h3>
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-400 shrink-0 bg-slate-50 px-2 py-1 rounded-lg">
+                        {moment(req.created_date).utcOffset("+08:00").fromNow()}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 bg-amber-50/60 border border-amber-100/60 w-fit px-3 py-1 rounded-xl mb-4 shadow-xs">
+                      <Coins className="w-4 h-4 text-amber-500 fill-amber-400/20" />
+                      <span className="font-black text-amber-700 text-xs">{req.coin_cost} Koin Emas Diminta</span>
+                    </div>
+
+                    <div className="space-y-1 mb-4 relative">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                        <MessageCircle className="w-3 h-3 text-slate-400" /> Mesej Catatan (Pilihan)
+                      </label>
+                      <Textarea
+                        placeholder="Syabas anak bijak! / Mari kita kumpul lebih banyak koin dahulu..."
+                        value={messages[req.id] || ""}
+                        onChange={e => setMessages(m => ({ ...m, [req.id]: e.target.value }))}
+                        className="rounded-xl border-slate-200 focus-visible:ring-indigo-500 text-xs py-2 bg-slate-50/40 resize-none font-medium min-h-[60px]"
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5 border-t border-slate-50 pt-3 mt-1">
+                    <Button
+                      onClick={() => handleDecision(req, "approved")}
+                      disabled={processing === req.id}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-xl py-4 border-0 shadow-xs text-xs transition-colors"
+                    >
+                      {processing === req.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5 mr-1 stroke-[3]" />
+                      )}
+                      Luluskan Hadiah
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDecision(req, "rejected")}
+                      disabled={processing === req.id}
+                      className="flex-1 rounded-xl font-bold py-4 border-slate-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50/50 text-xs shadow-xs transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5 mr-1 stroke-[2.5]" /> Tolak Tuntutan
+                    </Button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {approved.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <h2 className="text-md font-extrabold text-emerald-700 flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 bg-emerald-50 rounded-full p-0.5" /> Sejarah Ganjaran Diluluskan
+          </h2>
+          
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {approved.map(req => (
+              <div key={req.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-xs flex flex-col justify-between hover:border-slate-200/80 transition-colors">
+                <div>
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                      👤 {req._student_name}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400 shrink-0">
+                      {moment(req.created_date).utcOffset("+08:00").format("DD MMM, h:mm a")}
+                    </span>
+                  </div>
+                  
+                  <h3 className="font-bold text-slate-800 text-sm leading-tight tracking-tight mb-3">
+                    {req.reward_title}
+                  </h3>
+
+                  {req.parent_response_message && (
+                    <div className="bg-slate-50 rounded-xl p-2 border border-slate-100/60 mb-3">
+                      <p className="text-[11px] text-slate-400 font-medium italic leading-normal">
+                        💬 "{req.parent_response_message}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-50/60 pt-2.5 mt-1">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide flex items-center gap-1 bg-emerald-50/50 px-2 py-0.5 rounded-md border border-emerald-100/30">
+                    <Check className="w-3 h-3 stroke-[3]" /> Diberikan
+                  </span>
+                  <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100/60 text-emerald-600">
+                    <span className="text-xs font-black">-{req.coin_cost}</span>
+                    <Coins className="w-3 h-3 text-amber-500/80" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {rejected.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <h2 className="text-md font-extrabold text-rose-700 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500" /> Rekod Tuntutan Ditolak
+          </h2>
+          
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {rejected.map(req => (
+              <div key={req.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-xs flex flex-col justify-between bg-slate-50/20 hover:border-slate-200/80 transition-colors">
+                <div>
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                      👤 {req._student_name}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400 shrink-0">
+                      {moment(req.created_date).utcOffset("+08:00").format("DD MMM, h:mm a")}
+                    </span>
+                  </div>
+                  
+                  <h3 className="font-bold text-slate-500 text-sm leading-tight tracking-tight mb-3 line-through decoration-slate-300">
+                    {req.reward_title}
+                  </h3>
+
+                  {req.parent_response_message && (
+                    <div className="bg-rose-50/30 rounded-xl p-2 border border-rose-100/40 mb-3">
+                      <p className="text-[11px] text-rose-600/80 font-medium italic leading-normal">
+                        Sebab: "{req.parent_response_message}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-50/60 pt-2.5 mt-1">
+                  <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1 bg-rose-50/50 px-2 py-0.5 rounded-md border border-rose-100/30">
+                    <X className="w-3 h-3 stroke-[3]" /> Ditolak
+                  </span>
+                  <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100/60 text-slate-400 line-through">
+                    <span className="text-xs font-bold">{req.coin_cost}</span>
+                    <Coins className="w-3 h-3 text-slate-300" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

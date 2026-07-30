@@ -1,0 +1,74 @@
+{
+  "name": "CommonMistake",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "mistake": {
+      "type": "string",
+      "description": "Description of the common mistake"
+    },
+    "correction": {
+      "type": "string",
+      "description": "The correct approach or answer"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Explanation of why the correction is right"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion (links to specific content version)"
+    },
+    "mistake_pattern": {
+      "type": "string",
+      "description": "Categorized pattern name for this type of mistake"
+    },
+    "recommended_activity": {
+      "type": "string",
+      "description": "Suggested remediation activity to address this mistake"
+    },
+    "created_source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "ai_generated"
+      ],
+      "default": "manual",
+      "description": "Whether this common mistake was created manually or by AI"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin who approved this common mistake for publishing"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this common mistake was approved"
+    }
+  },
+  "required": [
+    "lesson_id",
+    "mistake"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

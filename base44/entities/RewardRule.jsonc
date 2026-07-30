@@ -1,0 +1,89 @@
+{
+  "name": "RewardRule",
+  "type": "object",
+  "properties": {
+    "rule_name": {
+      "type": "string",
+      "description": "Human-friendly name for this rule"
+    },
+    "activity_type": {
+      "type": "string",
+      "enum": [
+        "lesson_complete",
+        "quiz_practice",
+        "quiz_mastery"
+      ],
+      "description": "Which activity type this rule applies to"
+    },
+    "base_xp": {
+      "type": "number",
+      "description": "Base XP for this activity"
+    },
+    "base_coins": {
+      "type": "number",
+      "default": 0,
+      "description": "Base coins awarded on first completion"
+    },
+    "first_completion_multiplier": {
+      "type": "number",
+      "default": 1.5,
+      "description": "XP multiplier for first completion (e.g. 1.5 = 150% of base)"
+    },
+    "first_completion_coins": {
+      "type": "number",
+      "default": 0,
+      "description": "Bonus coins for first completion only"
+    },
+    "diminishing_tiers": {
+      "type": "string",
+      "description": "JSON array of multipliers for repeat attempts, e.g. [1.0, 0.5, 0.25, 0.1, 0.05]"
+    },
+    "mastery_threshold": {
+      "type": "number",
+      "default": 80,
+      "description": "Score percentage needed to earn mastery coin bonus"
+    },
+    "mastery_coin_bonus": {
+      "type": "number",
+      "default": 0,
+      "description": "Coins awarded when mastery threshold is met"
+    },
+    "improvement_bonus_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "XP bonus per point of score improvement over previous best"
+    },
+    "daily_xp_cap": {
+      "type": "number",
+      "default": 350,
+      "description": "Maximum XP a student can earn per day"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this rule is currently active"
+    }
+  },
+  "required": [
+    "rule_name",
+    "activity_type"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

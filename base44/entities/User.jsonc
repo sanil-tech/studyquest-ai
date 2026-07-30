@@ -1,0 +1,161 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "app_role": {
+      "type": "string",
+      "enum": [
+        "student",
+        "parent",
+        "teacher",
+        "admin"
+      ]
+    },
+    "nickname": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "child_login_pin": {
+      "type": "string"
+    },
+    "pin_hash": {
+      "type": "string"
+    },
+    "student_id": {
+      "type": "string"
+    },
+    "education_level": {
+      "type": "string",
+      "description": "Tahap persekolahan pelajar cth. Tahun 1, Tahun 2, Tingkatan 1, Tingkatan 2"
+    },
+    "school_year": {
+      "type": "string"
+    },
+    "school_name": {
+      "type": "string"
+    },
+    "class_name": {
+      "type": "string",
+      "description": "Nama kelas pelajar cth. 1A, 3B"
+    },
+    "state": {
+      "type": "string",
+      "description": "Negeri di Malaysia cth. Selangor, Johor, Pulau Pinang"
+    },
+    "district": {
+      "type": "string",
+      "description": "Kawasan/Daerah cth. Petaling, Gombak, Johor Bahru"
+    },
+    "country": {
+      "type": "string",
+      "default": "Malaysia"
+    },
+    "gender": {
+      "type": "string"
+    },
+    "date_of_birth": {
+      "type": "string"
+    },
+    "selected_avatar": {
+      "type": "string"
+    },
+    "avatar_emoji": {
+      "type": "string"
+    },
+    "profile_picture_url": {
+      "type": "string"
+    },
+    "selected_creature": {
+      "type": "string",
+      "description": "ID of the student's chosen creature companion (otan, pyro, aqua)",
+      "default": "otan"
+    },
+    "owned_avatar_items": {
+      "type": "string",
+      "description": "JSON array of owned avatar item IDs from the shop"
+    },
+    "equipped_avatar_items": {
+      "type": "string",
+      "description": "JSON object mapping slot to item ID for equipped avatar items"
+    },
+    "preferred_language": {
+      "type": "string",
+      "default": "ms"
+    },
+    "interests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "linked_student_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of child user IDs linked to a parent"
+    },
+    "linked_parent_id": {
+      "type": "string",
+      "description": "User ID of the parent account"
+    },
+    "is_child_account": {
+      "type": "boolean",
+      "default": false
+    },
+    "profile_completed": {
+      "type": "boolean",
+      "default": true
+    },
+    "pin_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "login_method": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "default": "active"
+    },
+    "subscription_tier": {
+      "type": "string",
+      "enum": [
+        "free",
+        "premium"
+      ],
+      "default": "free",
+      "description": "Parent subscription tier \u2014 premium unlocks Suku AI Learning Insights"
+    },
+    "premium_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When temporary premium access expires (null = permanent if premium)"
+    },
+    "diagnostic_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed"
+      ],
+      "default": "not_started",
+      "description": "Status penilaian diagnostik 3M anak \u2014 not_started, in_progress, atau completed"
+    },
+    "diagnostic_recommended_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Tarikh di mana penilaian diagnostik dicadangkan kepada ibu bapa"
+    },
+    "diagnostic_completed_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Tarikh anak menyelesaikan penilaian diagnostik 3M"
+    }
+  },
+  "required": [
+    "app_role"
+  ]
+}

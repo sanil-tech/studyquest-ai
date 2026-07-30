@@ -1,0 +1,104 @@
+{
+  "name": "LinkRequest",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "Database ID or student code of the student"
+    },
+    "student_name": {
+      "type": "string",
+      "description": "Display name of the student"
+    },
+    "student_username": {
+      "type": "string",
+      "description": "Username of the student"
+    },
+    "student_email": {
+      "type": "string",
+      "description": "Email address of the student"
+    },
+    "parent_id": {
+      "type": "string",
+      "description": "Database ID of the parent"
+    },
+    "parent_email": {
+      "type": "string",
+      "description": "Email address of the parent"
+    },
+    "parent_name": {
+      "type": "string",
+      "description": "Display name of the parent"
+    },
+    "initiated_by": {
+      "type": "string",
+      "enum": ["parent", "student"],
+      "default": "parent"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "approved", "rejected", "cancelled"],
+      "default": "pending"
+    },
+    "student_profile": {
+      "type": "object",
+      "description": "Embedded snapshot of the student's profile details",
+      "properties": {
+        "full_name": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "education_level": {
+          "type": "string",
+          "description": "School grade e.g. Standard 1, Form 2"
+        },
+        "selected_avatar": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "student_id": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "student_id",
+    "parent_id",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        { "data.parent_id": "{{user.id}}" },
+        { "data.student_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "read": {
+      "$or": [
+        { "data.parent_id": "{{user.id}}" },
+        { "data.student_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "update": {
+      "$or": [
+        { "data.parent_id": "{{user.id}}" },
+        { "data.student_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    },
+    "delete": {
+      "$or": [
+        { "data.parent_id": "{{user.id}}" },
+        { "data.student_id": "{{user.id}}" },
+        { "user_condition": { "role": "admin" } }
+      ]
+    }
+  }
+}

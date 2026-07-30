@@ -1,0 +1,100 @@
+{
+  "name": "LessonContent",
+  "type": "object",
+  "properties": {
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the parent LessonVersion"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "notes",
+        "video",
+        "infographic",
+        "mindmap",
+        "audio",
+        "worksheet"
+      ],
+      "description": "Type of learning material"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of this content resource"
+    },
+    "content_markdown": {
+      "type": "string",
+      "description": "Markdown content for notes/worksheets"
+    },
+    "media_url": {
+      "type": "string",
+      "description": "URL for video/audio/infographic"
+    },
+    "voice_script": {
+      "type": "string",
+      "description": "TTS narration script"
+    },
+    "voice_audio_url": {
+      "type": "string",
+      "description": "Generated TTS audio file URL"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "Display ordering"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User ID of admin/teacher who created this content"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published"
+      ],
+      "default": "draft",
+      "description": "Content lifecycle status"
+    },
+    "created_source": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "ai_generated"
+      ],
+      "default": "manual",
+      "description": "Whether this content was created manually or by AI"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "User ID of admin who approved this content for publishing"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this content was approved"
+    }
+  },
+  "required": [
+    "lesson_version_id",
+    "content_type"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

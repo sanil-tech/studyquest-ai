@@ -1,0 +1,110 @@
+{
+  "name": "ActivityLog",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "activity_type": {
+      "type": "string",
+      "enum": [
+        "lesson_complete",
+        "quiz_practice",
+        "quiz_mastery",
+        "game_complete",
+        "streak_milestone"
+      ],
+      "description": "Type of learning activity"
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "Topic ID, Quiz ID, Game ID, or milestone key (e.g. streak_7)"
+    },
+    "reference_name": {
+      "type": "string",
+      "description": "Display name of the activity"
+    },
+    "subject_name": {
+      "type": "string"
+    },
+    "score": {
+      "type": "number",
+      "description": "Quiz or game score 0-100 if applicable"
+    },
+    "xp_earned": {
+      "type": "number",
+      "default": 0
+    },
+    "coins_earned": {
+      "type": "number",
+      "default": 0
+    },
+    "reward_tier": {
+      "type": "number",
+      "description": "Which reward tier was applied (1=highest, 5+=lowest)"
+    },
+    "is_first_completion": {
+      "type": "boolean",
+      "default": false
+    },
+    "completion_number": {
+      "type": "number",
+      "description": "How many times this student has completed this specific activity (1-based)"
+    },
+    "flagged": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this activity was flagged as unusual (e.g. 5+ repeats)"
+    },
+    "flag_reason": {
+      "type": "string",
+      "description": "Reason for flagging if flagged"
+    }
+  },
+  "required": [
+    "student_id",
+    "activity_type"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

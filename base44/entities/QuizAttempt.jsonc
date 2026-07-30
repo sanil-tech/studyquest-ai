@@ -1,0 +1,126 @@
+{
+  "name": "QuizAttempt",
+  "type": "object",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "ID of the student"
+    },
+    "quiz_id": {
+      "type": "string",
+      "description": "ID of the quiz (kept for backward compatibility)"
+    },
+    "topic_name": {
+      "type": "string"
+    },
+    "subject_name": {
+      "type": "string"
+    },
+    "answers_json": {
+      "type": "string",
+      "description": "JSON string of student answers"
+    },
+    "score": {
+      "type": "number",
+      "description": "Score percentage 0-100"
+    },
+    "coins_earned": {
+      "type": "number",
+      "description": "Coins earned from this attempt"
+    },
+    "xp_earned": {
+      "type": "number",
+      "description": "XP earned from this attempt",
+      "default": 0
+    },
+    "feedback_text": {
+      "type": "string",
+      "description": "AI feedback on performance"
+    },
+    "quiz_type": {
+      "type": "string",
+      "enum": [
+        "practice",
+        "mastery"
+      ],
+      "default": "practice",
+      "description": "The quiz mode this attempt was taken in"
+    },
+    "analysis_json": {
+      "type": "string",
+      "description": "JSON string of AI analysis (mastery level, strengths, improvements, wrong answer review, learning path)"
+    },
+    "assessment_id": {
+      "type": "string",
+      "description": "ID of the Assessment this attempt belongs to (new Phase 2)"
+    },
+    "lesson_version_id": {
+      "type": "string",
+      "description": "ID of the LessonVersion studied (for reporting accuracy)"
+    },
+    "mistakes_json": {
+      "type": "string",
+      "description": "JSON string of detailed wrong-answer breakdown"
+    },
+    "ai_feedback": {
+      "type": "string",
+      "description": "AI-generated mastery feedback"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the attempt was started"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the attempt was completed"
+    }
+  },
+  "required": [
+    "student_id",
+    "quiz_id",
+    "score"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "data.student_id": {
+            "$in": "{{user.data.linked_student_ids}}"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "data.student_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

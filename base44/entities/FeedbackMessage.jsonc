@@ -1,0 +1,47 @@
+{
+  "name": "FeedbackMessage",
+  "type": "object",
+  "properties": {
+    "lesson_id": {
+      "type": "string",
+      "description": "ID of the parent Lesson"
+    },
+    "feedback_type": {
+      "type": "string",
+      "enum": [
+        "correct",
+        "incorrect",
+        "hint",
+        "encouragement"
+      ],
+      "description": "Type of feedback message"
+    },
+    "message": {
+      "type": "string",
+      "description": "The feedback message text in Bahasa Melayu"
+    }
+  },
+  "required": [
+    "lesson_id",
+    "feedback_type",
+    "message"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

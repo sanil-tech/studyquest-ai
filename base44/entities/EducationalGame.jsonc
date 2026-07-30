@@ -1,0 +1,114 @@
+{
+  "name": "EducationalGame",
+  "type": "object",
+  "properties": {
+    "game_name": {
+      "type": "string",
+      "description": "Display name of the game"
+    },
+    "game_type": {
+      "type": "string",
+      "enum": [
+        "matching",
+        "memory",
+        "sorting",
+        "word_builder",
+        "sequence",
+        "time_challenge",
+        "simulation",
+        "puzzle",
+        "adventure"
+      ],
+      "default": "matching",
+      "description": "Type of educational game"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Subject name"
+    },
+    "form_level": {
+      "type": "string",
+      "enum": [
+        "Semua Tahap",
+        "Tahun 1",
+        "Tahun 2",
+        "Tahun 3",
+        "Tahun 4",
+        "Tahun 5",
+        "Tahun 6",
+        "Tingkatan 1",
+        "Tingkatan 2",
+        "Tingkatan 3",
+        "Tingkatan 4",
+        "Tingkatan 5"
+      ],
+      "default": "Semua Tahap",
+      "description": "Tahap persekolahan Malaysia \u2014 Tahun 1-6 (sekolah rendah) atau Tingkatan 1-5 (sekolah menengah)"
+    },
+    "topic_id": {
+      "type": "string",
+      "description": "ID of the topic this game belongs to (optional \u2014 if empty, applies to subject level)"
+    },
+    "topic_name": {
+      "type": "string",
+      "description": "Topic name for display"
+    },
+    "skill": {
+      "type": "string",
+      "description": "Skill being tested (e.g. vocabulary, addition, classification)"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "default": "easy"
+    },
+    "instructions": {
+      "type": "string",
+      "description": "Child-friendly instructions in Bahasa Melayu"
+    },
+    "game_data": {
+      "type": "string",
+      "description": "JSON string of game content (pairs, items, words, etc.) \u2014 format depends on game_type"
+    },
+    "reward_xp": {
+      "type": "number",
+      "default": 20,
+      "description": "XP awarded on first completion"
+    },
+    "reward_coins": {
+      "type": "number",
+      "default": 5,
+      "description": "Coins awarded on first completion"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "game_name",
+    "game_type"
+  ],
+  "rls": {
+    "read": true,
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
