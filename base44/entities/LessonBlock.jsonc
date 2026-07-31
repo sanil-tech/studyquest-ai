@@ -1,5 +1,6 @@
 {
   "name": "LessonBlock",
+  "type": "object",
   "description": "Flexible, ordered content block belonging to a LessonVersion",
   "properties": {
     "id": {

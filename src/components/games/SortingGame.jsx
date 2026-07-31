@@ -1,7 +1,6 @@
 // src/components/games/SortingGame.jsx
 // Sort items into categories by tapping.
 import React, { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 
 const safeJsonParse = (str, fallback = {}) => {

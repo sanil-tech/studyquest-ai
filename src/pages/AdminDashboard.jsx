@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import {
-  BookOpen, Edit3, FileText, Crown, Loader2, LogOut, Users, Brain, ClipboardList, TrendingUp, Plus, ArrowRight, Sparkles
+  BookOpen, Edit3, FileText, Crown, Loader2, LogOut, Brain, ClipboardList, TrendingUp, Plus, ArrowRight, Sparkles
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 

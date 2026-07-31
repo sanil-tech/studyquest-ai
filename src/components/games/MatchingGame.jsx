@@ -1,7 +1,6 @@
 // src/components/games/MatchingGame.jsx
 // Tap-to-match game: students match pairs from two columns.
 import React, { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 
 const safeJsonParse = (str, fallback = {}) => {

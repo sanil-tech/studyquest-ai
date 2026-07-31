@@ -20,7 +20,7 @@ export default async function(req: Request): Promise<Response> {
       db.entities.User.get(studentId).catch(() => null),
       db.entities.Progress.filter({ student_id: studentId }).catch(() => []),
       db.entities.Wallet.filter({ student_id: studentId }).catch(() => []),
-      db.entities.Transaction.filter({ student_id: studentId }, "-created_date", 50).catch(() => []),
+      db.entities.CoinTransaction.filter({ student_id: studentId }, "-created_date", 50).catch(() => []),
       db.entities.QuizAttempt.filter({ student_id: studentId }, "-created_date", 50).catch(() => []),
       db.entities.RewardRequest.filter({ student_id: studentId }, "-created_date", 20).catch(() => []),
       db.entities.ParentChildRelationship.filter({ child_id: studentId, status: "active" }).catch(() => []),

@@ -1,0 +1,74 @@
+{
+  "name": "LearningRecommendation",
+  "type": "object",
+  "description": "AI-generated adaptive learning recommendation based on student mastery & DSKP standards",
+  "properties": {
+    "student_id": {
+      "type": "string",
+      "description": "Student identifier"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Subject name or module (e.g., Bahasa Melayu, Matematik, Sains)"
+    },
+    "learning_standard_id": {
+      "type": "string",
+      "description": "KSSR/KSSM Standard Pembelajaran code or skill tag"
+    },
+    "recommendation_type": {
+      "type": "string",
+      "enum": ["remediation", "reinforcement", "challenge"],
+      "description": "Adaptive tier: remediation (<70%), reinforcement (70-84%), challenge (>=85%)"
+    },
+    "mastery_before": {
+      "type": "number",
+      "description": "EWMA mastery score percentage before recommendation (0-100)"
+    },
+    "tp_before": {
+      "type": "number",
+      "description": "Calculated Tahap Penguasaan level before recommendation (1-6)"
+    },
+    "diagnosis": {
+      "type": "string",
+      "description": "AI learning diagnosis identifying specific conceptual gaps or strengths"
+    },
+    "recommended_action": {
+      "type": "string",
+      "description": "High-level summary action for the student or parent"
+    },
+    "suggested_blocks_json": {
+      "type": "string",
+      "description": "JSON string containing recommended lesson blocks or exercises"
+    },
+    "practice_plan": {
+      "type": "string",
+      "description": "Step-by-step practice strategy aligned with DSKP"
+    },
+    "motivation_message": {
+      "type": "string",
+      "description": "Encouraging, child-friendly learning companion message"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "completed", "dismissed", "expired"],
+      "default": "active",
+      "description": "Recommendation status"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "student_id",
+    "subject",
+    "learning_standard_id",
+    "recommendation_type",
+    "diagnosis",
+    "recommended_action"
+  ]
+}

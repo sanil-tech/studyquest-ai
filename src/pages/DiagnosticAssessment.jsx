@@ -17,7 +17,7 @@ import {
   calculateModuleResult,
 } from "@/lib/adaptiveDiagnostic";
 import DiagnosticQuestion from "@/components/diagnostic/DiagnosticQuestion";
-import { Loader2, CheckCircle2, Trophy, X, ChevronRight, PartyPopper, Search, Brain } from "lucide-react";
+import { Loader2, Trophy, X, ChevronRight, PartyPopper, Search, Brain } from "lucide-react";
 import confetti from "canvas-confetti";
 import { saveDiagnosticSession, getDiagnosticSession, clearDiagnosticSession } from "@/lib/sessionCache";
 

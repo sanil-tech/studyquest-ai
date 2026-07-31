@@ -2,7 +2,7 @@
 // Multi-step adventure mission — progress through a story with varied challenges.
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, XCircle, MapPin, ArrowRight } from "lucide-react";
+import { CheckCircle2, XCircle, MapPin } from "lucide-react";
 
 const safeJsonParse = (str, fallback = {}) => {
   if (!str) return fallback;

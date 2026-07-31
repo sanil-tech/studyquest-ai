@@ -9,17 +9,15 @@ import GameRouter from "@/components/games/GameRouter";
 import {
   ArrowLeft,
   Gamepad2,
-  Trophy,
   Star,
   Loader2,
   CheckCircle2,
   Coins,
   Sparkles,
-  X,
   RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import confetti from "canvas-confetti";
 
 const GAME_ICONS = {

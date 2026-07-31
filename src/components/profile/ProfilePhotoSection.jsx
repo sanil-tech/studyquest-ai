@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Image as ImageIcon, Sparkles, Check } from "lucide-react";
+import { Image as ImageIcon, Sparkles, Check } from "lucide-react";
 
 // ============================================================
 // DATA UTAMA: 30 PILIHAN AVATAR 2D PREMIUM (100% KALIS PECAH)

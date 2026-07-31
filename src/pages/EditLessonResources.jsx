@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { 
-  BookOpen, Video, Image, HelpCircle, Plus, Trash2, Save, Sparkles, AlertCircle, ShieldAlert, Loader2, Edit3, Search
+  BookOpen, Video, Image, HelpCircle, Plus, Trash2, Save, AlertCircle, ShieldAlert, Loader2, Edit3, Search
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, AlertCircle, XCircle, FileText, Layers, HelpCircle, Gamepad2, BookOpen } from "lucide-react";
+import { CheckCircle2, AlertCircle, FileText, Layers, HelpCircle, Gamepad2, BookOpen } from "lucide-react";
 
 const ICONS = {
   notes: FileText,

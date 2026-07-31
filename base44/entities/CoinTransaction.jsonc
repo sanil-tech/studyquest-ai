@@ -1,43 +1,36 @@
 {
-  "name": "Transaction",
+  "name": "CoinTransaction",
   "type": "object",
-  "description": "Record of XP and Coin rewards earned or spent by a student",
   "properties": {
     "student_id": {
       "type": "string",
-      "description": "Student identifier"
+      "description": "ID of the student"
     },
     "type": {
       "type": "string",
-      "enum": ["earn", "spend"],
-      "description": "Transaction type: earn or spend"
+      "enum": [
+        "earn",
+        "spend"
+      ],
+      "description": "Transaction type"
     },
-    "amount_xp": {
+    "amount": {
       "type": "number",
-      "default": 0,
-      "description": "XP amount added or subtracted"
-    },
-    "amount_coins": {
-      "type": "number",
-      "default": 0,
-      "description": "Coins amount added or subtracted"
+      "description": "Coin amount"
     },
     "reason": {
       "type": "string",
-      "description": "Reason for transaction (e.g., Quiz completed, Avatar item purchase)"
+      "description": "Reason for transaction"
     },
     "reference_id": {
       "type": "string",
-      "description": "Optional reference ID (quiz_attempt_id, item_id, etc.)"
-    },
-    "created_at": {
-      "type": "string",
-      "format": "date-time"
+      "description": "Related quiz attempt or reward request ID"
     }
   },
   "required": [
     "student_id",
     "type",
+    "amount",
     "reason"
   ],
   "rls": {

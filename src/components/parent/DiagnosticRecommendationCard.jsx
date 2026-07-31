@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Compass, Clock, ChevronRight, CheckCircle2, BookOpen, Pencil, Calculator } from "lucide-react";
+import { Compass, Clock, CheckCircle2, BookOpen, Pencil, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**

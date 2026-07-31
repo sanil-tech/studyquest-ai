@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { useStudentData } from "@/hooks/useStudentData";
-import { getMasteryEmoji, getMasteryLabel, DIAGNOSTIC_MODULES_META } from "@/lib/diagnosticQuestionBank";
+import { DIAGNOSTIC_MODULES_META } from "@/lib/diagnosticQuestionBank";
 import FoundationProfile from "@/components/diagnostic/FoundationProfile";
 import { Loader2, Sparkles, Target, Lightbulb, Heart, Rocket, CheckCircle, AlertCircle, Gamepad2, Map as MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";

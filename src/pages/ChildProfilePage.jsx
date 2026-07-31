@@ -3,13 +3,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
-  ArrowLeft, Key, Trophy, Coins, Sparkles, Check, Loader2 
+  ArrowLeft, Key, Sparkles, Check, Loader2 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import ProfilePhotoSection from "@/components/profile/ProfilePhotoSection";
 import ProfileForm from "@/components/profile/ProfileForm";
 import StudentIdSection from "@/components/profile/StudentIdSection";
 import ChildCredentialManager from "@/components/parent/ChildCredentialManager";

@@ -1,16 +1,12 @@
 // src/pages/WalletPage.jsx
-import React, { useState, useEffect, useCallback } from "react";
-import { base44 } from "@/api/base44Client";
+import React, { useState, useEffect } from "react";
 import { 
   Coins, 
   ArrowUpRight, 
   ArrowDownRight, 
   Clock, 
   Sparkles, 
-  TrendingUp, 
-  Gift, 
-  Loader2,
-  ShieldCheck
+  TrendingUp
 } from "lucide-react";
 import { motion } from "framer-motion";
 import moment from "moment";

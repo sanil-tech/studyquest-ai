@@ -61,7 +61,7 @@ export const awardCoinsAndXP = async (studentId, { coins = 0, xp = 0, reason = "
         }
 
         // Merekodkan transaksi kewangan (only if coins > 0)
-        await base44.entities.Transaction.create({
+        await base44.entities.CoinTransaction.create({
           student_id: studentId,
           type: "earn",
           amount: coins,

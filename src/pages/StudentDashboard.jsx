@@ -18,6 +18,7 @@ import moment from "moment";
 import MissionCard from "@/components/student/MissionCard";
 import AvatarEvolutionCard from "@/components/student/AvatarEvolutionCard";
 import RecommendationCard from "@/components/student/RecommendationCard";
+import KSSRMasteryMap from "@/components/student/KSSRMasteryMap";
 import AvatarShop from "@/components/student/AvatarShop";
 import { parseOwnedItems, parseEquippedItems } from "@/lib/avatarSystem";
 import { useViewMode } from "@/lib/ViewModeContext";
@@ -41,6 +42,9 @@ export default function StudentDashboard() {
     creatureId: "otan",
     ownedItems: [],
     equippedItems: {},
+    skillProfiles: [],
+    kssrSummary: {},
+    activeRecommendation: null,
   });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -65,10 +69,39 @@ export default function StudentDashboard() {
       let quizzes = [];
       let pendingRequests = [];
       let diagnosticSession = null;
+      let skillProfiles = [];
+      let kssrSummary = {};
+      let activeRecommendation = null;
 
+      const targetStudentId = activeChildId || currentUser.id;
+
+      // 1. Fetch Aggregated Package
+      let pkgSuccess = false;
+      try {
+        const pkgRes = await base44.functions.invoke("getStudentDashboardPackage", {
+          student_id: targetStudentId,
+        });
+
+        if (pkgRes.data?.success) {
+          pkgSuccess = true;
+          progress = pkgRes.data.progress || progress;
+          wallet = pkgRes.data.wallet || wallet;
+          skillProfiles = pkgRes.data.skillProfiles || [];
+          kssrSummary = pkgRes.data.kssrSummary || {};
+          activeRecommendation = pkgRes.data.activeRecommendation || null;
+          quizzes = pkgRes.data.quizAttempts || [];
+          sessions = pkgRes.data.studySessions || [];
+          if (pkgRes.data.user) {
+            studentUser = { ...studentUser, ...pkgRes.data.user };
+          }
+        }
+      } catch (err) {
+        console.warn("getStudentDashboardPackage fallback:", err);
+      }
+
+      // 2. Fetch Parent Child details or Child Dashboard Fallback if needed
       if (activeChildId) {
         let matchedChild = null;
-
         try {
           const res = await base44.functions.invoke("fetchParentChildren");
           if (res.data?.success && Array.isArray(res.data?.children)) {
@@ -78,13 +111,6 @@ export default function StudentDashboard() {
           console.warn("Error calling fetchParentChildren:", e);
         }
 
-        if (!matchedChild) {
-          const localChildStr = localStorage.getItem("active_child");
-          if (localChildStr) {
-            try { matchedChild = JSON.parse(localChildStr); } catch (e) {}
-          }
-        }
-
         if (matchedChild) {
           studentUser = {
             id: matchedChild.id,
@@ -92,48 +118,31 @@ export default function StudentDashboard() {
             full_name: matchedChild.full_name || matchedChild.nickname,
             username: matchedChild.username,
             selected_avatar: matchedChild.selected_avatar || "🦧",
-            app_role: "student"
+            app_role: "student",
           };
-          progress = matchedChild.realProgress || progress;
-          wallet = matchedChild.wallet || wallet;
-          sessions = matchedChild.allSessions || [];
-          quizzes = matchedChild.allAttempts || [];
-        } else {
-          const storedName = localStorage.getItem("active_student_name") || "Penjelajah";
-          studentUser = { id: activeChildId, nickname: storedName, full_name: storedName, app_role: "student" };
-
-          const results = await Promise.allSettled([
-            base44.entities.Progress.filter({ student_id: activeChildId }),
-            base44.entities.Wallet.filter({ student_id: activeChildId }),
-            base44.entities.StudySession.filter({ student_id: activeChildId }, "-created_date", 10),
-            base44.entities.QuizAttempt.filter({ student_id: activeChildId }, "-created_date", 10),
-          ]);
-
-          if (results[0].status === "fulfilled" && results[0].value?.[0]) progress = results[0].value[0];
-          if (results[1].status === "fulfilled" && results[1].value?.[0]) wallet = results[1].value[0];
-          if (results[2].status === "fulfilled" && results[2].value) sessions = results[2].value;
-          if (results[3].status === "fulfilled" && results[3].value) quizzes = results[3].value;
         }
+      }
 
-      } else {
-        // Direct child login: use backend function with service role (bypasses RLS)
-        const studentId = currentUser.id;
-        studentUser = currentUser;
-
-        const res = await base44.functions.invoke("fetchChildDashboard", {
-          student_id: studentId,
-        });
-
-        if (res.data?.success) {
-          progress = res.data.progress || progress;
-          wallet = res.data.wallet || wallet;
-          sessions = res.data.sessions || sessions;
-          quizzes = res.data.quizzes || quizzes;
-          pendingRequests = res.data.pendingRequests || [];
-          diagnosticSession = res.data.diagnosticSession || null;
-          if (res.data.user?.nickname) {
-            studentUser = { ...studentUser, ...res.data.user };
+      // If pkgSuccess is false or additional child info needed, use fetchChildDashboard
+      if (!pkgSuccess) {
+        try {
+          const childRes = await base44.functions.invoke("fetchChildDashboard", {
+            student_id: targetStudentId,
+          });
+          if (childRes.data?.success) {
+            progress = childRes.data.progress || progress;
+            wallet = childRes.data.wallet || wallet;
+            sessions = childRes.data.sessions || sessions;
+            quizzes = childRes.data.quizzes || quizzes;
+            pendingRequests = childRes.data.pendingRequests || [];
+            diagnosticSession = childRes.data.diagnosticSession || null;
+            skillProfiles = childRes.data.skillProfiles || skillProfiles;
+            if (childRes.data.user) {
+              studentUser = { ...studentUser, ...childRes.data.user };
+            }
           }
+        } catch (e) {
+          console.warn("Error calling fetchChildDashboard:", e);
         }
       }
 
@@ -153,6 +162,9 @@ export default function StudentDashboard() {
         creatureId,
         ownedItems,
         equippedItems,
+        skillProfiles,
+        kssrSummary,
+        activeRecommendation,
       });
 
     } catch (err) {
@@ -291,7 +303,22 @@ export default function StudentDashboard() {
     );
   }
 
-  const { user, progress, wallet, sessions, quizzes, pendingRequests, activeChildId, diagnosticSession, creatureId, ownedItems, equippedItems } = dashboardState;
+  const {
+    user,
+    progress,
+    wallet,
+    sessions,
+    quizzes,
+    pendingRequests,
+    activeChildId,
+    diagnosticSession,
+    creatureId,
+    ownedItems,
+    equippedItems,
+    skillProfiles,
+    kssrSummary,
+    activeRecommendation,
+  } = dashboardState;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-lime-50 via-emerald-50 to-teal-50 font-sans pb-24 text-stone-800 selection:bg-lime-200">
@@ -452,9 +479,16 @@ export default function StudentDashboard() {
 
         {/* ═══ 7. AI RECOMMENDATION ═══ */}
         <RecommendationCard
+          initialRecommendation={activeRecommendation}
           user={user}
-          sessions={sessions}
-          quizzes={quizzes}
+          onRefresh={loadDashboardData}
+        />
+
+        {/* ═══ 7b. RPG-STYLE KSSR / KSSM MASTERY MAP ═══ */}
+        <KSSRMasteryMap
+          skillProfiles={skillProfiles}
+          summary={kssrSummary}
+          onSelectStandard={(standard, subject) => navigate(`/lessons?subject=${encodeURIComponent(subject)}`)}
         />
 
         {/* ═══ 8. ADVENTURE JOURNAL — Recent activity ═══ */}

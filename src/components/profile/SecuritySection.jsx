@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Lock, Bell, Eye, EyeOff } from "lucide-react";
+import { Lock, Eye, EyeOff } from "lucide-react";
 
 export default function SecuritySection({ editing, formData, setFormData, onSavePassword }) {
   const [showCurrent, setShowCurrent] = React.useState(false);

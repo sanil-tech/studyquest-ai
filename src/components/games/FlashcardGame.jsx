@@ -1,8 +1,8 @@
 // src/components/games/FlashcardGame.jsx
 // Flashcard review game — flip cards, review all, earn completion reward.
 import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Volume2, CheckCircle2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const safeJsonParse = (str, fallback = {}) => {
   if (!str) return fallback;

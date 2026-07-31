@@ -2,20 +2,17 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { 
-  Users, Flame, Target, Clock, Coins, CheckCircle2, Award, BookOpen, 
-  HelpCircle, BarChart3, Calendar, Zap, Sparkles, Brain, Loader2, 
-  Eye, EyeOff, Edit3, Trash2, Key, GraduationCap, UserCheck, ChevronRight, UserPlus, UserMinus
+  Users, Flame, Clock, Coins, BarChart3, Zap, Loader2, 
+  Eye, EyeOff, Edit3, Trash2, Key, GraduationCap, UserCheck, UserPlus, UserMinus
 } from "lucide-react";
 import moment from "moment";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress as ProgressBar } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,

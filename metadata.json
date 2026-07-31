@@ -1,0 +1,6 @@
+{
+  "name": "StudyQuest AI",
+  "description": "Learn, Quiz, Earn - Educational platform with gamified learning, diagnostic sessions, and parent dashboard",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

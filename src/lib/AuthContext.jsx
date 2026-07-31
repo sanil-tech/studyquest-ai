@@ -23,60 +23,52 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
       
-      const appClient = createAxiosClient({
-        baseURL: `/api/apps/public`,
-        headers: {
-          'X-App-Id': appParams.appId
-        },
-        token: appParams.token,
-        interceptResponses: true
-      });
-      
-      try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
-        setAppPublicSettings(publicSettings);
-        
-        const hasChildSession = localStorage.getItem('studyquest_session');
-        if (appParams.token || hasChildSession) {
-          await checkUserAuth();
-        } else {
-          setIsLoadingAuth(false);
-          setIsAuthenticated(false);
-          setAuthChecked(true);
-        }
-        setIsLoadingPublicSettings(false);
-      } catch (appError) {
-        console.error('App state check failed:', appError);
-        
-        // 💡 DIBAIKI: Mengeluarkan teks mesej terselamat daripada ralat objek
-        const fallbackMsg = appError.message ? String(appError.message) : 'Failed to load app';
-        
-        if (appError.status === 403 && appError.data?.extra_data?.reason) {
-          const reason = appError.data.extra_data.reason;
-          if (reason === 'auth_required') {
-            setAuthError({ type: 'auth_required', message: 'Authentication required' });
-          } else if (reason === 'user_not_registered') {
-            setAuthError({ type: 'user_not_registered', message: 'User not registered for this app' });
-          } else {
-            setAuthError({ type: String(reason), message: fallbackMsg });
-          }
-        } else {
-          setAuthError({
-            type: 'unknown',
-            message: fallbackMsg
+      let publicSettings = null;
+      if (appParams.appId) {
+        try {
+          const appClient = createAxiosClient({
+            baseURL: `/api/apps/public`,
+            headers: {
+              'X-App-Id': appParams.appId
+            },
+            token: appParams.token,
+            interceptResponses: true
           });
+          publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+        } catch (appError) {
+          console.warn('Public settings unavailable or non-critical error:', appError);
+          if (appError.status === 403 && appError.data?.extra_data?.reason) {
+            const reason = appError.data.extra_data.reason;
+            if (reason === 'auth_required') {
+              setAuthError({ type: 'auth_required', message: 'Authentication required' });
+              setIsLoadingPublicSettings(false);
+              setIsLoadingAuth(false);
+              return;
+            } else if (reason === 'user_not_registered') {
+              setAuthError({ type: 'user_not_registered', message: 'User not registered for this app' });
+              setIsLoadingPublicSettings(false);
+              setIsLoadingAuth(false);
+              return;
+            }
+          }
         }
-        setIsLoadingPublicSettings(false);
-        setIsLoadingAuth(false);
       }
+      setAppPublicSettings(publicSettings);
+
+      const hasChildSession = localStorage.getItem('studyquest_session');
+      if (appParams.token || hasChildSession) {
+        await checkUserAuth();
+      } else {
+        setIsLoadingAuth(false);
+        setIsAuthenticated(false);
+        setAuthChecked(true);
+      }
+      setIsLoadingPublicSettings(false);
     } catch (error) {
-      console.error('Unexpected error:', error);
-      setAuthError({
-        type: 'unknown',
-        message: error.message ? String(error.message) : 'An unexpected error occurred'
-      });
+      console.warn('Non-blocking error in checkAppState:', error);
       setIsLoadingPublicSettings(false);
       setIsLoadingAuth(false);
+      setAuthChecked(true);
     }
   };
 
@@ -117,9 +109,18 @@ export const AuthProvider = ({ children }) => {
       }
       
       if (appParams.token) {
-        const currentUser = await base44.auth.me();
-        setUser(currentUser);
-        setIsAuthenticated(true);
+        try {
+          const currentUser = await base44.auth.me();
+          if (currentUser) {
+            setUser(currentUser);
+            setIsAuthenticated(true);
+          } else {
+            setIsAuthenticated(false);
+          }
+        } catch (meError) {
+          console.warn('base44.auth.me() check failed:', meError);
+          setIsAuthenticated(false);
+        }
       } else {
         setIsAuthenticated(false);
       }

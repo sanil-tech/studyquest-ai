@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ChevronLeft, ChevronRight, Heart, Zap, Star, Lock } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Heart, Zap } from "lucide-react";
 
 const STORY_PAGES = [
   {

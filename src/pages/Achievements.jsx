@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Lock, Check } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 import { useStudentData } from "@/hooks/useStudentData";
 import { ACHIEVEMENT_CATEGORIES, ACHIEVEMENT_TIERS, evaluateAchievements, buildStatsFromData } from "@/lib/achievements";
 

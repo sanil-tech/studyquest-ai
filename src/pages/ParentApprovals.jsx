@@ -67,7 +67,7 @@ export default function ParentApprovals() {
           await base44.entities.Wallet.update(wallets[0].id, { balance: newBalance });
         }
         
-        await base44.entities.Transaction.create({
+        await base44.entities.CoinTransaction.create({
           student_id: req.student_id,
           type: "spend",
           amount: req.coin_cost,

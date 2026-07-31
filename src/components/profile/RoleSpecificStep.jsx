@@ -1,5 +1,5 @@
 import React from "react";
-import { School, Award } from "lucide-react";
+import { Award } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

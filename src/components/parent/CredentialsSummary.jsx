@@ -3,8 +3,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { GraduationCap, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Download, Printer, Copy, Check, Key, Lock, User, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "@/components/ui/use-toast";

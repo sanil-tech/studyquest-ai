@@ -1,5 +1,5 @@
 import React from "react";
-import { Target, Award, BookOpen, Bell, CheckCircle } from "lucide-react";
+import { Target, CheckCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";

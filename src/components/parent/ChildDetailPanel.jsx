@@ -2,7 +2,6 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Star, Zap, Coins, Flame, BookOpen, Clock, TrendingUp, ArrowRight, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { getChildDisplayName, getChildAvatar, isAvatarUrl } from "@/lib/childUtils";
 import SukuAIInsights from "@/components/parent/ai-insights/SukuAIInsights";

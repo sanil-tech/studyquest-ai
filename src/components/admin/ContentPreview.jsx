@@ -1,7 +1,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import {
-  BookOpen, Volume2, Layers, HelpCircle, Gamepad2, GraduationCap,
+  BookOpen, Layers, HelpCircle, Gamepad2, GraduationCap,
   Network, Video, Lightbulb, AlertTriangle, FileText, CheckCircle2,
   Target, KeyRound, Image as ImageIcon,
 } from "lucide-react";

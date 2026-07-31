@@ -2,7 +2,7 @@
 // Admin page to grant temporary premium access to parents for Suku AI Learning Insights.
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Crown, Clock, Check, X, Loader2, ChevronLeft, Sparkles } from "lucide-react";
+import { Crown, Clock, X, Loader2, ChevronLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";

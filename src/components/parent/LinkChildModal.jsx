@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { motion } from "framer-motion";
-import { X, QrCode, IdCard, KeyRound, Mail, UserPlus, Loader2, ScanLine } from "lucide-react";
+import { X, IdCard, KeyRound, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
